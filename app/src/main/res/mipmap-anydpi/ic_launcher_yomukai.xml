@@ -1,12 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- App icon built from drawable/logo_app (full-bleed artwork). The 12% inset shows the manga
-     speed lines around the "Y" while the artwork still covers the whole visible area of every
-     launcher mask (circle, squircle, rounded square). -->
+<!-- App icon built from drawable/logo_app (full-bleed artwork). In the artwork the "Y" sits
+     above centre (its vertical centre is at ~43%), so the image is shifted down: the extra top
+     inset centres the letter in the icon. Top + bottom equals left + right, so the image keeps
+     its aspect ratio, and the top inset stays under 16.7% so it still covers every mask. -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_yomukai_background" />
     <foreground>
         <inset
             android:drawable="@drawable/logo_app"
-            android:inset="12%" />
+            android:insetLeft="11%"
+            android:insetRight="11%"
+            android:insetTop="16.5%"
+            android:insetBottom="5.5%" />
     </foreground>
 </adaptive-icon>
