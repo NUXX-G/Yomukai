@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- App icon built from drawable/logo_app (a circular badge). The 10% inset makes the badge's
-     circle line up with the launcher's circular mask so the whole silver rim stays visible;
-     on square/squircle launchers the corners fall back to a white background. -->
+<!-- App icon built from drawable/logo_app (full-bleed artwork). The 12% inset shows the manga
+     speed lines around the "Y" while the artwork still covers the whole visible area of every
+     launcher mask (circle, squircle, rounded square). -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_yomukai_background" />
     <foreground>
         <inset
             android:drawable="@drawable/logo_app"
-            android:inset="10%" />
+            android:inset="12%" />
     </foreground>
 </adaptive-icon>
