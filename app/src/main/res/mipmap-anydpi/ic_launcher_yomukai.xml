@@ -1,16 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- App icon built from drawable/logo_app (full-bleed artwork). In the artwork the "Y" sits
-     above centre (its vertical centre is at ~43%), so the image is shifted down: the extra top
-     inset centres the letter in the icon. Top + bottom equals left + right, so the image keeps
-     its aspect ratio, and the top inset stays under 16.7% so it still covers every mask. -->
+<!-- App icon: the black circle from drawable/logo_app. The artwork is slightly enlarged
+     (negative inset) so the circle covers the whole visible area of every launcher mask and the
+     white corners of the JPEG never show; the background is black to match. -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_yomukai_background" />
     <foreground>
         <inset
             android:drawable="@drawable/logo_app"
-            android:insetLeft="11%"
-            android:insetRight="11%"
-            android:insetTop="16.5%"
-            android:insetBottom="5.5%" />
+            android:inset="-6%" />
     </foreground>
 </adaptive-icon>
