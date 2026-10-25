@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App icon built from drawable/logo_app. The 14% inset keeps the "YOMUKAI" lettering
+     inside every launcher mask (circle, squircle, rounded square). -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_yomukai_background" />
+    <foreground>
+        <inset
+            android:drawable="@drawable/logo_app"
+            android:inset="14%" />
+    </foreground>
+</adaptive-icon>
