@@ -14,5 +14,7 @@ data class MediaItem(
     val description: String,
     val sourceId: String,
     val author: String = "",
-    val genres: List<String> = emptyList()
+    val genres: List<String> = emptyList(),
+    /** Alternative titles when the source provides them (used by smart search). */
+    val altTitles: List<String> = emptyList()
 )
