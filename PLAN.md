@@ -2,15 +2,17 @@
 
 Estado: retomar leyendo este fichero. Marcar `[x]` al cerrar. Cada fase: build + tests verdes, commits convencionales, `git push origin main`.
 
-## Fase 1 — Fuentes
-- [x] Eliminar Reaper Scans (clase, registro, README)
+## Fase 1 — Fuentes  ✅ (con excepciones documentadas)
+- [x] Eliminar Reaper Scans y AnimeFLV (clase, registro, tests, README). `VideoExtractors` se conserva: lo usa AnimeAV1
 - [x] TuNovelaLigera: causa = ids con `?lcp_page0=1` rompían la URL `/ajax/chapters/`. Arreglado + paginación + tests con capturas reales
-- [ ] AnimeFLV: **bloqueado**. `www3.animeflv.net` devuelve 522 (origen caído) y las búsquedas indican que el dominio original dejó de funcionar; los espejos (animeflv.ar/.gy/.one…) son sitios de terceros sin verificar, con adware. Sin HTML real no se tocan selectores → queda *experimental*, documentado
-- [ ] Marmota Comics: **bloqueado**, no se encontró dominio verificable ni respuesta de ningún candidato
-- [ ] ReadAllComics: **bloqueado** desde esta red (522/sin respuesta). Sin captura real no se escriben selectores
-- [ ] Revisar fuentes existentes (MangaDex, Olympus, Asura, Flame, Royal Road, SkyNovels, AnimeAV1, LectorTMO, LectorManga, SurtrScans)
-- [ ] Pantalla de diagnóstico de fuentes en Ajustes
-- (`MediaType.COMIC` ya existe; falta filtro propio en Explorar)
+- [x] Marmota Comics (marmota.me): Madara, capturado y probado (novedades, búsqueda con títulos alternativos, detalle, capítulos AJAX, páginas http→https). Activa por defecto
+- [x] LectorTMO: el tema cambió (`a.chapter-card` → `/manga-chapter/…`, páginas en `#reader-strip`). Arreglado con tests; ya no es experimental
+- [x] MangaDex, Asura (API), SkyNovels (API), Flame, Olympus, AnimeAV1: endpoints responden con la forma esperada desde esta red; tests existentes en verde
+- [ ] Royal Road: devuelve el desafío «Just a moment» a clientes simples; depende del puente WebView en el dispositivo. Sin verificar aquí → usar Ajustes › Diagnóstico
+- [ ] LectorManga y SurtrScans: sin respuesta desde esta red (dominio caído/bloqueado). Siguen *experimentales* y desactivadas
+- [ ] ReadAllComics: se queda experimental/sin implementar (522 desde esta red). **Fase 7: reintentar capturarla a través de Tor**
+- [x] Pantalla de diagnóstico de fuentes (Ajustes › Diagnóstico de fuentes): novedades, búsqueda, detalle, capítulos y páginas/texto/servidores
+- [x] Filtro «Cómics» propio en Explorar/Buscar (`MediaType.COMIC` ya existía)
 
 ## Fase 2 — Rendimiento
 - [ ] Perfilado, Compose (keys, @Immutable, collectAsStateWithLifecycle), Coil, dispatchers, índices Room + migración, R8 + Baseline Profile, StrictMode debug

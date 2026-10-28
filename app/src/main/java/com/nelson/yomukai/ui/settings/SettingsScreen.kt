@@ -69,6 +69,7 @@ import com.nelson.yomukai.ui.components.LanguageTag
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    onOpenDiagnostics: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
@@ -200,6 +201,14 @@ fun SettingsScreen(
                             onCheckedChange = { viewModel.setSourceEnabled(source.id, it) }
                         )
                     }
+                )
+            }
+
+            item {
+                ListItem(
+                    headlineContent = { Text("Diagnóstico de fuentes") },
+                    supportingContent = { Text("Probar cada fuente y ver si funciona") },
+                    modifier = Modifier.clickable(onClick = onOpenDiagnostics)
                 )
             }
 

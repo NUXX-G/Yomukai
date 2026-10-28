@@ -23,7 +23,8 @@ import kotlinx.coroutines.launch
 
 enum class TypeFilter(val label: String, val types: Set<MediaType>) {
     ALL("Todo", MediaType.entries.toSet()),
-    MANGA("Manga", setOf(MediaType.MANGA, MediaType.COMIC)),
+    MANGA("Manga", setOf(MediaType.MANGA)),
+    COMIC("Cómics", setOf(MediaType.COMIC)),
     MANHWA("Manhwa", setOf(MediaType.MANHWA, MediaType.MANHUA)),
     NOVEL("Novelas", setOf(MediaType.NOVEL)),
     ANIME("Anime", setOf(MediaType.ANIME))

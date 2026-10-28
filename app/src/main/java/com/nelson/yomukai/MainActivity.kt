@@ -75,6 +75,7 @@ import com.nelson.yomukai.ui.player.AnimePlayerScreen
 import com.nelson.yomukai.ui.reader.MangaReaderScreen
 import com.nelson.yomukai.ui.reader.NovelReaderScreen
 import com.nelson.yomukai.ui.search.SearchScreen
+import com.nelson.yomukai.ui.settings.DiagnosticsScreen
 import com.nelson.yomukai.ui.settings.SettingsScreen
 import com.nelson.yomukai.ui.theme.YomukaiTheme
 import com.nelson.yomukai.ui.web.QuickReaderScreen
@@ -247,7 +248,12 @@ fun YomukaiApp(
                     modifier = tabModifier
                 )
             }
-            composable(Routes.SETTINGS) { SettingsScreen(modifier = tabModifier) }
+            composable(Routes.SETTINGS) {
+                SettingsScreen(onOpenDiagnostics = { navController.navigate(Routes.DIAGNOSTICS) }, modifier = tabModifier)
+            }
+            composable(Routes.DIAGNOSTICS) {
+                DiagnosticsScreen(onBack = { navController.popBackStack() })
+            }
 
             composable(Routes.BROWSE, arguments = listOf(navArgument(Routes.ARG_SOURCE) { type = NavType.StringType })) {
                 BrowseScreen(onBack = { navController.popBackStack() }, onMediaClick = ::openMedia)

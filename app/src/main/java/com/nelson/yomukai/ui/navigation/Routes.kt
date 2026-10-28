@@ -7,6 +7,7 @@ object Routes {
     const val SEARCH = "search?query={query}"
     const val LIBRARY = "library"
     const val SETTINGS = "settings"
+    const val DIAGNOSTICS = "diagnostics"
     const val BROWSE = "browse/{sourceId}"
     const val DETAILS = "details/{sourceId}/{mediaId}"
     const val MANGA_READER = "manga_reader/{sourceId}/{mediaId}/{chapterId}"

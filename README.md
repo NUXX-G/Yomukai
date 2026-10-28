@@ -34,9 +34,10 @@
 | Royal Road | Novela | EN | HTML |
 | SkyNovels | Novela | ES | API JSON |
 | Marmota Comics | Cómic | ES | HTML (Madara) + AJAX |
+| LectorTMO | Manga | ES | HTML (tema propio) |
 | TuNovelaLigera | Novela | ES | HTML (Madara) + AJAX |
 | AnimeAV1 | Anime | ES | Datos SvelteKit + extractores |
-| LectorTMO, LectorManga, SurtrScans | — | — | *Experimentales* (desactivadas por defecto: protegidas por Cloudflare/Wordfence o inestables) |
+| LectorManga, SurtrScans | — | — | *Experimentales* (desactivadas por defecto: protegidas por Cloudflare/Wordfence o inestables) |
 
 Los sitios web cambian con frecuencia; una fuente puede dejar de funcionar sin previo aviso.
 
