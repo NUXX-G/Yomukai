@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -51,6 +52,11 @@ fun BrowseScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var gridMode by rememberSaveable { mutableStateOf(true) }
+    var showFilters by rememberSaveable { mutableStateOf(false) }
+
+    if (showFilters) {
+        FilterSheet(state.filters, state.values, onApply = viewModel::applyFilters, onDismiss = { showFilters = false })
+    }
 
     Scaffold(
         topBar = {
@@ -60,6 +66,11 @@ fun BrowseScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver") }
                 },
                 actions = {
+                    if (state.filters.isNotEmpty()) {
+                        IconButton(onClick = { showFilters = true }) {
+                            Icon(Icons.Default.FilterList, contentDescription = "Filtros")
+                        }
+                    }
                     IconButton(onClick = { gridMode = !gridMode }) {
                         Icon(
                             if (gridMode) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,

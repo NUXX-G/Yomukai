@@ -22,6 +22,15 @@ interface CatalogueSource {
     /** Headers needed to load images/pages from this source (usually a Referer). */
     val imageHeaders: Map<String, String> get() = mapOf("Referer" to "$baseUrl/")
 
+    /** Filters this source understands in its catalogue; empty = only the default listing. */
+    val filters: List<SourceFilter> get() = emptyList()
+
+    /**
+     * One page of the full catalogue with [values] applied. Sources without filters simply
+     * return their paged latest listing.
+     */
+    suspend fun browse(page: Int, values: FilterValues = emptyMap()): Result<List<MediaItem>> = fetchLatestUpdates(page)
+
     suspend fun fetchLatestUpdates(page: Int = 1): Result<List<MediaItem>>
     suspend fun searchMedia(query: String): Result<List<MediaItem>>
 

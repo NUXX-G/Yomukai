@@ -1,7 +1,15 @@
 package com.nelson.yomukai.data.source.manga
 
 import com.nelson.yomukai.data.network.NetworkHelper
+import com.nelson.yomukai.data.source.FilterKeys
+import com.nelson.yomukai.data.source.FilterOption
+import com.nelson.yomukai.data.source.FilterValues
 import com.nelson.yomukai.data.source.MangaSource
+import com.nelson.yomukai.data.source.MultiSelectFilter
+import com.nelson.yomukai.data.source.SelectFilter
+import com.nelson.yomukai.data.source.SourceFilter
+import com.nelson.yomukai.data.source.selected
+import com.nelson.yomukai.data.source.single
 import com.nelson.yomukai.data.source.SourceUtils
 import com.nelson.yomukai.domain.model.Chapter
 import com.nelson.yomukai.domain.model.MediaItem
@@ -23,6 +31,12 @@ class MarmotaComicsSource(private val network: NetworkHelper) : MangaSource {
     override val supportsLatestPaging = true
 
     private suspend fun html(url: String) = network.getString(url, mapOf("Referer" to "$baseUrl/"))
+
+    override val filters: List<SourceFilter> = FILTERS
+
+    override suspend fun browse(page: Int, values: FilterValues): Result<List<MediaItem>> = runCatching {
+        parseItems(html(catalogueUrl(page, values)), ".c-tabs-item__content")
+    }
 
     override suspend fun fetchLatestUpdates(page: Int): Result<List<MediaItem>> = runCatching {
         parseItems(html(if (page <= 1) "$baseUrl/" else "$baseUrl/page/$page/"), ".page-item-detail")
@@ -46,6 +60,44 @@ class MarmotaComicsSource(private val network: NetworkHelper) : MangaSource {
     }
 
     companion object {
+        private val SORT = SelectFilter(
+            FilterKeys.SORT, "Orden",
+            listOf(
+                FilterOption("latest", "Recientes"), FilterOption("trending", "Tendencia"),
+                FilterOption("views", "Más vistos"), FilterOption("rating", "Mejor valorados"),
+                FilterOption("new-manga", "Nuevos"), FilterOption("alphabet", "A-Z")
+            )
+        )
+        private val STATUS = MultiSelectFilter(
+            FilterKeys.STATUS, "Estado",
+            listOf(
+                FilterOption("on-going", "En emisión"), FilterOption("end", "Completado"),
+                FilterOption("canceled", "Cancelado"), FilterOption("on-hold", "En pausa"),
+                FilterOption("upcoming", "Próximamente")
+            )
+        )
+        /** "Género" on marmota.me is really the publisher / collection (slugs from the site's own search form). */
+        private val GENRES = MultiSelectFilter(
+            FilterKeys.GENRE, "Editorial / colección",
+            listOf(
+                "20th-century-studios" to "20th Century Studios", "aftershock" to "Aftershock", "archie-comics" to "Archie",
+                "black-label" to "Black Label", "boom-studios" to "BOOM! Studios", "crossovers" to "Crossovers",
+                "dark-horse" to "Dark Horse", "dc-comics" to "DC Comics", "dc-horror" to "DC Horror",
+                "dynamite" to "Dynamite", "editorial-awa" to "AWA", "europeo" to "Europeo",
+                "eventos-dc" to "Eventos DC", "eventos-marvel" to "Eventos Marvel", "idw" to "IDW",
+                "image-comics" to "Image", "indies" to "Indies", "mad-cave" to "Mad Cave", "manga" to "Manga",
+                "marvel-comics" to "Marvel", "oni-press" to "Oni Press", "rebellion-developments" to "Rebellion",
+                "vertigo" to "Vertigo", "virus" to "Virus", "zenescope" to "Zenescope"
+            ).map { FilterOption(it.first, it.second) }
+        )
+        val FILTERS: List<SourceFilter> = listOf(SORT, STATUS, GENRES)
+
+        fun catalogueUrl(page: Int, values: FilterValues): String = buildString {
+            append("$BASE/?s=&post_type=wp-manga&m_orderby=${values.single(SORT)}&paged=${page.coerceAtLeast(1)}")
+            values.selected(FilterKeys.STATUS).forEach { append("&status%5B%5D=$it") }
+            values.selected(FilterKeys.GENRE).forEach { append("&genre%5B%5D=$it") }
+        }
+
         private const val BASE = "https://marmota.me"
 
         private fun secure(url: String) = url.trim().replaceFirst("http://", "https://")

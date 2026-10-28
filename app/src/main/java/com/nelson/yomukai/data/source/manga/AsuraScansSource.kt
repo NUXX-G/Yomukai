@@ -2,7 +2,15 @@ package com.nelson.yomukai.data.source.manga
 
 import com.google.gson.JsonObject
 import com.nelson.yomukai.data.network.NetworkHelper
+import com.nelson.yomukai.data.source.CommonSort
+import com.nelson.yomukai.data.source.FilterKeys
+import com.nelson.yomukai.data.source.FilterOption
+import com.nelson.yomukai.data.source.FilterValues
 import com.nelson.yomukai.data.source.MangaSource
+import com.nelson.yomukai.data.source.SelectFilter
+import com.nelson.yomukai.data.source.SourceFilter
+import com.nelson.yomukai.data.source.single
+import com.nelson.yomukai.data.source.strings
 import com.nelson.yomukai.data.source.SourceUtils
 import com.nelson.yomukai.data.source.arr
 import com.nelson.yomukai.data.source.formatIsoDate
@@ -52,8 +60,15 @@ class AsuraScansSource(private val network: NetworkHelper) : MangaSource {
             description = SourceUtils.htmlToText(s.str("description").orEmpty()),
             sourceId = id,
             author = listOfNotNull(s.str("author"), s.str("artist")).filter { it.isNotBlank() }.distinct().joinToString(", "),
-            genres = s.arr("genres").objects().mapNotNull { it.str("name") }
+            genres = s.arr("genres").objects().mapNotNull { it.str("name") },
+            altTitles = s.arr("alt_titles").strings()
         )
+    }
+
+    override val filters: List<SourceFilter> = FILTERS
+
+    override suspend fun browse(page: Int, values: FilterValues): Result<List<MediaItem>> = runCatching {
+        api(catalogueRequest(page, values, pageSize)).arr("data").objects().mapNotNull(::item)
     }
 
     override suspend fun fetchLatestUpdates(page: Int): Result<List<MediaItem>> = runCatching {
@@ -92,6 +107,30 @@ class AsuraScansSource(private val network: NetworkHelper) : MangaSource {
     }
 
     companion object {
+        private val SORT = SelectFilter(
+            FilterKeys.SORT, "Orden",
+            listOf(
+                FilterOption(CommonSort.LATEST, "Recientes"),
+                FilterOption(CommonSort.POPULAR, "Populares"),
+                FilterOption("title", "A-Z")
+            )
+        )
+        private val STATUS = SelectFilter(
+            FilterKeys.STATUS, "Estado",
+            listOf(FilterOption("", "Todos"), FilterOption("ongoing", "En emisión"), FilterOption("completed", "Completado"))
+        )
+        private val TYPE = SelectFilter(
+            FilterKeys.TYPE, "Tipo",
+            listOf(FilterOption("", "Todos"), FilterOption("manhwa", "Manhwa"), FilterOption("manhua", "Manhua"), FilterOption("manga", "Manga"))
+        )
+        val FILTERS: List<SourceFilter> = listOf(SORT, STATUS, TYPE)
+
+        fun catalogueRequest(page: Int, values: FilterValues, pageSize: Int): String = buildString {
+            append("/series?sort=${values.single(SORT)}&limit=$pageSize&page=$page")
+            values.single(STATUS).takeIf { it.isNotEmpty() }?.let { append("&status=$it") }
+            values.single(TYPE).takeIf { it.isNotEmpty() }?.let { append("&type=$it") }
+        }
+
         private val PAGE_URL = Regex(""""url":\[0,"(https://cdn\.asurascans\.com/asura-images/chapters/[^"]+)"""")
 
         /**

@@ -22,13 +22,13 @@ class LectorTmoSource(private val network: NetworkHelper) : MangaSource {
     override val baseUrl = "https://lectortmo.vip"
     override val language = "ES"
     override val supportedTypes = setOf(MediaType.MANGA, MediaType.MANHWA, MediaType.MANHUA)
-    override val supportsLatestPaging = false
+    override val supportsLatestPaging = true
 
     private suspend fun document(url: String): Document =
         Jsoup.parse(network.getString(url, mapOf("Referer" to "$baseUrl/")), url)
 
     override suspend fun fetchLatestUpdates(page: Int): Result<List<MediaItem>> = runCatching {
-        parseCards(document("$baseUrl/").outerHtml())
+        parseCards(document(if (page <= 1) "$baseUrl/" else "$baseUrl/manga/page/$page/").outerHtml())
     }
 
     override suspend fun searchMedia(query: String): Result<List<MediaItem>> = runCatching {

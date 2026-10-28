@@ -1,7 +1,13 @@
 package com.nelson.yomukai.data.source.novel
 
 import com.nelson.yomukai.data.network.NetworkHelper
+import com.nelson.yomukai.data.source.FilterKeys
+import com.nelson.yomukai.data.source.FilterOption
+import com.nelson.yomukai.data.source.FilterValues
 import com.nelson.yomukai.data.source.NovelSource
+import com.nelson.yomukai.data.source.SelectFilter
+import com.nelson.yomukai.data.source.SourceFilter
+import com.nelson.yomukai.data.source.single
 import com.nelson.yomukai.data.source.SourceUtils
 import com.nelson.yomukai.domain.model.Chapter
 import com.nelson.yomukai.domain.model.MediaItem
@@ -23,6 +29,12 @@ class TuNovelaLigeraSource(private val network: NetworkHelper) : NovelSource {
     override val supportsLatestPaging = true
 
     private suspend fun html(url: String) = network.getString(url, mapOf("Referer" to "$baseUrl/"))
+
+    override val filters: List<SourceFilter> = listOf(SORT)
+
+    override suspend fun browse(page: Int, values: FilterValues): Result<List<MediaItem>> = runCatching {
+        parseItems(html(catalogueUrl(page, values)), ".page-item-detail")
+    }
 
     override suspend fun fetchLatestUpdates(page: Int): Result<List<MediaItem>> = runCatching {
         val url = if (page <= 1) baseUrl else "$baseUrl/novelas/page/$page/?m_orderby=latest"
@@ -47,6 +59,16 @@ class TuNovelaLigeraSource(private val network: NetworkHelper) : NovelSource {
     }
 
     companion object {
+        private val SORT = SelectFilter(
+            FilterKeys.SORT, "Orden",
+            listOf(FilterOption("latest", "Recientes"), FilterOption("views", "Más vistas"), FilterOption("alphabet", "A-Z"))
+        )
+
+        fun catalogueUrl(page: Int, values: FilterValues): String {
+            val path = if (page <= 1) "/novelas/" else "/novelas/page/$page/"
+            return "https://tunovelaligera.com$path?m_orderby=${values.single(SORT)}"
+        }
+
         private fun clean(url: String) = url.substringBefore('?')
 
         fun parseItems(html: String, selector: String): List<MediaItem> =

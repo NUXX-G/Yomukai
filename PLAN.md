@@ -22,7 +22,10 @@ Estado: retomar leyendo este fichero. Marcar `[x]` al cerrar. Cada fase: build +
 - [ ] No verificable aquí: medir fps/jank en dispositivo y generar el perfil base automático con Macrobenchmark (requiere dispositivo/emulador). El parseo/red ya corre en `Dispatchers.IO` (fuentes) y los ViewModels lanzan en IO/Default
 
 ## Fase 3 — Explorar por fuente (scroll infinito + filtros genéricos)
-- [ ]
+- [x] `SourceFilter` genérico (`SelectFilter`/`MultiSelectFilter`, `FilterValues`) + `CatalogueSource.filters` y `browse(page, values)`; hoja de filtros genérica en la pantalla de catálogo de cada fuente (icono de filtros)
+- [x] Filtros reales: MangaDex (orden, estado, tipo por idioma original, género por tag, idioma de capítulos), Asura (orden, estado, tipo), Marmota (orden, estado, editorial), TuNovelaLigera (orden). URLs verificadas con curl y cubiertas por tests
+- [x] Scroll infinito automático (el pie dispara la página siguiente, sin botón); LectorTMO ahora pagina con `/manga/page/N/`
+- [ ] Limitado: Olympus, Flame y SkyNovels no exponen paginación/filtros verificables (solo listado reciente, sin scroll); Royal Road y AnimeAV1 pagian pero sin filtros declarados todavía; el filtro de género de Asura no tiene parámetro de API conocido
 
 ## Fase 4 — Buscador inteligente
 - [ ]
