@@ -7,7 +7,11 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /** Cached metadata for any title the user has opened; [inLibrary] marks favourites. */
-@Entity(tableName = "media", primaryKeys = ["sourceId", "mediaId"])
+@Entity(
+    tableName = "media",
+    primaryKeys = ["sourceId", "mediaId"],
+    indices = [Index("inLibrary", "dateAdded")]
+)
 data class MediaEntity(
     val sourceId: String,
     val mediaId: String,
@@ -74,7 +78,7 @@ data class MediaCategoryEntity(
 @Entity(
     tableName = "chapters",
     primaryKeys = ["sourceId", "chapterId"],
-    indices = [Index("sourceId", "mediaId")]
+    indices = [Index("sourceId", "mediaId", "sortIndex")]
 )
 data class ChapterEntity(
     val sourceId: String,
@@ -95,7 +99,11 @@ data class ChapterEntity(
 )
 
 /** One row per title: the most recently read chapter. */
-@Entity(tableName = "history", primaryKeys = ["sourceId", "mediaId"])
+@Entity(
+    tableName = "history",
+    primaryKeys = ["sourceId", "mediaId"],
+    indices = [Index("readAt")]
+)
 data class HistoryEntity(
     val sourceId: String,
     val mediaId: String,
@@ -109,7 +117,7 @@ enum class DownloadStatus { QUEUED, DOWNLOADING, COMPLETED, FAILED }
 @Entity(
     tableName = "downloads",
     primaryKeys = ["sourceId", "chapterId"],
-    indices = [Index("sourceId", "mediaId")]
+    indices = [Index("sourceId", "mediaId"), Index("status", "createdAt")]
 )
 data class DownloadEntity(
     val sourceId: String,

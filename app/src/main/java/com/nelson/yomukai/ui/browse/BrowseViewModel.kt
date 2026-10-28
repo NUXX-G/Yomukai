@@ -1,5 +1,6 @@
 package com.nelson.yomukai.ui.browse
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+@Immutable
 data class BrowseUiState(
     val sourceName: String = "",
     val items: List<MediaItem> = emptyList(),

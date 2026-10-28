@@ -2,6 +2,7 @@ package com.nelson.yomukai
 
 import android.app.Application
 import android.content.Context
+import android.os.StrictMode
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
@@ -44,6 +45,7 @@ class YomukaiApplication : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        if (BuildConfig.DEBUG) enableStrictMode()
         container = AppContainer(this)
         // Keep the periodic library update check in sync with the user's settings.
         container.applicationScope.launch {
@@ -52,6 +54,16 @@ class YomukaiApplication : Application(), SingletonImageLoader.Factory {
                 .distinctUntilChanged()
                 .collect { LibraryUpdateWorker.schedule(this@YomukaiApplication, container.preferences.app.value) }
         }
+    }
+
+    /** Debug builds only: log I/O on the main thread and leaked resources so lag sources are visible. */
+    private fun enableStrictMode() {
+        StrictMode.setThreadPolicy(
+            StrictMode.ThreadPolicy.Builder().detectDiskReads().detectDiskWrites().detectNetwork().penaltyLog().build()
+        )
+        StrictMode.setVmPolicy(
+            StrictMode.VmPolicy.Builder().detectLeakedClosableObjects().detectLeakedSqlLiteObjects().penaltyLog().build()
+        )
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =

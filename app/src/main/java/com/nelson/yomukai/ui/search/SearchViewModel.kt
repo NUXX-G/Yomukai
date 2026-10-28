@@ -1,5 +1,6 @@
 package com.nelson.yomukai.ui.search
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+@Immutable
 data class SearchUiState(
     val query: String = "",
     val typeFilter: TypeFilter = TypeFilter.ALL,

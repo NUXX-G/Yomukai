@@ -1,5 +1,6 @@
 package com.nelson.yomukai.ui.reader
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+@Immutable
 data class ReaderUiState<T>(
     val mediaTitle: String = "",
     val chapter: ChapterEntity? = null,

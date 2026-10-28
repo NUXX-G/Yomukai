@@ -15,7 +15,11 @@ Estado: retomar leyendo este fichero. Marcar `[x]` al cerrar. Cada fase: build +
 - [x] Filtro «Cómics» propio en Explorar/Buscar (`MediaType.COMIC` ya existía)
 
 ## Fase 2 — Rendimiento
-- [ ] Perfilado, Compose (keys, @Immutable, collectAsStateWithLifecycle), Coil, dispatchers, índices Room + migración, R8 + Baseline Profile, StrictMode debug
+- [x] Room: índices (media inLibrary+dateAdded, chapters sourceId+mediaId+sortIndex, history readAt, downloads status+createdAt) con MIGRATION_2_3 y esquema v3 exportado
+- [x] Compose: `collectAsStateWithLifecycle` en todas las pantallas, `@Immutable` en modelos y estados de UI, `rememberImageRequest` memoizado (las keys de listas ya eran estables)
+- [x] Coil: precarga de las 3 páginas siguientes en el lector de manga; caché 25 % RAM / 512 MB disco ya dimensionadas; Coil limita la decodificación al tamaño de la vista
+- [x] StrictMode solo en debug (log); R8 + reglas en release (`assembleRelease` verificado, APK 4,8 MB); perfil base escrito a mano (`baseline-prof.txt`, reglas comodín) + profileinstaller
+- [ ] No verificable aquí: medir fps/jank en dispositivo y generar el perfil base automático con Macrobenchmark (requiere dispositivo/emulador). El parseo/red ya corre en `Dispatchers.IO` (fuentes) y los ViewModels lanzan en IO/Default
 
 ## Fase 3 — Explorar por fuente (scroll infinito + filtros genéricos)
 - [ ]

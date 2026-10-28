@@ -1,0 +1,15 @@
+# Hand-written baseline profile (wildcard rules). Marks the start-up and scrolling hot paths for AOT
+# compilation: app container, navigation shell, list screens, image loading and the network stack.
+HSPLcom/nelson/yomukai/YomukaiApplication;->**(**)**
+HSPLcom/nelson/yomukai/AppContainer;->**(**)**
+HSPLcom/nelson/yomukai/MainActivity;->**(**)**
+HSPLcom/nelson/yomukai/MainActivityKt;->**(**)**
+HSPLcom/nelson/yomukai/ui/**->**(**)**
+HSPLcom/nelson/yomukai/data/network/**->**(**)**
+HSPLcom/nelson/yomukai/data/prefs/**->**(**)**
+HSPLcom/nelson/yomukai/data/local/**->**(**)**
+HSPLcom/nelson/yomukai/data/repository/**->**(**)**
+HSPLcom/nelson/yomukai/data/source/SourceManager;->**(**)**
+HSPLcom/nelson/yomukai/data/source/SourceUtils;->**(**)**
+HSPLcom/nelson/yomukai/domain/model/**->**(**)**
+Lcom/nelson/yomukai/**;

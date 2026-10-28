@@ -1,5 +1,6 @@
 package com.nelson.yomukai.ui.home
 
+import androidx.compose.runtime.Immutable
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -35,6 +36,7 @@ enum class LanguageFilter(val label: String) { ALL("Todos"), ES("Español"), EN(
 fun CatalogueSource.matches(language: LanguageFilter) =
     language == LanguageFilter.ALL || this.language == "MULTI" || this.language == language.name
 
+@Immutable
 data class SourceSection(
     val sourceId: String,
     val sourceName: String,
@@ -45,6 +47,7 @@ data class SourceSection(
     val error: String? = null
 )
 
+@Immutable
 data class HomeUiState(
     val typeFilter: TypeFilter = TypeFilter.ALL,
     val languageFilter: LanguageFilter = LanguageFilter.ALL,

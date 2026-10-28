@@ -1,5 +1,6 @@
 package com.nelson.yomukai
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -36,7 +37,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -103,7 +103,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) readDeepLink(intent)
         val container = (application as YomukaiApplication).container
         setContent {
-            val settings by container.preferences.app.collectAsState()
+            val settings by container.preferences.app.collectAsStateWithLifecycle()
             val dark = when (settings.themeMode) {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
                 ThemeMode.LIGHT -> false

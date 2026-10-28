@@ -25,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,14 +61,16 @@ fun MediaType.badgeColor(): Color = when (this) {
 @Composable
 fun rememberImageRequest(model: Any?, headers: Map<String, String>): ImageRequest {
     val context = LocalContext.current
-    return ImageRequest.Builder(context)
-        .data(model)
-        .apply {
-            if (headers.isNotEmpty()) {
-                httpHeaders(NetworkHeaders.Builder().apply { headers.forEach { (k, v) -> set(k, v) } }.build())
+    return remember(model, headers, context) {
+        ImageRequest.Builder(context)
+            .data(model)
+            .apply {
+                if (headers.isNotEmpty()) {
+                    httpHeaders(NetworkHeaders.Builder().apply { headers.forEach { (k, v) -> set(k, v) } }.build())
+                }
             }
-        }
-        .build()
+            .build()
+    }
 }
 
 @Composable

@@ -1,5 +1,6 @@
 package com.nelson.yomukai.ui.settings
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -45,7 +46,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -74,10 +74,10 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val context = LocalContext.current
-    val app by viewModel.app.collectAsState()
-    val manga by viewModel.manga.collectAsState()
-    val storage by viewModel.storage.collectAsState()
-    val network by viewModel.network.collectAsState()
+    val app by viewModel.app.collectAsStateWithLifecycle()
+    val manga by viewModel.manga.collectAsStateWithLifecycle()
+    val storage by viewModel.storage.collectAsStateWithLifecycle()
+    val network by viewModel.network.collectAsStateWithLifecycle()
     var confirmHistory by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { viewModel.refreshStorage(context) }

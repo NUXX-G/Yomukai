@@ -1,5 +1,6 @@
 package com.nelson.yomukai.ui.library
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nelson.yomukai.AppContainer
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+@Immutable
 data class LibraryUiState(
     val library: List<MediaEntity> = emptyList(),
     val categories: List<CategoryEntity> = emptyList(),

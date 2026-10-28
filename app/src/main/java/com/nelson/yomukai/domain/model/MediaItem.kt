@@ -1,10 +1,13 @@
 package com.nelson.yomukai.domain.model
 
+import androidx.compose.runtime.Immutable
+
 /**
  * A title exposed by a source. [id] is the source-specific key that the same source
  * accepts in fetchMediaDetails / fetchChapterList (an absolute URL for HTML scrapers,
  * an API id for JSON sources).
  */
+@Immutable
 data class MediaItem(
     val id: String,
     val title: String,

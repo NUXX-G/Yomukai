@@ -1,5 +1,11 @@
 package com.nelson.yomukai.ui.reader
 
+import coil3.network.httpHeaders
+import coil3.network.NetworkHeaders
+import coil3.request.ImageRequest
+import coil3.imageLoader
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -52,7 +58,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -90,8 +95,8 @@ fun MangaReaderScreen(
     onBack: () -> Unit,
     viewModel: MangaReaderViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
-    val state by viewModel.state.collectAsState()
-    val settings by viewModel.settings.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
     var overlayVisible by rememberSaveable { mutableStateOf(true) }
     var showSettings by remember { mutableStateOf(false) }
 
@@ -102,6 +107,22 @@ fun MangaReaderScreen(
     // Current page and slider jump requests, reset per chapter.
     var currentPage by remember(chapter?.chapterId, pages) { mutableIntStateOf(state.initialPosition) }
     var jumpTarget by remember(chapter?.chapterId, pages) { mutableStateOf<Int?>(null) }
+
+    // Warm Coil's caches for the next pages so they are ready before the reader scrolls to them.
+    val appContext = LocalContext.current
+    LaunchedEffect(currentPage, pages) {
+        val list = pages ?: return@LaunchedEffect
+        val loader = appContext.imageLoader
+        for (i in currentPage + 1..minOf(currentPage + PREFETCH_AHEAD, list.lastIndex)) {
+            val page = list[i]
+            val request = ImageRequest.Builder(appContext).data(page.model).apply {
+                if (page.headers.isNotEmpty()) {
+                    httpHeaders(NetworkHeaders.Builder().apply { page.headers.forEach { (k, v) -> set(k, v) } }.build())
+                }
+            }.build()
+            loader.enqueue(request)
+        }
+    }
 
     Box(
         Modifier
@@ -500,3 +521,5 @@ internal fun SettingSwitch(label: String, checked: Boolean, onChange: (Boolean) 
         Switch(checked = checked, onCheckedChange = onChange)
     }
 }
+
+private const val PREFETCH_AHEAD = 3

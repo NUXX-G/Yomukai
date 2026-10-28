@@ -1,5 +1,6 @@
 package com.nelson.yomukai.ui.reader
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -49,7 +50,6 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -89,8 +89,8 @@ fun NovelReaderScreen(
     onBack: () -> Unit,
     viewModel: NovelReaderViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
-    val state by viewModel.state.collectAsState()
-    val settings by viewModel.settings.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
     var overlayVisible by rememberSaveable { mutableStateOf(true) }
     var showSettings by remember { mutableStateOf(false) }
 

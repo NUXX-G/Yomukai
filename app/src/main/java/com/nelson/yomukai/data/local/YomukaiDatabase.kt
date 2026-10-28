@@ -27,7 +27,7 @@ class Converters {
         CategoryEntity::class,
         MediaCategoryEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -60,9 +60,23 @@ abstract class YomukaiDatabase : RoomDatabase() {
             }
         }
 
+        /** v3: indices for the library list, ordered chapter lists, history and the download queue. */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_media_inLibrary_dateAdded ON media(inLibrary, dateAdded)")
+                db.execSQL("DROP INDEX IF EXISTS index_chapters_sourceId_mediaId")
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_chapters_sourceId_mediaId_sortIndex " +
+                        "ON chapters(sourceId, mediaId, sortIndex)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_history_readAt ON history(readAt)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_downloads_status_createdAt ON downloads(status, createdAt)")
+            }
+        }
+
         fun build(context: Context): YomukaiDatabase =
             Room.databaseBuilder(context, YomukaiDatabase::class.java, "yomukai.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
     }
 }
