@@ -172,3 +172,18 @@ interface DownloadDao {
     @Query("DELETE FROM downloads WHERE sourceId = :sourceId AND chapterId = :chapterId")
     suspend fun delete(sourceId: String, chapterId: String)
 }
+
+@Dao
+interface BookmarkDao {
+    @Query("SELECT * FROM bookmarks WHERE sourceId = :sourceId AND mediaId = :mediaId ORDER BY createdAt DESC")
+    fun observeForMedia(sourceId: String, mediaId: String): Flow<List<BookmarkEntity>>
+
+    @Query("SELECT * FROM bookmarks WHERE sourceId = :sourceId AND chapterId = :chapterId AND position = :position")
+    suspend fun find(sourceId: String, chapterId: String, position: Int): BookmarkEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(bookmark: BookmarkEntity): Long
+
+    @Query("DELETE FROM bookmarks WHERE id = :id")
+    suspend fun delete(id: Long)
+}

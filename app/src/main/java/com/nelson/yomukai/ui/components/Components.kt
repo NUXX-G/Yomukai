@@ -1,5 +1,6 @@
 package com.nelson.yomukai.ui.components
 
+import coil3.request.transformations
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -59,11 +60,12 @@ fun MediaType.badgeColor(): Color = when (this) {
 
 /** Builds an image request with the Referer/headers the owning source requires. */
 @Composable
-fun rememberImageRequest(model: Any?, headers: Map<String, String>): ImageRequest {
+fun rememberImageRequest(model: Any?, headers: Map<String, String>, cropBorders: Boolean = false): ImageRequest {
     val context = LocalContext.current
-    return remember(model, headers, context) {
+    return remember(model, headers, context, cropBorders) {
         ImageRequest.Builder(context)
             .data(model)
+            .apply { if (cropBorders) transformations(com.nelson.yomukai.ui.reader.TrimBordersTransformation()) }
             .apply {
                 if (headers.isNotEmpty()) {
                     httpHeaders(NetworkHeaders.Builder().apply { headers.forEach { (k, v) -> set(k, v) } }.build())

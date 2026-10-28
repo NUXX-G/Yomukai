@@ -50,3 +50,18 @@ fun ReaderWindowEffects(brightness: Float, keepScreenOn: Boolean, immersive: Boo
         onDispose { controller.show(WindowInsetsCompat.Type.systemBars()) }
     }
 }
+
+/** Locks the screen orientation while the reader is shown and restores the previous setting afterwards. */
+@Composable
+fun ReaderOrientationEffect(lock: com.nelson.yomukai.data.prefs.OrientationLock) {
+    val activity = LocalContext.current.findActivity() ?: return
+    DisposableEffect(lock) {
+        val original = activity.requestedOrientation
+        activity.requestedOrientation = when (lock) {
+            com.nelson.yomukai.data.prefs.OrientationLock.AUTO -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            com.nelson.yomukai.data.prefs.OrientationLock.PORTRAIT -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            com.nelson.yomukai.data.prefs.OrientationLock.LANDSCAPE -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        }
+        onDispose { activity.requestedOrientation = original }
+    }
+}

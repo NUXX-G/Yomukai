@@ -13,6 +13,16 @@ enum class MangaReaderMode(val displayName: String) {
     PAGED_RTL("Páginas (der. → izq.)")
 }
 
+enum class ReaderFit(val displayName: String) {
+    SCREEN("Ajustar a pantalla"), WIDTH("Ajustar al ancho"), HEIGHT("Ajustar al alto")
+}
+
+enum class ReaderColorFilter(val displayName: String) {
+    NONE("Ninguno"), GRAYSCALE("Gris"), SEPIA("Sepia"), INVERT("Invertir")
+}
+
+enum class OrientationLock(val displayName: String) { AUTO("Automática"), PORTRAIT("Vertical"), LANDSCAPE("Horizontal") }
+
 enum class NovelTheme(val displayName: String, val background: Long, val text: Long) {
     DARK("Oscuro", 0xFF1B1B1F, 0xFFE3E2E6),
     OLED("OLED", 0xFF000000, 0xFFC8C8C8),
@@ -28,7 +38,15 @@ data class MangaReaderSettings(
     val brightness: Float = -1f,
     val keepScreenOn: Boolean = true,
     val tapToTurn: Boolean = true,
-    val showPageNumber: Boolean = true
+    val showPageNumber: Boolean = true,
+    /** Append the next chapter automatically when the end is near. */
+    val infiniteScroll: Boolean = true,
+    val fit: ReaderFit = ReaderFit.SCREEN,
+    val colorFilter: ReaderColorFilter = ReaderColorFilter.NONE,
+    val cropBorders: Boolean = false,
+    val orientation: OrientationLock = OrientationLock.AUTO,
+    /** Auto-scroll speed, 1..10 (screen heights per minute x ~0.5). */
+    val autoScrollSpeed: Float = 3f
 )
 
 data class NovelReaderSettings(
@@ -38,7 +56,10 @@ data class NovelReaderSettings(
     val font: NovelFont = NovelFont.SERIF,
     val justify: Boolean = true,
     val horizontalPadding: Float = 20f,
-    val keepScreenOn: Boolean = true
+    val keepScreenOn: Boolean = true,
+    /** Text-to-speech rate, 0.5..2. */
+    val ttsRate: Float = 1f,
+    val infiniteScroll: Boolean = true
 )
 
 enum class ProxyType(val displayName: String) { NONE("Sin proxy"), HTTP("HTTP"), SOCKS("SOCKS5 (Tor/Orbot)") }
@@ -141,6 +162,12 @@ class AppPreferences(context: Context) {
             .putBoolean("manga_keep_on", value.keepScreenOn)
             .putBoolean("manga_tap_turn", value.tapToTurn)
             .putBoolean("manga_page_number", value.showPageNumber)
+            .putBoolean("manga_infinite", value.infiniteScroll)
+            .putString("manga_fit", value.fit.name)
+            .putString("manga_color_filter", value.colorFilter.name)
+            .putBoolean("manga_crop", value.cropBorders)
+            .putString("manga_orientation", value.orientation.name)
+            .putFloat("manga_autoscroll", value.autoScrollSpeed)
             .apply()
         _manga.value = value
     }
@@ -155,6 +182,8 @@ class AppPreferences(context: Context) {
             .putBoolean("novel_justify", value.justify)
             .putFloat("novel_padding", value.horizontalPadding)
             .putBoolean("novel_keep_on", value.keepScreenOn)
+            .putFloat("novel_tts_rate", value.ttsRate)
+            .putBoolean("novel_infinite", value.infiniteScroll)
             .apply()
         _novel.value = value
     }
@@ -173,7 +202,13 @@ class AppPreferences(context: Context) {
         brightness = prefs.getFloat("manga_brightness", -1f),
         keepScreenOn = prefs.getBoolean("manga_keep_on", true),
         tapToTurn = prefs.getBoolean("manga_tap_turn", true),
-        showPageNumber = prefs.getBoolean("manga_page_number", true)
+        showPageNumber = prefs.getBoolean("manga_page_number", true),
+        infiniteScroll = prefs.getBoolean("manga_infinite", true),
+        fit = enumOr(prefs.getString("manga_fit", null), ReaderFit.SCREEN),
+        colorFilter = enumOr(prefs.getString("manga_color_filter", null), ReaderColorFilter.NONE),
+        cropBorders = prefs.getBoolean("manga_crop", false),
+        orientation = enumOr(prefs.getString("manga_orientation", null), OrientationLock.AUTO),
+        autoScrollSpeed = prefs.getFloat("manga_autoscroll", 3f)
     )
 
     private fun readNovel() = NovelReaderSettings(
@@ -183,7 +218,9 @@ class AppPreferences(context: Context) {
         font = enumOr(prefs.getString("novel_font", null), NovelFont.SERIF),
         justify = prefs.getBoolean("novel_justify", true),
         horizontalPadding = prefs.getFloat("novel_padding", 20f),
-        keepScreenOn = prefs.getBoolean("novel_keep_on", true)
+        keepScreenOn = prefs.getBoolean("novel_keep_on", true),
+        ttsRate = prefs.getFloat("novel_tts_rate", 1f),
+        infiniteScroll = prefs.getBoolean("novel_infinite", true)
     )
 
     private inline fun <reified T : Enum<T>> enumOr(name: String?, default: T): T =

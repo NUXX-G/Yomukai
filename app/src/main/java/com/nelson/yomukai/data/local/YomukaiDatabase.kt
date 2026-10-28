@@ -25,9 +25,10 @@ class Converters {
         HistoryEntity::class,
         DownloadEntity::class,
         CategoryEntity::class,
-        MediaCategoryEntity::class
+        MediaCategoryEntity::class,
+        BookmarkEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -37,6 +38,7 @@ abstract class YomukaiDatabase : RoomDatabase() {
     abstract fun historyDao(): HistoryDao
     abstract fun downloadDao(): DownloadDao
     abstract fun categoryDao(): CategoryDao
+    abstract fun bookmarkDao(): BookmarkDao
 
     companion object {
         /** v2: reading status + update notifications per title, user categories. */
@@ -74,9 +76,26 @@ abstract class YomukaiDatabase : RoomDatabase() {
             }
         }
 
+        /** v4: reader bookmarks. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS bookmarks (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, sourceId TEXT NOT NULL, mediaId TEXT NOT NULL, " +
+                        "chapterId TEXT NOT NULL, chapterTitle TEXT NOT NULL, position INTEGER NOT NULL, " +
+                        "label TEXT NOT NULL, createdAt INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_bookmarks_sourceId_mediaId ON bookmarks(sourceId, mediaId)")
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_bookmarks_sourceId_chapterId_position " +
+                        "ON bookmarks(sourceId, chapterId, position)"
+                )
+            }
+        }
+
         fun build(context: Context): YomukaiDatabase =
             Room.databaseBuilder(context, YomukaiDatabase::class.java, "yomukai.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
     }
 }

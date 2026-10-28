@@ -1,5 +1,6 @@
 package com.nelson.yomukai.data.repository
 
+import com.nelson.yomukai.data.local.BookmarkEntity
 import com.nelson.yomukai.data.local.CategoryEntity
 import com.nelson.yomukai.data.local.ChapterEntity
 import com.nelson.yomukai.data.local.HistoryEntity
@@ -40,6 +41,7 @@ class LibraryRepository(
     private val chapterDao = db.chapterDao()
     private val historyDao = db.historyDao()
     private val categoryDao = db.categoryDao()
+    private val bookmarkDao = db.bookmarkDao()
 
     fun observeMedia(sourceId: String, mediaId: String): Flow<MediaEntity?> = mediaDao.observe(sourceId, mediaId)
 
@@ -142,6 +144,22 @@ class LibraryRepository(
     suspend fun setChaptersRead(sourceId: String, chapterIds: List<String>, read: Boolean) {
         if (chapterIds.isNotEmpty()) chapterDao.setRead(sourceId, chapterIds, read)
     }
+
+    fun observeBookmarks(sourceId: String, mediaId: String): Flow<List<BookmarkEntity>> =
+        bookmarkDao.observeForMedia(sourceId, mediaId)
+
+    /** Adds the bookmark, or removes it when that exact spot is already bookmarked. Returns true when added. */
+    suspend fun toggleBookmark(chapter: ChapterEntity, position: Int, label: String = ""): Boolean {
+        val existing = bookmarkDao.find(chapter.sourceId, chapter.chapterId, position)
+        if (existing != null) {
+            bookmarkDao.delete(existing.id)
+            return false
+        }
+        bookmarkDao.insert(BookmarkEntity(0, chapter.sourceId, chapter.mediaId, chapter.chapterId, chapter.title, position, label))
+        return true
+    }
+
+    suspend fun deleteBookmark(id: Long) = bookmarkDao.delete(id)
 
     suspend fun deleteHistory(sourceId: String, mediaId: String) = historyDao.delete(sourceId, mediaId)
 

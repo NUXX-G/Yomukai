@@ -146,3 +146,20 @@ data class HistoryWithMedia(
     val coverUrl: String,
     val type: String
 )
+
+/** A saved spot in a chapter: page index (images) or paragraph index (novels). */
+@Entity(
+    tableName = "bookmarks",
+    indices = [Index("sourceId", "mediaId"), Index("sourceId", "chapterId", "position", unique = true)]
+)
+data class BookmarkEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val sourceId: String,
+    val mediaId: String,
+    val chapterId: String,
+    val chapterTitle: String,
+    val position: Int,
+    /** Short preview text for novels, empty for pages. */
+    val label: String = "",
+    val createdAt: Long = System.currentTimeMillis()
+)
