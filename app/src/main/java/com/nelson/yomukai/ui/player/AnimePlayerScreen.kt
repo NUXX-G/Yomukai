@@ -1,8 +1,14 @@
 package com.nelson.yomukai.ui.player
 
+import android.app.PictureInPictureParams
+import android.content.Context
+import android.content.ContextWrapper
 import android.net.Uri
+import android.os.Build
+import android.util.Rational
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import androidx.activity.ComponentActivity
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -23,18 +29,27 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -43,6 +58,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +69,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -62,21 +80,34 @@ import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import com.nelson.yomukai.ui.AppViewModelProvider
+import com.nelson.yomukai.ui.reader.ChapterIndexSheet
 import kotlinx.coroutines.delay
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
+/** Seconds skipped by the "skip opening" button. */
+private const val SKIP_OPENING_MS = 85_000L
+
+private val SPEEDS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)
+
+private tailrec fun Context.findComponentActivity(): ComponentActivity? = when (this) {
+    is ComponentActivity -> this
+    is ContextWrapper -> baseContext.findComponentActivity()
+    else -> null
+}
+
 @OptIn(UnstableApi::class)
 @Composable
 fun AnimePlayerScreen(
-    videoUrl: String,
-    title: String = "",
-    referer: String = "",
-    initialPositionMs: Long = 0L,
-    onSavePosition: (Long) -> Unit = {},
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    viewModel: AnimePlayerViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val context = LocalContext.current
+    val ui by viewModel.state.collectAsStateWithLifecycle()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val episodes by viewModel.chapterList.collectAsStateWithLifecycle()
+    val playing = ui.playing
 
     val resizeModes = listOf(
         AspectRatioFrameLayout.RESIZE_MODE_FIT to "Fit",
@@ -87,21 +118,27 @@ fun AnimePlayerScreen(
 
     var isPlaying by remember { mutableStateOf(true) }
     var isLoading by remember { mutableStateOf(true) }
-    var currentPosition by remember { mutableLongStateOf(initialPositionMs) }
-    var totalDuration by remember { mutableLongStateOf(0L) }
+    var currentPosition by remember(playing.videoUrl) { mutableLongStateOf(playing.startPositionMs) }
+    var totalDuration by remember(playing.videoUrl) { mutableLongStateOf(0L) }
     var showControls by remember { mutableStateOf(true) }
-    var sliderPosition by remember { mutableFloatStateOf(0f) }
+    var sliderPosition by remember(playing.videoUrl) { mutableFloatStateOf(0f) }
     var isUserSeeking by remember { mutableStateOf(false) }
+    var showIndex by remember { mutableStateOf(false) }
+    var speedMenu by remember { mutableStateOf(false) }
+    var inPip by remember { mutableStateOf(false) }
 
-    val exoPlayer = remember(videoUrl) {
+    val currentAutoNext by rememberUpdatedState(settings.playerAutoNext)
+    val currentViewModel by rememberUpdatedState(viewModel)
+
+    val exoPlayer = remember(playing.videoUrl, playing.referer) {
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
             .setAllowCrossProtocolRedirects(true)
-            .apply { if (referer.isNotBlank()) setDefaultRequestProperties(mapOf("Referer" to referer)) }
+            .apply { if (playing.referer.isNotBlank()) setDefaultRequestProperties(mapOf("Referer" to playing.referer)) }
 
-        val mediaItem = MediaItem.fromUri(Uri.parse(videoUrl))
+        val mediaItem = MediaItem.fromUri(Uri.parse(playing.videoUrl))
         // HLS playlists are not always served with a .m3u8 extension (e.g. /m3u8/{id}).
-        val mediaSource = if (videoUrl.contains("m3u8")) {
+        val mediaSource = if (playing.videoUrl.contains("m3u8")) {
             HlsMediaSource.Factory(httpDataSourceFactory).createMediaSource(mediaItem)
         } else {
             ProgressiveMediaSource.Factory(httpDataSourceFactory).createMediaSource(mediaItem)
@@ -110,12 +147,12 @@ fun AnimePlayerScreen(
         ExoPlayer.Builder(context).build().apply {
             setMediaSource(mediaSource)
             prepare()
-            if (initialPositionMs > 0) {
-                seekTo(initialPositionMs)
-            }
+            if (playing.startPositionMs > 0) seekTo(playing.startPositionMs)
             playWhenReady = true
         }
     }
+
+    LaunchedEffect(exoPlayer, settings.playerSpeed) { exoPlayer.setPlaybackSpeed(settings.playerSpeed) }
 
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
@@ -128,24 +165,29 @@ fun AnimePlayerScreen(
                 if (playbackState == Player.STATE_READY) {
                     totalDuration = exoPlayer.duration.coerceAtLeast(0L)
                 }
+                if (playbackState == Player.STATE_ENDED) {
+                    val duration = exoPlayer.duration.coerceAtLeast(0L)
+                    currentViewModel.onPosition(duration, duration, force = true)
+                    if (currentAutoNext && currentViewModel.hasNext()) currentViewModel.playNext() else showControls = true
+                }
             }
         }
         exoPlayer.addListener(listener)
 
         onDispose {
-            val lastPos = exoPlayer.currentPosition
-            onSavePosition(lastPos)
+            currentViewModel.onPosition(exoPlayer.currentPosition, exoPlayer.duration.coerceAtLeast(0L), force = true)
             exoPlayer.removeListener(listener)
             exoPlayer.release()
         }
     }
 
-    LaunchedEffect(isPlaying, isUserSeeking) {
+    LaunchedEffect(exoPlayer, isPlaying, isUserSeeking) {
         while (isPlaying && !isUserSeeking) {
             currentPosition = exoPlayer.currentPosition.coerceAtLeast(0L)
             totalDuration = exoPlayer.duration.coerceAtLeast(0L)
             if (totalDuration > 0) {
                 sliderPosition = currentPosition.toFloat() / totalDuration.toFloat()
+                viewModel.onPosition(currentPosition, totalDuration)
             }
             delay(500)
         }
@@ -156,6 +198,32 @@ fun AnimePlayerScreen(
             delay(3500)
             showControls = false
         }
+    }
+
+    // Picture in picture: hide the controls while floating and let the system enter it on leaving the app.
+    val activity = remember(context) { context.findComponentActivity() }
+    DisposableEffect(activity) {
+        val listener = androidx.core.util.Consumer<androidx.core.app.PictureInPictureModeChangedInfo> { info ->
+            inPip = info.isInPictureInPictureMode
+            if (inPip) showControls = false
+        }
+        activity?.addOnPictureInPictureModeChangedListener(listener)
+        onDispose {
+            activity?.removeOnPictureInPictureModeChangedListener(listener)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                activity?.setPictureInPictureParams(PictureInPictureParams.Builder().setAutoEnterEnabled(false).build())
+            }
+        }
+    }
+    LaunchedEffect(activity, isPlaying) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            activity?.setPictureInPictureParams(
+                PictureInPictureParams.Builder().setAspectRatio(Rational(16, 9)).setAutoEnterEnabled(isPlaying).build()
+            )
+        }
+    }
+    fun enterPip() {
+        activity?.enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(Rational(16, 9)).build())
     }
 
     Box(
@@ -182,12 +250,13 @@ fun AnimePlayerScreen(
                 }
             },
             update = { playerView ->
+                playerView.player = exoPlayer
                 playerView.resizeMode = resizeModes[currentResizeModeIndex].first
             },
             modifier = Modifier.fillMaxSize()
         )
 
-        if (isLoading) {
+        if (isLoading || ui.isResolving) {
             CircularProgressIndicator(
                 modifier = Modifier
                     .size(56.dp)
@@ -196,8 +265,21 @@ fun AnimePlayerScreen(
             )
         }
 
+        ui.error?.let { message ->
+            Column(
+                Modifier
+                    .align(Alignment.Center)
+                    .background(Color.Black.copy(alpha = 0.85f))
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(message, color = Color.White)
+                TextButton(onClick = viewModel::dismissError) { Text("Cerrar") }
+            }
+        }
+
         AnimatedVisibility(
-            visible = showControls,
+            visible = showControls && !inPip,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier.fillMaxSize()
@@ -225,7 +307,7 @@ fun AnimePlayerScreen(
                     Spacer(modifier = Modifier.width(8.dp))
 
                     Text(
-                        text = title.ifEmpty { "Reproduciendo Anime" },
+                        text = playing.title.ifEmpty { "Reproduciendo Anime" },
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
@@ -235,6 +317,32 @@ fun AnimePlayerScreen(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
+
+                    if (viewModel.hasEpisodeContext) {
+                        IconButton(onClick = { showIndex = true }) {
+                            Icon(Icons.AutoMirrored.Filled.FormatListBulleted, "Índice de episodios", tint = Color.White)
+                        }
+                    }
+
+                    Box {
+                        TextButton(onClick = { speedMenu = true }) {
+                            Text(speedLabel(settings.playerSpeed), color = Color.White)
+                        }
+                        DropdownMenu(expanded = speedMenu, onDismissRequest = { speedMenu = false }) {
+                            SPEEDS.forEach { speed ->
+                                DropdownMenuItem(
+                                    text = { Text(speedLabel(speed)) },
+                                    onClick = { viewModel.setSpeed(speed); speedMenu = false }
+                                )
+                            }
+                        }
+                    }
+
+                    if (activity != null) {
+                        IconButton(onClick = ::enterPip) {
+                            Icon(Icons.Default.PictureInPictureAlt, "Imagen en imagen", tint = Color.White)
+                        }
+                    }
 
                     IconButton(onClick = {
                         currentResizeModeIndex = (currentResizeModeIndex + 1) % resizeModes.size
@@ -348,11 +456,51 @@ fun AnimePlayerScreen(
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        TextButton(onClick = {
+                            val target = (exoPlayer.currentPosition + SKIP_OPENING_MS).coerceAtMost(totalDuration.takeIf { it > 0 } ?: Long.MAX_VALUE)
+                            exoPlayer.seekTo(target)
+                            currentPosition = target
+                        }) {
+                            Icon(Icons.Default.FastForward, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("+85 s", color = Color.White)
+                        }
+                        Spacer(Modifier.weight(1f))
+                        if (viewModel.hasEpisodeContext) {
+                            Text("Siguiente automático", color = Color.White, fontSize = 12.sp)
+                            Switch(checked = settings.playerAutoNext, onCheckedChange = viewModel::setAutoNext)
+                            if (viewModel.hasNext()) {
+                                Button(onClick = { viewModel.playNext() }) {
+                                    Icon(Icons.Default.SkipNext, null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Siguiente")
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
+
+    if (showIndex) {
+        ChapterIndexSheet(
+            chapters = episodes,
+            currentChapterId = playing.chapterId,
+            onSelect = { viewModel.playEpisode(it) },
+            onDismiss = { showIndex = false },
+            title = "Episodios"
+        )
+    }
 }
+
+private fun speedLabel(speed: Float) = if (speed % 1f == 0f) "${speed.toInt()}x" else "${speed}x"
 
 private fun formatTime(timeMs: Long): String {
     val totalSeconds = TimeUnit.MILLISECONDS.toSeconds(timeMs.coerceAtLeast(0L))

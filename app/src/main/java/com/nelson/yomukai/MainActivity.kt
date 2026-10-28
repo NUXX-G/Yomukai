@@ -175,9 +175,11 @@ fun YomukaiApp(
             loading.cancel()
             result
                 .onSuccess { servers ->
-                    repo.saveProgress(chapter, 0, 0, 1f, markRead = true)
+                    repo.saveProgress(chapter, chapter.lastPageRead, chapter.totalPages, chapter.progress, markRead = false)
                     val mediaTitle = repo.getMedia(sourceId, chapter.mediaId)?.title
-                    episodeServers = EpisodeServers(listOfNotNull(mediaTitle, chapter.title).joinToString(" - "), servers)
+                    episodeServers = EpisodeServers(
+                        listOfNotNull(mediaTitle, chapter.title).joinToString(" - "), servers, sourceId, chapter.mediaId, chapter.chapterId
+                    )
                 }
                 .onFailure { snackbar.showSnackbar(it.message ?: "No se pudo cargar el episodio") }
         }
@@ -300,15 +302,14 @@ fun YomukaiApp(
                 arguments = listOf(
                     navArgument("url") { type = NavType.StringType },
                     navArgument("title") { type = NavType.StringType; defaultValue = "Anime" },
-                    navArgument("referer") { type = NavType.StringType; defaultValue = "" }
+                    navArgument("referer") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("sourceId") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("mediaId") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("chapterId") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("server") { type = NavType.StringType; defaultValue = "" }
                 )
-            ) { entry ->
-                AnimePlayerScreen(
-                    videoUrl = entry.arguments?.getString("url").orEmpty(),
-                    title = entry.arguments?.getString("title") ?: "Anime",
-                    referer = entry.arguments?.getString("referer").orEmpty(),
-                    onBackClick = { navController.popBackStack() }
-                )
+            ) {
+                AnimePlayerScreen(onBackClick = { navController.popBackStack() })
             }
         }
     }
@@ -317,14 +318,25 @@ fun YomukaiApp(
         EpisodeServerDialog(
             state = state,
             onPlay = { server ->
-                navController.navigate(Routes.animePlayer(server.videoUrl, state.title, server.headers["Referer"].orEmpty()))
+                navController.navigate(
+                    Routes.animePlayer(
+                        server.videoUrl, state.title, server.headers["Referer"].orEmpty(),
+                        state.sourceId, state.mediaId, state.chapterId, server.serverName
+                    )
+                )
             },
             onDismiss = { episodeServers = null }
         )
     }
 }
 
-private data class EpisodeServers(val title: String, val servers: List<VideoSource>)
+private data class EpisodeServers(
+    val title: String,
+    val servers: List<VideoSource>,
+    val sourceId: String = "",
+    val mediaId: String = "",
+    val chapterId: String = ""
+)
 
 /** Lets the user pick a server: direct streams play in-app, web embeds open in the browser. */
 @Composable

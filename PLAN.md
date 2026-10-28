@@ -34,7 +34,12 @@ Estado: retomar leyendo este fichero. Marcar `[x]` al cerrar. Cada fase: build +
 - [x] Historial de búsquedas (20, persistente) y sugerencias (historial + títulos de la biblioteca); debounce 400 ms y cancelación de la búsqueda anterior
 
 ## Fase 5 — Lector/reproductor
-- [ ]
+- [x] Lector continuo (manga vertical, paginado y novela): el capítulo siguiente se añade al quedar ~3 elementos, con separador «Capítulo X»; progreso e historial siguen al capítulo visible; en modo paginado pasar de la última página entra en el siguiente. Opción para desactivarlo
+- [x] Índice de capítulos/episodios (hoja inferior): búsqueda sin tildes, actual resaltado, leídos marcados, salto directo — en manga, novela y reproductor
+- [x] Manga/cómic: marcadores (Room v4), auto-scroll con velocidad, recorte de bordes blancos (Coil Transformation + algoritmo con tests), filtros gris/sepia/invertir, bloqueo de orientación, ajuste pantalla/ancho/alto
+- [x] Novela: lectura en voz alta (TextToSpeech, continúa entre capítulos, velocidad ajustable), marcadores, búsqueda en el capítulo con coincidencias
+- [x] Anime: siguiente episodio automático (misma fuente de vídeo si existe, directa), índice de episodios, velocidad 0,5–2x, salto +85 s, imagen en imagen (manual + automática en Android 12+), posición recordada por episodio y marcado como visto al 90 %
+- [ ] No verificable aquí (sin dispositivo): comportamiento táctil real del scroll continuo, TTS con voces instaladas, PiP; compilan y la lógica pura tiene tests
 
 ## Fase 6 — Descargas seguras (incl. anime)
 - [ ]

@@ -80,7 +80,10 @@ data class AppSettings(
     /** Background check for new chapters/episodes of library titles. */
     val updatesEnabled: Boolean = true,
     val updateIntervalHours: Int = 12,
-    val updatesWifiOnly: Boolean = false
+    val updatesWifiOnly: Boolean = false,
+    /** Anime player: start the next episode when one ends. */
+    val playerAutoNext: Boolean = true,
+    val playerSpeed: Float = 1f
 )
 
 /** SharedPreferences-backed settings exposed as StateFlows so Compose reacts to changes. */
@@ -146,6 +149,8 @@ class AppPreferences(context: Context) {
             .putBoolean("updates_enabled", value.updatesEnabled)
             .putInt("updates_interval", value.updateIntervalHours)
             .putBoolean("updates_wifi", value.updatesWifiOnly)
+            .putBoolean("player_auto_next", value.playerAutoNext)
+            .putFloat("player_speed", value.playerSpeed)
             .apply {
                 if (value.enabledSources == null) remove("enabled_sources")
                 else putStringSet("enabled_sources", value.enabledSources)
@@ -194,6 +199,8 @@ class AppPreferences(context: Context) {
         updatesEnabled = prefs.getBoolean("updates_enabled", true),
         updateIntervalHours = prefs.getInt("updates_interval", 12),
         updatesWifiOnly = prefs.getBoolean("updates_wifi", false),
+        playerAutoNext = prefs.getBoolean("player_auto_next", true),
+        playerSpeed = prefs.getFloat("player_speed", 1f),
         enabledSources = prefs.getStringSet("enabled_sources", null)?.toSet()
     )
 
