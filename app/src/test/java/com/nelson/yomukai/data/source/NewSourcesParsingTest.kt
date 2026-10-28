@@ -2,7 +2,6 @@ package com.nelson.yomukai.data.source
 
 import com.nelson.yomukai.data.network.NetworkHelper
 import com.nelson.yomukai.data.source.anime.AnimeAv1Source
-import com.nelson.yomukai.data.source.anime.AnimeFlvSource
 import com.nelson.yomukai.data.source.manga.AsuraScansSource
 import com.nelson.yomukai.data.source.manga.LectorTmoSource
 import com.nelson.yomukai.data.source.manga.OlympusScansSource
@@ -69,20 +68,6 @@ class NewSourcesParsingTest {
         assertTrue(hls.isDirect)
         assertEquals("https://player.zilla-networks.com/m3u8/b1876b9469a06fdb2d45f9f5a536e4a7", hls.videoUrl)
         assertTrue(servers.drop(1).none { it.isDirect })
-    }
-
-    @Test
-    fun animeFlvScriptsAreParsed() {
-        val html = """
-            <script>var anime_info = ["1","One Piece","one-piece"];
-            var episodes = [[1100,9001],[1099,9000],[12.5,8000]];</script>
-            <script>var videos = {"SUB":[{"server":"sw","title":"SW","code":"https://streamwish.to/e/abc"}]};</script>
-        """.trimIndent()
-        val eps = AnimeFlvSource.parseEpisodes(html, "one-piece")
-        assertEquals(listOf("https://www3.animeflv.net/ver/one-piece-1100", "https://www3.animeflv.net/ver/one-piece-1099",
-            "https://www3.animeflv.net/ver/one-piece-12.5"), eps.map { it.url })
-        val videos = AnimeFlvSource.parseVideoSources(html)
-        assertEquals("SW", videos.single().serverName)
     }
 
     @Test

@@ -33,9 +33,10 @@
 | Flame Comics | Manhwa | EN | Datos Next.js |
 | Royal Road | Novela | EN | HTML |
 | SkyNovels | Novela | ES | API JSON |
+| Marmota Comics | Cómic | ES | HTML (Madara) + AJAX |
 | TuNovelaLigera | Novela | ES | HTML (Madara) + AJAX |
 | AnimeAV1 | Anime | ES | Datos SvelteKit + extractores |
-| LectorTMO, AnimeFLV, LectorManga, SurtrScans | — | — | *Experimentales* (desactivadas por defecto: protegidas por Cloudflare/Wordfence o inestables) |
+| LectorTMO, LectorManga, SurtrScans | — | — | *Experimentales* (desactivadas por defecto: protegidas por Cloudflare/Wordfence o inestables) |
 
 Los sitios web cambian con frecuencia; una fuente puede dejar de funcionar sin previo aviso.
 
@@ -89,7 +90,7 @@ app/src/main/java/com/nelson/yomukai/
 │   ├── source/       CatalogueSource / MangaSource / NovelSource / AnimeSource contracts
 │   │   ├── manga/    MangaDex, Olympus, Asura, Flame, LectorTMO, …
 │   │   ├── novel/    Royal Road, SkyNovels, TuNovelaLigera
-│   │   └── anime/    AnimeAV1, AnimeFLV, VideoExtractors (ok.ru, MP4Upload, YourUpload, HLS)
+│   │   └── anime/    AnimeAV1, VideoExtractors (ok.ru, MP4Upload, YourUpload, HLS)
 │   ├── local/        Room entities, DAOs, migrations
 │   ├── repository/   LibraryRepository (single source of truth), ContentRepository (offline first)
 │   ├── download/     Persistent download queue

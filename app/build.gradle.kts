@@ -61,7 +61,7 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
 
-    // Jsoup (Web Scraping for AnimeFLV & Manga sites)
+    // Jsoup (Web scraping for manga, novel and anime sites)
     implementation(libs.jsoup)
     implementation(libs.okhttp)
     implementation(libs.okhttp.dnsoverhttps)
