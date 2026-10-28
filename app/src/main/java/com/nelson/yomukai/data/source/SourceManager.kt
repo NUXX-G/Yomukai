@@ -9,7 +9,6 @@ import com.nelson.yomukai.data.source.manga.LectorMangaSource
 import com.nelson.yomukai.data.source.manga.LectorTmoSource
 import com.nelson.yomukai.data.source.manga.MangaDexSource
 import com.nelson.yomukai.data.source.manga.OlympusScansSource
-import com.nelson.yomukai.data.source.manga.ReaperScansSource
 import com.nelson.yomukai.data.source.manga.SurtrScansSource
 import com.nelson.yomukai.data.source.novel.RoyalRoadSource
 import com.nelson.yomukai.data.source.novel.SkyNovelsSource
@@ -24,7 +23,6 @@ class SourceManager(network: NetworkHelper) {
         AsuraScansSource(network),
         FlameComicsSource(network),
         LectorTmoSource(network),
-        ReaperScansSource(network),
         LectorMangaSource(network),
         SurtrScansSource(network),
         // Novels
