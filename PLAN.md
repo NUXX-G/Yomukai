@@ -42,7 +42,11 @@ Estado: retomar leyendo este fichero. Marcar `[x]` al cerrar. Cada fase: build +
 - [ ] No verificable aquí (sin dispositivo): comportamiento táctil real del scroll continuo, TTS con voces instaladas, PiP; compilan y la lógica pura tiene tests
 
 ## Fase 6 — Descargas seguras (incl. anime)
-- [ ]
+- [x] Anime offline: HLS con Media3 `DownloadManager` + `VideoDownloadService` (primer plano) y MP4 directo con reanudación por HTTP Range; integrado en la cola persistente de Room (migración 4→5); el reproductor usa la copia descargada si existe
+- [x] «Descargar todo», «no leídos/no vistos» y «un rango» desde el detalle (también en anime)
+- [x] Seguridad (`DownloadSecurity`, con tests): solo HTTPS (o .onion http por Tor), Content-Type de imagen/vídeo, límites de tamaño, nombres saneados + rutas hash, comprobación anti path-traversal, almacenamiento privado, longitud declarada = escrita, cabecera MP4 válida, imagen decodificable, todas las páginas presentes antes de COMPLETED
+- [x] Límite de descargas simultáneas (1–4) y «solo Wi-Fi» en Ajustes; reanudación al reiniciar la app; todo el tráfico (también Media3 y reproductor) usa el cliente OkHttp de la app → respeta DNS seguro y proxy/Tor
+- [ ] No verificable aquí: descarga real de HLS/MP4 de AnimeAV1 y el servicio en primer plano en Android 14 (sin dispositivo)
 
 ## Fase 7 — Tor
 - [ ]

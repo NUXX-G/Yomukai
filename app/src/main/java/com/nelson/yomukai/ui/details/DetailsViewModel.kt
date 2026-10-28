@@ -145,11 +145,22 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
 
     fun download(chapters: List<ChapterEntity>) {
         val media = state.value.media ?: return
-        if (state.value.isAnime) return // streams are not downloadable
         viewModelScope.launch { container.downloadManager.enqueue(media, chapters) }
     }
 
-    fun downloadUnread() = download(state.value.chapters.filter { !it.read && it.chapterId !in state.value.downloads })
+    private fun notDownloaded(list: List<ChapterEntity>) = list.filter { it.chapterId !in state.value.downloads }
+
+    fun downloadUnread() = download(notDownloaded(state.value.chapters.filter { !it.read }))
+
+    /** Every chapter/episode of the title that is not already queued or downloaded. */
+    fun downloadAll() = download(notDownloaded(state.value.chapters))
+
+    /** Chapters whose number lies in [from]..[to] (inclusive, either order). */
+    fun downloadRange(from: Float, to: Float) {
+        val low = minOf(from, to)
+        val high = maxOf(from, to)
+        download(notDownloaded(state.value.chapters.filter { it.number in low..high }))
+    }
 
     fun deleteDownload(chapter: ChapterEntity) {
         viewModelScope.launch { container.downloadManager.delete(sourceId, chapter.chapterId) }

@@ -240,6 +240,42 @@ fun SettingsScreen(
                 item { ProxyFields(network, onSave = { host, port -> viewModel.updateNetwork { it.copy(proxyHost = host, proxyPort = port) } }) }
             }
 
+            item { GroupTitle("Descargas") }
+            item {
+                SwitchItem(
+                    "Solo con Wi-Fi",
+                    "Las descargas esperan a una conexión sin tarifa de datos",
+                    app.downloadsWifiOnly
+                ) { v -> viewModel.updateApp { it.copy(downloadsWifiOnly = v) } }
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Descargas simultáneas") },
+                    supportingContent = {
+                        ChipRow {
+                            (1..4).forEach { count ->
+                                FilterChip(
+                                    selected = app.maxConcurrentDownloads == count,
+                                    onClick = { viewModel.updateApp { it.copy(maxConcurrentDownloads = count) } },
+                                    label = { Text("$count") }
+                                )
+                            }
+                        }
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Seguridad de las descargas") },
+                    supportingContent = {
+                        Text(
+                            "Solo HTTPS (o .onion por Tor), se comprueba el tipo y tamaño de cada archivo, " +
+                                "se guardan en el almacenamiento privado de la app y se reanudan si se interrumpen."
+                        )
+                    }
+                )
+            }
+
             item { GroupTitle("Almacenamiento") }
             item {
                 ListItem(

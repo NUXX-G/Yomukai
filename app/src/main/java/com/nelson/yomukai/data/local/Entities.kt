@@ -132,7 +132,13 @@ data class DownloadEntity(
     val total: Int = 0,
     val localPath: String = "",
     val error: String? = null,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    /** Anime episode: a video file (MP4) or a Media3 HLS download instead of images/text. */
+    @ColumnInfo(defaultValue = "0") val isVideo: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val isHls: Boolean = false,
+    /** Stream resolved when the download started; HLS downloads are keyed by this url. */
+    @ColumnInfo(defaultValue = "''") val videoUrl: String = "",
+    @ColumnInfo(defaultValue = "''") val videoReferer: String = ""
 )
 
 /** History row joined with its media for display. */

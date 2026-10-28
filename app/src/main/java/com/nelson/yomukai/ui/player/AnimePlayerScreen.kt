@@ -74,13 +74,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.nelson.yomukai.ui.AppViewModelProvider
+import com.nelson.yomukai.ui.LocalAppContainer
 import com.nelson.yomukai.ui.reader.ChapterIndexSheet
 import kotlinx.coroutines.delay
 import java.util.Locale
@@ -130,18 +131,21 @@ fun AnimePlayerScreen(
     val currentAutoNext by rememberUpdatedState(settings.playerAutoNext)
     val currentViewModel by rememberUpdatedState(viewModel)
 
-    val exoPlayer = remember(playing.videoUrl, playing.referer) {
-        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-            .setAllowCrossProtocolRedirects(true)
-            .apply { if (playing.referer.isNotBlank()) setDefaultRequestProperties(mapOf("Referer" to playing.referer)) }
-
+    val offline = LocalAppContainer.current.videoOffline
+    val exoPlayer = remember(playing.videoUrl, playing.referer, playing.local) {
+        // Network playback goes through the app's OkHttp client (proxy / Tor / DoH); downloads read the Media3 cache.
+        offline.registerReferer(playing.videoUrl, playing.referer)
+        val dataSourceFactory = when (playing.local) {
+            "hls" -> offline.cacheDataSourceFactory
+            "file" -> DefaultDataSource.Factory(context)
+            else -> offline.playbackFactory(playing.referer)
+        }
         val mediaItem = MediaItem.fromUri(Uri.parse(playing.videoUrl))
         // HLS playlists are not always served with a .m3u8 extension (e.g. /m3u8/{id}).
-        val mediaSource = if (playing.videoUrl.contains("m3u8")) {
-            HlsMediaSource.Factory(httpDataSourceFactory).createMediaSource(mediaItem)
+        val mediaSource = if (playing.local == "hls" || (playing.local != "file" && playing.videoUrl.contains("m3u8"))) {
+            HlsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem)
         } else {
-            ProgressiveMediaSource.Factory(httpDataSourceFactory).createMediaSource(mediaItem)
+            ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem)
         }
 
         ExoPlayer.Builder(context).build().apply {

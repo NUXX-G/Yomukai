@@ -28,7 +28,7 @@ class Converters {
         MediaCategoryEntity::class,
         BookmarkEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -93,9 +93,19 @@ abstract class YomukaiDatabase : RoomDatabase() {
             }
         }
 
+        /** v5: anime episode downloads (video file or HLS) in the persistent queue. */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE downloads ADD COLUMN isVideo INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE downloads ADD COLUMN isHls INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE downloads ADD COLUMN videoUrl TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE downloads ADD COLUMN videoReferer TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun build(context: Context): YomukaiDatabase =
             Room.databaseBuilder(context, YomukaiDatabase::class.java, "yomukai.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
     }
 }

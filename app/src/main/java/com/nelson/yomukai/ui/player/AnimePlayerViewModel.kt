@@ -27,7 +27,9 @@ data class Playing(
     val referer: String,
     val serverName: String = "",
     val chapterId: String? = null,
-    val startPositionMs: Long = 0L
+    val startPositionMs: Long = 0L,
+    /** "" = stream, "hls" = downloaded HLS (Media3 cache), "file" = downloaded MP4 file. */
+    val local: String = ""
 )
 
 @Immutable
@@ -67,7 +69,8 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
                 title = handle.get<String>("title") ?: "Anime",
                 referer = handle.get<String>("referer").orEmpty(),
                 serverName = handle.get<String>("server").orEmpty(),
-                chapterId = handle.get<String>(Routes.ARG_CHAPTER)?.takeIf { it.isNotBlank() }
+                chapterId = handle.get<String>(Routes.ARG_CHAPTER)?.takeIf { it.isNotBlank() },
+                local = handle.get<String>("local").orEmpty()
             )
         )
     )
@@ -114,6 +117,26 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
         _state.update { it.copy(isResolving = true, error = null) }
         viewModelScope.launch(Dispatchers.IO) {
             val fresh = repo.getChapter(sourceId, chapter.chapterId) ?: chapter
+            container.downloadManager.localVideo(sourceId, fresh.chapterId)?.let { local ->
+                val mediaTitle = repo.getMedia(sourceId, fresh.mediaId)?.title
+                val start = if (!fresh.read && fresh.lastPageRead > 10) fresh.lastPageRead * 1000L else 0L
+                lastSavedMs = -1L
+                repo.saveProgress(fresh, fresh.lastPageRead, fresh.totalPages, fresh.progress, markRead = false)
+                _state.update {
+                    PlayerUiState(
+                        Playing(
+                            videoUrl = local.url,
+                            title = listOfNotNull(mediaTitle, fresh.title).joinToString(" - "),
+                            referer = local.referer,
+                            serverName = it.playing.serverName,
+                            chapterId = fresh.chapterId,
+                            startPositionMs = start,
+                            local = if (local.isHls) "hls" else "file"
+                        )
+                    )
+                }
+                return@launch
+            }
             source.fetchVideoSources(fresh.url)
                 .onSuccess { servers ->
                     val server = pickServer(servers, _state.value.playing.serverName)

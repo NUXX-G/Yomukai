@@ -83,7 +83,10 @@ data class AppSettings(
     val updatesWifiOnly: Boolean = false,
     /** Anime player: start the next episode when one ends. */
     val playerAutoNext: Boolean = true,
-    val playerSpeed: Float = 1f
+    val playerSpeed: Float = 1f,
+    /** Downloads wait for an unmetered connection. */
+    val downloadsWifiOnly: Boolean = false,
+    val maxConcurrentDownloads: Int = 2
 )
 
 /** SharedPreferences-backed settings exposed as StateFlows so Compose reacts to changes. */
@@ -151,6 +154,8 @@ class AppPreferences(context: Context) {
             .putBoolean("updates_wifi", value.updatesWifiOnly)
             .putBoolean("player_auto_next", value.playerAutoNext)
             .putFloat("player_speed", value.playerSpeed)
+            .putBoolean("downloads_wifi", value.downloadsWifiOnly)
+            .putInt("downloads_max", value.maxConcurrentDownloads)
             .apply {
                 if (value.enabledSources == null) remove("enabled_sources")
                 else putStringSet("enabled_sources", value.enabledSources)
@@ -201,6 +206,8 @@ class AppPreferences(context: Context) {
         updatesWifiOnly = prefs.getBoolean("updates_wifi", false),
         playerAutoNext = prefs.getBoolean("player_auto_next", true),
         playerSpeed = prefs.getFloat("player_speed", 1f),
+        downloadsWifiOnly = prefs.getBoolean("downloads_wifi", false),
+        maxConcurrentDownloads = prefs.getInt("downloads_max", 2),
         enabledSources = prefs.getStringSet("enabled_sources", null)?.toSet()
     )
 

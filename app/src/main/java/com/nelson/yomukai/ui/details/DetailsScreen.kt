@@ -100,6 +100,14 @@ fun DetailsScreen(
 
     LaunchedEffect(state.error) { state.error?.let { snackbar.showSnackbar(it) } }
 
+    var showRange by remember { mutableStateOf(false) }
+    if (showRange) {
+        RangeDialog(
+            onConfirm = { from, to -> viewModel.downloadRange(from, to) },
+            onDismiss = { showRange = false }
+        )
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
@@ -115,10 +123,20 @@ fun DetailsScreen(
                     var menu by remember { mutableStateOf(false) }
                     IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "Más") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        if (!state.isAnime) DropdownMenuItem(
-                            text = { Text("Descargar no leídos") },
+                        DropdownMenuItem(
+                            text = { Text("Descargar todo") },
+                            leadingIcon = { Icon(Icons.Default.Download, null) },
+                            onClick = { menu = false; viewModel.downloadAll() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(if (state.isAnime) "Descargar no vistos" else "Descargar no leídos") },
                             leadingIcon = { Icon(Icons.Default.Download, null) },
                             onClick = { menu = false; viewModel.downloadUnread() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Descargar un rango...") },
+                            leadingIcon = { Icon(Icons.Default.Download, null) },
+                            onClick = { menu = false; showRange = true }
                         )
                         DropdownMenuItem(
                             text = { Text("Actualizar") },
@@ -338,7 +356,7 @@ private fun ChapterRow(
                     )
                 }
             }
-            if (!isAnime) DownloadIndicator(download, onDownload = onDownload, onDelete = onDeleteDownload)
+            DownloadIndicator(download, onDownload = onDownload, onDelete = onDeleteDownload)
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(
@@ -486,5 +504,31 @@ private fun CategoriesDialog(
         },
         confirmButton = { TextButton(onClick = { onSave(selected) }) { Text("Guardar") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+    )
+}
+
+@Composable
+private fun RangeDialog(onConfirm: (Float, Float) -> Unit, onDismiss: () -> Unit) {
+    var from by remember { mutableStateOf("") }
+    var to by remember { mutableStateOf("") }
+    val fromValue = from.replace(',', '.').toFloatOrNull()
+    val toValue = to.replace(',', '.').toFloatOrNull()
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Descargar un rango") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Números de capítulo o episodio, ambos incluidos.")
+                androidx.compose.material3.OutlinedTextField(from, { from = it }, label = { Text("Desde") }, singleLine = true)
+                androidx.compose.material3.OutlinedTextField(to, { to = it }, label = { Text("Hasta") }, singleLine = true)
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(
+                enabled = fromValue != null && toValue != null,
+                onClick = { onConfirm(fromValue!!, toValue!!); onDismiss() }
+            ) { Text("Descargar") }
+        },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Cancelar") } }
     )
 }

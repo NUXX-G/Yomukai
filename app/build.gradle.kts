@@ -79,6 +79,7 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.androidx.media3.ui)
     implementation(libs.androidx.media3.session)
+    implementation(libs.androidx.media3.datasource.okhttp)
 
     // JSON Parsing (Gson & kotlinx.serialization)
     implementation(libs.gson)

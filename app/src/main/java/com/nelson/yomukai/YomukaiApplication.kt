@@ -12,6 +12,7 @@ import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
 import com.nelson.yomukai.data.download.DownloadManager
+import com.nelson.yomukai.data.download.VideoOffline
 import com.nelson.yomukai.data.local.YomukaiDatabase
 import com.nelson.yomukai.data.network.NetworkHelper
 import com.nelson.yomukai.data.prefs.AppPreferences
@@ -34,7 +35,8 @@ class AppContainer(context: Context) {
     val database = YomukaiDatabase.build(context)
     val sourceManager = SourceManager(network)
     val libraryRepository = LibraryRepository(database, sourceManager)
-    val downloadManager = DownloadManager(context, database, sourceManager, network, applicationScope)
+    val videoOffline = VideoOffline(context, network)
+    val downloadManager = DownloadManager(context, database, sourceManager, network, applicationScope, preferences, videoOffline)
     val contentRepository = ContentRepository(sourceManager, downloadManager)
     val captureStore = CaptureStore()
 }

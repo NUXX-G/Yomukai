@@ -170,6 +170,17 @@ fun YomukaiApp(
                 snackbar.showSnackbar("Episodio no encontrado")
                 return@launch
             }
+            container.downloadManager.localVideo(sourceId, chapterId)?.let { local ->
+                val mediaTitle = repo.getMedia(sourceId, chapter.mediaId)?.title
+                repo.saveProgress(chapter, chapter.lastPageRead, chapter.totalPages, chapter.progress, markRead = false)
+                navController.navigate(
+                    Routes.animePlayer(
+                        local.url, listOfNotNull(mediaTitle, chapter.title).joinToString(" - "), local.referer,
+                        sourceId, chapter.mediaId, chapter.chapterId, local = if (local.isHls) "hls" else "file"
+                    )
+                )
+                return@launch
+            }
             val loading = launch { snackbar.showSnackbar("Buscando servidores de ${chapter.title}...") }
             val result = source.fetchVideoSources(chapter.url)
             loading.cancel()
@@ -306,7 +317,8 @@ fun YomukaiApp(
                     navArgument("sourceId") { type = NavType.StringType; defaultValue = "" },
                     navArgument("mediaId") { type = NavType.StringType; defaultValue = "" },
                     navArgument("chapterId") { type = NavType.StringType; defaultValue = "" },
-                    navArgument("server") { type = NavType.StringType; defaultValue = "" }
+                    navArgument("server") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("local") { type = NavType.StringType; defaultValue = "" }
                 )
             ) {
                 AnimePlayerScreen(onBackClick = { navController.popBackStack() })
