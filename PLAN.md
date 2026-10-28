@@ -10,7 +10,7 @@ Estado: retomar leyendo este fichero. Marcar `[x]` al cerrar. Cada fase: build +
 - [x] MangaDex, Asura (API), SkyNovels (API), Flame, Olympus, AnimeAV1: endpoints responden con la forma esperada desde esta red; tests existentes en verde
 - [ ] Royal Road: devuelve el desafío «Just a moment» a clientes simples; depende del puente WebView en el dispositivo. Sin verificar aquí → usar Ajustes › Diagnóstico
 - [ ] LectorManga y SurtrScans: sin respuesta desde esta red (dominio caído/bloqueado). Siguen *experimentales* y desactivadas
-- [ ] ReadAllComics: se queda experimental/sin implementar (522 desde esta red). **Fase 7: reintentar capturarla a través de Tor**
+- [ ] ReadAllComics: se queda experimental/sin implementar (522 desde esta red). Reintento por Tor **no realizado** (ver Fase 7)
 - [x] Pantalla de diagnóstico de fuentes (Ajustes › Diagnóstico de fuentes): novedades, búsqueda, detalle, capítulos y páginas/texto/servidores
 - [x] Filtro «Cómics» propio en Explorar/Buscar (`MediaType.COMIC` ya existía)
 
@@ -49,7 +49,16 @@ Estado: retomar leyendo este fichero. Marcar `[x]` al cerrar. Cada fase: build +
 - [ ] No verificable aquí: descarga real de HLS/MP4 de AnimeAV1 y el servicio en primer plano en Android 14 (sin dispositivo)
 
 ## Fase 7 — Tor
-- [ ]
+- [x] Librería elegida: **`info.guardianproject:tor-android`** (daemon Tor oficial empaquetado por Guardian Project) + `jtorctl`. Motivo: es la opción mantenida y madura (publicada en Maven Central, última versión 0.4.9.14 el 9‑oct‑2026) y expone TorService con SOCKS y túnel HTTP; Arti móvil de Guardian (`arti-mobile-ex`) no está publicado en Maven Central y Arti aún no iguala la compatibilidad de Tor C. Se fija **0.4.9.11** porque 0.4.9.12+ exigen compileSdk 37.1 (no instalado); subir cuando se actualice el SDK. Coste: +~23 MB de APK (ABIs arm64-v8a, armeabi-v7a, x86_64)
+- [x] `TorManager`: arranca/para el daemon integrado según Ajustes, expone progreso de bootstrap y puertos; modo alternativo **Orbot** (SOCKS 127.0.0.1:9050 comprobado por socket)
+- [x] OkHttp (fuentes, descargas, Coil, Media3): SOCKS de Tor con resolución DNS remota; **falla cerrado** (bloquea en vez de salir sin protección) mientras Tor no esté conectado. Opción «Fuentes, descargas y vídeo por Tor»
+- [x] Navegador de captura por Tor con `androidx.webkit` `ProxyController` (túnel HTTP de Tor o SOCKS5; excluye los hosts de fuentes sin Tor); no carga ninguna página hasta confirmar el proxy; **indicador permanente** «Conectado a Tor / Conectando / Sin Tor»
+- [x] Buscador/página de inicio del navegador configurable (por defecto DuckDuckGo .onion; alternativas DDG HTML, Brave Search, Ahmia)
+- [x] Tor por fuente: interruptor «Usar Tor» en cada fuente (excluye su dominio, subdominios y CDN declarados en `extraHosts`). **Limitación documentada:** Cloudflare bloquea muchas salidas de Tor; esas fuentes suelen requerir conexión directa. El proxy del WebView es global del proceso: el WebView que resuelve Cloudflare también sale por Tor salvo los hosts excluidos
+- [ ] **Pendiente / no verificado:** (1) la dirección .onion de DuckDuckGo está escrita de memoria y no pude comprobarla sin una red Tor (es editable eligiendo otro buscador); (2) no se pudo probar el arranque real de Tor ni `ProxyController` sin dispositivo; (3) **ReadAllComics por Tor**: intenté descargar el Tor Expert Bundle oficial (SHA‑256 verificado) para capturar el sitio, pero el sistema denegó ejecutar `tor.exe`, así que no se reintentó. Para hacerlo: arranca Tor en tu equipo (`tor --SocksPort 9055`) y repite `curl -x socks5h://127.0.0.1:9055 https://readallcomics.com/` para capturar HTML real; con eso se implementa la fuente con tests
+
+## Estado final
+Fases 1–7 completadas salvo los puntos marcados con `[ ]`, todos explicados arriba. Build (`assembleDebug`, `assembleRelease`) y `testDebugUnitTest` en verde.
 
 ## Notas
 - Sin acceso a sitios caídos o bloqueados desde el entorno de desarrollo no se inventan selectores (reglas 4 y 5).

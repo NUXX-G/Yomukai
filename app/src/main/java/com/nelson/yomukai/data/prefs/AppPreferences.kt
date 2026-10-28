@@ -64,12 +64,35 @@ data class NovelReaderSettings(
 
 enum class ProxyType(val displayName: String) { NONE("Sin proxy"), HTTP("HTTP"), SOCKS("SOCKS5 (Tor/Orbot)") }
 
+/** Where Tor comes from: embedded (tor-android), an external Orbot on 127.0.0.1:9050, or not used. */
+enum class TorMode(val displayName: String) { OFF("Desactivado"), BUILTIN("Tor integrado"), ORBOT("Orbot (externo)") }
+
+/** Presets for the capture browser start page / search; the user can also type any address. */
+enum class BrowserHome(val displayName: String, val url: String, val searchUrl: String) {
+    DDG_ONION(
+        "DuckDuckGo (.onion)",
+        "https://duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion/",
+        "https://duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion/?q="
+    ),
+    DDG_HTML("DuckDuckGo (HTML ligero)", "https://html.duckduckgo.com/html/", "https://html.duckduckgo.com/html/?q="),
+    BRAVE("Brave Search", "https://search.brave.com/", "https://search.brave.com/search?q="),
+    AHMIA("Ahmia (buscador de .onion)", "https://ahmia.fi/", "https://ahmia.fi/search/?q=")
+}
+
 /** Options to get around DNS-level blocks and firewalls that some ISPs apply to these sites. */
 data class NetworkSettings(
     val dnsOverHttps: Boolean = true,
     val proxyType: ProxyType = ProxyType.NONE,
     val proxyHost: String = "127.0.0.1",
-    val proxyPort: Int = 9050
+    val proxyPort: Int = 9050,
+    val torMode: TorMode = TorMode.OFF,
+    /** Sources, downloads, covers and video playback go through Tor. */
+    val torRoutesApp: Boolean = true,
+    /** The capture browser goes through Tor (and never loads pages before Tor is ready). */
+    val torRoutesBrowser: Boolean = true,
+    /** Source ids that skip Tor (many sites behind Cloudflare block Tor exits). */
+    val torExcludedSources: Set<String> = emptySet(),
+    val browserHome: BrowserHome = BrowserHome.DDG_ONION
 )
 
 data class AppSettings(
@@ -133,6 +156,11 @@ class AppPreferences(context: Context) {
             .putString("net_proxy_type", value.proxyType.name)
             .putString("net_proxy_host", value.proxyHost)
             .putInt("net_proxy_port", value.proxyPort)
+            .putString("net_tor_mode", value.torMode.name)
+            .putBoolean("net_tor_app", value.torRoutesApp)
+            .putBoolean("net_tor_browser", value.torRoutesBrowser)
+            .putStringSet("net_tor_excluded", value.torExcludedSources)
+            .putString("net_browser_home", value.browserHome.name)
             .apply()
         _network.value = value
     }
@@ -141,7 +169,12 @@ class AppPreferences(context: Context) {
         dnsOverHttps = prefs.getBoolean("net_doh", true),
         proxyType = enumOr(prefs.getString("net_proxy_type", null), ProxyType.NONE),
         proxyHost = prefs.getString("net_proxy_host", null) ?: "127.0.0.1",
-        proxyPort = prefs.getInt("net_proxy_port", 9050)
+        proxyPort = prefs.getInt("net_proxy_port", 9050),
+        torMode = enumOr(prefs.getString("net_tor_mode", null), TorMode.OFF),
+        torRoutesApp = prefs.getBoolean("net_tor_app", true),
+        torRoutesBrowser = prefs.getBoolean("net_tor_browser", true),
+        torExcludedSources = prefs.getStringSet("net_tor_excluded", null)?.toSet().orEmpty(),
+        browserHome = enumOr(prefs.getString("net_browser_home", null), BrowserHome.DDG_ONION)
     )
 
     fun updateApp(transform: (AppSettings) -> AppSettings) {

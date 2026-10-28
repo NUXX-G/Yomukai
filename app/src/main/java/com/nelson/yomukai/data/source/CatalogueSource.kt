@@ -19,6 +19,9 @@ interface CatalogueSource {
     val isExperimental: Boolean get() = false
     val supportsLatestPaging: Boolean get() = false
 
+    /** Other domains this source loads from (image CDNs, players) so per-source Tor exclusion covers them. */
+    val extraHosts: List<String> get() = emptyList()
+
     /** Headers needed to load images/pages from this source (usually a Referer). */
     val imageHeaders: Map<String, String> get() = mapOf("Referer" to "$baseUrl/")
 

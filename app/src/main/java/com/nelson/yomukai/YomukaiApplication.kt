@@ -15,6 +15,8 @@ import com.nelson.yomukai.data.download.DownloadManager
 import com.nelson.yomukai.data.download.VideoOffline
 import com.nelson.yomukai.data.local.YomukaiDatabase
 import com.nelson.yomukai.data.network.NetworkHelper
+import com.nelson.yomukai.data.network.TorManager
+import com.nelson.yomukai.data.network.WebViewProxy
 import com.nelson.yomukai.data.prefs.AppPreferences
 import com.nelson.yomukai.data.repository.ContentRepository
 import com.nelson.yomukai.data.repository.LibraryRepository
@@ -31,9 +33,11 @@ import kotlinx.coroutines.launch
 class AppContainer(context: Context) {
     val applicationScope = CoroutineScope(SupervisorJob())
     val preferences = AppPreferences(context)
-    val network = NetworkHelper(context, preferences.network, applicationScope)
+    val tor = TorManager(context, preferences.network, applicationScope)
+    val network = NetworkHelper(context, preferences.network, tor.state, applicationScope)
     val database = YomukaiDatabase.build(context)
-    val sourceManager = SourceManager(network)
+    val sourceManager = SourceManager(network).also { sm -> network.domainsOfSources = sm::domainsOf }
+    val webViewProxy = WebViewProxy(context, preferences.network, tor.state, sourceManager::domainsOf, applicationScope)
     val libraryRepository = LibraryRepository(database, sourceManager)
     val videoOffline = VideoOffline(context, network)
     val downloadManager = DownloadManager(context, database, sourceManager, network, applicationScope, preferences, videoOffline)

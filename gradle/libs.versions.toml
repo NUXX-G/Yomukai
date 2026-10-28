@@ -64,6 +64,8 @@ androidx-media3-exoplayer-hls = { group = "androidx.media3", name = "media3-exop
 androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
 androidx-media3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3" }
 androidx-media3-datasource-okhttp = { group = "androidx.media3", name = "media3-datasource-okhttp", version.ref = "media3" }
+androidx-webkit = { group = "androidx.webkit", name = "webkit", version = "1.13.0" }
+tor-android = { group = "info.guardianproject", name = "tor-android", version = "0.4.9.11" }
 
 # JSON Parsing (Gson & kotlinx.serialization)
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }

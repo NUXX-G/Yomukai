@@ -30,6 +30,7 @@ class OlympusScansSource(private val network: NetworkHelper) : MangaSource {
     override val id = "olympus"
     override val name = "Olympus Scans"
     override val baseUrl = "https://olympusxyz.com"
+    override val extraHosts = listOf("https://media.imagesolymp.xyz")
     override val language = "ES"
     override val supportedTypes = setOf(MediaType.MANHWA, MediaType.MANHUA, MediaType.MANGA)
 

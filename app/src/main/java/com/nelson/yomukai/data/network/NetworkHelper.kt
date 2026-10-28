@@ -5,10 +5,13 @@ import android.util.Log
 import android.webkit.CookieManager
 import com.nelson.yomukai.data.prefs.NetworkSettings
 import com.nelson.yomukai.data.prefs.ProxyType
+import com.nelson.yomukai.data.prefs.TorMode
 import com.nelson.yomukai.data.source.CloudflareResolver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Cache
@@ -58,13 +61,14 @@ class SourceUnreachableException(host: String, cause: Throwable) : IOException(
 class NetworkHelper(
     private val context: Context,
     settings: StateFlow<NetworkSettings>,
+    private val tor: StateFlow<TorState>,
     scope: CoroutineScope
 ) {
     private val cache = Cache(File(context.cacheDir, "http_cache"), 25L * 1024 * 1024)
     private val cookieJar = WebViewCookieJar()
 
     @Volatile
-    var client: OkHttpClient = buildClient(settings.value)
+    var client: OkHttpClient = buildClient(settings.value, tor.value)
         private set
 
     /** Stable factory for long-lived consumers (Coil) that always delegates to the current client. */
@@ -72,11 +76,15 @@ class NetworkHelper(
 
     init {
         scope.launch {
-            settings.collect { client = buildClient(it) }
+            combine(settings, tor.distinctUntilChangedBy { Triple(it.phase, it.socksPort, it.mode) }) { s, t -> s to t }.collect { (s, t) -> client = buildClient(s, t) }
         }
     }
 
-    private fun buildClient(settings: NetworkSettings): OkHttpClient {
+    /** Resolves source ids to the domains that must skip Tor; set once the SourceManager exists. */
+    @Volatile
+    var domainsOfSources: (Set<String>) -> Set<String> = { emptySet() }
+
+    private fun buildClient(settings: NetworkSettings, torState: TorState): OkHttpClient {
         val builder = OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
@@ -87,7 +95,17 @@ class NetworkHelper(
             .addInterceptor(RateLimitInterceptor(minIntervalMs = 300))
             .addInterceptor(RetryInterceptor(maxRetries = 2))
 
-        if (settings.proxyType != ProxyType.NONE && settings.proxyHost.isNotBlank()) {
+        val useTor = settings.torMode != TorMode.OFF && settings.torRoutesApp
+        if (useTor) {
+            val direct = domainsOfSources(settings.torExcludedSources)
+            if (torState.isConnected) {
+                builder.proxySelector(TorProxySelector(torState.socksPort, direct))
+            } else {
+                // Fail closed: never fall back to a clear connection while Tor is not ready.
+                builder.addInterceptor(TorGuardInterceptor(direct, torState))
+            }
+            if (settings.dnsOverHttps) builder.dns(dohWithFallback())
+        } else if (settings.proxyType != ProxyType.NONE && settings.proxyHost.isNotBlank()) {
             val type = if (settings.proxyType == ProxyType.SOCKS) Proxy.Type.SOCKS else Proxy.Type.HTTP
             // Unresolved address: with SOCKS the proxy (e.g. Tor) resolves hostnames itself.
             builder.proxy(Proxy(type, InetSocketAddress.createUnresolved(settings.proxyHost, settings.proxyPort)))
@@ -271,5 +289,19 @@ private class WebViewCookieJar : CookieJar {
     override fun loadForRequest(url: HttpUrl): List<Cookie> {
         val raw = manager?.getCookie(url.toString()) ?: return emptyList()
         return raw.split(";").mapNotNull { Cookie.parse(url, it.trim()) }
+    }
+}
+
+/** While Tor is still connecting, refuses requests that should go through it instead of leaking them. */
+private class TorGuardInterceptor(private val directDomains: Set<String>, private val state: TorState) : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val host = chain.request().url.host
+        if (TorRouting.bypasses(host, directDomains) || TorRouting.isLoopback(host)) return chain.proceed(chain.request())
+        throw IOException(
+            when (state.phase) {
+                TorPhase.ERROR -> state.error ?: "Tor no está disponible"
+                else -> "Tor aún se está conectando. Espera unos segundos o desactívalo en Ajustes › Red."
+            }
+        )
     }
 }

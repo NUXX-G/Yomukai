@@ -1,5 +1,13 @@
 package com.nelson.yomukai.ui.web
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
+import com.nelson.yomukai.data.network.BrowserNetwork
+import androidx.compose.material.icons.filled.Security
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.webkit.WebResourceRequest
@@ -66,6 +74,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.nelson.yomukai.data.network.NetworkHelper
 import com.nelson.yomukai.data.repository.PageData
 import com.nelson.yomukai.ui.LocalAppContainer
+import com.nelson.yomukai.data.prefs.BrowserHome
 import org.json.JSONArray
 import org.json.JSONTokener
 
@@ -126,13 +135,13 @@ object WebCapture {
         return url to (w to h)
     }
 
-    fun normalizeUrl(input: String): String {
+    fun normalizeUrl(input: String, home: BrowserHome = BrowserHome.DDG_ONION): String {
         val trimmed = input.trim()
         return when {
-            trimmed.isEmpty() -> "https://duckduckgo.com/"
+            trimmed.isEmpty() -> home.url
             trimmed.startsWith("http://") || trimmed.startsWith("https://") -> trimmed
             trimmed.contains('.') && !trimmed.contains(' ') -> "https://$trimmed"
-            else -> "https://duckduckgo.com/?q=" + java.net.URLEncoder.encode(trimmed, "UTF-8")
+            else -> home.searchUrl + java.net.URLEncoder.encode(trimmed, "UTF-8")
         }
     }
 }
@@ -152,6 +161,10 @@ fun WebCaptureScreen(
     onPlayVideo: (CapturedVideo) -> Unit
 ) {
     val container = LocalAppContainer.current
+    val netState by container.webViewProxy.state.collectAsStateWithLifecycle()
+    val networkSettings by container.preferences.network.collectAsStateWithLifecycle()
+    val home = networkSettings.browserHome
+    var started by remember { mutableStateOf(false) }
     var address by remember { mutableStateOf(TextFieldValue(initialUrl)) }
     var currentUrl by remember { mutableStateOf(initialUrl) }
     var pageTitle by remember { mutableStateOf("") }
@@ -181,6 +194,17 @@ fun WebCaptureScreen(
         }
     }
 
+    // Fail closed: with "browser through Tor" on, nothing is loaded until the proxy is confirmed.
+    LaunchedEffect(netState.ready, webView) {
+        val view = webView ?: return@LaunchedEffect
+        if (netState.ready && !started) {
+            started = true
+            val url = WebCapture.normalizeUrl(initialUrl, home)
+            address = TextFieldValue(url)
+            view.loadUrl(url)
+        }
+    }
+
     BackHandler(enabled = webView?.canGoBack() == true) { webView?.goBack() }
     DisposableEffect(Unit) { onDispose { webView?.destroy() } }
 
@@ -203,10 +227,10 @@ fun WebCaptureScreen(
                             },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
                             keyboardActions = KeyboardActions(onGo = {
-                                val url = WebCapture.normalizeUrl(address.text)
+                                val url = WebCapture.normalizeUrl(address.text, home)
                                 address = TextFieldValue(url)
                                 focusManager.clearFocus()
-                                webView?.loadUrl(url)
+                                if (netState.ready) webView?.loadUrl(url)
                             }),
                             textStyle = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier
@@ -221,9 +245,10 @@ fun WebCaptureScreen(
                         IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Cerrar") }
                     },
                     actions = {
-                        IconButton(onClick = { webView?.reload() }) { Icon(Icons.Default.Refresh, contentDescription = "Recargar") }
+                        IconButton(onClick = { if (netState.ready) webView?.reload() }) { Icon(Icons.Default.Refresh, contentDescription = "Recargar") }
                     }
                 )
+                TorBadge(netState)
                 if (progress in 0.01f..0.99f) LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
             }
         },
@@ -319,11 +344,34 @@ fun WebCaptureScreen(
                                 scanPage()
                             }
                         }
-                        loadUrl(WebCapture.normalizeUrl(initialUrl))
                         webView = this
                     }
                 }
             )
+            if (!netState.ready) {
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    if (netState.viaTor) androidx.compose.material3.CircularProgressIndicator()
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        netState.message ?: "Esperando a la red...",
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "El navegador no carga páginas hasta que Tor esté listo, para no exponer tu conexión.",
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
         }
     }
 
@@ -348,3 +396,25 @@ fun WebCaptureScreen(
     }
 }
 
+
+/** Always-visible indicator of how this browser reaches the internet. */
+@Composable
+private fun TorBadge(net: BrowserNetwork) {
+    val (label, color) = when {
+        net.viaTor && net.ready -> "Conectado a Tor" to Color(0xFF2E7D32)
+        net.viaTor -> (net.message ?: "Conectando a Tor...") to Color(0xFFF9A825)
+        !net.ready -> (net.message ?: "Navegador no disponible") to MaterialTheme.colorScheme.error
+        else -> "Sin Tor (conexión directa)" to MaterialTheme.colorScheme.outline
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(color.copy(alpha = 0.15f))
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(Icons.Default.Security, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium, color = color)
+    }
+}

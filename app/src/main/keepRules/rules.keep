@@ -20,3 +20,7 @@
 -dontwarn org.conscrypt.**
 -dontwarn org.openjsse.**
 -dontwarn com.google.re2j.**
+
+# tor-android: JNI entry points and the control library are used reflectively / from native code.
+-keep class org.torproject.jni.** { *; }
+-keep class net.freehaven.tor.control.** { *; }

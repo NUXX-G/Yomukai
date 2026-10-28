@@ -1,5 +1,8 @@
 package com.nelson.yomukai.ui.settings
 
+import com.nelson.yomukai.data.network.TorPhase
+import com.nelson.yomukai.data.prefs.BrowserHome
+import com.nelson.yomukai.data.prefs.TorMode
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.Manifest
 import android.content.pm.PackageManager
@@ -78,6 +81,7 @@ fun SettingsScreen(
     val manga by viewModel.manga.collectAsStateWithLifecycle()
     val storage by viewModel.storage.collectAsStateWithLifecycle()
     val network by viewModel.network.collectAsStateWithLifecycle()
+    val tor by viewModel.tor.collectAsStateWithLifecycle()
     var confirmHistory by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { viewModel.refreshStorage(context) }
@@ -238,6 +242,88 @@ fun SettingsScreen(
             }
             if (network.proxyType != ProxyType.NONE) {
                 item { ProxyFields(network, onSave = { host, port -> viewModel.updateNetwork { it.copy(proxyHost = host, proxyPort = port) } }) }
+            }
+
+            item { GroupTitle("Tor") }
+            item {
+                Text(
+                    "Enruta fuentes, descargas, vídeo y el navegador por Tor. Cloudflare suele bloquear las salidas de Tor: " +
+                        "desactiva Tor en las fuentes que fallen (lista de abajo) y pruébalas en Diagnóstico de fuentes.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                ChipRow {
+                    TorMode.entries.forEach { mode ->
+                        FilterChip(
+                            selected = network.torMode == mode,
+                            onClick = { viewModel.updateNetwork { it.copy(torMode = mode) } },
+                            label = { Text(mode.displayName) }
+                        )
+                    }
+                }
+            }
+            if (network.torMode != TorMode.OFF) {
+                item {
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                when (tor.phase) {
+                                    TorPhase.CONNECTED -> "Conectado a Tor"
+                                    TorPhase.STARTING -> "Conectando a Tor${if (tor.progress > 0) " (${tor.progress}%)" else ""}..."
+                                    TorPhase.ERROR -> "Error de Tor"
+                                    TorPhase.DISABLED -> "Tor inactivo"
+                                }
+                            )
+                        },
+                        supportingContent = tor.error?.let { { Text(it) } }
+                    )
+                }
+                item {
+                    SwitchItem(
+                        "Fuentes, descargas y vídeo por Tor",
+                        "Mientras Tor no esté conectado, estas peticiones se bloquean en vez de salir sin protección",
+                        network.torRoutesApp
+                    ) { v -> viewModel.updateNetwork { it.copy(torRoutesApp = v) } }
+                }
+                item {
+                    SwitchItem(
+                        "Navegador por Tor",
+                        "El navegador de captura no carga nada hasta que Tor esté conectado",
+                        network.torRoutesBrowser
+                    ) { v -> viewModel.updateNetwork { it.copy(torRoutesBrowser = v) } }
+                }
+                item {
+                    Text("Usar Tor en cada fuente", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                }
+                items(viewModel.sources, key = { "tor-" + it.id }) { source ->
+                    ListItem(
+                        headlineContent = { Text(source.name) },
+                        supportingContent = { Text(if (source.id in network.torExcludedSources) "Conexión directa" else "Por Tor") },
+                        trailingContent = {
+                            Switch(
+                                checked = source.id !in network.torExcludedSources,
+                                onCheckedChange = { useTor ->
+                                    viewModel.updateNetwork {
+                                        it.copy(torExcludedSources = if (useTor) it.torExcludedSources - source.id else it.torExcludedSources + source.id)
+                                    }
+                                }
+                            )
+                        }
+                    )
+                }
+            }
+            item {
+                Text("Página de inicio y buscador del navegador", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                ChipRow {
+                    BrowserHome.entries.forEach { home ->
+                        FilterChip(
+                            selected = network.browserHome == home,
+                            onClick = { viewModel.updateNetwork { it.copy(browserHome = home) } },
+                            label = { Text(home.displayName) }
+                        )
+                    }
+                }
             }
 
             item { GroupTitle("Descargas") }

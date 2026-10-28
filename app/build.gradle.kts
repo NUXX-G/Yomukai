@@ -18,6 +18,11 @@ android {
         versionCode = 7
         versionName = "1.0.0"
 
+        ndk {
+            // tor ships ~7 MB per ABI; 32-bit x86 devices are not supported.
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+        }
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -80,6 +85,10 @@ dependencies {
     implementation(libs.androidx.media3.ui)
     implementation(libs.androidx.media3.session)
     implementation(libs.androidx.media3.datasource.okhttp)
+
+    // Tor (Guardian Project): embedded tor daemon + WebView proxy override
+    implementation(libs.tor.android)
+    implementation(libs.androidx.webkit)
 
     // JSON Parsing (Gson & kotlinx.serialization)
     implementation(libs.gson)

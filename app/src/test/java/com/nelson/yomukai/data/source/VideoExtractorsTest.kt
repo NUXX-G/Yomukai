@@ -1,5 +1,6 @@
 package com.nelson.yomukai.data.source
 
+import com.nelson.yomukai.data.prefs.BrowserHome
 import com.nelson.yomukai.data.source.anime.VideoExtractors
 import com.nelson.yomukai.ui.web.WebCapture
 import org.junit.Assert.assertEquals
@@ -58,8 +59,11 @@ class VideoExtractorsTest {
     fun webCaptureNormalizesAddressBarInput() {
         assertEquals("https://example.com/a", WebCapture.normalizeUrl(" https://example.com/a "))
         assertEquals("https://example.com", WebCapture.normalizeUrl("example.com"))
-        assertTrue(WebCapture.normalizeUrl("one piece").startsWith("https://duckduckgo.com/?q=one+piece"))
-        assertEquals("https://duckduckgo.com/", WebCapture.normalizeUrl(""))
+        // The default search page is the DuckDuckGo onion service (reachable over Tor); it is configurable.
+        assertTrue(WebCapture.normalizeUrl("one piece").endsWith(".onion/?q=one+piece"))
+        assertEquals("https://html.duckduckgo.com/html/?q=one+piece", WebCapture.normalizeUrl("one piece", BrowserHome.DDG_HTML))
+        assertEquals("https://search.brave.com/", WebCapture.normalizeUrl("", BrowserHome.BRAVE))
+        assertEquals(BrowserHome.DDG_ONION.url, WebCapture.normalizeUrl(""))
     }
 
     @Test

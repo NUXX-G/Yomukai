@@ -19,6 +19,7 @@ class AnimeAv1Source(private val network: NetworkHelper) : AnimeSource {
     override val id = "animeav1"
     override val name = "AnimeAV1"
     override val baseUrl = "https://animeav1.com"
+    override val extraHosts = listOf("https://player.zilla-networks.com")
     override val language = "ES"
     override val supportedTypes = setOf(MediaType.ANIME)
     override val supportsLatestPaging = true

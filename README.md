@@ -22,6 +22,13 @@
 | **Actualizaciones en segundo plano** | Un *worker* de WorkManager comprueba periódicamente los títulos de la biblioteca y envía una **notificación** cuando hay capítulos o episodios nuevos (frecuencia configurable, opción solo Wi-Fi). |
 | **Navegador con captura** | WebView integrado: pega cualquier enlace y Yomukai detecta los **flujos de vídeo** (m3u8/mp4) que carga la página y las **imágenes del capítulo**, para reproducirlos o leerlos en sus visores nativos. |
 | **Red** | Limitación de peticiones, reintentos, cookies compartidas con WebView para superar desafíos de Cloudflare, **DNS sobre HTTPS** y **proxy HTTP/SOCKS5** (p. ej. Orbot/Tor) para sitios bloqueados por el operador. |
+| **Catálogo por fuente** | Desde Explorar entras en cualquier fuente y ves su catálogo completo con **scroll infinito** y **filtros propios de cada web** (orden, estado, tipo, género/editorial, idioma de capítulos, según lo que soporte cada una). |
+| **Búsqueda inteligente** | Insensible a mayúsculas, tildes y puntuación; tolera erratas y coincidencias parciales; busca en títulos alternativos; ordena por relevancia, **agrupa duplicados entre fuentes**, con historial y sugerencias. |
+| **Lectura continua** | En manga vertical, cómic y novela el capítulo siguiente se añade solo al final, con separador «Capítulo X»; el progreso y el historial siguen al capítulo visible. **Índice de capítulos** con búsqueda, **marcadores**, auto-scroll, recorte de bordes, filtros de color, bloqueo de orientación; en novelas **lectura en voz alta** y búsqueda en el capítulo. |
+| **Reproductor** | Siguiente episodio automático, índice de episodios, velocidad 0,5–2x, salto de +85 s, imagen en imagen y posición recordada por episodio. |
+| **Descargas seguras** | Manga, novelas y **anime** (HLS con Media3 y MP4 con reanudación). «Descargar todo», no leídos o un rango. Solo HTTPS, comprobación de tipo y tamaño, almacenamiento privado, límite de descargas simultáneas y solo Wi-Fi. |
+| **Tor** | Tor integrado (Guardian Project `tor-android`) u Orbot: fuentes, descargas, vídeo y navegador por Tor, con indicador «Conectado a Tor», bloqueo en vez de fuga mientras no hay conexión y **Tor activable por fuente** (Cloudflare suele bloquear Tor). Buscador del navegador configurable (por defecto DuckDuckGo .onion). |
+| **Diagnóstico** | Ajustes › Diagnóstico de fuentes prueba novedades, búsqueda, detalle, capítulos y lectura/reproducción de cada fuente. |
 
 ### Fuentes
 
@@ -37,9 +44,11 @@
 | LectorTMO | Manga | ES | HTML (tema propio) |
 | TuNovelaLigera | Novela | ES | HTML (Madara) + AJAX |
 | AnimeAV1 | Anime | ES | Datos SvelteKit + extractores |
-| LectorManga, SurtrScans | — | — | *Experimentales* (desactivadas por defecto: protegidas por Cloudflare/Wordfence o inestables) |
+| LectorManga, SurtrScans, ReadAllComics | — | — | *Experimentales / sin implementar* (sin respuesta o protegidas por Cloudflare; ReadAllComics pendiente de captura vía Tor). AnimeFLV se eliminó: su dominio original dejó de funcionar. |
 
 Los sitios web cambian con frecuencia; una fuente puede dejar de funcionar sin previo aviso.
+
+> **Tor y Cloudflare:** muchos sitios protegidos por Cloudflare bloquean las salidas de Tor. Desactiva «Usar Tor» en esas fuentes (Ajustes › Tor) y comprueba cada una en Ajustes › Diagnóstico de fuentes.
 
 ### Compilar
 
@@ -68,6 +77,13 @@ cd Yomukai
 | **Background updates** | A WorkManager worker periodically checks library titles and posts a **notification** when new chapters/episodes appear (configurable interval, Wi-Fi only option). |
 | **Capture browser** | Built-in WebView: paste any link and Yomukai detects the **video streams** (m3u8/mp4) the page loads and the **chapter images**, then plays/reads them in its native viewers. |
 | **Networking** | Per-host rate limiting, retries, cookies shared with WebView to pass Cloudflare challenges, **DNS-over-HTTPS** and an **HTTP/SOCKS5 proxy** (e.g. Orbot/Tor) for ISP-blocked sites. |
+| **Per-source catalogue** | From Browse open any source and scroll its full catalogue with **infinite scroll** and **per-site filters** (sort, status, type, genre/publisher, chapter language — whatever each site supports). |
+| **Smart search** | Case-, accent- and punctuation-insensitive; typo tolerant with partial matches; searches alternative titles; ranked by relevance, **duplicates grouped across sources**, with history and suggestions. |
+| **Continuous reading** | In vertical manga, comics and novels the next chapter is appended automatically with a "Chapter X" separator; progress and history follow the visible chapter. Searchable **chapter index**, **bookmarks**, auto-scroll, border crop, colour filters, orientation lock; novels add **text-to-speech** and in-chapter search. |
+| **Player** | Auto-play next episode, episode index, 0.5–2x speed, +85 s skip, picture-in-picture and per-episode resume. |
+| **Safe downloads** | Manga, novels and **anime** (HLS via Media3, resumable MP4). "Download all", unread or a range. HTTPS only, content-type/size checks, private storage, concurrency limit and Wi-Fi-only. |
+| **Tor** | Embedded Tor (Guardian Project `tor-android`) or Orbot: sources, downloads, video and the browser over Tor, with a "Connected to Tor" indicator, fail-closed while disconnected and **per-source Tor toggle** (Cloudflare often blocks Tor). Configurable browser start page/search (default DuckDuckGo .onion). |
+| **Diagnostics** | Settings › Source diagnostics tests latest, search, details, chapters and reading/playback of every source. |
 
 ### Tech stack
 
@@ -76,7 +92,8 @@ cd Yomukai
 - **Room** (KSP) with exported schemas and migrations
 - **WorkManager** for background update checks
 - **Coil 3** for images (shares the app's OkHttp client)
-- **Media3 / ExoPlayer** (HLS + progressive) for video
+- **Media3 / ExoPlayer** (HLS + progressive, offline downloads) for video
+- **tor-android** (Guardian Project) and **androidx.webkit** ProxyController for Tor routing
 - **OkHttp** (+ DNS-over-HTTPS) for networking — Ktor is not used
 - **Jsoup** and **Gson** for scraping and JSON parsing
 

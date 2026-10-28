@@ -40,6 +40,13 @@ class SourceManager(network: NetworkHelper) {
 
     fun get(id: String): CatalogueSource? = byId[id]
 
+    /** Registrable domains of the given sources (own site plus CDNs/players), used for per-source Tor exclusion. */
+    fun domainsOf(ids: Set<String>): Set<String> =
+        com.nelson.yomukai.data.network.TorRouting.domainsOf(
+            ids.mapNotNull { byId[it] }.flatMap { listOf(it.baseUrl) + it.extraHosts + (it.imageHeaders["Referer"] ?: "") }
+                .filter { it.isNotBlank() }
+        )
+
     /** [enabledIds] null means "user never customised the list". */
     fun enabled(enabledIds: Set<String>?): List<CatalogueSource> {
         val ids = enabledIds ?: defaultEnabledIds
