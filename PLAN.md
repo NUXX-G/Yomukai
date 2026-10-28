@@ -28,7 +28,10 @@ Estado: retomar leyendo este fichero. Marcar `[x]` al cerrar. Cada fase: build +
 - [ ] Limitado: Olympus, Flame y SkyNovels no exponen paginación/filtros verificables (solo listado reciente, sin scroll); Royal Road y AnimeAV1 pagian pero sin filtros declarados todavía; el filtro de género de Asura no tiene parámetro de API conocido
 
 ## Fase 4 — Buscador inteligente
-- [ ]
+- [x] Motor `SmartSearch` (puro, con tests): normalización Normalizer NFD + minúsculas + sin puntuación, tolerancia a erratas (Levenshtein por palabra + trigramas), coincidencia parcial/prefijo, títulos alternativos (`MediaItem.altTitles`: MangaDex, Asura, Marmota), puntuación de relevancia
+- [x] Las fuentes solo buscan literalmente, así que se consultan variantes relajadas (palabra más larga / recortada) si hay <5 resultados y luego se reordena en cliente
+- [x] Resultados ordenados por relevancia y agrupados entre fuentes (clave sin sufijos «(2026)»); chips «También en»; aviso de fuentes sin respuesta
+- [x] Historial de búsquedas (20, persistente) y sugerencias (historial + títulos de la biblioteca); debounce 400 ms y cancelación de la búsqueda anterior
 
 ## Fase 5 — Lector/reproductor
 - [ ]

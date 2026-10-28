@@ -78,6 +78,27 @@ class AppPreferences(context: Context) {
     private val _network = MutableStateFlow(readNetwork())
     val network: StateFlow<NetworkSettings> = _network.asStateFlow()
 
+    private val _searchHistory = MutableStateFlow(
+        prefs.getString("search_history", "").orEmpty().split('\n').filter { it.isNotBlank() }
+    )
+    val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
+
+    private fun saveHistory(list: List<String>) {
+        prefs.edit().putString("search_history", list.joinToString("\n")).apply()
+        _searchHistory.value = list
+    }
+
+    /** Most recent first, case-insensitive de-duplication, capped at [SEARCH_HISTORY_LIMIT]. */
+    fun addSearchHistory(query: String) {
+        val q = query.trim().replace('\n', ' ')
+        if (q.length < 2) return
+        saveHistory((listOf(q) + _searchHistory.value.filterNot { it.equals(q, ignoreCase = true) }).take(SEARCH_HISTORY_LIMIT))
+    }
+
+    fun removeSearchHistory(query: String) = saveHistory(_searchHistory.value - query)
+
+    fun clearSearchHistory() = saveHistory(emptyList())
+
     fun updateNetwork(transform: (NetworkSettings) -> NetworkSettings) {
         val value = transform(_network.value)
         prefs.edit()
@@ -168,3 +189,5 @@ class AppPreferences(context: Context) {
     private inline fun <reified T : Enum<T>> enumOr(name: String?, default: T): T =
         enumValues<T>().firstOrNull { it.name == name } ?: default
 }
+
+private const val SEARCH_HISTORY_LIMIT = 20

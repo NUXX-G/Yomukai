@@ -1,5 +1,12 @@
 package com.nelson.yomukai.ui.search
 
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.AssistChip
+import com.nelson.yomukai.ui.components.MediaListRow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -129,48 +136,42 @@ fun SearchScreen(
                 .padding(padding)
         ) {
             when {
-                !state.hasSearched -> MessageState(
-                    "Busca manga, novelas y anime en todas las fuentes activas a la vez.",
-                    icon = Icons.Default.Search
+                !state.hasSearched -> SuggestionsAndHistory(
+                    state = state,
+                    onPick = viewModel::pickSuggestion,
+                    onRemove = viewModel::removeFromHistory,
+                    onClear = viewModel::clearHistory
                 )
 
-                state.results.isEmpty() -> MessageState("No hay fuentes activas que coincidan con los filtros.")
+                state.sources.isEmpty() -> MessageState("No hay fuentes activas que coincidan con los filtros.")
 
-                state.results.none { it.isLoading } && state.results.all { it.items.isEmpty() } ->
-                    MessageState("Sin resultados para \"${state.query}\"", icon = Icons.Default.Search)
+                state.groups.isEmpty() && !state.isSearching ->
+                    Column(Modifier.fillMaxSize()) {
+                        SourceStatus(state.sources)
+                        MessageState("Sin resultados para \"${state.query}\"", icon = Icons.Default.Search)
+                    }
 
                 else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-                    items(state.results, key = { it.sourceId }) { section ->
+                    item(key = "status") { SourceStatus(state.sources) }
+                    items(state.groups, key = { it.primary.sourceId + "|" + it.primary.id }) { group ->
                         Column {
-                            SectionHeader(section.sourceName, action = { LanguageTag(section.language) })
-                            when {
-                                section.isLoading -> Box(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .height(80.dp),
-                                    contentAlignment = Alignment.Center
-                                ) { CircularProgressIndicator() }
-
-                                section.error != null -> Text(
-                                    "Error: ${section.error}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.padding(horizontal = 16.dp)
-                                )
-
-                                section.items.isEmpty() -> Text(
-                                    "Sin resultados",
-                                    style = MaterialTheme.typography.bodySmall,
+                            MediaListRow(group.primary, onClick = { onMediaClick(group.primary) })
+                            if (group.others.isNotEmpty()) {
+                                Text(
+                                    "También en:",
+                                    style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                    modifier = Modifier.padding(start = 84.dp)
                                 )
-
-                                else -> LazyRow(
-                                    contentPadding = PaddingValues(horizontal = 16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                LazyRow(
+                                    contentPadding = PaddingValues(start = 84.dp, end = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    items(section.items, key = { it.id }) { item ->
-                                        MediaCard(item, onClick = { onMediaClick(item) }, modifier = Modifier.width(115.dp))
+                                    items(group.others, key = { it.sourceId + "|" + it.id }) { other ->
+                                        AssistChip(
+                                            onClick = { onMediaClick(other) },
+                                            label = { Text(viewModel.sourceName(other.sourceId)) }
+                                        )
                                     }
                                 }
                             }
@@ -179,5 +180,66 @@ fun SearchScreen(
                 }
             }
         }
+    }
+}
+
+/** One line per source that failed, so a partial result list is never mistaken for a complete one. */
+@Composable
+private fun SourceStatus(sources: List<SourceProgress>) {
+    val failed = sources.filter { it.error != null }
+    if (failed.isEmpty()) return
+    Text(
+        "Sin respuesta: " + failed.joinToString { it.name },
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.error,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+    )
+}
+
+@Composable
+private fun SuggestionsAndHistory(
+    state: SearchUiState,
+    onPick: (String) -> Unit,
+    onRemove: (String) -> Unit,
+    onClear: () -> Unit
+) {
+    val showSuggestions = state.suggestions.isNotEmpty()
+    when {
+        showSuggestions -> LazyColumn(Modifier.fillMaxSize()) {
+            items(state.suggestions, key = { "s:$it" }) { text ->
+                ListItem(
+                    headlineContent = { Text(text) },
+                    leadingContent = { Icon(Icons.Default.Search, null) },
+                    modifier = Modifier.clickable { onPick(text) }
+                )
+            }
+        }
+
+        state.history.isNotEmpty() -> LazyColumn(Modifier.fillMaxSize()) {
+            item(key = "hdr") {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Búsquedas recientes", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                    TextButton(onClick = onClear) { Text("Borrar todo") }
+                }
+            }
+            items(state.history, key = { "h:$it" }) { text ->
+                ListItem(
+                    headlineContent = { Text(text) },
+                    leadingContent = { Icon(Icons.Default.History, null) },
+                    trailingContent = {
+                        IconButton(onClick = { onRemove(text) }) { Icon(Icons.Default.Clear, contentDescription = "Quitar") }
+                    },
+                    modifier = Modifier.clickable { onPick(text) }
+                )
+            }
+        }
+
+        else -> MessageState(
+            "Busca manga, cómics, novelas y anime en todas las fuentes activas a la vez.",
+            icon = Icons.Default.Search
+        )
     }
 }
