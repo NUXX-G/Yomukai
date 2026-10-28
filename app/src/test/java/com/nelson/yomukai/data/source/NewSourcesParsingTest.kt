@@ -71,6 +71,23 @@ class NewSourcesParsingTest {
     }
 
     @Test
+    fun lectorTmoChapterCardsAndPages() {
+        val series = "https://lectortmo.vip/manga/berserk/"
+        val chapters = LectorTmoSource.parseChapterLinks(
+            org.jsoup.Jsoup.parse(fixture("lectortmo_series.html"), series), series
+        )
+        assertTrue(chapters.size >= 10)
+        assertTrue(chapters.all { "/manga-chapter/berserk-cap-" in it.url })
+        assertTrue(chapters.any { it.title == "Capítulo 0.05" && it.chapterNumber == 0.05f })
+        val pages = LectorTmoSource.parsePages(
+            org.jsoup.Jsoup.parse(fixture("lectortmo_chapter.html"), "https://lectortmo.vip/manga-chapter/berserk-cap-000-01/")
+        )
+        assertTrue(pages.size >= 10)
+        assertEquals("https://repelishd.onl/mangax/berserk/vol-1/chapter-000.01/01.webp", pages.first())
+        assertTrue(pages.all { it.startsWith("https://") })
+    }
+
+    @Test
     fun detectsFirewallBlockPages() {
         assertEquals("Wordfence", NetworkHelper.detectProtection(503,
             "<html><title>Tu acceso a este sitio ha sido limitado por el propietario del sitio.</title></html>"))

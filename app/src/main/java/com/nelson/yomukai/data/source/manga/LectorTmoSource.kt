@@ -22,7 +22,7 @@ class LectorTmoSource(private val network: NetworkHelper) : MangaSource {
     override val baseUrl = "https://lectortmo.vip"
     override val language = "ES"
     override val supportedTypes = setOf(MediaType.MANGA, MediaType.MANHWA, MediaType.MANHUA)
-    override val isExperimental = true
+    override val supportsLatestPaging = false
 
     private suspend fun document(url: String): Document =
         Jsoup.parse(network.getString(url, mapOf("Referer" to "$baseUrl/")), url)
@@ -42,11 +42,11 @@ class LectorTmoSource(private val network: NetworkHelper) : MangaSource {
             .asSequence().map { it.ownText().trim() }
             .firstOrNull { it.matches(Regex("(?i)(en emisi[oó]n|publicándose|en curso|finalizado|completado|pausado|cancelado)")) }
         media.copy(
-            title = doc.selectFirst("h1")?.text()?.trim()?.ifBlank { null } ?: meta("og:title").substringBefore(" – ").ifBlank { media.title },
+            title = doc.selectFirst("h1.font-extrabold, h1")?.text()?.trim()?.ifBlank { null } ?: meta("og:title").substringBefore(" – ").ifBlank { media.title },
             coverUrl = media.coverUrl.ifBlank { meta("og:image") },
             description = doc.selectFirst(".summary__content, .description-summary, .manga-excerpt, [itemprop=description], .entry-content")
                 ?.text()?.trim().orEmpty().ifBlank { meta("og:description") },
-            genres = doc.select("a[href*=/manga-genre/]").map { it.text().trim() }.filter { it.isNotEmpty() }.distinct(),
+            genres = doc.select("a.rounded-full[href*=/manga-genre/]").map { it.text().trim() }.filter { it.isNotEmpty() }.distinct(),
             status = statusText.orEmpty()
         )
     }
@@ -96,37 +96,30 @@ class LectorTmoSource(private val network: NetworkHelper) : MangaSource {
         }
 
         fun parseChapterLinks(doc: Document, seriesUrl: String): List<Chapter> {
-            val base = seriesUrl.trimEnd('/') + "/"
-            val links = doc.select("a[href]")
-                .filter { a -> a.absUrl("href").let { it.startsWith(base) && it.length > base.length && "#" !in it } }
-                .distinctBy { it.absUrl("href") }
-            val total = links.size
-            return links.mapIndexed { idx, a ->
+            // Current theme: <a class="chapter-card" href=".../manga-chapter/{slug}-cap-X/"> with number and date spans.
+            val cards = doc.select("a.chapter-card[href]")
+            val total = cards.size
+            return cards.mapIndexed { idx, a ->
                 val url = a.absUrl("href")
-                val title = a.text().trim().ifBlank { url.removePrefix(base).trim('/').replace('-', ' ') }
+                val title = a.select("span").map { it.text().trim() }
+                    .firstOrNull { it.startsWith("Cap", ignoreCase = true) }
+                    ?: a.text().trim().ifBlank { url.trimEnd('/').substringAfterLast('/').replace('-', ' ') }
                 Chapter(
                     id = url,
                     mediaId = seriesUrl,
                     title = title,
-                    chapterNumber = SourceUtils.parseChapterNumber(title.ifBlank { url }, (total - idx).toFloat()),
+                    chapterNumber = SourceUtils.parseChapterNumber(title, (total - idx).toFloat()),
                     url = url,
-                    dateUploaded = ""
+                    dateUploaded = a.select("span").map { it.text().trim() }
+                        .firstOrNull { Regex("""\d{2}/\d{2}/\d{4}""").matches(it) }.orEmpty()
                 )
-            }
+            }.distinctBy { it.id }
         }
 
-        fun parsePages(doc: Document): List<String> {
-            val scoped = doc.select(".reading-content img, #chapter-reader img, .chapter-content img, #readerarea img, .reader-area img")
-                .map { SourceUtils.imageUrl(it) }.filter { it.isNotBlank() }
-            if (scoped.isNotEmpty()) return scoped.distinct()
-            // Fallback: the largest set of images stored in the same folder is the chapter.
-            return doc.select("img").map { SourceUtils.imageUrl(it) }
-                .filter { it.isNotBlank() && !it.contains("logo", true) && !it.contains("avatar", true) }
-                .groupBy { it.substringBeforeLast('/') }
-                .values.maxByOrNull { it.size }
-                ?.takeIf { it.size >= 2 }
-                ?.distinct()
-                .orEmpty()
-        }
+        fun parsePages(doc: Document): List<String> =
+            doc.select("#reader-strip img")
+                .map { SourceUtils.imageUrl(it) }
+                .filter { it.isNotBlank() }
+                .distinct()
     }
 }
