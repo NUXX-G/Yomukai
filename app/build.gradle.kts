@@ -15,8 +15,8 @@ android {
         applicationId = "com.nelson.yomukai"
         minSdk = 26
         targetSdk = 37
-        versionCode = 8
-        versionName = "1.1.0"
+        versionCode = 9
+        versionName = "1.1.1"
 
         ndk {
             // tor ships ~7 MB per ABI; 32-bit x86 devices are not supported.
@@ -37,6 +37,10 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+    sourceSets {
+        // Exported Room schemas feed MigrationTestHelper.
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
     }
     buildFeatures {
         compose = true
@@ -103,6 +107,7 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.room.testing)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

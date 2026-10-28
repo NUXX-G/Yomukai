@@ -74,7 +74,14 @@ class TorManager(
         scope.launch {
             settings.map { s -> s.torMode.takeIf { s.torRoutesApp || s.torRoutesBrowser } ?: TorMode.OFF }
                 .distinctUntilChanged()
-                .collect { mode -> apply(mode) }
+                .collect { mode ->
+                    try {
+                        apply(mode)
+                    } catch (e: Throwable) {
+                        Log.e(TAG, "Tor no pudo iniciarse; la app sigue funcionando sin él", e)
+                        _state.value = TorState(TorPhase.ERROR, mode = mode, error = e.message ?: "Tor no pudo iniciarse")
+                    }
+                }
         }
     }
 

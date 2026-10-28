@@ -47,7 +47,14 @@ class WebViewProxy(
     init {
         scope.launch {
             combine(settings, tor.distinctUntilChangedBy { Triple(it.phase, it.socksPort, it.httpPort) }) { s, t -> s to t }
-                .collect { (s, t) -> withContext(Dispatchers.Main) { apply(s, t) } }
+                .collect { (s, t) ->
+                    try {
+                        withContext(Dispatchers.Main) { apply(s, t) }
+                    } catch (e: Throwable) {
+                        val wantTor = s.torMode != TorMode.OFF && s.torRoutesBrowser
+                        _state.value = BrowserNetwork(!wantTor, wantTor, if (wantTor) "No se pudo configurar el proxy del navegador" else null)
+                    }
+                }
         }
     }
 

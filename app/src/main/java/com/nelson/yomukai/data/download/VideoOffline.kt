@@ -31,9 +31,9 @@ import java.util.concurrent.Executors
 @OptIn(UnstableApi::class)
 class VideoOffline(context: Context, private val network: NetworkHelper) {
     private val appContext = context.applicationContext
-    private val databaseProvider: DatabaseProvider = StandaloneDatabaseProvider(appContext)
+    private val databaseProvider: DatabaseProvider by lazy { StandaloneDatabaseProvider(appContext) }
 
-    val cache = SimpleCache(File(appContext.filesDir, "downloads/hls_cache"), NoOpCacheEvictor(), databaseProvider)
+    val cache by lazy { SimpleCache(File(appContext.filesDir, "downloads/hls_cache"), NoOpCacheEvictor(), databaseProvider) }
 
     /** Referer to send per host, registered when a download or playback starts. */
     private val refererByHost = ConcurrentHashMap<String, String>()
@@ -62,14 +62,18 @@ class VideoOffline(context: Context, private val network: NetworkHelper) {
             .setUserAgent(NetworkHelper.USER_AGENT)
             .apply { if (referer.isNotBlank()) setDefaultRequestProperties(mapOf("Referer" to referer)) }
 
-    val cacheDataSourceFactory: DataSource.Factory = CacheDataSource.Factory()
+    val cacheDataSourceFactory: DataSource.Factory by lazy {
+        CacheDataSource.Factory()
         .setCache(cache)
         .setUpstreamDataSourceFactory(upstreamFactory)
         .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+    }
 
-    val downloadManager: DownloadManager = DownloadManager(
+    val downloadManager: DownloadManager by lazy {
+        DownloadManager(
         appContext, databaseProvider, cache, upstreamFactory, Executors.newFixedThreadPool(2)
     ).apply { maxParallelDownloads = 2 }
+    }
 
     companion object {
         const val CHANNEL_ID = "video_downloads"

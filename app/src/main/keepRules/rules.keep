@@ -24,3 +24,8 @@
 # tor-android: JNI entry points and the control library are used reflectively / from native code.
 -keep class org.torproject.jni.** { *; }
 -keep class net.freehaven.tor.control.** { *; }
+
+# Kotlin stdlib multi-file facades (StringsKt__IndentKt <- StringsKt__StringBuilderKt <- ...) extend package-private
+# classes. If R8 repackages them into different packages the app dies at start-up with
+# "IllegalAccessError: Class kotlin.text.i extended by class ... is inaccessible" (seen on v1.1.0).
+-keep class kotlin.**.*Kt__* { *; }
