@@ -364,8 +364,17 @@ private fun DownloadsTab(
                     Text(d.chapterTitle, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     val statusText = when (d.status) {
                         DownloadStatus.QUEUED -> "En cola"
-                        DownloadStatus.DOWNLOADING -> if (d.total > 0) "Descargando ${d.progress}/${d.total}" else "Descargando..."
-                        DownloadStatus.COMPLETED -> if (d.isNovel) "Disponible sin conexión" else "Disponible sin conexión • ${d.total} páginas"
+                        // Episodes report a percentage (progress of 100); chapters report pages.
+                        DownloadStatus.DOWNLOADING -> when {
+                            d.total <= 0 -> "Descargando..."
+                            d.isVideo -> "Descargando ${d.progress} %"
+                            else -> "Descargando ${d.progress}/${d.total}"
+                        }
+                        DownloadStatus.COMPLETED -> when {
+                            d.isVideo -> "Disponible sin conexión" + if (d.videoServer.isNotBlank()) " • ${d.videoServer}" else ""
+                            d.isNovel -> "Disponible sin conexión"
+                            else -> "Disponible sin conexión • ${d.total} páginas"
+                        }
                         DownloadStatus.FAILED -> "Error: ${d.error ?: "desconocido"}"
                     }
                     Text(
