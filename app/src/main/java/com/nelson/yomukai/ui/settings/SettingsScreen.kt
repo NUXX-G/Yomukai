@@ -1,5 +1,6 @@
 package com.nelson.yomukai.ui.settings
 
+import com.nelson.yomukai.BuildConfig
 import com.nelson.yomukai.data.network.TorPhase
 import com.nelson.yomukai.data.prefs.BrowserHome
 import com.nelson.yomukai.data.prefs.TorMode
@@ -391,7 +392,7 @@ fun SettingsScreen(
             item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
             item {
                 ListItem(
-                    headlineContent = { Text("Yomukai 1.0") },
+                    headlineContent = { Text("Yomukai ${BuildConfig.VERSION_NAME}") },
                     supportingContent = { Text("Manga, manhwa, novelas ligeras y anime. Sin cuentas ni seguimiento.") },
                     leadingContent = { Icon(Icons.Default.Info, null) }
                 )
