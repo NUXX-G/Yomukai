@@ -40,6 +40,9 @@ data class TorState(
     val error: String? = null
 ) {
     val isConnected get() = phase == TorPhase.CONNECTED && socksPort > 0
+
+    /** Shown while connecting; the embedded daemon reports its bootstrap percentage (Orbot does not). */
+    val connectingLabel get() = if (mode == TorMode.BUILTIN) "Conectando a Tor ($progress %)..." else "Conectando a Tor..."
 }
 
 /**

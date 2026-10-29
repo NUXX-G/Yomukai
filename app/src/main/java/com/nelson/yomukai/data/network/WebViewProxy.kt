@@ -72,7 +72,7 @@ class WebViewProxy(
             return
         }
         if (!tor.isConnected) {
-            _state.value = BrowserNetwork(false, true, tor.error ?: "Conectando a Tor${if (tor.progress > 0) " (${tor.progress}%)" else ""}...")
+            _state.value = BrowserNetwork(false, true, tor.error ?: tor.connectingLabel)
             return
         }
         // Prefer Tor's HTTP CONNECT tunnel (remote DNS); otherwise SOCKS5.

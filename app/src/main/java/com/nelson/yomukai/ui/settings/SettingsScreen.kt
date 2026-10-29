@@ -270,7 +270,7 @@ fun SettingsScreen(
                             Text(
                                 when (tor.phase) {
                                     TorPhase.CONNECTED -> "Conectado a Tor"
-                                    TorPhase.STARTING -> "Conectando a Tor${if (tor.progress > 0) " (${tor.progress}%)" else ""}..."
+                                    TorPhase.STARTING -> tor.connectingLabel
                                     TorPhase.ERROR -> "Error de Tor"
                                     TorPhase.DISABLED -> "Tor inactivo"
                                 }

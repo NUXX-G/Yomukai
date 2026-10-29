@@ -1,6 +1,9 @@
 package com.nelson.yomukai.data
 
 import com.nelson.yomukai.data.network.TorManager
+import com.nelson.yomukai.data.network.TorPhase
+import com.nelson.yomukai.data.network.TorState
+import com.nelson.yomukai.data.prefs.TorMode
 import com.nelson.yomukai.data.network.TorProxySelector
 import com.nelson.yomukai.data.network.TorRouting
 import org.junit.Assert.assertEquals
@@ -44,5 +47,13 @@ class TorRoutingTest {
         assertEquals(100, TorManager.parseBootstrap("NOTICE BOOTSTRAP PROGRESS=100 TAG=done SUMMARY=\"Done\""))
         assertNull(TorManager.parseBootstrap(null))
         assertNull(TorManager.parseBootstrap("garbage"))
+    }
+
+    @Test
+    fun connectingLabelAlwaysShowsEmbeddedProgress() {
+        // Offline the embedded daemon stays at 0 %; the percentage is still shown so the UI is never ambiguous.
+        assertEquals("Conectando a Tor (0 %)...", TorState(TorPhase.STARTING, 0, mode = TorMode.BUILTIN).connectingLabel)
+        assertEquals("Conectando a Tor (45 %)...", TorState(TorPhase.STARTING, 45, mode = TorMode.BUILTIN).connectingLabel)
+        assertEquals("Conectando a Tor...", TorState(TorPhase.STARTING, mode = TorMode.ORBOT).connectingLabel)
     }
 }
