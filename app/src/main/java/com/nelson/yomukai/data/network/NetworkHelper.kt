@@ -67,6 +67,13 @@ class NetworkHelper(
     private val cache = Cache(File(context.cacheDir, "http_cache"), 25L * 1024 * 1024)
     private val cookieJar = WebViewCookieJar()
 
+    /**
+     * Resolves source ids to the domains that must skip Tor; set once the SourceManager exists.
+     * Declared before [client]: the first [buildClient] call reads it when Tor was left enabled.
+     */
+    @Volatile
+    var domainsOfSources: (Set<String>) -> Set<String> = { emptySet() }
+
     @Volatile
     var client: OkHttpClient = buildClient(settings.value, tor.value)
         private set
@@ -79,10 +86,6 @@ class NetworkHelper(
             combine(settings, tor.distinctUntilChangedBy { Triple(it.phase, it.socksPort, it.mode) }) { s, t -> s to t }.collect { (s, t) -> client = buildClient(s, t) }
         }
     }
-
-    /** Resolves source ids to the domains that must skip Tor; set once the SourceManager exists. */
-    @Volatile
-    var domainsOfSources: (Set<String>) -> Set<String> = { emptySet() }
 
     private fun buildClient(settings: NetworkSettings, torState: TorState): OkHttpClient {
         val builder = OkHttpClient.Builder()
