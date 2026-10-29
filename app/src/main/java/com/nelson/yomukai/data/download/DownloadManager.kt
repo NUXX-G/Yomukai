@@ -24,7 +24,6 @@ import com.nelson.yomukai.data.source.AnimeSource
 import com.nelson.yomukai.data.source.MangaSource
 import com.nelson.yomukai.data.source.NovelSource
 import com.nelson.yomukai.data.source.SourceManager
-import com.nelson.yomukai.ui.player.pickServer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -105,7 +104,9 @@ class DownloadManager(
         wakeUp.trySend(Unit)
     }
 
-    suspend fun retry(sourceId: String, chapterId: String) {
+    /** Requeues a download; for an episode, [server] (when given) is tried before the others. */
+    suspend fun retry(sourceId: String, chapterId: String, server: String? = null) {
+        if (server != null) dao.setVideoServer(sourceId, chapterId, server)
         dao.updateState(sourceId, chapterId, DownloadStatus.QUEUED, 0, 0, null)
         wakeUp.trySend(Unit)
     }
@@ -297,19 +298,73 @@ class DownloadManager(
 
     // --- anime ------------------------------------------------------------------------------
 
+    /**
+     * Streams are extracted right here, just before downloading, because their URLs carry tokens that
+     * expire. Every downloadable server is tried in turn (the user's pick first); each one is checked
+     * with a small request before committing to it, and the failure of each is reported.
+     */
     private suspend fun downloadEpisode(download: DownloadEntity, source: AnimeSource, dir: File) {
         val servers = source.fetchVideoSources(download.chapterUrl).getOrThrow()
-        val server = pickServer(servers, "") ?: error("Este episodio solo tiene servidores que no se pueden descargar")
-        val url = DownloadSecurity.requireSecureUrl(server.videoUrl)
-        val referer = server.headers["Referer"].orEmpty()
-        val hls = url.contains("m3u8", ignoreCase = true)
-        dao.upsert(download.copy(isVideo = true, isHls = hls, videoUrl = url, videoReferer = referer, status = DownloadStatus.DOWNLOADING))
-        if (hls) downloadHls(download, url, referer) else downloadMp4(download, url, referer, dir)
+        val candidates = EpisodeServers.candidates(servers, download.videoServer)
+        val browserOnly = servers.filterNot(EpisodeServers::isDownloadable).map { it.serverName }.distinct()
+        val failures = mutableListOf<Pair<String, String>>()
+        for (server in candidates) {
+            if (dao.get(download.sourceId, download.chapterId) == null) return
+            val url = server.videoUrl
+            val hls = url.contains("m3u8", ignoreCase = true)
+            try {
+                if (hls) probeHls(url, server.headers)
+                dao.upsert(
+                    download.copy(
+                        isVideo = true, isHls = hls, videoUrl = url, videoReferer = server.headers["Referer"].orEmpty(),
+                        videoServer = server.serverName, status = DownloadStatus.DOWNLOADING
+                    )
+                )
+                if (hls) downloadHls(download, url, server.headers) else downloadMp4(download, url, server.headers, dir, server.serverName)
+                return
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Servidor ${server.serverName} no se pudo descargar: $url", e)
+                failures += server.serverName to EpisodeServers.reason(e)
+                if (hls) runCatching { videoOffline.downloadManager.removeDownload(url) }
+            }
+        }
+        throw IOException(EpisodeServers.failureMessage(failures, browserOnly))
     }
 
-    private suspend fun downloadHls(download: DownloadEntity, url: String, referer: String) {
+    /** Fetches the playlist (and the variant) and the first piece of media, so a blocked server fails in seconds. */
+    private fun probeHls(url: String, headers: Map<String, String>) {
+        var playlistUrl = url
+        var playlist = fetchText(playlistUrl, headers)
+        if (!playlist.trimStart().startsWith("#EXTM3U")) throw IOException("la lista de reproducción no es válida")
+        EpisodeServers.hlsFirstVariant(playlist, playlistUrl)?.let { variant ->
+            playlistUrl = variant
+            playlist = fetchText(variant, headers)
+        }
+        val first = EpisodeServers.hlsFirstSegment(playlist, playlistUrl) ?: throw IOException("la lista de reproducción está vacía")
+        val request = Request.Builder().url(DownloadSecurity.requireSecureUrl(first))
+            .apply { headers.forEach { (k, v) -> header(k, v) } }
+            .header("Range", "bytes=0-1023")
+            .build()
+        network.client.newCall(request).execute().use { if (!it.isSuccessful) throw HttpException(it.code, first) }
+    }
+
+    private fun fetchText(url: String, headers: Map<String, String>): String {
+        val request = Request.Builder().url(DownloadSecurity.requireSecureUrl(url))
+            .apply { headers.forEach { (k, v) -> header(k, v) } }
+            .build()
+        return network.client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw HttpException(response.code, url)
+            val body = response.body ?: throw IOException("Respuesta vacía")
+            DownloadSecurity.checkDeclaredSize(body.contentLength(), DownloadSecurity.MAX_TEXT_BYTES)
+            body.string()
+        }
+    }
+
+    private suspend fun downloadHls(download: DownloadEntity, url: String, headers: Map<String, String>) {
         val manager = videoOffline.downloadManager
-        videoOffline.registerReferer(url, referer)
+        videoOffline.registerHeaders(url, headers)
         val request = DownloadRequest.Builder(url, Uri.parse(url)).setMimeType(MimeTypes.APPLICATION_M3U8).build()
         try {
             DownloadService.sendAddDownload(context, VideoDownloadService::class.java, request, /* foreground = */ true)
@@ -328,7 +383,7 @@ class DownloadManager(
             val current = manager.downloadIndex.getDownload(url)
             when (current?.state) {
                 Download.STATE_COMPLETED -> break
-                Download.STATE_FAILED -> throw IOException("Descarga HLS fallida (código ${current.failureReason})")
+                Download.STATE_FAILED -> throw IOException("la descarga se interrumpió en el servidor")
                 else -> {
                     val percent = current?.percentDownloaded?.takeIf { it >= 0 }?.toInt() ?: 0
                     dao.updateState(download.sourceId, download.chapterId, DownloadStatus.DOWNLOADING, percent, 100, null)
@@ -340,14 +395,16 @@ class DownloadManager(
         dao.updateState(download.sourceId, download.chapterId, DownloadStatus.COMPLETED, 100, 100, null)
     }
 
-    /** Single-file download that resumes from the `.part` file with an HTTP Range request. */
-    private suspend fun downloadMp4(download: DownloadEntity, url: String, referer: String, dir: File) {
-        val part = File(dir, "$VIDEO_FILE.part")
+    /** Single-file download that resumes from its `.part` file with an HTTP Range request. */
+    private suspend fun downloadMp4(download: DownloadEntity, url: String, headers: Map<String, String>, dir: File, server: String) {
+        // One partial file per server: each serves its own encode, so bytes must never be mixed.
+        val part = File(dir, DownloadSecurity.sanitizeFileName("$VIDEO_FILE.$server.part"))
         val finalFile = File(dir, VIDEO_FILE)
         val resumeFrom = part.takeIf { it.exists() }?.length() ?: 0L
 
-        val request = Request.Builder().url(url)
-            .header("Referer", referer.ifBlank { url })
+        val request = Request.Builder().url(DownloadSecurity.requireSecureUrl(url))
+            .apply { headers.forEach { (k, v) -> header(k, v) } }
+            .apply { if ("Referer" !in headers) header("Referer", url) }
             .apply { if (resumeFrom > 0) header("Range", "bytes=$resumeFrom-") }
             .build()
         network.client.newCall(request).execute().use { response ->

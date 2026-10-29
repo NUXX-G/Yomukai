@@ -10,7 +10,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Upgrades a database created by v1.0.0 (Room schema 2) with real rows to the current schema. */
+/** Upgrades a database created by v1.0.0 (Room schema 2) with real rows to the current schema (6). */
 @RunWith(AndroidJUnit4::class)
 class MigrationTest {
     @get:Rule
@@ -42,9 +42,9 @@ class MigrationTest {
         }
 
         val db = helper.runMigrationsAndValidate(
-            DB, 5, true,
+            DB, 6, true,
             YomukaiDatabase.MIGRATION_1_2, YomukaiDatabase.MIGRATION_2_3,
-            YomukaiDatabase.MIGRATION_3_4, YomukaiDatabase.MIGRATION_4_5
+            YomukaiDatabase.MIGRATION_3_4, YomukaiDatabase.MIGRATION_4_5, YomukaiDatabase.MIGRATION_5_6
         )
         db.query("SELECT title, inLibrary FROM media WHERE mediaId='m1'").use {
             it.moveToFirst(); assertEquals("Titulo", it.getString(0)); assertEquals(1, it.getInt(1))
@@ -52,8 +52,8 @@ class MigrationTest {
         db.query("SELECT lastPageRead, read FROM chapters WHERE chapterId='c1'").use {
             it.moveToFirst(); assertEquals(3, it.getInt(0)); assertEquals(1, it.getInt(1))
         }
-        db.query("SELECT isVideo, isHls, videoUrl FROM downloads WHERE chapterId='c1'").use {
-            it.moveToFirst(); assertEquals(0, it.getInt(0)); assertEquals(0, it.getInt(1)); assertEquals("", it.getString(2))
+        db.query("SELECT isVideo, isHls, videoUrl, videoServer FROM downloads WHERE chapterId='c1'").use {
+            it.moveToFirst(); assertEquals(0, it.getInt(0)); assertEquals(0, it.getInt(1)); assertEquals("", it.getString(2)); assertEquals("", it.getString(3))
         }
         db.query("SELECT COUNT(*) FROM bookmarks").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
     }

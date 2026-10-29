@@ -138,7 +138,9 @@ data class DownloadEntity(
     @ColumnInfo(defaultValue = "0") val isHls: Boolean = false,
     /** Stream resolved when the download started; HLS downloads are keyed by this url. */
     @ColumnInfo(defaultValue = "''") val videoUrl: String = "",
-    @ColumnInfo(defaultValue = "''") val videoReferer: String = ""
+    @ColumnInfo(defaultValue = "''") val videoReferer: String = "",
+    /** Episode server: the one the user picked to retry with, then the one that was downloaded. */
+    @ColumnInfo(defaultValue = "''") val videoServer: String = ""
 )
 
 /** History row joined with its media for display. */

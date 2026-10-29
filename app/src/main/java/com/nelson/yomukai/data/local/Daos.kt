@@ -169,6 +169,9 @@ interface DownloadDao {
     @Query("UPDATE downloads SET status = :status, progress = :progress, total = :total, error = :error WHERE sourceId = :sourceId AND chapterId = :chapterId")
     suspend fun updateState(sourceId: String, chapterId: String, status: DownloadStatus, progress: Int, total: Int, error: String?)
 
+    @Query("UPDATE downloads SET videoServer = :server WHERE sourceId = :sourceId AND chapterId = :chapterId")
+    suspend fun setVideoServer(sourceId: String, chapterId: String, server: String)
+
     @Query("DELETE FROM downloads WHERE sourceId = :sourceId AND chapterId = :chapterId")
     suspend fun delete(sourceId: String, chapterId: String)
 }

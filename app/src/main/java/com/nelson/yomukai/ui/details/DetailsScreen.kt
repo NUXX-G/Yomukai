@@ -1,5 +1,9 @@
 package com.nelson.yomukai.ui.details
 
+import com.nelson.yomukai.domain.model.VideoSource
+import com.nelson.yomukai.data.download.EpisodeServers
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -99,6 +103,19 @@ fun DetailsScreen(
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(state.error) { state.error?.let { snackbar.showSnackbar(it) } }
+
+    var failed by remember { mutableStateOf<ChapterEntity?>(null) }
+    failed?.let { chapter ->
+        val retryServers by viewModel.retryServers.collectAsStateWithLifecycle()
+        FailedDownloadDialog(
+            error = state.downloads[chapter.chapterId]?.error,
+            isAnime = state.isAnime,
+            servers = retryServers,
+            onRetry = { server -> viewModel.retryDownload(chapter, server); failed = null },
+            onCancel = { viewModel.deleteDownload(chapter); failed = null },
+            onDismiss = { failed = null }
+        )
+    }
 
     var showRange by remember { mutableStateOf(false) }
     if (showRange) {
@@ -221,7 +238,14 @@ fun DetailsScreen(
                         onClick = { onOpenChapter(chapter) },
                         onToggleRead = { viewModel.setRead(chapter, !chapter.read) },
                         onMarkPrevious = { viewModel.markPreviousRead(chapter) },
-                        onDownload = { viewModel.download(listOf(chapter)) },
+                        onDownload = {
+                            if (state.downloads[chapter.chapterId]?.status == DownloadStatus.FAILED) {
+                                failed = chapter
+                                viewModel.loadRetryServers(chapter)
+                            } else {
+                                viewModel.download(listOf(chapter))
+                            }
+                        },
                         onDeleteDownload = { viewModel.deleteDownload(chapter) }
                     )
                 }
@@ -390,6 +414,48 @@ private fun DownloadIndicator(download: DownloadEntity?, onDownload: () -> Unit,
             }
         }
     }
+}
+
+/**
+ * Why a download failed and how to go on. For an episode it lists the servers again: direct ones
+ * can be picked to retry with, web embeds are shown as browser-only.
+ */
+@Composable
+private fun FailedDownloadDialog(
+    error: String?,
+    isAnime: Boolean,
+    servers: Result<List<VideoSource>>?,
+    onRetry: (server: String?) -> Unit,
+    onCancel: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("La descarga falló") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(error ?: "Error desconocido", color = MaterialTheme.colorScheme.error)
+                if (isAnime) {
+                    Text("Elige con qué servidor reintentar:", style = MaterialTheme.typography.titleSmall)
+                    when {
+                        servers == null -> CircularProgressIndicator(Modifier.size(24.dp))
+                        servers.isFailure -> Text("No se pudieron cargar los servidores: ${servers.exceptionOrNull()?.message}")
+                        else -> servers.getOrThrow().forEach { server ->
+                            val usable = EpisodeServers.isDownloadable(server)
+                            TextButton(onClick = { onRetry(server.serverName) }, enabled = usable, modifier = Modifier.fillMaxWidth()) {
+                                Text(
+                                    "${server.serverName} • ${server.quality}" + if (usable) "" else " (solo navegador)",
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onRetry(null) }) { Text(if (isAnime) "Probar todos" else "Reintentar") } },
+        dismissButton = { TextButton(onClick = onCancel) { Text("Quitar descarga") } }
+    )
 }
 
 /** Reading status, categories and update notifications for a title in the library. */

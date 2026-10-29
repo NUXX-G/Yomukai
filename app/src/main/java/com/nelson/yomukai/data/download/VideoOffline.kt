@@ -35,14 +35,18 @@ class VideoOffline(context: Context, private val network: NetworkHelper) {
 
     val cache by lazy { SimpleCache(File(appContext.filesDir, "downloads/hls_cache"), NoOpCacheEvictor(), databaseProvider) }
 
-    /** Referer to send per host, registered when a download or playback starts. */
-    private val refererByHost = ConcurrentHashMap<String, String>()
-    @Volatile private var lastReferer = ""
+    /** Headers a server requires (Referer, cookies...), per host, registered when a download or playback starts. */
+    private val headersByHost = ConcurrentHashMap<String, Map<String, String>>()
+    @Volatile private var lastHeaders: Map<String, String> = emptyMap()
+
+    fun registerHeaders(url: String, headers: Map<String, String>) {
+        if (headers.isEmpty()) return
+        lastHeaders = headers
+        runCatching { java.net.URI(url).host }.getOrNull()?.let { headersByHost[it] = headers }
+    }
 
     fun registerReferer(url: String, referer: String) {
-        if (referer.isBlank()) return
-        lastReferer = referer
-        runCatching { java.net.URI(url).host }.getOrNull()?.let { refererByHost[it] = referer }
+        if (referer.isNotBlank()) registerHeaders(url, mapOf("Referer" to referer))
     }
 
     /** Network access for Media3, always through the current OkHttp client (proxy/DoH aware). */
@@ -50,10 +54,11 @@ class VideoOffline(context: Context, private val network: NetworkHelper) {
         OkHttpDataSource.Factory(network.callFactory).setUserAgent(NetworkHelper.USER_AGENT)
     ) { spec ->
         val host = spec.uri.host
-        val referer = (host?.let { refererByHost[it] } ?: lastReferer)
+        // Segments may live on another host (CDN): fall back to the headers of the last registered stream.
+        val headers = host?.let { headersByHost[it] } ?: lastHeaders
         // Never downgrade: offline video is fetched over HTTPS only (or .onion over Tor).
         DownloadSecurity.requireSecureUrl(spec.uri.toString())
-        if (referer.isBlank()) spec else spec.withAdditionalHeaders(mapOf("Referer" to referer))
+        if (headers.isEmpty()) spec else spec.withAdditionalHeaders(headers)
     }
 
     /** Plain playback of an online stream (any scheme the source gave), still through the app proxy. */

@@ -28,7 +28,7 @@ class Converters {
         MediaCategoryEntity::class,
         BookmarkEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -103,9 +103,16 @@ abstract class YomukaiDatabase : RoomDatabase() {
             }
         }
 
+        /** v6: the episode server chosen for (or used by) a video download. */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE downloads ADD COLUMN videoServer TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun build(context: Context): YomukaiDatabase =
             Room.databaseBuilder(context, YomukaiDatabase::class.java, "yomukai.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build()
     }
 }

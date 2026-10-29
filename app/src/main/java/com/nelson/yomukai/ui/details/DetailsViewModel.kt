@@ -12,6 +12,7 @@ import com.nelson.yomukai.data.local.MediaEntity
 import com.nelson.yomukai.data.local.ReadingStatus
 import com.nelson.yomukai.data.source.AnimeSource
 import com.nelson.yomukai.data.source.NovelSource
+import com.nelson.yomukai.domain.model.VideoSource
 import com.nelson.yomukai.ui.navigation.Routes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -164,5 +165,20 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
 
     fun deleteDownload(chapter: ChapterEntity) {
         viewModelScope.launch { container.downloadManager.delete(sourceId, chapter.chapterId) }
+    }
+
+    /** Servers of the episode whose failed download is being retried; null while loading. */
+    private val _retryServers = MutableStateFlow<Result<List<VideoSource>>?>(null)
+    val retryServers: StateFlow<Result<List<VideoSource>>?> = _retryServers
+
+    fun loadRetryServers(chapter: ChapterEntity) {
+        val anime = source as? AnimeSource ?: return
+        _retryServers.value = null
+        viewModelScope.launch(Dispatchers.IO) { _retryServers.value = anime.fetchVideoSources(chapter.url) }
+    }
+
+    /** Retries a failed download; for an episode, [server] is tried first (null = every server in order). */
+    fun retryDownload(chapter: ChapterEntity, server: String? = null) {
+        viewModelScope.launch { container.downloadManager.retry(sourceId, chapter.chapterId, server) }
     }
 }
