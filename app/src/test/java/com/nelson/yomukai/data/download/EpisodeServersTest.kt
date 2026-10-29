@@ -47,6 +47,23 @@ class EpisodeServersTest {
     }
 
     @Test
+    fun resolvedServerIsNotReportedAsBrowserOnly() {
+        // VideoExtractors returns the resolved MP4Upload stream next to its original embed.
+        val embed = VideoSource("Sub español", "https://www.mp4upload.com/embed-x.html", "MP4Upload")
+        assertEquals(listOf("Voe"), EpisodeServers.browserOnly(listOf(hls, mp4, voe, embed)))
+    }
+
+    @Test
+    fun tlsErrorsAreSummarised() {
+        // Seen on the API 26 emulator: a multi-line BoringSSL dump in the download error.
+        val error = javax.net.ssl.SSLProtocolException(
+            "Read error: ssl=0x7a: Failure in SSL library, usually a protocol error\nerror:1e000065:Cipher functions:OPENSSL_internal:BAD_DECRYPT"
+        )
+        assertEquals("se cortó la conexión segura (TLS)", EpisodeServers.reason(error))
+        assertEquals("primera línea", EpisodeServers.reason(java.io.IOException("primera línea\nsegunda")))
+    }
+
+    @Test
     fun reasonsAreReadable() {
         assertEquals("el servidor bloquea la descarga (HTTP 403)", EpisodeServers.reason(HttpException(403, "u")))
         assertEquals("el vídeo ya no está disponible (HTTP 404)", EpisodeServers.reason(HttpException(404, "u")))

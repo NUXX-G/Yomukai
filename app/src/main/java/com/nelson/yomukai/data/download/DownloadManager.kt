@@ -306,7 +306,7 @@ class DownloadManager(
     private suspend fun downloadEpisode(download: DownloadEntity, source: AnimeSource, dir: File) {
         val servers = source.fetchVideoSources(download.chapterUrl).getOrThrow()
         val candidates = EpisodeServers.candidates(servers, download.videoServer)
-        val browserOnly = servers.filterNot(EpisodeServers::isDownloadable).map { it.serverName }.distinct()
+        val browserOnly = EpisodeServers.browserOnly(servers)
         val failures = mutableListOf<Pair<String, String>>()
         for (server in candidates) {
             if (dao.get(download.sourceId, download.chapterId) == null) return

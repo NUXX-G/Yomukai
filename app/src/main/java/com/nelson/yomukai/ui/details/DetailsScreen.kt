@@ -440,13 +440,15 @@ private fun FailedDownloadDialog(
                     when {
                         servers == null -> CircularProgressIndicator(Modifier.size(24.dp))
                         servers.isFailure -> Text("No se pudieron cargar los servidores: ${servers.exceptionOrNull()?.message}")
-                        else -> servers.getOrThrow().forEach { server ->
-                            val usable = EpisodeServers.isDownloadable(server)
-                            TextButton(onClick = { onRetry(server.serverName) }, enabled = usable, modifier = Modifier.fillMaxWidth()) {
-                                Text(
-                                    "${server.serverName} • ${server.quality}" + if (usable) "" else " (solo navegador)",
-                                    modifier = Modifier.fillMaxWidth()
-                                )
+                        else -> {
+                            val all = servers.getOrThrow()
+                            all.filter(EpisodeServers::isDownloadable).forEach { server ->
+                                TextButton(onClick = { onRetry(server.serverName) }, modifier = Modifier.fillMaxWidth()) {
+                                    Text("${server.serverName} • ${server.quality}", modifier = Modifier.fillMaxWidth())
+                                }
+                            }
+                            EpisodeServers.browserOnly(all).takeIf { it.isNotEmpty() }?.let { names ->
+                                Text("Solo en el navegador: ${names.joinToString(", ")}", style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }

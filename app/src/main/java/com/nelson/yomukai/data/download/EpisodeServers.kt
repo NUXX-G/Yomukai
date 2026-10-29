@@ -4,6 +4,7 @@ import com.nelson.yomukai.data.network.HttpException
 import com.nelson.yomukai.domain.model.VideoSource
 import java.net.SocketTimeoutException
 import java.net.URI
+import javax.net.ssl.SSLException
 
 /**
  * Which episode servers the downloader can use, in what order, and how to explain a failure.
@@ -21,6 +22,15 @@ object EpisodeServers {
         return chosen + rest
     }
 
+    /**
+     * Servers that can only be opened in a browser. Extractors return a resolved stream next to its
+     * original embed, so a server that has a downloadable entry is never listed here.
+     */
+    fun browserOnly(servers: List<VideoSource>): List<String> {
+        val downloadable = servers.filter(::isDownloadable).map { it.serverName.lowercase() }.toSet()
+        return servers.map { it.serverName }.distinct().filter { it.lowercase() !in downloadable }
+    }
+
     /** Short, user-facing reason for one server's failure. */
     fun reason(error: Throwable): String = when (error) {
         is HttpException -> when (error.code) {
@@ -29,7 +39,9 @@ object EpisodeServers {
             else -> "error del servidor (HTTP ${error.code})"
         }
         is SocketTimeoutException -> "no responde (tiempo de espera agotado)"
-        else -> error.message ?: error.javaClass.simpleName
+        is SSLException -> "se cortó la conexión segura (TLS)"
+        // Library messages can span several lines of internals; the first one is enough here.
+        else -> error.message?.lineSequence()?.first()?.take(160) ?: error.javaClass.simpleName
     }
 
     /** Message stored on a failed episode download: every server tried and why it failed. */
