@@ -77,6 +77,8 @@ dependencies {
     implementation(libs.jsoup)
     implementation(libs.okhttp)
     implementation(libs.okhttp.dnsoverhttps)
+    // TLS 1.3 on Android 8-9 (API 26-28): some sources (api.mangadex.org) refuse TLS 1.2
+    implementation(libs.conscrypt.android)
 
     // Room Database (Local storage for library, history, bookmarks)
     implementation(libs.androidx.room.runtime)

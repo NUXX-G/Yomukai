@@ -2,6 +2,7 @@ package com.nelson.yomukai
 
 import android.app.Application
 import android.content.Context
+import android.os.Build
 import android.os.StrictMode
 import coil3.ImageLoader
 import coil3.PlatformContext
@@ -11,6 +12,8 @@ import coil3.disk.directory
 import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
+import org.conscrypt.Conscrypt
+import java.security.Security
 import com.nelson.yomukai.data.download.DownloadManager
 import com.nelson.yomukai.data.download.VideoOffline
 import com.nelson.yomukai.data.local.YomukaiDatabase
@@ -52,6 +55,8 @@ class YomukaiApplication : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         if (BuildConfig.DEBUG) enableStrictMode()
+        // Android < 10 has no TLS 1.3; servers that require it (api.mangadex.org) refuse the handshake.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) Security.insertProviderAt(Conscrypt.newProvider(), 1)
         container = AppContainer(this)
         // Keep the periodic library update check in sync with the user's settings.
         container.applicationScope.launch {
