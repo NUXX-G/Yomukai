@@ -31,7 +31,9 @@ class MangaDexSource(private val network: NetworkHelper) : MangaSource {
     override val language = "MULTI"
     override val supportedTypes = setOf(MediaType.MANGA, MediaType.MANHWA, MediaType.MANHUA, MediaType.COMIC)
     override val supportsLatestPaging = true
-    override val imageHeaders = mapOf("Referer" to "https://mangadex.org/")
+
+    // Its servers answer a browser User-Agent with a challenge page, images included.
+    override val imageHeaders = mapOf("Referer" to "https://mangadex.org/", "User-Agent" to "Yomukai/1.0 (Android)")
 
     private val headers = mapOf("User-Agent" to "Yomukai/1.0 (Android)")
     private val languages = listOf("es", "es-la", "en")

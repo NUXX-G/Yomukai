@@ -25,7 +25,7 @@ class LiveSourcesTest {
         val app = ApplicationProvider.getApplicationContext<YomukaiApplication>()
         for (source in app.container.sourceManager.all) {
             val start = System.currentTimeMillis()
-            val steps = runCatching { SourceDiagnostics.run(source) }
+            val steps = runCatching { SourceDiagnostics.run(source, app.container.network::checkImage) }
                 .getOrElse { listOf(com.nelson.yomukai.data.source.DiagnosticStep("Excepción", false, it.toString())) }
             val ms = System.currentTimeMillis() - start
             val ok = steps.isNotEmpty() && steps.all { it.ok }

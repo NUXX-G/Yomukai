@@ -15,7 +15,11 @@ data class DiagnosticStep(val name: String, val ok: Boolean, val detail: String)
 object SourceDiagnostics {
     private const val STEP_TIMEOUT_MS = 60_000L
 
-    suspend fun run(source: CatalogueSource): List<DiagnosticStep> {
+    /** [checkImage] downloads an image like the reader would; pass it to also test covers and pages. */
+    suspend fun run(
+        source: CatalogueSource,
+        checkImage: (suspend (String, Map<String, String>) -> String)? = null
+    ): List<DiagnosticStep> {
         val steps = mutableListOf<DiagnosticStep>()
 
         suspend fun <T> step(name: String, describe: (T) -> String, block: suspend () -> Result<T>): T? {
@@ -34,6 +38,12 @@ object SourceDiagnostics {
         } ?: return steps
         val first = latest.first()
 
+        suspend fun imageStep(name: String, url: String) {
+            val check = checkImage ?: return
+            step<String>(name, { it }) { runCatching { check(url, source.imageHeaders) } }
+        }
+        latest.firstOrNull { it.coverUrl.isNotBlank() }?.let { imageStep("Portada", it.coverUrl) }
+
         val word = first.title.split(' ').firstOrNull { it.length >= 4 } ?: first.title
         step<List<MediaItem>>("Búsqueda “$word”", { "${it.size} resultados" }) {
             source.searchMedia(word).mapCatching { items -> items.also { check(it.isNotEmpty()) { "Sin resultados" } } }
@@ -49,7 +59,7 @@ object SourceDiagnostics {
         when (source) {
             is MangaSource -> step<List<String>>("Páginas", { "${it.size} imágenes" }) {
                 source.fetchPageList(chapter.url).mapCatching { list -> list.also { check(it.isNotEmpty()) { "Sin imágenes" } } }
-            }
+            }?.let { imageStep("Imagen de página", it.first()) }
             is NovelSource -> step<String>("Texto", { "${it.length} caracteres" }) {
                 source.fetchChapterText(chapter.url).mapCatching { text -> text.also { check(it.isNotBlank()) { "Texto vacío" } } }
             }

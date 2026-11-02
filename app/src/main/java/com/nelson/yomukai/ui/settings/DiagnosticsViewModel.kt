@@ -6,6 +6,7 @@ import com.nelson.yomukai.AppContainer
 import com.nelson.yomukai.data.source.CatalogueSource
 import com.nelson.yomukai.data.source.DiagnosticStep
 import com.nelson.yomukai.data.source.SourceDiagnostics
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,14 +28,18 @@ class DiagnosticsViewModel(private val container: AppContainer) : ViewModel() {
         if (sourceId in _running.value) return
         _running.update { it + sourceId }
         viewModelScope.launch(Dispatchers.IO) {
-            val steps = try {
-                SourceDiagnostics.run(source)
-            } catch (e: Exception) {
-                listOf(DiagnosticStep("Diagnóstico", false, e.message ?: e::class.java.simpleName))
-            }
+            val steps = diagnose(source)
             _results.update { it + (sourceId to steps) }
             _running.update { it - sourceId }
         }
+    }
+
+    private suspend fun diagnose(source: CatalogueSource): List<DiagnosticStep> = try {
+        SourceDiagnostics.run(source, container.network::checkImage)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        listOf(DiagnosticStep("Diagnóstico", false, e.message ?: e::class.java.simpleName))
     }
 
     /** Sources are tested one after another so the per-host rate limiter and the network are not flooded. */
@@ -42,11 +47,7 @@ class DiagnosticsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             for (source in sources) {
                 _running.update { it + source.id }
-                val steps = try {
-                    SourceDiagnostics.run(source)
-                } catch (e: Exception) {
-                    listOf(DiagnosticStep("Diagnóstico", false, e.message ?: e::class.java.simpleName))
-                }
+                val steps = diagnose(source)
                 _results.update { it + (source.id to steps) }
                 _running.update { it - source.id }
             }
