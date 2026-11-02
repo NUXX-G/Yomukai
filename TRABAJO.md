@@ -13,7 +13,7 @@ Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este ficher
 - [x] Filtros en todas las fuentes que lo permitan (AnimeFLV no tiene parámetros en su web)
 
 Notas de v1.5.0: en emuladores con poca memoria el WebView puede morir; todo WebView debe tener `onRenderProcessGone`. En Android 9 o anterior el permiso de archivos hay que aceptarlo en pantalla: `pm grant` no sirvió en las pruebas. los vídeos HLS no se copian a la carpeta pública porque viven como segmentos en la caché de Media3 (Voe y MP4Upload sí, son MP4). Borrar en la app no borra la copia pública.
-- [ ] Publicar pre-release v1.5.0
+- [x] Publicar v1.5.0 (release completa, no pre-release)
 
 ## Tanda v1.4.0
 - [x] Episodios de anime que no cargan (unos sí y otros no)
