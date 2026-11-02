@@ -96,7 +96,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -112,6 +112,7 @@ import com.nelson.yomukai.data.prefs.BrowserHome
 import com.nelson.yomukai.data.prefs.BrowserPage
 import com.nelson.yomukai.data.repository.PageData
 import com.nelson.yomukai.ui.LocalAppContainer
+import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONTokener
 
@@ -261,6 +262,7 @@ fun WebCaptureScreen(
     var pageError by remember { mutableStateOf<String?>(null) }
     var desktopMode by remember { mutableStateOf(store.browserDesktop) }
     var menuOpen by remember { mutableStateOf(false) }
+    var addressFocused by remember { mutableStateOf(false) }
     var showPages by remember { mutableStateOf(false) }
     var findOpen by remember { mutableStateOf(false) }
     var findQuery by remember { mutableStateOf("") }
@@ -272,7 +274,7 @@ fun WebCaptureScreen(
     /** Link waiting for the user's decision to hand it to another app. */
     var leaving by remember { mutableStateOf<String?>(null) }
     var webView by remember { mutableStateOf<WebView?>(null) }
-    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     val isFavorite = favorites.any { it.url == currentUrl }
     val isLoading = progress in 0.01f..0.99f
 
@@ -303,7 +305,9 @@ fun WebCaptureScreen(
     fun open(url: String) {
         pageError = null
         address = TextFieldValue(url)
-        focusManager.clearFocus()
+        // Focus goes to the page: left alone it lands on a toolbar button, and the Enter key would press it.
+        webView?.requestFocus()
+        keyboard?.hide()
         if (netState.ready) webView?.loadUrl(url)
     }
 
@@ -331,6 +335,14 @@ fun WebCaptureScreen(
     fun openOutside(url: String) {
         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             .onFailure { Toast.makeText(context, "Ninguna app puede abrir este enlace", Toast.LENGTH_SHORT).show() }
+    }
+
+    // Selected a moment later: the tap that gave focus places the cursor right after this event.
+    LaunchedEffect(addressFocused) {
+        if (addressFocused) {
+            delay(80)
+            address = address.copy(selection = TextRange(0, address.text.length))
+        }
     }
 
     // Fail closed: with "browser through Tor" on, nothing is loaded until the proxy is confirmed.
@@ -397,9 +409,7 @@ fun WebCaptureScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 // Like a browser address bar: focusing selects everything so typing replaces it.
-                                .onFocusChanged { focus ->
-                                    if (focus.isFocused) address = address.copy(selection = TextRange(0, address.text.length))
-                                }
+                                .onFocusChanged { focus -> addressFocused = focus.isFocused }
                         )
                     },
                     navigationIcon = {

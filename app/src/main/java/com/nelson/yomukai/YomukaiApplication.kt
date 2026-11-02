@@ -28,6 +28,7 @@ import com.nelson.yomukai.data.source.SourceManager
 import com.nelson.yomukai.data.updates.LibraryUpdateWorker
 import com.nelson.yomukai.ui.web.CaptureStore
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -54,6 +55,8 @@ class AppContainer(context: Context) {
     val homeCache = HomeCache(context)
 }
 
+private const val IMAGE_CACHE = "images"
+
 class YomukaiApplication : Application(), SingletonImageLoader.Factory {
     lateinit var container: AppContainer
         private set
@@ -64,6 +67,8 @@ class YomukaiApplication : Application(), SingletonImageLoader.Factory {
         // Android < 10 has no TLS 1.3; servers that require it (api.mangadex.org) refuse the handshake.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) Security.insertProviderAt(Conscrypt.newProvider(), 1)
         container = AppContainer(this)
+        // Up to v1.2 the cache could hold challenge pages saved as images, which never recover by themselves.
+        container.applicationScope.launch(Dispatchers.IO) { cacheDir.resolve("image_cache").deleteRecursively() }
         // Keep the periodic library update check in sync with the user's settings.
         container.applicationScope.launch {
             container.preferences.app
@@ -85,11 +90,11 @@ class YomukaiApplication : Application(), SingletonImageLoader.Factory {
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =
         ImageLoader.Builder(context)
-            .components { add(OkHttpNetworkFetcherFactory(callFactory = { container.network.callFactory })) }
+            .components { add(OkHttpNetworkFetcherFactory(callFactory = { container.network.imageCallFactory })) }
             .memoryCache { MemoryCache.Builder().maxSizePercent(context, 0.25).build() }
             .diskCache {
                 DiskCache.Builder()
-                    .directory(context.cacheDir.resolve("image_cache"))
+                    .directory(context.cacheDir.resolve(IMAGE_CACHE))
                     .maxSizeBytes(512L * 1024 * 1024)
                     .build()
             }

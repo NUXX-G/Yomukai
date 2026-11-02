@@ -115,17 +115,27 @@ class NetworkHelper(
     @Volatile
     private var scrapeClient: OkHttpClient = scrapeClientFor(client, torRouted(settings.value))
 
-    /** Stable factory for long-lived consumers (Coil) that always delegates to the current client. */
+    @Volatile
+    private var imageClient: OkHttpClient = imageClientFor(client)
+
+    /** Stable factory for long-lived consumers (Media3) that always delegates to the current client. */
     val callFactory = Call.Factory { request -> client.newCall(request) }
+
+    /** Same for the image loader, which must never store a web page as if it were the image. */
+    val imageCallFactory = Call.Factory { request -> imageClient.newCall(request) }
 
     init {
         scope.launch {
             combine(settings, tor.distinctUntilChangedBy { Triple(it.phase, it.socksPort, it.mode) }) { s, t -> s to t }.collect { (s, t) ->
                 client = buildClient(s, t)
                 scrapeClient = scrapeClientFor(client, torRouted(s))
+                imageClient = imageClientFor(client)
             }
         }
     }
+
+    private fun imageClientFor(base: OkHttpClient): OkHttpClient =
+        base.newBuilder().addInterceptor(RejectWebPagesInterceptor()).build()
 
     private fun torRouted(settings: NetworkSettings) = settings.torMode != TorMode.OFF && settings.torRoutesApp
 
@@ -331,6 +341,18 @@ private class BrowserHeadersInterceptor : Interceptor {
         default("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
         default("Accept-Language", "es-ES,es;q=0.9,en;q=0.8")
         return chain.proceed(builder.build())
+    }
+}
+
+/**
+ * A block or challenge page often arrives as a plain 200. Turning it into an error keeps the image
+ * loader from saving it in its disk cache, where it would stay broken even after the site recovers.
+ */
+private class RejectWebPagesInterceptor : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val response = chain.proceed(chain.request())
+        val isPage = response.header("Content-Type")?.startsWith("text/html", ignoreCase = true) == true
+        return if (response.isSuccessful && isPage) response.newBuilder().code(415).message("No es una imagen").build() else response
     }
 }
 
