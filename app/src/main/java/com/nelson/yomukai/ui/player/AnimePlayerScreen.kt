@@ -163,6 +163,9 @@ fun AnimePlayerScreen(
         if (playing.startPositionMs > 0 && exoPlayer.currentPosition < playing.startPositionMs) exoPlayer.seekTo(playing.startPositionMs)
     }
 
+    // A new player (next episode, another server) shows the spinner until its first frame.
+    LaunchedEffect(exoPlayer) { isLoading = true }
+
     LaunchedEffect(exoPlayer, settings.playerSpeed) { exoPlayer.setPlaybackSpeed(settings.playerSpeed) }
 
     DisposableEffect(exoPlayer) {
@@ -495,7 +498,7 @@ fun AnimePlayerScreen(
                         }
                         Spacer(Modifier.weight(1f))
                         if (viewModel.hasEpisodeContext) {
-                            Text("Siguiente automático", color = Color.White, fontSize = 12.sp)
+                            Text("Auto", color = Color.White, fontSize = 12.sp)
                             Switch(checked = settings.playerAutoNext, onCheckedChange = viewModel::setAutoNext)
                             if (viewModel.hasNext()) {
                                 Button(onClick = { viewModel.playNext() }) {

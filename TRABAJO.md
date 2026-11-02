@@ -31,15 +31,26 @@ export JAVA_HOME=/c/jdk-21.0.7 ANDROID_HOME="$LOCALAPPDATA/Android/Sdk"
 - [x] Favoritos: «Leyendo» se guarda como estado de publicación
 - [x] «Solo Wi-Fi» no frena un MP4 en curso
 - [x] Fallback de Cloudflare devuelve HTML en APIs JSON
-- [ ] Dependencias sin usar y README
+- [x] Dependencias sin usar y README
 - [x] Fuente WEBTOON
 - [x] Fuente ZonaTMO
 - [x] Rendimiento de red
-- [ ] Navegador integrado
-- [ ] Diagnóstico real de fuentes en emuladores API 26/33/37
-- [ ] Revisión final de errores
+- [x] Navegador integrado
+- [x] Diagnóstico real de fuentes en emuladores API 26/33/37
+- [x] Revisión final de errores
 
 Descartado: fallo de notificaciones con la app cerrada; el usuario confirma que funcionan.
+
+## Resultado de la tanda (v1.3.0)
+- Diagnóstico real (`LiveSourcesTest`, ver README) en API 26, 33 y 37: 12 de 14 fuentes OK, con portada y página descargadas.
+- LectorManga y SurtrScans: sus dominios ya no resuelven (siguen desactivadas).
+- LectorTMO sale FAIL solo si el primer título de la lista no tiene capítulos; con otros títulos sí hay capítulos, lo normal.
+
+## Pendiente
+- Sin verificar: Tor en un móvil real y la imagen del vídeo en un móvil real (en el emulador sin ventana se oye y avanza, pero la captura sale negra).
+- El servidor HLS de AnimeAV1 da 403; se salta solo a MP4Upload tras unos segundos.
+- La firma de release no existe: CI solo genera APK de debug.
+- Migración a web: el usuario la pedirá más adelante.
 
 ## Hallazgos técnicos
 - MangaDex: con User-Agent de navegador la API redirige a `/edge/challenge`; hay que usar el UA propio de la fuente.

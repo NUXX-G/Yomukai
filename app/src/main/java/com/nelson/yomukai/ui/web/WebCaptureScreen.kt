@@ -95,6 +95,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextRange
@@ -410,6 +415,12 @@ fun WebCaptureScreen(
                                 .fillMaxWidth()
                                 // Like a browser address bar: focusing selects everything so typing replaces it.
                                 .onFocusChanged { focus -> addressFocused = focus.isFocused }
+                                // A physical keyboard's Enter would otherwise move focus to a toolbar button.
+                                .onPreviewKeyEvent { event ->
+                                    val isEnter = event.key == Key.Enter || event.key == Key.NumPadEnter
+                                    if (isEnter && event.type == KeyEventType.KeyUp) open(WebCapture.normalizeUrl(address.text, home))
+                                    isEnter
+                                }
                         )
                     },
                     navigationIcon = {
@@ -566,6 +577,7 @@ fun WebCaptureScreen(
                 modifier = Modifier.fillMaxSize(),
                 factory = { context ->
                     WebView(context).apply {
+                        defaultFocusHighlightEnabled = false // it would grey out the whole page
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         settings.useWideViewPort = true
