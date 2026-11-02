@@ -72,6 +72,7 @@ import com.nelson.yomukai.ui.home.HomeViewModel
 import com.nelson.yomukai.ui.library.LibraryScreen
 import com.nelson.yomukai.ui.navigation.Routes
 import com.nelson.yomukai.ui.player.AnimePlayerScreen
+import com.nelson.yomukai.ui.player.isWebUrl
 import com.nelson.yomukai.ui.reader.MangaReaderScreen
 import com.nelson.yomukai.ui.reader.NovelReaderScreen
 import com.nelson.yomukai.ui.search.SearchScreen
@@ -373,7 +374,8 @@ private fun EpisodeServerDialog(
                             Icon(if (server.isDirect) Icons.Default.PlayCircle else Icons.AutoMirrored.Filled.OpenInNew, null)
                         },
                         modifier = Modifier.clickable {
-                            if (server.isDirect) onPlay(server) else runCatching { uriHandler.openUri(server.videoUrl) }
+                            if (server.isDirect) onPlay(server)
+                            else if (isWebUrl(server.videoUrl)) runCatching { uriHandler.openUri(server.videoUrl) }
                             onDismiss()
                         }
                     )

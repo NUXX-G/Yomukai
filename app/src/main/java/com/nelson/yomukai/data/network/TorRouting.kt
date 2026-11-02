@@ -29,11 +29,12 @@ object TorRouting {
     }
 
     /**
-     * May this page be rendered in a WebView? It is a separate connection, so while the app goes through
-     * Tor a host that must use Tor can only be rendered once the WebView itself is on Tor.
+     * May a page be rendered in a WebView? It is a separate connection that also fetches third-party
+     * resources, so with Tor in use it waits until the WebView proxy is confirmed; excluded hosts are
+     * already bypassed by that proxy. [webViewReady] is false while a wanted proxy is not applied.
      */
-    fun webViewFallbackAllowed(torRoutesApp: Boolean, hostSkipsTor: Boolean, webViewOnTor: Boolean): Boolean =
-        !torRoutesApp || hostSkipsTor || webViewOnTor
+    fun webViewFallbackAllowed(torRoutesApp: Boolean, webViewOnTor: Boolean, webViewReady: Boolean): Boolean =
+        webViewReady && (!torRoutesApp || webViewOnTor)
 
     /** Loopback addresses never go through a public exit. */
     fun isLoopback(host: String?): Boolean {

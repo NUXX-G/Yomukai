@@ -1,0 +1,102 @@
+package com.nelson.yomukai.data.source
+
+import com.nelson.yomukai.data.source.manga.WebtoonsSource
+import com.nelson.yomukai.data.source.manga.ZonaTmoSource
+import com.nelson.yomukai.domain.model.MediaItem
+import com.nelson.yomukai.domain.model.MediaType
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class WebtoonsZonaTmoParsingTest {
+    private fun fixture(name: String) =
+        checkNotNull(javaClass.classLoader?.getResource(name)) { "missing fixture $name" }.readText()
+
+    private fun item(id: String, source: String) = MediaItem(id, "", "", MediaType.MANHWA, "", "", source)
+
+    @Test
+    fun zonaTmoCatalogueAndLatest() {
+        val items = ZonaTmoSource.parseItems(fixture("zonatmo_library.html"))
+        assertTrue(items.size >= 20)
+        assertTrue(items.all { "/library/" in it.id && it.title.isNotBlank() && it.coverUrl.startsWith("http") })
+    }
+
+    @Test
+    fun zonaTmoDetails() {
+        val url = "https://zonatmo.org/library/manhwa/31352/la-ventura-del-caballero-blanco"
+        val details = ZonaTmoSource.parseDetails(fixture("zonatmo_detail.html"), item(url, "zonatmo"))
+        assertEquals("La Ventura Del Caballero Blanco", details.title)
+        assertEquals(MediaType.MANHWA, details.type)
+        assertEquals("Publicándose", details.status)
+        assertTrue("Drama" in details.genres)
+        assertTrue(details.description.startsWith("Para asegurar la paz"))
+        assertTrue(details.author.contains("Brothers Without a Tomorrow"))
+        assertTrue("Blossoms of the White Night" in details.altTitles)
+    }
+
+    @Test
+    fun zonaTmoChaptersAndPages() {
+        val url = "https://zonatmo.org/library/manhwa/31352/la-ventura-del-caballero-blanco"
+        val chapters = ZonaTmoSource.parseChapters(fixture("zonatmo_detail.html"), url)
+        assertTrue(chapters.size >= 30)
+        val first = chapters.first()
+        assertEquals("Capítulo 30", first.title)
+        assertEquals(30f, first.chapterNumber)
+        assertEquals("https://zonatmo.org/view_uploads/985018", first.url)
+        assertEquals("22/06/2026", first.dateUploaded)
+
+        val pages = ZonaTmoSource.parsePages(fixture("zonatmo_chapter.html"))
+        assertTrue(pages.size >= 30)
+        assertTrue(pages.all { "/chapters/985018/" in it })
+    }
+
+    @Test
+    fun zonaTmoFilters() {
+        assertEquals(
+            "https://zonatmo.org/biblioteca?order_item=likes_count&order_dir=desc&page=1",
+            ZonaTmoSource.catalogueUrl(1, emptyMap())
+        )
+        assertEquals(
+            "https://zonatmo.org/biblioteca?order_item=alphabetically&order_dir=asc&page=3&type=manhwa&status=ongoing",
+            ZonaTmoSource.catalogueUrl(
+                3, mapOf(FilterKeys.SORT to setOf("alphabetically"), FilterKeys.TYPE to setOf("manhwa"), FilterKeys.STATUS to setOf("ongoing"))
+            )
+        )
+    }
+
+    @Test
+    fun webtoonsCards() {
+        val originals = WebtoonsSource.parseCards(fixture("webtoons_originals.html"))
+        assertTrue(originals.size >= 40)
+        assertTrue(originals.all { it.id.startsWith("https://m.webtoons.com/") && it.title.isNotBlank() && " " !in it.coverUrl })
+
+        val search = WebtoonsSource.parseCards(fixture("webtoons_search.html"))
+        assertTrue(search.isNotEmpty())
+        assertTrue("search results must point at the mobile site", search.all { it.id.startsWith("https://m.webtoons.com/") })
+    }
+
+    @Test
+    fun webtoonsDetails() {
+        val url = "https://m.webtoons.com/es/fantasy/catastrophic-necromancer/list?title_no=8467"
+        val details = WebtoonsSource.parseDetails(fixture("webtoons_detail.html"), item(url, "webtoons"))
+        assertEquals("Catastrophic Necromancer", details.title)
+        assertTrue(details.description.startsWith("El juego se hace realidad"))
+        assertEquals("Mantudezhu, Hei NiaoShe", details.author)
+        assertEquals(listOf("Fantasía"), details.genres)
+    }
+
+    @Test
+    fun webtoonsEpisodesAndPages() {
+        val result = checkNotNull(parseJson(fixture("webtoons_episodes.json")).asJsonObject.obj("result"))
+        val episodes = WebtoonsSource.parseEpisodes(result, "m")
+        assertEquals(30, episodes.size)
+        assertEquals("EP 1", episodes.first().title)
+        assertEquals(1f, episodes.first().chapterNumber)
+        assertTrue(episodes.first().url.startsWith("https://m.webtoons.com/es/"))
+        assertEquals("30", result.str("nextCursor"))
+
+        val pages = WebtoonsSource.parsePages(fixture("webtoons_viewer.html"))
+        assertTrue(pages.size >= 20)
+        assertTrue(pages.all { it.startsWith("https://webtoon-phinf.pstatic.net/") && "_warning." !in it && " " !in it })
+    }
+}

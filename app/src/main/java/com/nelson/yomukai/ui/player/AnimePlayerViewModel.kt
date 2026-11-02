@@ -47,6 +47,9 @@ fun pickServer(servers: List<VideoSource>, preferredName: String): VideoSource? 
     return direct.firstOrNull { it.serverName.equals(preferredName, ignoreCase = true) } ?: direct.firstOrNull()
 }
 
+/** Scraped links may only leave the app as plain web links, never as intents or custom schemes. */
+fun isWebUrl(url: String): Boolean = url.startsWith("https://", ignoreCase = true) || url.startsWith("http://", ignoreCase = true)
+
 /** Next direct server of an episode that has not failed yet. */
 fun nextServer(servers: List<VideoSource>, failed: Set<String>): VideoSource? =
     servers.firstOrNull { it.isDirect && it.serverName !in failed }
@@ -202,7 +205,7 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
                             it.copy(
                                 isResolving = false,
                                 error = playbackMessage(detail),
-                                browserUrl = servers.firstOrNull { s -> !s.isDirect }?.videoUrl
+                                browserUrl = servers.firstOrNull { s -> !s.isDirect && isWebUrl(s.videoUrl) }?.videoUrl
                             )
                         }
                     } else {

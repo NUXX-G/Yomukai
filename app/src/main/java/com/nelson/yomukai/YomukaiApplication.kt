@@ -41,7 +41,10 @@ class AppContainer(context: Context) {
     val database = YomukaiDatabase.build(context)
     val sourceManager = SourceManager(network).also { sm -> network.domainsOfSources = sm::domainsOf }
     val webViewProxy = WebViewProxy(context, preferences.network, tor.state, sourceManager::domainsOf, applicationScope)
-        .also { proxy -> network.webViewOnTor = { proxy.state.value.let { it.ready && it.viaTor } } }
+        .also { proxy ->
+            network.webViewOnTor = { proxy.state.value.let { it.ready && it.viaTor } }
+            network.webViewReady = { proxy.state.value.ready }
+        }
     val libraryRepository = LibraryRepository(database, sourceManager)
     val videoOffline = VideoOffline(context, network)
     val downloadManager = DownloadManager(context, database, sourceManager, network, applicationScope, preferences, videoOffline)

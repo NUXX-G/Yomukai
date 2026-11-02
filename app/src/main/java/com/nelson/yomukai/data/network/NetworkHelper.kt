@@ -97,6 +97,10 @@ class NetworkHelper(
     @Volatile
     var webViewOnTor: () -> Boolean = { false }
 
+    /** False while the WebView must not load anything yet (a wanted Tor proxy is not applied); set by the container. */
+    @Volatile
+    var webViewReady: () -> Boolean = { true }
+
     /**
      * Resolves source ids to the domains that must skip Tor; set once the SourceManager exists.
      * Declared before [client]: the first [buildClient] call reads it when Tor was left enabled.
@@ -178,14 +182,8 @@ class NetworkHelper(
         .build()
 
     /** The WebView has its own connection, so with Tor on it may only be used when it goes through Tor too. */
-    private fun webViewAllowed(host: String): Boolean {
-        val current = settings.value
-        return TorRouting.webViewFallbackAllowed(
-            torRoutesApp = torRouted(current),
-            hostSkipsTor = TorRouting.bypasses(host, domainsOfSources(current.torExcludedSources)),
-            webViewOnTor = webViewOnTor()
-        )
-    }
+    private fun webViewAllowed(): Boolean =
+        TorRouting.webViewFallbackAllowed(torRouted(settings.value), webViewOnTor(), webViewReady())
 
     /**
      * GETs [url] as text. When the response is an anti-bot page (or the request fails outright)
@@ -234,7 +232,7 @@ class NetworkHelper(
             e
         }
 
-        if (cloudflareFallback && failure !is HttpException && webViewAllowed(host)) {
+        if (cloudflareFallback && failure !is HttpException && webViewAllowed()) {
             renderInWebView(url, host)?.let { return it }
         }
         throw failure

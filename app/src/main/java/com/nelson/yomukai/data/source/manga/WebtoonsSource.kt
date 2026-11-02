@@ -1,0 +1,185 @@
+package com.nelson.yomukai.data.source.manga
+
+import com.google.gson.JsonObject
+import com.nelson.yomukai.data.network.NetworkHelper
+import com.nelson.yomukai.data.source.FilterKeys
+import com.nelson.yomukai.data.source.FilterOption
+import com.nelson.yomukai.data.source.FilterValues
+import com.nelson.yomukai.data.source.MangaSource
+import com.nelson.yomukai.data.source.SelectFilter
+import com.nelson.yomukai.data.source.SourceFilter
+import com.nelson.yomukai.data.source.SourceUtils
+import com.nelson.yomukai.data.source.arr
+import com.nelson.yomukai.data.source.obj
+import com.nelson.yomukai.data.source.objects
+import com.nelson.yomukai.data.source.parseJson
+import com.nelson.yomukai.data.source.single
+import com.nelson.yomukai.data.source.str
+import com.nelson.yomukai.domain.model.Chapter
+import com.nelson.yomukai.domain.model.MediaItem
+import com.nelson.yomukai.domain.model.MediaType
+import org.jsoup.Jsoup
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+/**
+ * WEBTOON (m.webtoons.com), Spanish and English. Episodes come from the mobile site's JSON API,
+ * pages from the `imageList` of the viewer. Search and genre listings are only complete on the
+ * desktop site, reached with a desktop User-Agent. Media ids are the absolute mobile list URL,
+ * which also tells originals and Canvas apart.
+ */
+class WebtoonsSource(private val network: NetworkHelper) : MangaSource {
+    override val id = "webtoons"
+    override val name = "WEBTOON"
+    override val baseUrl = MOBILE
+    override val extraHosts = listOf("https://www.webtoons.com", "https://webtoon-phinf.pstatic.net")
+    override val language = "MULTI"
+    override val supportedTypes = setOf(MediaType.MANHWA)
+
+    private val referer = mapOf("Referer" to "$MOBILE/")
+
+    private suspend fun desktop(url: String) = network.getString(url, mapOf("User-Agent" to DESKTOP_AGENT))
+
+    override val filters: List<SourceFilter> = FILTERS
+
+    override suspend fun browse(page: Int, values: FilterValues): Result<List<MediaItem>> = runCatching {
+        val language = values.single(LANGUAGE)
+        val genre = values.single(GENRE)
+        if (genre.isEmpty()) parseCards(network.getString("$MOBILE/$language/originals", referer))
+        else parseCards(desktop("$DESKTOP/$language/genres/$genre?webtoon-platform-redirect=true"))
+    }
+
+    override suspend fun fetchLatestUpdates(page: Int): Result<List<MediaItem>> = runCatching {
+        parseCards(network.getString("$MOBILE/es/originals", referer))
+    }
+
+    override suspend fun searchMedia(query: String): Result<List<MediaItem>> = runCatching {
+        val keyword = SourceUtils.encode(query)
+        listOf("es", "en").flatMap { language ->
+            runCatching { parseCards(desktop("$DESKTOP/$language/search?keyword=$keyword&webtoon-platform-redirect=true")) }
+                .getOrDefault(emptyList())
+        }.distinctBy { it.id }
+    }
+
+    override suspend fun fetchMediaDetails(media: MediaItem): Result<MediaItem> = runCatching {
+        parseDetails(network.getString(media.id, referer), media)
+    }
+
+    override suspend fun fetchChapterList(mediaId: String): Result<List<Chapter>> = runCatching {
+        val titleNo = titleNo(mediaId) ?: error("Título no válido")
+        val kind = if ("/canvas/" in mediaId) "canvas" else "webtoon"
+        val chapters = mutableListOf<Chapter>()
+        var cursor: String? = null
+        do {
+            val path = "$MOBILE/api/v1/$kind/$titleNo/episodes?pageSize=$PAGE_SIZE" + (cursor?.let { "&cursor=$it" } ?: "")
+            val result = parseJson(
+                network.getString(path, mapOf("Accept" to "application/json", "Referer" to mediaId), cloudflareFallback = false)
+            ).asJsonObject.obj("result") ?: error("WEBTOON no devolvió episodios")
+            chapters += parseEpisodes(result, mediaId)
+            cursor = result.str("nextCursor")?.takeIf { it != "0" && it.isNotBlank() }
+        } while (cursor != null && chapters.size < MAX_EPISODES)
+        chapters.ifEmpty { error("Sin episodios disponibles") }
+    }
+
+    override suspend fun fetchPageList(chapterUrl: String): Result<List<String>> = runCatching {
+        parsePages(network.getString(chapterUrl, referer))
+            .ifEmpty { error("Episodio sin imágenes (¿de pago o solo para la app?)") }
+    }
+
+    companion object {
+        private const val MOBILE = "https://m.webtoons.com"
+        private const val DESKTOP = "https://www.webtoons.com"
+        private const val DESKTOP_AGENT =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+        private const val PAGE_SIZE = 30
+        private const val MAX_EPISODES = 3000
+
+        private val TITLE_NO = Regex("""title_no=(\d+)""")
+        private val DTO = Regex("""dto:\s*(\{.*})\s*,?\s*$""", RegexOption.MULTILINE)
+        private val IMAGE_LIST = Regex("""var\s+imageList\s*=\s*\[(.*?)];""", RegexOption.DOT_MATCHES_ALL)
+        private val IMAGE_URL = Regex("""url:\s*"([^"]+)"""")
+
+        private val LANGUAGE = SelectFilter(
+            FilterKeys.LANGUAGE, "Idioma",
+            listOf(FilterOption("es", "Español"), FilterOption("en", "Inglés"))
+        )
+        private val GENRE = SelectFilter(
+            FilterKeys.GENRE, "Género",
+            listOf(
+                "" to "Destacados", "action" to "Acción", "comedy" to "Comedia", "drama" to "Drama", "fantasy" to "Fantasía",
+                "heartwarming" to "Reconfortante", "historical" to "Histórico", "horror" to "Terror", "mystery" to "Misterio",
+                "romance" to "Romance", "sf" to "Ciencia ficción", "slice_of_life" to "Recuentos de la vida", "sports" to "Deportes",
+                "super_hero" to "Superhéroes", "supernatural" to "Sobrenatural", "thriller" to "Suspenso"
+            ).map { FilterOption(it.first, it.second) }
+        )
+        val FILTERS: List<SourceFilter> = listOf(LANGUAGE, GENRE)
+
+        private fun titleNo(url: String) = TITLE_NO.find(url)?.groupValues?.get(1)
+
+        /** URLs from the site may hold raw spaces, which are not valid for downloads. */
+        private fun clean(url: String) = url.trim().replace(" ", "%20")
+
+        private fun mobile(url: String) = url.replace("://www.webtoons.com", "://m.webtoons.com")
+
+        fun parseCards(html: String): List<MediaItem> =
+            Jsoup.parse(html, MOBILE).select("a[data-title-no][href*=title_no=]").mapNotNull { card ->
+                val url = mobile(card.absUrl("href")).ifBlank { return@mapNotNull null }
+                val title = card.selectFirst(".title, .subj")?.text()?.trim().orEmpty()
+                if (title.isBlank()) return@mapNotNull null
+                MediaItem(
+                    id = url,
+                    title = title,
+                    coverUrl = clean(card.selectFirst("img")?.attr("src").orEmpty()),
+                    type = MediaType.MANHWA,
+                    status = "",
+                    description = "",
+                    sourceId = "webtoons",
+                    author = card.selectFirst(".author")?.text()?.trim().orEmpty()
+                )
+            }.distinctBy { it.id }
+
+        fun parseDetails(html: String, media: MediaItem): MediaItem {
+            val doc = Jsoup.parse(html, media.id)
+            val dto = DTO.find(html)?.groupValues?.get(1)?.let { runCatching { parseJson(it).asJsonObject }.getOrNull() }
+            val title = dto?.obj("title")
+            return media.copy(
+                title = title?.str("title") ?: doc.selectFirst("strong.subject")?.text()?.trim() ?: media.title,
+                coverUrl = media.coverUrl.ifBlank { clean(doc.selectFirst("meta[property=og:image]")?.attr("content").orEmpty()) },
+                description = title?.str("synopsis")?.trim() ?: doc.selectFirst(".summary")?.text()?.trim().orEmpty(),
+                author = doc.selectFirst(".info_area .author")?.text()?.replace(Regex("\\s*,\\s*"), ", ")?.trim().orEmpty(),
+                genres = listOfNotNull(title?.obj("representGenre")?.str("displayName")).ifEmpty {
+                    dto?.obj("tag")?.arr("tagList")?.map { it.asString }.orEmpty()
+                },
+                status = title?.str("titleStatusString").orEmpty().ifBlank { media.status }
+            )
+        }
+
+        private fun dateOf(millis: Long?): String =
+            if (millis == null || millis <= 0) "" else SimpleDateFormat("dd/MM/yyyy", Locale.ROOT).format(Date(millis))
+
+        fun parseEpisodes(result: JsonObject, mediaId: String): List<Chapter> =
+            result.arr("episodeList").objects().mapNotNull { episode ->
+                val number = episode.str("episodeNo")?.toFloatOrNull() ?: return@mapNotNull null
+                val link = episode.str("viewerLink") ?: return@mapNotNull null
+                val url = if (link.startsWith("http")) link else MOBILE + link
+                val title = episode.str("episodeTitle").orEmpty().trim()
+                Chapter(
+                    id = url,
+                    mediaId = mediaId,
+                    title = title.ifBlank { "Episodio ${number.toInt()}" },
+                    chapterNumber = number,
+                    url = url,
+                    dateUploaded = dateOf(episode.str("exposureDateMillis")?.toLongOrNull())
+                )
+            }
+
+        fun parsePages(html: String): List<String> {
+            val list = IMAGE_LIST.find(html)?.groupValues?.get(1) ?: return emptyList()
+            return IMAGE_URL.findAll(list).map { clean(it.groupValues[1]) }
+                .filterNot { "_warning." in it } // the site's copyright notice, not a page
+                .distinct()
+                .toList()
+        }
+    }
+}

@@ -32,8 +32,8 @@ export JAVA_HOME=/c/jdk-21.0.7 ANDROID_HOME="$LOCALAPPDATA/Android/Sdk"
 - [x] «Solo Wi-Fi» no frena un MP4 en curso
 - [x] Fallback de Cloudflare devuelve HTML en APIs JSON
 - [ ] Dependencias sin usar y README
-- [ ] Fuente WEBTOON
-- [ ] Fuente ZonaTMO
+- [x] Fuente WEBTOON
+- [x] Fuente ZonaTMO
 - [x] Rendimiento de red
 - [ ] Navegador integrado
 - [ ] Diagnóstico real de fuentes en emuladores API 26/33/37

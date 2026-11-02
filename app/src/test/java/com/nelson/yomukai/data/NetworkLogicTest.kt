@@ -24,10 +24,10 @@ class NetworkLogicTest {
 
     @Test
     fun webViewNeverLeaksAHostThatMustUseTor() {
-        assertFalse(TorRouting.webViewFallbackAllowed(torRoutesApp = true, hostSkipsTor = false, webViewOnTor = false))
-        assertTrue(TorRouting.webViewFallbackAllowed(torRoutesApp = true, hostSkipsTor = false, webViewOnTor = true))
-        assertTrue(TorRouting.webViewFallbackAllowed(torRoutesApp = true, hostSkipsTor = true, webViewOnTor = false))
-        assertTrue(TorRouting.webViewFallbackAllowed(torRoutesApp = false, hostSkipsTor = false, webViewOnTor = false))
+        assertFalse(TorRouting.webViewFallbackAllowed(torRoutesApp = true, webViewOnTor = false, webViewReady = true))
+        assertTrue(TorRouting.webViewFallbackAllowed(torRoutesApp = true, webViewOnTor = true, webViewReady = true))
+        assertTrue(TorRouting.webViewFallbackAllowed(torRoutesApp = false, webViewOnTor = false, webViewReady = true))
+        assertFalse("a wanted proxy that is not applied yet blocks it", TorRouting.webViewFallbackAllowed(false, false, webViewReady = false))
     }
 
     @Test

@@ -10,6 +10,8 @@ import com.nelson.yomukai.data.source.manga.MangaDexSource
 import com.nelson.yomukai.data.source.manga.MarmotaComicsSource
 import com.nelson.yomukai.data.source.manga.OlympusScansSource
 import com.nelson.yomukai.data.source.manga.SurtrScansSource
+import com.nelson.yomukai.data.source.manga.WebtoonsSource
+import com.nelson.yomukai.data.source.manga.ZonaTmoSource
 import com.nelson.yomukai.data.source.novel.RoyalRoadSource
 import com.nelson.yomukai.data.source.novel.SkyNovelsSource
 import com.nelson.yomukai.data.source.novel.TuNovelaLigeraSource
@@ -23,6 +25,8 @@ class SourceManager(network: NetworkHelper) {
         AsuraScansSource(network),
         FlameComicsSource(network),
         LectorTmoSource(network),
+        ZonaTmoSource(network),
+        WebtoonsSource(network),
         LectorMangaSource(network),
         SurtrScansSource(network),
         MarmotaComicsSource(network),
