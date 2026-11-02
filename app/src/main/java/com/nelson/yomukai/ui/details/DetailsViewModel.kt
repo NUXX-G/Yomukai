@@ -5,23 +5,29 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nelson.yomukai.AppContainer
+import com.nelson.yomukai.data.discovery.Alternative
+import com.nelson.yomukai.data.discovery.RelatedTitle
 import com.nelson.yomukai.data.local.CategoryEntity
 import com.nelson.yomukai.data.local.ChapterEntity
 import com.nelson.yomukai.data.local.DownloadEntity
 import com.nelson.yomukai.data.local.DownloadStatus
 import com.nelson.yomukai.data.local.MediaEntity
 import com.nelson.yomukai.data.local.ReadingStatus
+import com.nelson.yomukai.data.repository.toDomain
 import com.nelson.yomukai.data.source.AnimeSource
 import com.nelson.yomukai.data.source.NovelSource
 import com.nelson.yomukai.domain.model.VideoSource
 import com.nelson.yomukai.ui.navigation.Routes
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @Immutable
@@ -51,6 +57,20 @@ data class DetailsUiState(
         return (next ?: last) to true
     }
 }
+
+@Immutable
+data class SimilarState(val requested: Boolean = false, val loading: Boolean = false, val items: List<RelatedTitle> = emptyList())
+
+@Immutable
+data class AlternativesState(
+    val open: Boolean = false,
+    val searching: Boolean = false,
+    val done: Boolean = false,
+    val items: List<Alternative> = emptyList()
+)
+
+@Immutable
+data class LocateState(val title: String, val searching: Boolean, val options: List<Alternative> = emptyList())
 
 class DetailsViewModel(handle: SavedStateHandle, private val container: AppContainer) : ViewModel() {
     val sourceId: String = checkNotNull(handle[Routes.ARG_SOURCE])
@@ -170,6 +190,75 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
 
     fun deleteDownload(chapter: ChapterEntity) {
         viewModelScope.launch { container.downloadManager.delete(sourceId, chapter.chapterId) }
+    }
+
+    private val _similar = MutableStateFlow(SimilarState())
+    val similar: StateFlow<SimilarState> = _similar
+
+    private val _alternatives = MutableStateFlow(AlternativesState())
+    val alternatives: StateFlow<AlternativesState> = _alternatives
+
+    private val _locate = MutableStateFlow<LocateState?>(null)
+    val locate: StateFlow<LocateState?> = _locate
+
+    private var locateJob: Job? = null
+    private var alternativesJob: Job? = null
+
+    private suspend fun mediaItem() = repo.getMedia(sourceId, mediaId)?.toDomain()
+
+    fun loadSimilar() {
+        if (_similar.value.requested) return
+        _similar.value = SimilarState(requested = true, loading = true)
+        viewModelScope.launch(Dispatchers.IO) {
+            val items = mediaItem()?.let { media ->
+                runCatching { container.discovery.similar(media) }.getOrElse { e ->
+                    if (e is CancellationException) throw e
+                    emptyList()
+                }
+            }.orEmpty()
+            _similar.value = SimilarState(requested = true, items = items)
+        }
+    }
+
+    /** Looks for this title in the other sources; repeated opens reuse what was already found. */
+    fun openAlternatives() {
+        val current = _alternatives.value
+        _alternatives.value = current.copy(open = true)
+        if (current.searching || current.done) return
+        _alternatives.value = AlternativesState(open = true, searching = true)
+        alternativesJob = viewModelScope.launch(Dispatchers.IO) {
+            val media = mediaItem()
+            if (media != null) {
+                runCatching {
+                    container.discovery.alternatives(media) { found ->
+                        _alternatives.update { state ->
+                            state.copy(items = (state.items + found).sortedWith(compareBy({ it.confidence.ordinal }, { -(it.chapterCount ?: -1) })))
+                        }
+                    }
+                }.onFailure { if (it is CancellationException) throw it }
+            }
+            _alternatives.update { it.copy(searching = false, done = true) }
+        }
+    }
+
+    fun closeAlternatives() = _alternatives.update { it.copy(open = false) }
+
+    /** Finds where a recommended title can be read. */
+    fun locate(related: RelatedTitle) {
+        locateJob?.cancel()
+        _locate.value = LocateState(related.title, searching = true)
+        locateJob = viewModelScope.launch(Dispatchers.IO) {
+            val options = runCatching { container.discovery.locate(related) }.getOrElse { e ->
+                if (e is CancellationException) throw e
+                emptyList()
+            }
+            _locate.value = LocateState(related.title, searching = false, options = options)
+        }
+    }
+
+    fun closeLocate() {
+        locateJob?.cancel()
+        _locate.value = null
     }
 
     /** Servers of the episode whose failed download is being retried; null while loading. */

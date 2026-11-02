@@ -353,7 +353,7 @@ class DownloadManager(
             .apply { headers.forEach { (k, v) -> header(k, v) } }
             .header("Range", "bytes=0-1023")
             .build()
-        network.client.newCall(request).execute().use { if (!it.isSuccessful) throw HttpException(it.code, first) }
+        network.videoClient.newCall(request).execute().use { if (!it.isSuccessful) throw HttpException(it.code, first) }
     }
 
     private fun fetchText(url: String, headers: Map<String, String>): String {
@@ -413,7 +413,7 @@ class DownloadManager(
             .apply { if ("Referer" !in headers) header("Referer", url) }
             .apply { if (resumeFrom > 0) header("Range", "bytes=$resumeFrom-") }
             .build()
-        network.client.newCall(request).execute().use { response ->
+        network.videoClient.newCall(request).execute().use { response ->
             if (response.code == 416) { // our partial file does not match the server: start over
                 part.delete()
                 throw IOException("Reanudación rechazada, se reintentará desde cero")

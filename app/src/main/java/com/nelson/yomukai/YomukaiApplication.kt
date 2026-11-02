@@ -14,6 +14,8 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
 import org.conscrypt.Conscrypt
 import java.security.Security
+import com.nelson.yomukai.data.discovery.AniListClient
+import com.nelson.yomukai.data.discovery.DiscoveryRepository
 import com.nelson.yomukai.data.download.DownloadManager
 import com.nelson.yomukai.data.download.VideoOffline
 import com.nelson.yomukai.data.local.YomukaiDatabase
@@ -53,6 +55,7 @@ class AppContainer(context: Context) {
     val contentRepository = ContentRepository(sourceManager, downloadManager)
     val captureStore = CaptureStore()
     val homeCache = HomeCache(context)
+    val discovery = DiscoveryRepository(sourceManager, preferences, AniListClient(network))
 }
 
 private const val IMAGE_CACHE = "images"

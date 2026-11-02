@@ -1,5 +1,6 @@
 package com.nelson.yomukai.ui.web
 
+import com.nelson.yomukai.ui.components.AppSpinner
 import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -37,6 +38,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -50,6 +52,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Image
@@ -117,6 +121,7 @@ import com.nelson.yomukai.data.prefs.BrowserHome
 import com.nelson.yomukai.data.prefs.BrowserPage
 import com.nelson.yomukai.data.repository.PageData
 import com.nelson.yomukai.ui.LocalAppContainer
+import com.nelson.yomukai.ui.reader.ReaderWindowEffects
 import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONTokener
@@ -267,6 +272,8 @@ fun WebCaptureScreen(
     var pageError by remember { mutableStateOf<String?>(null) }
     var desktopMode by remember { mutableStateOf(store.browserDesktop) }
     var menuOpen by remember { mutableStateOf(false) }
+    /** Like F11: only the page on screen, without the browser's bars or the system's. */
+    var immersive by remember { mutableStateOf(false) }
     var addressFocused by remember { mutableStateOf(false) }
     var showPages by remember { mutableStateOf(false) }
     var findOpen by remember { mutableStateOf(false) }
@@ -374,9 +381,12 @@ fun WebCaptureScreen(
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, !netState.viaTor)
     }
 
+    ReaderWindowEffects(brightness = -1f, keepScreenOn = false, immersive = immersive || fullscreen != null)
+
     BackHandler {
         when {
             fullscreen != null -> fullscreen?.second?.onCustomViewHidden()
+            immersive -> immersive = false
             findOpen -> closeFind()
             canGoBack -> if (netState.ready) webView?.goBack()
             else -> close()
@@ -393,7 +403,7 @@ fun WebCaptureScreen(
 
     Scaffold(
         topBar = {
-            Column {
+            if (!immersive) Column {
                 TopAppBar(
                     title = {
                         OutlinedTextField(
@@ -469,7 +479,7 @@ fun WebCaptureScreen(
             }
         },
         bottomBar = {
-            Surface(tonalElevation = 3.dp) {
+            if (!immersive) Surface(tonalElevation = 3.dp) {
                 Column(Modifier.navigationBarsPadding()) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         IconButton(onClick = { pageError = null; webView?.goBack() }, enabled = canGoBack && netState.ready) {
@@ -486,6 +496,7 @@ fun WebCaptureScreen(
                             )
                         }
                         IconButton(onClick = { showPages = true }) { Icon(Icons.Default.History, "Favoritos e historial") }
+                        IconButton(onClick = { immersive = true }) { Icon(Icons.Default.Fullscreen, "Pantalla completa") }
                         Box {
                             IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, "Más opciones") }
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
@@ -666,6 +677,15 @@ fun WebCaptureScreen(
                     }
                 }
             )
+            if (immersive) {
+                IconButton(
+                    onClick = { immersive = false },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                ) { Icon(Icons.Default.FullscreenExit, "Salir de pantalla completa", tint = Color.White) }
+            }
             pageError?.let { message ->
                 Column(
                     Modifier
@@ -689,7 +709,7 @@ fun WebCaptureScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    if (netState.viaTor) androidx.compose.material3.CircularProgressIndicator()
+                    if (netState.viaTor) AppSpinner()
                     Spacer(Modifier.height(16.dp))
                     Text(
                         netState.message ?: "Esperando a la red...",

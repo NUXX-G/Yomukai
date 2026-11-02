@@ -4,7 +4,9 @@ import coil3.request.transformations
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,30 +17,43 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -48,6 +63,65 @@ import coil3.request.ImageRequest
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
 import com.nelson.yomukai.ui.LocalAppContainer
+
+/**
+ * Loading indicator that always turns. Compose's own one is driven by system animations, so with
+ * animations reduced or off in Android (battery saver included) it stays frozen as a dot. This one
+ * counts real frame time, which those settings do not touch.
+ */
+@Composable
+fun AppSpinner(
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.primary,
+    strokeWidth: Dp = 4.dp
+) {
+    var angle by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(Unit) {
+        var last = withFrameMillis { it }
+        while (true) {
+            val now = withFrameMillis { it }
+            angle = (angle + (now - last) * SPINNER_DEGREES_PER_MS) % 360f
+            last = now
+        }
+    }
+    Canvas(modifier.size(40.dp)) {
+        val stroke = strokeWidth.toPx()
+        val inset = stroke / 2
+        drawArc(
+            color = color,
+            startAngle = angle,
+            sweepAngle = SPINNER_SWEEP,
+            useCenter = false,
+            topLeft = Offset(inset, inset),
+            size = Size(size.width - stroke, size.height - stroke),
+            style = Stroke(stroke, cap = StrokeCap.Round)
+        )
+    }
+}
+
+/** Pull-to-refresh indicator built on [AppSpinner]: follows the finger, then keeps turning while it refreshes. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BoxScope.RefreshSpinner(state: PullToRefreshState, isRefreshing: Boolean) {
+    val pull = state.distanceFraction
+    if (!isRefreshing && pull <= 0f) return
+    Surface(
+        shape = CircleShape,
+        tonalElevation = 3.dp,
+        shadowElevation = 3.dp,
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+            .graphicsLayer {
+                val travel = 72.dp.toPx()
+                translationY = if (isRefreshing) 16.dp.toPx() else pull.coerceAtMost(1.3f) * travel - 24.dp.toPx()
+            }
+    ) {
+        AppSpinner(Modifier.padding(8.dp).size(24.dp), strokeWidth = 2.5.dp)
+    }
+}
+
+private const val SPINNER_DEGREES_PER_MS = 0.36f
+private const val SPINNER_SWEEP = 270f
 
 fun MediaType.badgeColor(): Color = when (this) {
     MediaType.ANIME -> Color(0xFFE53935)
@@ -210,7 +284,7 @@ fun LoadingState(message: String? = null, modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        CircularProgressIndicator()
+        AppSpinner()
         if (message != null) {
             Spacer(Modifier.height(12.dp))
             Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

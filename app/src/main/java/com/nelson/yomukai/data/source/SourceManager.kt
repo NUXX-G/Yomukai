@@ -2,14 +2,13 @@ package com.nelson.yomukai.data.source
 
 import com.nelson.yomukai.data.network.NetworkHelper
 import com.nelson.yomukai.data.source.anime.AnimeAv1Source
+import com.nelson.yomukai.data.source.anime.AnimeFlvSource
 import com.nelson.yomukai.data.source.manga.AsuraScansSource
 import com.nelson.yomukai.data.source.manga.FlameComicsSource
-import com.nelson.yomukai.data.source.manga.LectorMangaSource
 import com.nelson.yomukai.data.source.manga.LectorTmoSource
 import com.nelson.yomukai.data.source.manga.MangaDexSource
 import com.nelson.yomukai.data.source.manga.MarmotaComicsSource
 import com.nelson.yomukai.data.source.manga.OlympusScansSource
-import com.nelson.yomukai.data.source.manga.SurtrScansSource
 import com.nelson.yomukai.data.source.manga.WebtoonsSource
 import com.nelson.yomukai.data.source.manga.ZonaTmoSource
 import com.nelson.yomukai.data.source.novel.RoyalRoadSource
@@ -26,16 +25,16 @@ class SourceManager(network: NetworkHelper) {
         FlameComicsSource(network),
         LectorTmoSource(network),
         ZonaTmoSource(network),
-        WebtoonsSource(network),
-        LectorMangaSource(network),
-        SurtrScansSource(network),
+        WebtoonsSource(network, "es"),
+        WebtoonsSource(network, "en"),
         MarmotaComicsSource(network),
         // Novels
         RoyalRoadSource(network),
         SkyNovelsSource(network),
         TuNovelaLigeraSource(network),
         // Anime
-        AnimeAv1Source(network)
+        AnimeAv1Source(network),
+        AnimeFlvSource(network)
     )
 
     private val byId = all.associateBy { it.id }

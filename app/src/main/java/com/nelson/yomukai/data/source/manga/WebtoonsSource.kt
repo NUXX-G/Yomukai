@@ -24,17 +24,18 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * WEBTOON (m.webtoons.com), Spanish and English. Episodes come from the mobile site's JSON API,
+ * WEBTOON (m.webtoons.com), one source per language so each shows up under its own filter. Episodes come from the mobile site's JSON API,
  * pages from the `imageList` of the viewer. Search and genre listings are only complete on the
  * desktop site, reached with a desktop User-Agent. Media ids are the absolute mobile list URL,
  * which also tells originals and Canvas apart.
  */
-class WebtoonsSource(private val network: NetworkHelper) : MangaSource {
-    override val id = "webtoons"
-    override val name = "WEBTOON"
+class WebtoonsSource(private val network: NetworkHelper, private val siteLanguage: String) : MangaSource {
+    // The Spanish source keeps the original id: titles already in a library stay attached to it.
+    override val id = if (siteLanguage == "es") "webtoons" else "webtoons_$siteLanguage"
+    override val name = "WEBTOON ${siteLanguage.uppercase()}"
     override val baseUrl = MOBILE
     override val extraHosts = listOf("https://www.webtoons.com", "https://webtoon-phinf.pstatic.net")
-    override val language = "MULTI"
+    override val language = siteLanguage.uppercase()
     override val supportedTypes = setOf(MediaType.MANHWA)
 
     private val referer = mapOf("Referer" to "$MOBILE/")
@@ -44,22 +45,17 @@ class WebtoonsSource(private val network: NetworkHelper) : MangaSource {
     override val filters: List<SourceFilter> = FILTERS
 
     override suspend fun browse(page: Int, values: FilterValues): Result<List<MediaItem>> = runCatching {
-        val language = values.single(LANGUAGE)
         val genre = values.single(GENRE)
-        if (genre.isEmpty()) parseCards(network.getString("$MOBILE/$language/originals", referer))
-        else parseCards(desktop("$DESKTOP/$language/genres/$genre?webtoon-platform-redirect=true"))
+        if (genre.isEmpty()) parseCards(network.getString("$MOBILE/$siteLanguage/originals", referer), id)
+        else parseCards(desktop("$DESKTOP/$siteLanguage/genres/$genre?webtoon-platform-redirect=true"), id)
     }
 
     override suspend fun fetchLatestUpdates(page: Int): Result<List<MediaItem>> = runCatching {
-        parseCards(network.getString("$MOBILE/es/originals", referer))
+        parseCards(network.getString("$MOBILE/$siteLanguage/originals", referer), id)
     }
 
     override suspend fun searchMedia(query: String): Result<List<MediaItem>> = runCatching {
-        val keyword = SourceUtils.encode(query)
-        listOf("es", "en").flatMap { language ->
-            runCatching { parseCards(desktop("$DESKTOP/$language/search?keyword=$keyword&webtoon-platform-redirect=true")) }
-                .getOrDefault(emptyList())
-        }.distinctBy { it.id }
+        parseCards(desktop("$DESKTOP/$siteLanguage/search?keyword=${SourceUtils.encode(query)}&webtoon-platform-redirect=true"), id)
     }
 
     override suspend fun fetchMediaDetails(media: MediaItem): Result<MediaItem> = runCatching {
@@ -101,10 +97,6 @@ class WebtoonsSource(private val network: NetworkHelper) : MangaSource {
         private val IMAGE_LIST = Regex("""var\s+imageList\s*=\s*\[(.*?)];""", RegexOption.DOT_MATCHES_ALL)
         private val IMAGE_URL = Regex("""url:\s*"([^"]+)"""")
 
-        private val LANGUAGE = SelectFilter(
-            FilterKeys.LANGUAGE, "Idioma",
-            listOf(FilterOption("es", "Español"), FilterOption("en", "Inglés"))
-        )
         private val GENRE = SelectFilter(
             FilterKeys.GENRE, "Género",
             listOf(
@@ -114,7 +106,7 @@ class WebtoonsSource(private val network: NetworkHelper) : MangaSource {
                 "super_hero" to "Superhéroes", "supernatural" to "Sobrenatural", "thriller" to "Suspenso"
             ).map { FilterOption(it.first, it.second) }
         )
-        val FILTERS: List<SourceFilter> = listOf(LANGUAGE, GENRE)
+        val FILTERS: List<SourceFilter> = listOf(GENRE)
 
         private fun titleNo(url: String) = TITLE_NO.find(url)?.groupValues?.get(1)
 
@@ -123,7 +115,7 @@ class WebtoonsSource(private val network: NetworkHelper) : MangaSource {
 
         private fun mobile(url: String) = url.replace("://www.webtoons.com", "://m.webtoons.com")
 
-        fun parseCards(html: String): List<MediaItem> =
+        fun parseCards(html: String, sourceId: String = "webtoons"): List<MediaItem> =
             Jsoup.parse(html, MOBILE).select("a[data-title-no][href*=title_no=]").mapNotNull { card ->
                 val url = mobile(card.absUrl("href")).ifBlank { return@mapNotNull null }
                 val title = card.selectFirst(".title, .subj")?.text()?.trim().orEmpty()
@@ -135,7 +127,7 @@ class WebtoonsSource(private val network: NetworkHelper) : MangaSource {
                     type = MediaType.MANHWA,
                     status = "",
                     description = "",
-                    sourceId = "webtoons",
+                    sourceId = sourceId,
                     author = card.selectFirst(".author")?.text()?.trim().orEmpty()
                 )
             }.distinctBy { it.id }

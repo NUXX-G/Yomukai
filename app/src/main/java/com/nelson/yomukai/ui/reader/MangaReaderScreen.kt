@@ -1,5 +1,6 @@
 package com.nelson.yomukai.ui.reader
 
+import com.nelson.yomukai.ui.components.AppSpinner
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -175,7 +176,7 @@ fun MangaReaderScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                CircularProgressIndicator()
+                AppSpinner()
                 Spacer(Modifier.height(12.dp))
                 Text(chapter?.title ?: "Cargando...", color = Color.White.copy(alpha = 0.8f))
             }
@@ -682,7 +683,7 @@ internal fun ReaderPageImage(
             }
             is AsyncImagePainter.State.Success -> Unit
             else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator(modifier = Modifier.size(36.dp))
+                AppSpinner(modifier = Modifier.size(36.dp))
                 Spacer(Modifier.height(8.dp))
                 Text("${index + 1}", color = Color.White.copy(alpha = 0.5f))
             }
@@ -708,7 +709,7 @@ private fun ChapterEndFooter(
     ) {
         when {
             loadingNext -> {
-                CircularProgressIndicator()
+                AppSpinner()
                 Spacer(Modifier.height(12.dp))
                 Text("Cargando ${next?.title ?: "el siguiente capítulo"}...", color = Color.White.copy(alpha = 0.7f))
             }

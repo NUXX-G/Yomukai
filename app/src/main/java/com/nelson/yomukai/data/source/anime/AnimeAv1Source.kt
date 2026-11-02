@@ -128,6 +128,20 @@ class AnimeAv1Source(private val network: NetworkHelper) : AnimeSource {
             }
         }
 
+        /** One server of an episode; the zilla-networks player page exposes its playlist directly at /m3u8/{id}. */
+        fun embedSource(server: String, url: String, label: String): VideoSource =
+            if ("zilla-networks.com/play/" in url) {
+                VideoSource(
+                    quality = "$label • HLS",
+                    videoUrl = url.replace("/play/", "/m3u8/"),
+                    serverName = server,
+                    isDirect = true,
+                    headers = mapOf("Referer" to "https://player.zilla-networks.com/")
+                )
+            } else {
+                VideoSource(quality = label, videoUrl = url, serverName = server)
+            }
+
         /** Embeds are grouped by language (SUB/DUB); only the "embeds" block is used, not downloads. */
         fun parseVideoSources(html: String): List<VideoSource> {
             val start = html.indexOf("embeds:{")
@@ -137,22 +151,7 @@ class AnimeAv1Source(private val network: NetworkHelper) : AnimeSource {
             val sources = mutableListOf<VideoSource>()
             Regex("""(SUB|DUB|LAT):\[(.*?)]""").findAll(block).forEach { lang ->
                 val label = if (lang.groupValues[1] == "SUB") "Sub español" else "Doblado"
-                EMBED.findAll(lang.groupValues[2]).forEach { m ->
-                    val server = m.groupValues[1]
-                    val url = m.groupValues[2]
-                    if ("zilla-networks.com/play/" in url) {
-                        // The HLS player page exposes the playlist directly at /m3u8/{id}.
-                        sources += VideoSource(
-                            quality = "$label • HLS",
-                            videoUrl = url.replace("/play/", "/m3u8/"),
-                            serverName = server,
-                            isDirect = true,
-                            headers = mapOf("Referer" to "https://player.zilla-networks.com/")
-                        )
-                    } else {
-                        sources += VideoSource(quality = label, videoUrl = url, serverName = server)
-                    }
-                }
+                EMBED.findAll(lang.groupValues[2]).forEach { m -> sources += embedSource(m.groupValues[1], m.groupValues[2], label) }
             }
             return sources.sortedByDescending { it.isDirect }
         }

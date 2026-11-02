@@ -28,7 +28,9 @@ data class MediaEntity(
     /** [ReadingStatus] name; NONE until the user picks one. */
     @ColumnInfo(defaultValue = "NONE") val readingStatus: String = ReadingStatus.NONE.name,
     /** Whether the background update check should notify about new chapters of this title. */
-    @ColumnInfo(defaultValue = "1") val notifyUpdates: Boolean = true
+    @ColumnInfo(defaultValue = "1") val notifyUpdates: Boolean = true,
+    /** Other names of the title, separated by '|'; they help to find it in other sources. */
+    @ColumnInfo(defaultValue = "''") val altTitles: String = ""
 )
 
 enum class ReadingStatus(val displayName: String) {

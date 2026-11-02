@@ -1,5 +1,6 @@
 package com.nelson.yomukai.ui.reader
 
+import com.nelson.yomukai.ui.components.AppSpinner
 import java.util.Locale
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -171,7 +172,7 @@ fun NovelReaderScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                CircularProgressIndicator()
+                AppSpinner()
                 Spacer(Modifier.height(12.dp))
                 Text(state.chapter?.title ?: "Cargando...", color = textColor.copy(alpha = 0.7f))
             }
@@ -297,7 +298,7 @@ fun NovelReaderScreen(
                         ) {
                             when {
                                 state.isLoadingNext -> {
-                                    CircularProgressIndicator()
+                                    AppSpinner()
                                     Spacer(Modifier.height(12.dp))
                                     Text("Cargando ${state.next?.title ?: "el siguiente capítulo"}...", color = textColor.copy(alpha = 0.7f))
                                 }

@@ -1,5 +1,6 @@
 package com.nelson.yomukai.ui.details
 
+import com.nelson.yomukai.ui.components.AppSpinner
 import com.nelson.yomukai.domain.model.VideoSource
 import com.nelson.yomukai.data.download.EpisodeServers
 import androidx.compose.foundation.verticalScroll
@@ -40,6 +41,7 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.PlayArrow
@@ -65,6 +67,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -84,12 +87,14 @@ import com.nelson.yomukai.data.local.ChapterEntity
 import com.nelson.yomukai.data.local.DownloadEntity
 import com.nelson.yomukai.data.local.DownloadStatus
 import com.nelson.yomukai.data.local.ReadingStatus
+import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
 import com.nelson.yomukai.domain.model.PublicationStatus
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.components.CoverImage
 import com.nelson.yomukai.ui.components.LoadingState
 import com.nelson.yomukai.ui.components.MessageState
+import com.nelson.yomukai.ui.components.RefreshSpinner
 import com.nelson.yomukai.ui.components.TypeBadge
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -97,6 +102,7 @@ import com.nelson.yomukai.ui.components.TypeBadge
 fun DetailsScreen(
     onBack: () -> Unit,
     onOpenChapter: (ChapterEntity) -> Unit,
+    onOpenMedia: (MediaItem) -> Unit,
     viewModel: DetailsViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -115,6 +121,34 @@ fun DetailsScreen(
             onCancel = { viewModel.deleteDownload(chapter); failed = null },
             onDismiss = { failed = null }
         )
+    }
+
+    val similar by viewModel.similar.collectAsStateWithLifecycle()
+    val alternatives by viewModel.alternatives.collectAsStateWithLifecycle()
+    val locate by viewModel.locate.collectAsStateWithLifecycle()
+
+    if (alternatives.open) {
+        AlternativesSheet(
+            state = alternatives,
+            currentSource = state.sourceName,
+            currentCount = state.chapters.size,
+            isAnime = state.isAnime,
+            onOpen = { viewModel.closeAlternatives(); onOpenMedia(it) },
+            onDismiss = viewModel::closeAlternatives
+        )
+    }
+    locate?.let { found ->
+        // A single place to read it needs no question.
+        val only = found.options.singleOrNull()
+        if (!found.searching && only != null) {
+            LaunchedEffect(only) { viewModel.closeLocate(); onOpenMedia(only.item) }
+        } else {
+            LocateSheet(
+                state = found,
+                onOpen = { viewModel.closeLocate(); onOpenMedia(it) },
+                onDismiss = viewModel::closeLocate
+            )
+        }
     }
 
     var showRange by remember { mutableStateOf(false) }
@@ -173,9 +207,12 @@ fun DetailsScreen(
             }
         }
     ) { padding ->
+        val refreshState = rememberPullToRefreshState()
         PullToRefreshBox(
             isRefreshing = state.isRefreshing,
             onRefresh = viewModel::refresh,
+            state = refreshState,
+            indicator = { RefreshSpinner(refreshState, state.isRefreshing) },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -199,6 +236,21 @@ fun DetailsScreen(
                             onCreateCategory = viewModel::createCategory
                         )
                     }
+                }
+                item(key = "alternatives") {
+                    AssistChip(
+                        onClick = viewModel::openAlternatives,
+                        label = { Text("Buscar en otras fuentes") },
+                        leadingIcon = { Icon(Icons.Default.Search, null, Modifier.size(18.dp)) },
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
+                item(key = "similar") {
+                    SimilarSection(
+                        state = similar,
+                        onLoad = viewModel::loadSimilar,
+                        onOpen = { related -> related.item?.let(onOpenMedia) ?: viewModel.locate(related) }
+                    )
                 }
                 item {
                     Row(
@@ -421,7 +473,7 @@ private fun DownloadIndicator(download: DownloadEntity?, onDownload: () -> Unit,
             if (download.status == DownloadStatus.DOWNLOADING && progress > 0f) {
                 CircularProgressIndicator(progress = { progress }, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
             } else {
-                CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
+                AppSpinner(modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
             }
         }
     }
@@ -449,7 +501,7 @@ private fun FailedDownloadDialog(
                 if (isAnime) {
                     Text("Elige con qué servidor reintentar:", style = MaterialTheme.typography.titleSmall)
                     when {
-                        servers == null -> CircularProgressIndicator(Modifier.size(24.dp))
+                        servers == null -> AppSpinner(Modifier.size(24.dp))
                         servers.isFailure -> Text("No se pudieron cargar los servidores: ${servers.exceptionOrNull()?.message}")
                         else -> {
                             val all = servers.getOrThrow()

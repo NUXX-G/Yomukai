@@ -45,7 +45,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -281,7 +280,8 @@ fun YomukaiApp(
             ) {
                 DetailsScreen(
                     onBack = { navController.popBackStack() },
-                    onOpenChapter = { openReader(it.sourceId, it.mediaId, it.chapterId) }
+                    onOpenChapter = { openReader(it.sourceId, it.mediaId, it.chapterId) },
+                    onOpenMedia = ::openMedia
                 )
             }
             val readerArgs = listOf(
@@ -322,7 +322,10 @@ fun YomukaiApp(
                     navArgument("local") { type = NavType.StringType; defaultValue = "" }
                 )
             ) {
-                AnimePlayerScreen(onBackClick = { navController.popBackStack() })
+                AnimePlayerScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onOpenWeb = { navController.navigate(Routes.webCapture(it)) }
+                )
             }
         }
     }
@@ -338,6 +341,7 @@ fun YomukaiApp(
                     )
                 )
             },
+            onOpenWeb = { navController.navigate(Routes.webCapture(it)) },
             onDismiss = { episodeServers = null }
         )
     }
@@ -351,14 +355,14 @@ private data class EpisodeServers(
     val chapterId: String = ""
 )
 
-/** Lets the user pick a server: direct streams play in-app, web embeds open in the browser. */
+/** Lets the user pick a server: direct streams play in the player, web embeds in the built-in browser. */
 @Composable
 private fun EpisodeServerDialog(
     state: EpisodeServers,
     onPlay: (VideoSource) -> Unit,
+    onOpenWeb: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val uriHandler = LocalUriHandler.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(state.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
@@ -375,7 +379,7 @@ private fun EpisodeServerDialog(
                         },
                         modifier = Modifier.clickable {
                             if (server.isDirect) onPlay(server)
-                            else if (isWebUrl(server.videoUrl)) runCatching { uriHandler.openUri(server.videoUrl) }
+                            else if (isWebUrl(server.videoUrl)) onOpenWeb(server.videoUrl)
                             onDismiss()
                         }
                     )

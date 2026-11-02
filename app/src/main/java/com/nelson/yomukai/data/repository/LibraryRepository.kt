@@ -27,7 +27,8 @@ fun MediaEntity.toDomain() = MediaItem(
     description = description,
     sourceId = sourceId,
     author = author,
-    genres = genres.split('|').filter { it.isNotBlank() }
+    genres = genres.split('|').filter { it.isNotBlank() },
+    altTitles = altTitles.split('|').filter { it.isNotBlank() }
 )
 
 /**
@@ -180,6 +181,7 @@ class LibraryRepository(
         dateAdded = old?.dateAdded ?: 0L,
         lastFetched = lastFetched,
         readingStatus = old?.readingStatus ?: ReadingStatus.NONE.name,
-        notifyUpdates = old?.notifyUpdates ?: true
+        notifyUpdates = old?.notifyUpdates ?: true,
+        altTitles = item.altTitles.joinToString("|") { it.replace('|', ' ') }.ifBlank { old?.altTitles.orEmpty() }
     )
 }

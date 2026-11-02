@@ -1,5 +1,6 @@
 package com.nelson.yomukai.ui.home
 
+import com.nelson.yomukai.ui.components.AppSpinner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -51,6 +53,7 @@ import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.components.CoverImage
 import com.nelson.yomukai.ui.components.LanguageTag
 import com.nelson.yomukai.ui.components.MediaCard
+import com.nelson.yomukai.ui.components.RefreshSpinner
 import com.nelson.yomukai.ui.components.SectionHeader
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -88,9 +91,12 @@ fun HomeScreen(
             )
         }
     ) { padding ->
+        val refreshState = rememberPullToRefreshState()
         PullToRefreshBox(
             isRefreshing = state.isRefreshing,
             onRefresh = viewModel::refresh,
+            state = refreshState,
+            indicator = { RefreshSpinner(refreshState, state.isRefreshing) },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -168,7 +174,7 @@ fun HomeScreen(
                                     .fillMaxWidth()
                                     .height(200.dp),
                                 contentAlignment = Alignment.Center
-                            ) { CircularProgressIndicator() }
+                            ) { AppSpinner() }
 
                             section.error != null -> Row(
                                 Modifier.padding(horizontal = 16.dp),

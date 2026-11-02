@@ -51,7 +51,7 @@ class VideoOffline(context: Context, private val network: NetworkHelper) {
 
     /** Network access for Media3, always through the current OkHttp client (proxy/DoH aware). */
     val upstreamFactory: DataSource.Factory = ResolvingDataSource.Factory(
-        OkHttpDataSource.Factory(network.callFactory).setUserAgent(NetworkHelper.USER_AGENT)
+        OkHttpDataSource.Factory(network.videoCallFactory).setUserAgent(NetworkHelper.USER_AGENT)
     ) { spec ->
         val host = spec.uri.host
         // Segments may live on another host (CDN): fall back to the headers of the last registered stream.
@@ -63,7 +63,7 @@ class VideoOffline(context: Context, private val network: NetworkHelper) {
 
     /** Plain playback of an online stream (any scheme the source gave), still through the app proxy. */
     fun playbackFactory(referer: String): DataSource.Factory =
-        OkHttpDataSource.Factory(network.callFactory)
+        OkHttpDataSource.Factory(network.videoCallFactory)
             .setUserAgent(NetworkHelper.USER_AGENT)
             .apply { if (referer.isNotBlank()) setDefaultRequestProperties(mapOf("Referer" to referer)) }
 

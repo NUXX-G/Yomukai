@@ -1,5 +1,6 @@
 package com.nelson.yomukai.ui.settings
 
+import com.nelson.yomukai.ui.components.AppSpinner
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -75,7 +76,7 @@ fun DiagnosticsScreen(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(source.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                         when {
-                            source.id in running -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                            source.id in running -> AppSpinner(Modifier.size(20.dp), strokeWidth = 2.dp)
                             steps == null -> OutlinedButton(onClick = { viewModel.run(source.id) }) { Text("Probar") }
                             else -> {
                                 Text(if (steps.all { it.ok }) "OK" else "Error", style = MaterialTheme.typography.labelLarge)

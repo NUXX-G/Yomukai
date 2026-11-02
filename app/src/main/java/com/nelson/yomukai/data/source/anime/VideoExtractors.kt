@@ -21,7 +21,7 @@ import org.jsoup.parser.Parser
  */
 class VideoExtractors(private val network: NetworkHelper) {
 
-    /** Resolves every embed it can (in parallel), returning direct streams first. */
+    /** Resolves every embed it can (in parallel), returning the streams most likely to play first. */
     suspend fun resolveAll(sources: List<VideoSource>): List<VideoSource> = coroutineScope {
         sources.map { source ->
             async {
@@ -29,7 +29,7 @@ class VideoExtractors(private val network: NetworkHelper) {
                 val direct = withTimeoutOrNull(20_000) { runCatching { resolve(source) }.getOrNull() }
                 listOfNotNull(direct, source)
             }
-        }.awaitAll().flatten().distinctBy { it.videoUrl }.sortedByDescending { it.isDirect }
+        }.awaitAll().flatten().distinctBy { it.videoUrl }.let(::bestFirst)
     }
 
     private suspend fun resolve(source: VideoSource): VideoSource? {
@@ -44,6 +44,7 @@ class VideoExtractors(private val network: NetworkHelper) {
             "yourupload.com" in url ->
                 yourupload(network.getString(url.replace("/watch/", "/embed/"), cloudflareFallback = false))
                     ?.let { it to mapOf("Referer" to "https://www.yourupload.com/") }
+            VOE_HOST in url -> voe(url)
             else -> null
         } ?: return null
         return source.copy(
@@ -54,7 +55,50 @@ class VideoExtractors(private val network: NetworkHelper) {
         )
     }
 
+    /** Voe first sends the visitor to a rotating mirror; the real page holds the stream. */
+    private suspend fun voe(url: String): Pair<String, Map<String, String>>? {
+        val first = network.getString(url, cloudflareFallback = false)
+        val page = VOE_MIRROR.find(first)?.value
+        val html = if (page == null) first else network.getString(page, mapOf("Referer" to url), cloudflareFallback = false)
+        val referer = (page ?: url).substringBefore("/e/") + "/"
+        return voeStream(html)?.let { it to mapOf("Referer" to referer) }
+    }
+
     companion object {
+        private const val VOE_HOST = "voe.sx"
+        private val VOE_MIRROR = Regex("""https://[a-zA-Z0-9.-]+/e/[a-z0-9]+""")
+        private val VOE_DATA = Regex("""<script[^>]*type="application/json"[^>]*>(.*?)</script>""", RegexOption.DOT_MATCHES_ALL)
+        private val VOE_NOISE = listOf("@$", "^^", "~@", "%?", "*~", "!!", "#&")
+
+        /** Direct streams first; the zilla-networks HLS last, because Cloudflare blocks its segments for non-browsers. */
+        fun bestFirst(sources: List<VideoSource>): List<VideoSource> =
+            sources.sortedWith(compareBy({ !it.isDirect }, { "zilla-networks" in it.videoUrl }))
+
+        private fun rot13(text: String) = text.map { c ->
+            when (c) {
+                in 'a'..'z' -> 'a' + (c - 'a' + 13) % 26
+                in 'A'..'Z' -> 'A' + (c - 'A' + 13) % 26
+                else -> c
+            }
+        }.joinToString("")
+
+        /** Voe's player config: rot13, noise markers, Base64, every char shifted by 3, reversed, Base64 again. */
+        fun voeConfig(encoded: String): com.google.gson.JsonObject? = runCatching {
+            val clean = VOE_NOISE.fold(rot13(encoded)) { text, noise -> text.replace(noise, "") }
+            val shifted = java.util.Base64.getDecoder().decode(clean).map { ((it.toInt() and 0xFF) - 3).toChar() }
+            val inner = shifted.reversed().joinToString("")
+            parseJson(String(java.util.Base64.getDecoder().decode(inner), Charsets.UTF_8)).asJsonObject
+        }.getOrNull()
+
+        /** The MP4 when offered, since it also works for downloads; otherwise the HLS playlist. */
+        fun voeStream(html: String): String? {
+            val data = VOE_DATA.find(html)?.groupValues?.get(1) ?: return null
+            val encoded = runCatching { parseJson(data).asJsonArray.first().asString }.getOrNull() ?: return null
+            val config = voeConfig(encoded) ?: return null
+            return config.str("direct_access_url")?.takeIf { it.startsWith("http") }
+                ?: config.str("source")?.takeIf { it.startsWith("http") }
+        }
+
         private val MP4UPLOAD_SRC = Regex("""src:\s*"(https?://[^"]+\.mp4[^"]*)"""")
         private val YOURUPLOAD_FILE = Regex("""file\s*:\s*['"](https?://[^'"]+\.mp4[^'"]*)['"]""")
 

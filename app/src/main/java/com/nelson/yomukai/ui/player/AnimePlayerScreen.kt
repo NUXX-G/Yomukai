@@ -1,5 +1,6 @@
 package com.nelson.yomukai.ui.player
 
+import com.nelson.yomukai.ui.components.AppSpinner
 import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.ContextWrapper
@@ -64,7 +65,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -104,10 +104,10 @@ private tailrec fun Context.findComponentActivity(): ComponentActivity? = when (
 @Composable
 fun AnimePlayerScreen(
     onBackClick: () -> Unit = {},
+    onOpenWeb: (String) -> Unit = {},
     viewModel: AnimePlayerViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val context = LocalContext.current
-    val uriHandler = LocalUriHandler.current
     val ui by viewModel.state.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val episodes by viewModel.chapterList.collectAsStateWithLifecycle()
@@ -278,7 +278,7 @@ fun AnimePlayerScreen(
         )
 
         if (isLoading || ui.isResolving) {
-            CircularProgressIndicator(
+            AppSpinner(
                 modifier = Modifier
                     .size(56.dp)
                     .align(Alignment.Center),
@@ -296,7 +296,7 @@ fun AnimePlayerScreen(
             ) {
                 Text(message, color = Color.White)
                 ui.browserUrl?.let { url ->
-                    TextButton(onClick = { runCatching { uriHandler.openUri(url) } }) { Text("Abrir en el navegador") }
+                    TextButton(onClick = { onOpenWeb(url) }) { Text("Ver en el navegador") }
                 }
                 TextButton(onClick = onBackClick) { Text("Volver") }
                 TextButton(onClick = viewModel::dismissError) { Text("Cerrar") }

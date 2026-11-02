@@ -1,5 +1,6 @@
 package com.nelson.yomukai.ui.browse
 
+import com.nelson.yomukai.ui.components.AppSpinner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -128,7 +129,7 @@ private fun PagingFooter(state: BrowseUiState, loadMore: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         when {
-            state.isLoading -> CircularProgressIndicator()
+            state.isLoading -> AppSpinner()
             state.error != null -> TextButton(onClick = loadMore) { Text("Error al cargar más. Reintentar") }
         }
     }

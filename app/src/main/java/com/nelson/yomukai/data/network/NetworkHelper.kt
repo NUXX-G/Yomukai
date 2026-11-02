@@ -29,6 +29,7 @@ import okhttp3.Dns
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -37,6 +38,7 @@ import okhttp3.dnsoverhttps.DnsOverHttps
 import org.jsoup.Jsoup
 import java.io.File
 import java.io.IOException
+import java.net.ConnectException
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Proxy
@@ -118,8 +120,15 @@ class NetworkHelper(
     @Volatile
     private var imageClient: OkHttpClient = imageClientFor(client)
 
+    /** Streaming and video downloads: gives up quickly on a dead connection attempt and tries again. */
+    @Volatile
+    var videoClient: OkHttpClient = videoClientFor(client, torRouted(settings.value))
+        private set
+
     /** Stable factory for long-lived consumers (Media3) that always delegates to the current client. */
     val callFactory = Call.Factory { request -> client.newCall(request) }
+
+    val videoCallFactory = Call.Factory { request -> videoClient.newCall(request) }
 
     /** Same for the image loader, which must never store a web page as if it were the image. */
     val imageCallFactory = Call.Factory { request -> imageClient.newCall(request) }
@@ -130,9 +139,17 @@ class NetworkHelper(
                 client = buildClient(s, t)
                 scrapeClient = scrapeClientFor(client, torRouted(s))
                 imageClient = imageClientFor(client)
+                videoClient = videoClientFor(client, torRouted(s))
             }
         }
     }
+
+    private fun videoClientFor(base: OkHttpClient, viaTor: Boolean): OkHttpClient =
+        if (viaTor) base // circuits take long to build: a short connect timeout would only fail them
+        else base.newBuilder()
+            .connectTimeout(VIDEO_CONNECT_TIMEOUT_S, TimeUnit.SECONDS)
+            .addInterceptor(ConnectRetryInterceptor(VIDEO_CONNECT_ATTEMPTS))
+            .build()
 
     private fun imageClientFor(base: OkHttpClient): OkHttpClient =
         base.newBuilder().addInterceptor(RejectWebPagesInterceptor()).build()
@@ -268,6 +285,18 @@ class NetworkHelper(
         }
     }
 
+    /** POSTs a JSON [body] and returns the answer as text. */
+    suspend fun postJson(url: String, body: String): String = withContext(Dispatchers.IO) {
+        val request = Request.Builder().url(url)
+            .post(body.toRequestBody("application/json".toMediaType()))
+            .header("Accept", "application/json")
+            .build()
+        scrapeClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw HttpException(response.code, url)
+            response.body?.string().orEmpty()
+        }
+    }
+
     suspend fun postString(url: String, headers: Map<String, String> = emptyMap()): String = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url)
             .post(ByteArray(0).toRequestBody(null))
@@ -292,6 +321,8 @@ class NetworkHelper(
         private const val TOR_CONNECT_TIMEOUT_S = 30L
         private const val TOR_READ_TIMEOUT_S = 45L
         private const val TOR_CALL_TIMEOUT_S = 75L
+        private const val VIDEO_CONNECT_TIMEOUT_S = 3L
+        private const val VIDEO_CONNECT_ATTEMPTS = 6
         private const val RECENT_MS = 15_000L
         private const val RECENT_MAX_CHARS = 8 * 1024 * 1024
         private const val LOCK_STRIPES = 64
@@ -341,6 +372,25 @@ private class BrowserHeadersInterceptor : Interceptor {
         default("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
         default("Accept-Language", "es-ES,es;q=0.9,en;q=0.8")
         return chain.proceed(builder.build())
+    }
+}
+
+/**
+ * Some video hosts drop a large share of connection attempts, yet answer at once when one gets
+ * through. Several short tries reach them far sooner than one long wait.
+ */
+private class ConnectRetryInterceptor(private val attempts: Int) : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        var attempt = 1
+        while (true) {
+            try {
+                return chain.proceed(chain.request())
+            } catch (e: IOException) {
+                val failedToConnect = e is ConnectException || (e is SocketTimeoutException && e.message?.contains("connect", ignoreCase = true) == true)
+                if (!failedToConnect || attempt >= attempts || chain.call().isCanceled()) throw e
+                attempt++
+            }
+        }
     }
 }
 
