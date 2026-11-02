@@ -1,9 +1,9 @@
-# Compila cada rama de trabajo y deja el APK listo para descargar. Los agentes programan en una máquina sin SDK de Android.
+# Compila cada push y deja el APK listo para descargar.
 name: Android
 
 on:
   push:
-    branches: [main, "colmena/**"]
+    branches: ["**"]
   workflow_dispatch:
 
 permissions:
