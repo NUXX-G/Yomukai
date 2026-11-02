@@ -59,6 +59,14 @@ class AniListClient(private val network: NetworkHelper) {
         return entry
     }
 
+    /** Other names of what [query] most likely refers to; each site may only know one of them. */
+    suspend fun otherNames(query: String): List<String> {
+        val answers = listOf(MediaType.ANIME, MediaType.MANGA).mapNotNull { type ->
+            runCatching { parseEntries(query(LOOKUP, query, type)).firstOrNull() }.getOrNull()
+        }
+        return answers.flatMap { it.names.take(MAX_ALIASES) }.distinct()
+    }
+
     /** Community recommendations run short on lesser-known titles: popular ones sharing its main themes fill in. */
     private suspend fun byTags(entry: AniListEntry, type: MediaType): List<RelatedTitle> {
         val tags = entry.tags.take(2)
@@ -95,6 +103,7 @@ class AniListClient(private val network: NetworkHelper) {
         private const val ENDPOINT = "https://graphql.anilist.co"
         private const val MAX_CACHED = 64
         private const val ENOUGH = 8
+        private const val MAX_ALIASES = 2
         private const val MIN_TAG_RANK = 60
 
         private const val FIELDS = "title{romaji english native} synonyms coverImage{large} type format countryOfOrigin"

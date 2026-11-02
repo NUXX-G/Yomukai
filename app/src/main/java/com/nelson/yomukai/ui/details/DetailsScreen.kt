@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
@@ -290,6 +291,7 @@ fun DetailsScreen(
                         onClick = { onOpenChapter(chapter) },
                         onToggleRead = { viewModel.setRead(chapter, !chapter.read) },
                         onMarkPrevious = { viewModel.markPreviousRead(chapter) },
+                        onUnmarkPrevious = { viewModel.unmarkPrevious(chapter) },
                         onDownload = {
                             if (state.downloads[chapter.chapterId]?.status == DownloadStatus.FAILED) {
                                 failed = chapter
@@ -394,6 +396,7 @@ private fun ChapterRow(
     onClick: () -> Unit,
     onToggleRead: () -> Unit,
     onMarkPrevious: () -> Unit,
+    onUnmarkPrevious: () -> Unit,
     onDownload: () -> Unit,
     onDeleteDownload: () -> Unit
 ) {
@@ -436,6 +439,13 @@ private fun ChapterRow(
                     )
                 }
             }
+            IconButton(onClick = onToggleRead) {
+                Icon(
+                    if (chapter.read) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                    contentDescription = if (chapter.read) "Marcar como no leído" else "Marcar como leído",
+                    tint = if (chapter.read) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             DownloadIndicator(download, onDownload = onDownload, onDelete = onDeleteDownload)
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -445,6 +455,7 @@ private fun ChapterRow(
                 onClick = { menu = false; onToggleRead() }
             )
             DropdownMenuItem(text = { Text("Marcar anteriores como leídos") }, onClick = { menu = false; onMarkPrevious() })
+            DropdownMenuItem(text = { Text("Quitar la marca a los anteriores") }, onClick = { menu = false; onUnmarkPrevious() })
         }
     }
 }

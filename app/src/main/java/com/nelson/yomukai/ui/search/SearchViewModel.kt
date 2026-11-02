@@ -14,6 +14,8 @@ import com.nelson.yomukai.ui.home.TypeFilter
 import com.nelson.yomukai.ui.home.matches
 import com.nelson.yomukai.ui.navigation.Routes
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -58,6 +60,9 @@ class SearchViewModel(handle: SavedStateHandle, private val container: AppContai
 
     /** Raw results per source for the running search; regrouped whenever one source reports. */
     private val found = LinkedHashMap<String, List<MediaItem>>()
+
+    /** Results a site gave for the query or one of its other names. */
+    private val trusted = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private var libraryTitles: List<String> = emptyList()
 
     init {
@@ -140,12 +145,14 @@ class SearchViewModel(handle: SavedStateHandle, private val container: AppContai
         _state.update {
             it.copy(hasSearched = true, groups = emptyList(), suggestions = emptyList(), sources = sources.map { s -> SourceProgress(s.id, s.name) })
         }
+        trusted.clear()
         searchJob = viewModelScope.launch(Dispatchers.IO) {
+            val aliases = async { container.discovery.aliases(query) }
             sources.forEach { source ->
                 launch {
-                    val outcome = searchSource(source, query)
+                    val outcome = searchSource(source, query, aliases)
                     synchronized(found) { found[source.id] = outcome.first.filter { it.type in current.typeFilter.types } }
-                    val groups = synchronized(found) { SmartSearch.rankAndGroup(query, found.values.flatten()) }
+                    val groups = synchronized(found) { SmartSearch.rankAndGroup(query, found.values.flatten(), trusted = trusted.toSet()) }
                     _state.update { st ->
                         st.copy(
                             groups = groups,
@@ -163,21 +170,37 @@ class SearchViewModel(handle: SavedStateHandle, private val container: AppContai
      * Sources match literally, so when the exact query yields little we also try relaxed variants
      * (longest word, shortened word); [SmartSearch] then ranks everything fuzzily.
      */
-    private suspend fun searchSource(source: CatalogueSource, query: String): Pair<List<MediaItem>, String?> {
+    private suspend fun searchSource(source: CatalogueSource, query: String, aliases: Deferred<List<String>>): Pair<List<MediaItem>, String?> {
         val items = LinkedHashMap<String, MediaItem>()
         var error: String? = null
         for ((index, variant) in SmartSearch.queryVariants(query).withIndex()) {
             if (index > 0 && items.size >= RELAX_THRESHOLD) break
             source.searchMedia(variant)
-                .onSuccess { list -> list.forEach { items.putIfAbsent(it.id, it) } }
+                .onSuccess { list ->
+                    list.forEach { items.putIfAbsent(it.id, it) }
+                    if (index == 0) trusted += list.map(SmartSearch::keyOf)
+                }
                 .onFailure { e -> if (e is CancellationException) throw e else error = e.message ?: "Error" }
             // A hard failure (blocked/offline) will not improve with another variant.
             if (error != null && items.isEmpty()) break
+        }
+        // Few results may just mean the site uses another name for it (Frieren / Sousou no Frieren).
+        if (error == null && items.size < RELAX_THRESHOLD) {
+            aliases.await().take(MAX_ALIASES).forEach { alias ->
+                source.searchMedia(alias).onSuccess { list ->
+                    list.filter { SmartSearch.scoreTitle(alias, it.title) >= ALIAS_SCORE }.forEach { item ->
+                        items.putIfAbsent(item.id, item)
+                        trusted += SmartSearch.keyOf(item)
+                    }
+                }
+            }
         }
         return items.values.toList() to if (items.isEmpty()) error else null
     }
 
     private companion object {
         const val RELAX_THRESHOLD = 5
+        const val MAX_ALIASES = 3
+        const val ALIAS_SCORE = 0.5
     }
 }

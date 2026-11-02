@@ -127,6 +127,9 @@ interface ChapterDao {
         now: Long
     )
 
+    @Query("UPDATE chapters SET read = 1 WHERE sourceId = :sourceId AND mediaId = :mediaId AND sortIndex < :sortIndex AND read = 0")
+    suspend fun markPreviousRead(sourceId: String, mediaId: String, sortIndex: Int)
+
     @Query("UPDATE chapters SET read = :read, lastPageRead = 0, progress = 0 WHERE sourceId = :sourceId AND chapterId IN (:chapterIds)")
     suspend fun setRead(sourceId: String, chapterIds: List<String>, read: Boolean)
 }

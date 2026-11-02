@@ -124,11 +124,17 @@ object SmartSearch {
     /** Key shared by the same title in different sources: normalised, without "(2026)" style suffixes. */
     fun duplicateKey(title: String): String = normalize(title.replace(parenthesised, " "))
 
+    fun keyOf(item: MediaItem) = item.sourceId + "|" + item.id
+
     /** Manga, manhwa, manhua and comics are the same work across sources; an anime or a novel is not. */
     private fun typeFamily(type: MediaType): String = if (type.isReadableAsImages) "images" else type.name
 
-    fun rank(query: String, items: List<MediaItem>, minScore: Double = 0.3): List<Pair<MediaItem, Double>> =
-        items.map { it to score(query, it) }
+    /**
+     * [trusted] holds keys ([keyOf]) of results a site gave for the query itself. Sites match names
+     * this code cannot see (other languages, synonyms), so those always stay, just ranked lower.
+     */
+    fun rank(query: String, items: List<MediaItem>, minScore: Double = 0.3, trusted: Set<String> = emptySet()): List<Pair<MediaItem, Double>> =
+        items.map { it to maxOf(score(query, it), if (keyOf(it) in trusted) minScore else 0.0) }
             .filter { it.second >= minScore }
             .sortedByDescending { it.second }
 
@@ -136,9 +142,9 @@ object SmartSearch {
      * Ranks everything found across sources and merges copies of the same title (same duplicate
      * key and type family), keeping the highest-scoring copy as primary.
      */
-    fun rankAndGroup(query: String, items: List<MediaItem>, minScore: Double = 0.3): List<SearchGroup> {
+    fun rankAndGroup(query: String, items: List<MediaItem>, minScore: Double = 0.3, trusted: Set<String> = emptySet()): List<SearchGroup> {
         val grouped = LinkedHashMap<String, MutableList<Pair<MediaItem, Double>>>()
-        for (entry in rank(query, items, minScore)) {
+        for (entry in rank(query, items, minScore, trusted)) {
             val key = duplicateKey(entry.first.title).ifEmpty { entry.first.id }
             grouped.getOrPut(typeFamily(entry.first.type) + "|" + key) { mutableListOf() }.add(entry)
         }

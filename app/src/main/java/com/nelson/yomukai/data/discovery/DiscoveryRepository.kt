@@ -51,6 +51,11 @@ class DiscoveryRepository(
         return (own + known).filter { it.isNotBlank() }.distinct()
     }
 
+    /** Latin-script names of what [query] means, for sites that list it under another one. */
+    suspend fun aliases(query: String): List<String> =
+        withTimeoutOrNull(ALIAS_TIMEOUT_MS) { runCatching { aniList.otherNames(query) }.getOrNull() }.orEmpty()
+            .filter { name -> name.none { it.code > LATIN_LIMIT } && !name.equals(query, ignoreCase = true) }
+
     private fun searchable(names: List<String>): List<String> =
         names.sortedBy { name -> name.any { it.code > LATIN_LIMIT } }.take(MAX_QUERIES)
 
@@ -126,6 +131,7 @@ class DiscoveryRepository(
             .minByOrNull { it.second.ordinal }
 
     private companion object {
+        const val ALIAS_TIMEOUT_MS = 3_000L
         const val MAX_SIMILAR = 20
         const val MAX_QUERIES = 3
         const val MAX_DETAILS = 2

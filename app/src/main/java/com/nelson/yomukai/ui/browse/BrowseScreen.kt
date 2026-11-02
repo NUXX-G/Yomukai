@@ -4,6 +4,13 @@ import com.nelson.yomukai.ui.components.AppSpinner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -54,6 +61,7 @@ fun BrowseScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var gridMode by rememberSaveable { mutableStateOf(true) }
     var showFilters by rememberSaveable { mutableStateOf(false) }
+    var text by rememberSaveable { mutableStateOf("") }
 
     if (showFilters) {
         FilterSheet(state.filters, state.values, onApply = viewModel::applyFilters, onDismiss = { showFilters = false })
@@ -82,13 +90,27 @@ fun BrowseScreen(
             )
         }
     ) { padding ->
-        Box(
-            Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
+        Column(Modifier.fillMaxSize().padding(padding)) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it; if (it.isEmpty()) viewModel.search("") },
+            placeholder = { Text("Buscar en ${state.sourceName}") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            trailingIcon = {
+                if (text.isNotEmpty()) {
+                    IconButton(onClick = { text = ""; viewModel.search("") }) { Icon(Icons.Default.Clear, contentDescription = "Borrar") }
+                }
+            },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { viewModel.search(text) }),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        Box(Modifier.fillMaxSize()) {
             when {
-                state.items.isEmpty() && state.isLoading -> LoadingState("Cargando catálogo...")
+                state.items.isEmpty() && state.isLoading -> LoadingState("Cargando...")
+                state.items.isEmpty() && state.query.isNotEmpty() && state.error == null ->
+                    MessageState("Sin resultados para \"${state.query}\"", icon = Icons.Default.Search)
                 state.items.isEmpty() && state.error != null ->
                     MessageState(state.error!!, actionLabel = "Reintentar", onAction = viewModel::loadNextPage)
 
@@ -114,6 +136,7 @@ fun BrowseScreen(
                     item { PagingFooter(state, viewModel::loadNextPage) }
                 }
             }
+        }
         }
     }
 }

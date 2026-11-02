@@ -165,6 +165,11 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
         viewModelScope.launch { repo.setChaptersRead(sourceId, ids, true) }
     }
 
+    fun unmarkPrevious(chapter: ChapterEntity) {
+        val ids = state.value.chapters.filter { it.sortIndex <= chapter.sortIndex }.map { it.chapterId }
+        viewModelScope.launch { repo.setChaptersRead(sourceId, ids, false) }
+    }
+
     fun download(chapters: List<ChapterEntity>) {
         val media = state.value.media ?: return
         viewModelScope.launch { container.downloadManager.enqueue(media, chapters) }

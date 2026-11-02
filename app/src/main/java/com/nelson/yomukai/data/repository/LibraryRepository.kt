@@ -140,6 +140,9 @@ class LibraryRepository(
     ) {
         val now = System.currentTimeMillis()
         chapterDao.updateProgress(chapter.sourceId, chapter.chapterId, page, totalPages, progress, markRead, now)
+        // Finishing a chapter means the earlier ones were read too. A chapter already read changes
+        // nothing, so chapters the user unmarked by hand stay unmarked when it is reopened.
+        if (markRead && !chapter.read) chapterDao.markPreviousRead(chapter.sourceId, chapter.mediaId, chapter.sortIndex)
         historyDao.upsert(HistoryEntity(chapter.sourceId, chapter.mediaId, chapter.chapterId, chapter.title, now))
     }
 

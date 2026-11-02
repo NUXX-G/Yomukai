@@ -26,7 +26,9 @@ data class BrowseUiState(
     val page: Int = 0,
     val endReached: Boolean = false,
     val filters: List<SourceFilter> = emptyList(),
-    val values: FilterValues = emptyMap()
+    val values: FilterValues = emptyMap(),
+    /** Text searched in this source; blank shows its catalogue. */
+    val query: String = ""
 )
 
 class BrowseViewModel(handle: SavedStateHandle, private val container: AppContainer) : ViewModel() {
@@ -41,11 +43,27 @@ class BrowseViewModel(handle: SavedStateHandle, private val container: AppContai
         loadNextPage()
     }
 
+    /** Searches this source only; a blank [text] goes back to the catalogue. */
+    fun search(text: String) {
+        val query = text.trim()
+        if (query.isEmpty()) {
+            applyFilters(_state.value.values)
+            return
+        }
+        loadJob?.cancel()
+        _state.update { it.copy(items = emptyList(), page = 0, endReached = true, isLoading = true, error = null, query = query) }
+        loadJob = viewModelScope.launch(Dispatchers.IO) {
+            source.searchMedia(query)
+                .onSuccess { items -> _state.update { it.copy(items = items.distinctBy { i -> i.id }, isLoading = false) } }
+                .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message ?: "Error de conexión") } }
+        }
+    }
+
     /** Replaces the active filters and restarts the catalogue from the first page. */
     fun applyFilters(values: FilterValues) {
         loadJob?.cancel()
         _state.update {
-            it.copy(items = emptyList(), page = 0, endReached = false, isLoading = false, error = null, values = values)
+            it.copy(items = emptyList(), page = 0, endReached = false, isLoading = false, error = null, values = values, query = "")
         }
         loadNextPage()
     }
