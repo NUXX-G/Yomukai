@@ -8,6 +8,7 @@ import com.nelson.yomukai.AppContainer
 import com.nelson.yomukai.data.local.CategoryEntity
 import com.nelson.yomukai.data.local.ChapterEntity
 import com.nelson.yomukai.data.local.DownloadEntity
+import com.nelson.yomukai.data.local.DownloadStatus
 import com.nelson.yomukai.data.local.MediaEntity
 import com.nelson.yomukai.data.local.ReadingStatus
 import com.nelson.yomukai.data.source.AnimeSource
@@ -149,7 +150,11 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
         viewModelScope.launch { container.downloadManager.enqueue(media, chapters) }
     }
 
-    private fun notDownloaded(list: List<ChapterEntity>) = list.filter { it.chapterId !in state.value.downloads }
+    /** Chapters without a usable copy: never queued, or failed and worth another try. */
+    private fun notDownloaded(list: List<ChapterEntity>) = list.filter {
+        val status = state.value.downloads[it.chapterId]?.status
+        status == null || status == DownloadStatus.FAILED
+    }
 
     fun downloadUnread() = download(notDownloaded(state.value.chapters.filter { !it.read }))
 

@@ -20,7 +20,7 @@
 | **Anime** | Lista de episodios, selector de servidor, reproducción en la app (ExoPlayer/Media3) de flujos HLS y MP4 directos; los servidores no compatibles se abren en el navegador. |
 | **Biblioteca** | Estados de lectura (Leyendo, Pendiente, Completado, En pausa, Abandonado), **categorías propias**, historial y gestor de descargas para leer sin conexión. |
 | **Actualizaciones en segundo plano** | Un *worker* de WorkManager comprueba periódicamente los títulos de la biblioteca y envía una **notificación** cuando hay capítulos o episodios nuevos (frecuencia configurable, opción solo Wi-Fi). |
-| **Navegador con captura** | WebView integrado: pega cualquier enlace y Yomukai detecta los **flujos de vídeo** (m3u8/mp4) que carga la página y las **imágenes del capítulo**, para reproducirlos o leerlos en sus visores nativos. |
+| **Navegador con captura** | WebView integrado con atrás/adelante, favoritos, historial, búsqueda en la página y versión de escritorio. Detecta los **flujos de vídeo** (m3u8/mp4) que carga la página y las **imágenes del capítulo**, para reproducirlos o leerlos en sus visores nativos. |
 | **Red** | Limitación de peticiones, reintentos, cookies compartidas con WebView para superar desafíos de Cloudflare, **DNS sobre HTTPS** y **proxy HTTP/SOCKS5** (p. ej. Orbot/Tor) para sitios bloqueados por el operador. |
 | **Catálogo por fuente** | Desde Explorar entras en cualquier fuente y ves su catálogo completo con **scroll infinito** y **filtros propios de cada web** (orden, estado, tipo, género/editorial, idioma de capítulos, según lo que soporte cada una). |
 | **Búsqueda inteligente** | Insensible a mayúsculas, tildes y puntuación; tolera erratas y coincidencias parciales; busca en títulos alternativos; ordena por relevancia, **agrupa duplicados entre fuentes**, con historial y sugerencias. |
@@ -42,9 +42,12 @@
 | SkyNovels | Novela | ES | API JSON |
 | Marmota Comics | Cómic | ES | HTML (Madara) + AJAX |
 | LectorTMO | Manga | ES | HTML (tema propio) |
+| ZonaTMO | Manga/Manhwa/Manhua | ES | HTML |
+| WEBTOON | Manhwa | ES/EN | API JSON + HTML |
 | TuNovelaLigera | Novela | ES | HTML (Madara) + AJAX |
 | AnimeAV1 | Anime | ES | Datos SvelteKit + extractores |
-| LectorManga, SurtrScans, ReadAllComics | — | — | *Experimentales / sin implementar* (sin respuesta o protegidas por Cloudflare; ReadAllComics pendiente de captura vía Tor). AnimeFLV se eliminó: su dominio original dejó de funcionar. |
+| LectorManga, SurtrScans | — | — | *Experimentales*: desactivadas porque sus dominios ya no resuelven. |
+| ReadAllComics | — | — | *Sin implementar*: pendiente de captura vía Tor. AnimeFLV se eliminó: su dominio original dejó de funcionar. |
 
 Los sitios web cambian con frecuencia; una fuente puede dejar de funcionar sin previo aviso.
 
@@ -59,6 +62,16 @@ git clone https://github.com/NUXX-G/Yomukai.git
 cd Yomukai
 ./gradlew assembleDebug          # APK en app/build/outputs/apk/debug/
 ./gradlew testDebugUnitTest      # pruebas unitarias de los parsers
+```
+
+Para probar todas las fuentes contra las webs reales en un dispositivo conectado:
+
+```bash
+./gradlew assembleDebug assembleDebugAndroidTest
+adb install -r -t app/build/outputs/apk/debug/app-debug.apk
+adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell am instrument -w -e live true -e class com.nelson.yomukai.data.LiveSourcesTest com.nelson.yomukai.test/androidx.test.runner.AndroidJUnitRunner
+adb logcat -d -s YomukaiLive:I
 ```
 
 ---

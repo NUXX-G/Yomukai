@@ -8,6 +8,9 @@ import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
+/** Ids per query, under the 999 parameters SQLite allows on Android 11 and older. */
+const val MAX_QUERY_IDS = 500
+
 @Dao
 interface MediaDao {
     @Query("SELECT * FROM media WHERE sourceId = :sourceId AND mediaId = :mediaId")
@@ -83,8 +86,8 @@ interface ChapterDao {
     @Upsert
     suspend fun upsertAll(chapters: List<ChapterEntity>)
 
-    @Query("DELETE FROM chapters WHERE sourceId = :sourceId AND mediaId = :mediaId AND chapterId NOT IN (:keepIds)")
-    suspend fun deleteMissing(sourceId: String, mediaId: String, keepIds: List<String>)
+    @Query("DELETE FROM chapters WHERE sourceId = :sourceId AND chapterId IN (:chapterIds)")
+    suspend fun deleteIds(sourceId: String, chapterIds: List<String>)
 
     /** Replaces the chapter list while keeping reading progress of chapters that still exist. */
     @Transaction
@@ -102,7 +105,11 @@ interface ChapterDao {
             } ?: c
         }
         upsertAll(merged)
-        if (merged.isNotEmpty()) deleteMissing(sourceId, mediaId, merged.map { it.chapterId })
+        if (merged.isNotEmpty()) {
+            // In small batches: SQLite on Android 11 and older accepts 999 parameters per query.
+            val keep = merged.mapTo(HashSet()) { it.chapterId }
+            (existing.keys - keep).chunked(MAX_QUERY_IDS).forEach { deleteIds(sourceId, it) }
+        }
     }
 
     @Query(

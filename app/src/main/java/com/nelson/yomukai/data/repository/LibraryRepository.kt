@@ -5,6 +5,7 @@ import com.nelson.yomukai.data.local.CategoryEntity
 import com.nelson.yomukai.data.local.ChapterEntity
 import com.nelson.yomukai.data.local.HistoryEntity
 import com.nelson.yomukai.data.local.HistoryWithMedia
+import com.nelson.yomukai.data.local.MAX_QUERY_IDS
 import com.nelson.yomukai.data.local.MediaCategoryEntity
 import com.nelson.yomukai.data.local.MediaEntity
 import com.nelson.yomukai.data.local.ReadingStatus
@@ -92,14 +93,14 @@ class LibraryRepository(
         val source = sources.get(sourceId) ?: return@withContext Result.failure(IllegalStateException("Fuente no disponible"))
         val old = mediaDao.get(sourceId, mediaId)
         val seed = old?.toDomain() ?: MediaItem(mediaId, "", "", source.supportedTypes.first(), "", "", sourceId)
-        source.fetchMediaDetails(seed).map { fresh ->
+        source.fetchMediaDetails(seed).mapCatching { fresh ->
             mediaDao.upsert(merge(mediaDao.get(sourceId, mediaId), fresh, lastFetched = System.currentTimeMillis()))
         }
     }
 
     suspend fun refreshChapters(sourceId: String, mediaId: String): Result<Int> = withContext(Dispatchers.IO) {
         val source = sources.get(sourceId) ?: return@withContext Result.failure(IllegalStateException("Fuente no disponible"))
-        source.fetchChapterList(mediaId).map { chapters ->
+        source.fetchChapterList(mediaId).mapCatching { chapters ->
             // Stable sort: chapters sharing a number keep the order the source returned.
             val ordered = chapters.withIndex()
                 .sortedWith(compareBy({ it.value.chapterNumber }, { it.index }))
@@ -142,7 +143,7 @@ class LibraryRepository(
     }
 
     suspend fun setChaptersRead(sourceId: String, chapterIds: List<String>, read: Boolean) {
-        if (chapterIds.isNotEmpty()) chapterDao.setRead(sourceId, chapterIds, read)
+        chapterIds.chunked(MAX_QUERY_IDS).forEach { chapterDao.setRead(sourceId, it, read) }
     }
 
     fun observeBookmarks(sourceId: String, mediaId: String): Flow<List<BookmarkEntity>> =

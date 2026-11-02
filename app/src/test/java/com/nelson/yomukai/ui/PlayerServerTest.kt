@@ -24,6 +24,12 @@ class PlayerServerTest {
     }
 
     @Test
+    fun episodeProgressIsTimeNotPages() {
+        assertEquals("12:34", com.nelson.yomukai.ui.details.formatEpisodeTime(754))
+        assertEquals("1:06:40", com.nelson.yomukai.ui.details.formatEpisodeTime(4000))
+    }
+
+    @Test
     fun noDirectServerMeansNoAutoplay() {
         assertNull(pickServer(listOf(s("web", false)), "web"))
     }

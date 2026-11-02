@@ -1,6 +1,6 @@
 # PLAN — Yomukai
 
-Estado: retomar leyendo este fichero. Marcar `[x]` al cerrar. Cada fase: build + tests verdes, commits convencionales, `git push origin main`.
+Histórico de fases. Lo que se está haciendo ahora está en `TRABAJO.md`. Cada tarea: build + tests verdes, commits convencionales, `git push origin main`.
 
 ## Fase 1 — Fuentes  ✅ (con excepciones documentadas)
 - [x] Eliminar Reaper Scans y AnimeFLV (clase, registro, tests, README). `VideoExtractors` se conserva: lo usa AnimeAV1
@@ -58,6 +58,9 @@ Estado: retomar leyendo este fichero. Marcar `[x]` al cerrar. Cada fase: build +
 - [x] Tor por fuente: interruptor «Usar Tor» en cada fuente (excluye su dominio, subdominios y CDN declarados en `extraHosts`). **Limitación documentada:** Cloudflare bloquea muchas salidas de Tor; esas fuentes suelen requerir conexión directa. El proxy del WebView es global del proceso: el WebView que resuelve Cloudflare también sale por Tor salvo los hosts excluidos
 - [x] v1.2.0, verificado en emuladores API 33 y 37: Tor integrado llega al 100 %, el navegador sale por Tor (check.torproject.org → `IsTor: true`) y la .onion de DuckDuckGo carga (dirección correcta). Sin red muestra «Conectando a Tor (0 %)» y, a los 120 s, el error con motivo; al volver la red se recupera solo. Corregido el cierre al abrir la app con Tor activado (v1.1.x). En API 26 con WebView 69 avisa de que el WebView no admite proxy
 - [ ] **Pendiente:** Tor en un móvil real (el navegador con Tor falló en el Android 17 del usuario con la v1.1.1 y no se reprodujo en emulador); (3) **ReadAllComics por Tor**: intenté descargar el Tor Expert Bundle oficial (SHA‑256 verificado) para capturar el sitio, pero el sistema denegó ejecutar `tor.exe`, así que no se reintentó. Para hacerlo: arranca Tor en tu equipo (`tor --SocksPort 9055`) y repite `curl -x socks5h://127.0.0.1:9055 https://readallcomics.com/` para capturar HTML real; con eso se implementa la fuente con tests
+
+## v1.3.0
+Tanda documentada en `TRABAJO.md`: fuentes WEBTOON y ZonaTMO, red más rápida, navegador nuevo, arreglos del reproductor y diagnóstico real en emuladores.
 
 ## Estado final
 Fases 1–7 completadas salvo los puntos marcados con `[ ]`, todos explicados arriba. Build (`assembleDebug`, `assembleRelease`) y `testDebugUnitTest` en verde.

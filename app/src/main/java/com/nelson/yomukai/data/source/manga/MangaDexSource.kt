@@ -111,7 +111,8 @@ class MangaDexSource(private val network: NetworkHelper) : MangaSource {
             offset += 500
         } while (offset < total && offset < 5000)
         // The same chapter is often uploaded by several groups; keep one per number+language.
-        chapters.distinctBy { it.chapterNumber to it.title.substringAfterLast("[") }
+        // Unnumbered chapters all report 0, so they are told apart by id.
+        chapters.distinctBy { if (it.title.startsWith("Oneshot")) it.id else "${it.chapterNumber}|${it.title.substringAfterLast("[")}" }
     }
 
     override suspend fun fetchPageList(chapterUrl: String): Result<List<String>> = runCatching {

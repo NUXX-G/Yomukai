@@ -457,6 +457,15 @@ private fun ContinuousWebtoon(
     LaunchedEffect(jumpIndex) {
         jumpIndex?.let { listState.scrollToItem(it); onJumpHandled() }
     }
+    // A short last page never reaches the top of the screen: the end of the list counts as having read it.
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.layoutInfo.totalItemsCount > 0 && !listState.canScrollForward }
+            .distinctUntilChanged()
+            .collect { atEnd ->
+                if (atEnd) (currentItems.lastOrNull { it is ReaderItem.Page } as? ReaderItem.Page)
+                    ?.let { currentOnLocation(it.chapterId, it.index) }
+            }
+    }
     // Auto-scroll: a steady pixel rate per frame; user dragging takes over and it resumes afterwards.
     LaunchedEffect(autoScroll, settings.autoScrollSpeed) {
         if (!autoScroll) return@LaunchedEffect
