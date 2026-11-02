@@ -19,6 +19,30 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class LiveSourcesTest {
+    /** Every filter of every source against its real site, and the genre exclusion on a catalogue. */
+    @Test
+    fun filtersAndExclusions() = runBlocking<Unit> {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("live") == "true")
+        val app = ApplicationProvider.getApplicationContext<YomukaiApplication>()
+        val container = app.container
+        for (source in container.sourceManager.all) {
+            for (filter in source.filters) {
+                val option = filter.options.lastOrNull { it.value.isNotEmpty() } ?: continue
+                val found = runCatching { source.browse(1, mapOf(filter.key to setOf(option.value))).getOrThrow().size }
+                Log.i("YomukaiLive", "${source.id} ${filter.key}=${option.value}: ${found.getOrElse { "ERROR $it" }}")
+            }
+            if (source.filters.isEmpty()) Log.i("YomukaiLive", "${source.id}: sin filtros")
+        }
+        val zona = container.sourceManager.require("zonatmo")
+        val all = zona.browse(1, emptyMap()).getOrThrow()
+        container.preferences.toggleExclusion("zonatmo", "Drama")
+        val kept = container.contentFilter.apply(zona, all)
+        container.preferences.toggleExclusion("zonatmo", "Drama")
+        Log.i("YomukaiLive", "exclusion Drama zonatmo: ${all.size} -> ${kept.size}")
+        val names = container.discovery.aliases("Frieren")
+        Log.i("YomukaiLive", "alias Frieren: ${names.take(4)}")
+    }
+
     /** Downloads a chapter and an episode for real; the files can then be checked in Download/Yomukai. */
     @Test
     fun downloads() = runBlocking<Unit> {

@@ -3,14 +3,16 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## Tanda v1.5.0 (encargo actual)
-- [ ] Carpeta pública `Download/Yomukai` con metadatos y formato a elegir
-- [ ] Descargas más rápidas (anime y WEBTOON) y el fallo puntual de AnimeFLV
-- [ ] Al leer un capítulo se marcan los anteriores; marcar y desmarcar a mano
-- [ ] Búsqueda: títulos que están en varias fuentes y no salen
-- [ ] Buscador dentro de cada fuente
-- [ ] Excluir géneros, global y por fuente
-- [ ] Apartado Descubrir: recomendaciones y aleatorio con filtros
-- [ ] Filtros en todas las fuentes que lo permitan
+- [x] Carpeta pública `Download/Yomukai` con metadatos y formato a elegir
+- [x] Descargas más rápidas (anime y WEBTOON) y el fallo puntual de AnimeFLV
+- [x] Al leer un capítulo se marcan los anteriores; marcar y desmarcar a mano
+- [x] Búsqueda: títulos que están en varias fuentes y no salen
+- [x] Buscador dentro de cada fuente
+- [x] Excluir géneros, global y por fuente
+- [x] Apartado Descubrir: recomendaciones y aleatorio con filtros
+- [x] Filtros en todas las fuentes que lo permitan (AnimeFLV no tiene parámetros en su web)
+
+Notas de v1.5.0: los vídeos HLS no se copian a la carpeta pública porque viven como segmentos en la caché de Media3 (Voe y MP4Upload sí, son MP4). Borrar en la app no borra la copia pública.
 - [ ] Publicar pre-release v1.5.0
 
 ## Tanda v1.4.0

@@ -51,7 +51,7 @@ class DiscoverViewModel(private val container: AppContainer) : ViewModel() {
 
     /** Built from the library first, then the history: what the user chose to keep says the most. */
     fun loadForYou() {
-        if (loaded) return
+        if (loaded && _state.value.forYou.isNotEmpty()) return
         loaded = true
         _state.update { it.copy(loading = true) }
         viewModelScope.launch(Dispatchers.IO) {

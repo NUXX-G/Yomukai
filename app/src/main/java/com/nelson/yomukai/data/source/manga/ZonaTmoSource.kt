@@ -5,9 +5,11 @@ import com.nelson.yomukai.data.source.FilterKeys
 import com.nelson.yomukai.data.source.FilterOption
 import com.nelson.yomukai.data.source.FilterValues
 import com.nelson.yomukai.data.source.MangaSource
+import com.nelson.yomukai.data.source.MultiSelectFilter
 import com.nelson.yomukai.data.source.SelectFilter
 import com.nelson.yomukai.data.source.SourceFilter
 import com.nelson.yomukai.data.source.SourceUtils
+import com.nelson.yomukai.data.source.selected
 import com.nelson.yomukai.data.source.single
 import com.nelson.yomukai.domain.model.Chapter
 import com.nelson.yomukai.domain.model.MediaItem
@@ -89,7 +91,15 @@ class ZonaTmoSource(private val network: NetworkHelper) : MangaSource {
                 FilterOption("shounen", "Shounen"), FilterOption("josei", "Josei"), FilterOption("kodomo", "Kodomo")
             )
         )
-        val FILTERS: List<SourceFilter> = listOf(SORT, TYPE, STATUS, DEMOGRAPHY)
+        private val GENRE_OPTIONS = listOf(
+            "1" to "Acción", "2" to "Aventura", "41" to "Artes marciales", "9" to "Ciencia ficción", "3" to "Comedia", "11" to "Deportes",
+            "4" to "Drama", "19" to "Ecchi", "5" to "Fantasía", "44" to "Gore", "20" to "Harem", "16" to "Isekai", "7" to "Misterio",
+            "15" to "Psicológico", "22" to "Recuentos de la vida", "36" to "Reencarnación", "8" to "Romance", "12" to "Sobrenatural",
+            "37" to "Tragedia", "28" to "Vida escolar", "30" to "Boys Love", "31" to "Yaoi", "35" to "Girls Love", "52" to "Yuri"
+        ).map { FilterOption(it.first, it.second) }
+        private val GENRES = MultiSelectFilter(FilterKeys.GENRE, "Género", GENRE_OPTIONS)
+        private val WITHOUT = MultiSelectFilter("without", "Excluir géneros", GENRE_OPTIONS)
+        val FILTERS: List<SourceFilter> = listOf(SORT, TYPE, STATUS, DEMOGRAPHY, GENRES, WITHOUT)
 
         fun catalogueUrl(page: Int, values: FilterValues): String = buildString {
             val sort = values.single(SORT)
@@ -97,6 +107,8 @@ class ZonaTmoSource(private val network: NetworkHelper) : MangaSource {
             values.single(TYPE).takeIf { it.isNotEmpty() }?.let { append("&type=$it") }
             values.single(STATUS).takeIf { it.isNotEmpty() }?.let { append("&status=$it") }
             values.single(DEMOGRAPHY).takeIf { it.isNotEmpty() }?.let { append("&demography=$it") }
+            values.selected(FilterKeys.GENRE).forEach { append("&genders%5B%5D=$it") }
+            values.selected(WITHOUT.key).forEach { append("&exclude_genders%5B%5D=$it") }
         }
 
         private fun typeOf(text: String?) = when (text?.lowercase()?.trim()) {

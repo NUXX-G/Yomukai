@@ -2,14 +2,19 @@ package com.nelson.yomukai.data.source.manga
 
 import com.google.gson.JsonObject
 import com.nelson.yomukai.data.network.NetworkHelper
+import com.nelson.yomukai.data.source.FilterKeys
+import com.nelson.yomukai.data.source.FilterOption
 import com.nelson.yomukai.data.source.FilterValues
 import com.nelson.yomukai.data.source.MangaSource
+import com.nelson.yomukai.data.source.SelectFilter
+import com.nelson.yomukai.data.source.SourceFilter
 import com.nelson.yomukai.data.source.SourceUtils
 import com.nelson.yomukai.data.source.arr
 import com.nelson.yomukai.data.source.formatIsoDate
 import com.nelson.yomukai.data.source.obj
 import com.nelson.yomukai.data.source.objects
 import com.nelson.yomukai.data.source.parseJson
+import com.nelson.yomukai.data.source.single
 import com.nelson.yomukai.data.source.str
 import com.nelson.yomukai.domain.model.Chapter
 import com.nelson.yomukai.domain.model.MediaItem
@@ -64,9 +69,11 @@ class OlympusScansSource(private val network: NetworkHelper) : MangaSource {
         else parseHome(html, catalog = allSeries().associateBy { it.id })
     }
 
-    /** The site lists its whole catalogue at once. */
+    override val filters: List<SourceFilter> = FILTERS
+    override val supportsLatestPaging = true
+
     override suspend fun browse(page: Int, values: FilterValues): Result<List<MediaItem>> = runCatching {
-        if (page <= 1) allSeries() else emptyList()
+        api(catalogueRequest(page, values)).obj("data")?.obj("series")?.arr("data").objects().mapNotNull(::item)
     }
 
     override suspend fun searchMedia(query: String): Result<List<MediaItem>> = runCatching {
@@ -124,6 +131,27 @@ class OlympusScansSource(private val network: NetworkHelper) : MangaSource {
         .replace(Regex("\\p{Mn}+"), "")
 
     companion object {
+        private val SORT = SelectFilter(FilterKeys.SORT, "Orden", listOf(FilterOption("desc", "Recientes"), FilterOption("asc", "Antiguos")))
+        private val STATUS = SelectFilter(
+            FilterKeys.STATUS, "Estado",
+            listOf(FilterOption("", "Todos"), FilterOption("1", "Activo"), FilterOption("4", "Finalizado"), FilterOption("3", "En pausa"), FilterOption("5", "Cancelado"))
+        )
+        private val GENRE = SelectFilter(
+            FilterKeys.GENRE, "Género",
+            listOf(
+                "" to "Todos", "1" to "Acción", "4" to "Artes marciales", "5" to "Aventura", "6" to "Ciencia ficción", "7" to "Comedia",
+                "9" to "Cultivación", "43" to "Drama", "14" to "Fantasía", "16" to "Harem", "42" to "Isekai", "19" to "Magia", "20" to "Misterio",
+                "21" to "Murim", "22" to "Psicológico", "25" to "Reencarnación", "26" to "Romance", "30" to "Sistema", "36" to "Terror", "38" to "Vida escolar"
+            ).map { FilterOption(it.first, it.second) }
+        )
+        val FILTERS: List<SourceFilter> = listOf(SORT, STATUS, GENRE)
+
+        fun catalogueRequest(page: Int, values: FilterValues): String = buildString {
+            append("/series?page=${page.coerceAtLeast(1)}&direction=${values.single(SORT)}&type=comic")
+            values.single(STATUS).takeIf { it.isNotEmpty() }?.let { append("&status=$it") }
+            values.single(GENRE).takeIf { it.isNotEmpty() }?.let { append("&genres=$it") }
+        }
+
         private val SLUG_IN_PATH = Regex("""/series/comic-([^/?#]+)""")
 
         /** Parses the home page update cards; [catalog] (slug → item) fills in covers when needed. */

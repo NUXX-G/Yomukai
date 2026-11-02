@@ -2,8 +2,12 @@ package com.nelson.yomukai.data.source.manga
 
 import com.google.gson.JsonObject
 import com.nelson.yomukai.data.network.NetworkHelper
+import com.nelson.yomukai.data.source.FilterKeys
+import com.nelson.yomukai.data.source.FilterOption
 import com.nelson.yomukai.data.source.FilterValues
 import com.nelson.yomukai.data.source.MangaSource
+import com.nelson.yomukai.data.source.SelectFilter
+import com.nelson.yomukai.data.source.SourceFilter
 import com.nelson.yomukai.data.source.SourceUtils
 import com.nelson.yomukai.data.source.arr
 import com.nelson.yomukai.data.source.formatEpochSeconds
@@ -11,6 +15,7 @@ import com.nelson.yomukai.data.source.nextPageProps
 import com.nelson.yomukai.data.source.obj
 import com.nelson.yomukai.data.source.objects
 import com.nelson.yomukai.data.source.parseJson
+import com.nelson.yomukai.data.source.single
 import com.nelson.yomukai.data.source.str
 import com.nelson.yomukai.data.source.strings
 import com.nelson.yomukai.domain.model.Chapter
@@ -32,6 +37,11 @@ class FlameComicsSource(private val network: NetworkHelper) : MangaSource {
     override val supportedTypes = setOf(MediaType.MANHWA, MediaType.MANHUA, MediaType.MANGA)
 
     private val cdn = "https://cdn.flamecomics.xyz/uploads/images/series"
+    private val SORT = SelectFilter(FilterKeys.SORT, "Orden", listOf(FilterOption("site", "Del sitio"), FilterOption("title", "A-Z")))
+    private val STATUS = SelectFilter(
+        FilterKeys.STATUS, "Estado",
+        listOf(FilterOption("", "Todos"), FilterOption("Ongoing", "En emisión"), FilterOption("Completed", "Completado"), FilterOption("Hiatus", "En pausa"), FilterOption("Dropped", "Abandonado"))
+    )
     private val catalogLock = Mutex()
     private var catalogCache: List<MediaItem>? = null
 
@@ -68,9 +78,14 @@ class FlameComicsSource(private val network: NetworkHelper) : MangaSource {
             .distinctBy { it.id }
     }
 
-    /** The site lists its whole catalogue at once. */
+    override val filters: List<SourceFilter> = listOf(SORT, STATUS)
+
+    /** The site lists its whole catalogue at once and has no parameters, so filters apply to that list. */
     override suspend fun browse(page: Int, values: FilterValues): Result<List<MediaItem>> = runCatching {
-        if (page <= 1) allSeries() else emptyList()
+        if (page > 1) return@runCatching emptyList()
+        val status = values.single(STATUS)
+        val list = allSeries().filter { status.isEmpty() || it.status.equals(status, ignoreCase = true) }
+        if (values.single(SORT) == "title") list.sortedBy { it.title.lowercase() } else list
     }
 
     override suspend fun searchMedia(query: String): Result<List<MediaItem>> = runCatching {

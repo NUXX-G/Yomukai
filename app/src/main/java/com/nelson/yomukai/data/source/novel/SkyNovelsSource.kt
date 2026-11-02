@@ -2,7 +2,12 @@ package com.nelson.yomukai.data.source.novel
 
 import com.google.gson.JsonObject
 import com.nelson.yomukai.data.network.NetworkHelper
+import com.nelson.yomukai.data.source.FilterKeys
+import com.nelson.yomukai.data.source.FilterOption
 import com.nelson.yomukai.data.source.FilterValues
+import com.nelson.yomukai.data.source.SelectFilter
+import com.nelson.yomukai.data.source.SourceFilter
+import com.nelson.yomukai.data.source.single
 import com.nelson.yomukai.data.source.NovelSource
 import com.nelson.yomukai.data.source.SourceUtils
 import com.nelson.yomukai.data.source.arr
@@ -24,6 +29,15 @@ class SkyNovelsSource(private val network: NetworkHelper) : NovelSource {
     override val supportsLatestPaging = true
 
     private val api = "https://api.skynovels.net/api"
+    private val STATUS = SelectFilter(FilterKeys.STATUS, "Estado", listOf(FilterOption("", "Todos"), FilterOption("Active", "En emisión"), FilterOption("Finished", "Finalizado")))
+    private val GENRE = SelectFilter(
+        FilterKeys.GENRE, "Género",
+        listOf(
+            "" to "Todos", "9" to "Acción", "3" to "Artes marciales", "2" to "Aventura", "40" to "BL", "7" to "Comedia", "19" to "Cultivación",
+            "8" to "Drama", "21" to "Ecchi", "4" to "Fantasía", "41" to "GL", "12" to "Harem", "39" to "Horror", "16" to "Magia", "22" to "Misterio",
+            "27" to "Psicológico", "23" to "Reencarnación", "5" to "Romance", "17" to "Ciencia ficción", "20" to "Sobrenatural", "24" to "Transmigración", "6" to "Xianxia"
+        ).map { FilterOption(it.first, it.second) }
+    )
 
     private suspend fun getJson(path: String) =
         parseJson(network.getString("$api$path", cloudflareFallback = false)).asJsonObject
@@ -53,8 +67,15 @@ class SkyNovelsSource(private val network: NetworkHelper) : NovelSource {
             .distinctBy { it.id }
     }
 
+    override val filters: List<SourceFilter> = listOf(STATUS, GENRE)
+
     override suspend fun browse(page: Int, values: FilterValues): Result<List<MediaItem>> = runCatching {
-        getJson("/novels?page=${page.coerceAtLeast(1)}").arr("novels").objects().mapNotNull(::toItem)
+        val query = buildString {
+            append("/novels?page=${page.coerceAtLeast(1)}")
+            values.single(STATUS).takeIf { it.isNotEmpty() }?.let { append("&status=$it") }
+            values.single(GENRE).takeIf { it.isNotEmpty() }?.let { append("&genres=$it") }
+        }
+        getJson(query).arr("novels").objects().mapNotNull(::toItem)
     }
 
     override suspend fun searchMedia(query: String): Result<List<MediaItem>> = runCatching {

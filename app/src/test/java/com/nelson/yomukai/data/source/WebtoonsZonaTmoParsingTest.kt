@@ -65,6 +65,22 @@ class WebtoonsZonaTmoParsingTest {
     }
 
     @Test
+    fun catalogueFiltersBuildTheSitesOwnRequests() {
+        assertTrue(
+            "&genders%5B%5D=1&exclude_genders%5B%5D=31" in
+                ZonaTmoSource.catalogueUrl(1, mapOf(FilterKeys.GENRE to setOf("1"), "without" to setOf("31")))
+        )
+        assertEquals(
+            "/series?page=2&direction=desc&type=comic&status=4&genres=26",
+            com.nelson.yomukai.data.source.manga.OlympusScansSource.catalogueRequest(2, mapOf(FilterKeys.STATUS to setOf("4"), FilterKeys.GENRE to setOf("26")))
+        )
+        assertEquals(
+            "/catalogo?order=score&page=1&genre=mecha",
+            com.nelson.yomukai.data.source.anime.AnimeAv1Source.catalogueRequest(1, mapOf(FilterKeys.SORT to setOf("score"), FilterKeys.GENRE to setOf("mecha")))
+        )
+    }
+
+    @Test
     fun webtoonsCards() {
         val originals = WebtoonsSource.parseCards(fixture("webtoons_originals.html"))
         assertTrue(originals.size >= 40)

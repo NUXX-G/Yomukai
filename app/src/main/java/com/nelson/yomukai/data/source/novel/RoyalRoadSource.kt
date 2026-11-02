@@ -1,7 +1,13 @@
 package com.nelson.yomukai.data.source.novel
 
 import com.nelson.yomukai.data.network.NetworkHelper
+import com.nelson.yomukai.data.source.FilterKeys
+import com.nelson.yomukai.data.source.FilterOption
+import com.nelson.yomukai.data.source.FilterValues
 import com.nelson.yomukai.data.source.NovelSource
+import com.nelson.yomukai.data.source.SelectFilter
+import com.nelson.yomukai.data.source.SourceFilter
+import com.nelson.yomukai.data.source.single
 import com.nelson.yomukai.data.source.SourceUtils
 import com.nelson.yomukai.data.source.formatEpochSeconds
 import com.nelson.yomukai.domain.model.Chapter
@@ -34,6 +40,20 @@ class RoyalRoadSource(private val network: NetworkHelper) : NovelSource {
                 genres = elem.select(".tags a").map { it.text() }
             )
         }.distinctBy { it.id }
+
+    private val SORT = SelectFilter(
+        FilterKeys.SORT, "Lista",
+        listOf(
+            FilterOption("latest-updates", "Recientes"), FilterOption("best-rated", "Mejor valoradas"), FilterOption("trending", "Tendencia"),
+            FilterOption("rising-stars", "En ascenso"), FilterOption("weekly-popular", "Populares de la semana"), FilterOption("complete", "Completadas")
+        )
+    )
+
+    override val filters: List<SourceFilter> = listOf(SORT)
+
+    override suspend fun browse(page: Int, values: FilterValues): Result<List<MediaItem>> = runCatching {
+        parseList(document("$baseUrl/fictions/${values.single(SORT)}?page=$page"))
+    }
 
     override suspend fun fetchLatestUpdates(page: Int): Result<List<MediaItem>> = runCatching {
         parseList(document("$baseUrl/fictions/latest-updates?page=$page"))

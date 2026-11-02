@@ -26,6 +26,9 @@
 | **Búsqueda inteligente** | Insensible a mayúsculas, tildes y puntuación; tolera erratas y coincidencias parciales; busca en títulos alternativos; ordena por relevancia, **agrupa duplicados entre fuentes**, con historial y sugerencias. |
 | **Lectura continua** | En manga vertical, cómic y novela el capítulo siguiente se añade solo al final, con separador «Capítulo X»; el progreso y el historial siguen al capítulo visible. **Índice de capítulos** con búsqueda, **marcadores**, auto-scroll, recorte de bordes, filtros de color, bloqueo de orientación; en novelas **lectura en voz alta** y búsqueda en el capítulo. |
 | **Similares y otras fuentes** | En cada ficha, títulos parecidos (recomendaciones de AniList) y el mismo título en tus otras fuentes con cuántos capítulos tiene cada una, avisando cuando no se puede confirmar que sea la misma obra. |
+| **Descubrir** | Recomendaciones según tu biblioteca e historial, y un título aleatorio con tipo y género opcionales. |
+| **Géneros excluidos** | Oculta cualquier género en todas las fuentes o solo en algunas. |
+| **Carpeta pública** | Cada descarga se copia a `Download/Yomukai`, por tipo, serie y temporada: MP4, CBZ o imágenes, EPUB o TXT, con `tvshow.nfo` y portada. |
 | **Reproductor** | Siguiente episodio automático, índice de episodios, velocidad 0,5–2x, salto de +85 s, imagen en imagen y posición recordada por episodio. |
 | **Descargas seguras** | Manga, novelas y **anime** (HLS con Media3 y MP4 con reanudación). «Descargar todo», no leídos o un rango. Solo HTTPS, comprobación de tipo y tamaño, almacenamiento privado, límite de descargas simultáneas y solo Wi-Fi. |
 | **Tor** | Tor integrado (Guardian Project `tor-android`) u Orbot: fuentes, descargas, vídeo y navegador por Tor, con indicador «Conectado a Tor», bloqueo en vez de fuga mientras no hay conexión y **Tor activable por fuente** (Cloudflare suele bloquear Tor). Buscador del navegador configurable (por defecto DuckDuckGo .onion). |

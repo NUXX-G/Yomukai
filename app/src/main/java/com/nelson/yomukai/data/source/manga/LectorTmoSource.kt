@@ -2,7 +2,13 @@ package com.nelson.yomukai.data.source.manga
 
 import com.nelson.yomukai.data.network.HttpException
 import com.nelson.yomukai.data.network.NetworkHelper
+import com.nelson.yomukai.data.source.FilterKeys
+import com.nelson.yomukai.data.source.FilterOption
+import com.nelson.yomukai.data.source.FilterValues
 import com.nelson.yomukai.data.source.MangaSource
+import com.nelson.yomukai.data.source.SelectFilter
+import com.nelson.yomukai.data.source.SourceFilter
+import com.nelson.yomukai.data.source.single
 import com.nelson.yomukai.data.source.SourceUtils
 import com.nelson.yomukai.domain.model.Chapter
 import com.nelson.yomukai.domain.model.MediaItem
@@ -27,6 +33,14 @@ class LectorTmoSource(private val network: NetworkHelper) : MangaSource {
 
     private suspend fun document(url: String): Document =
         Jsoup.parse(network.getString(url, mapOf("Referer" to "$baseUrl/")), url)
+
+    override val filters: List<SourceFilter> = listOf(GENRE)
+
+    override suspend fun browse(page: Int, values: FilterValues): Result<List<MediaItem>> = runCatching {
+        val genre = values.single(GENRE)
+        val path = if (genre.isEmpty()) "/manga/" else "/manga-genre/$genre/"
+        parseCards(network.getString("$baseUrl$path" + if (page > 1) "page/$page/" else "", mapOf("Referer" to "$baseUrl/")))
+    }
 
     override suspend fun fetchLatestUpdates(page: Int): Result<List<MediaItem>> = runCatching {
         parseCards(network.getString(if (page <= 1) "$baseUrl/" else "$baseUrl/manga/page/$page/", mapOf("Referer" to "$baseUrl/")))
@@ -72,6 +86,13 @@ class LectorTmoSource(private val network: NetworkHelper) : MangaSource {
     }
 
     companion object {
+        private val GENRE = SelectFilter(
+            FilterKeys.GENRE, "Género",
+            listOf(
+                "" to "Todos", "academia" to "Academia", "accion" to "Acción", "apocaliptico" to "Apocalíptico", "artes-marciales" to "Artes marciales",
+                "bestias" to "Bestias", "bl" to "BL", "crimen" to "Crimen", "demonios" to "Demonios", "deporte" to "Deporte", "drama" to "Drama", "ecchi" to "Ecchi"
+            ).map { FilterOption(it.first, it.second) }
+        )
         private val CSS_URL = Regex("""url\(['"]?([^'")]+)['"]?\)""")
         private val SERIES_PATH = Regex("""^https?://[^/]+/manga/[^/]+/?$""")
 
