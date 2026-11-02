@@ -2,6 +2,7 @@ package com.nelson.yomukai.data.source.manga
 
 import com.google.gson.JsonObject
 import com.nelson.yomukai.data.network.NetworkHelper
+import com.nelson.yomukai.data.source.FilterValues
 import com.nelson.yomukai.data.source.MangaSource
 import com.nelson.yomukai.data.source.SourceUtils
 import com.nelson.yomukai.data.source.arr
@@ -65,6 +66,11 @@ class FlameComicsSource(private val network: NetworkHelper) : MangaSource {
             .flatMap { block -> block.arr("series").objects() }
             .mapNotNull(::seriesToItem)
             .distinctBy { it.id }
+    }
+
+    /** The site lists its whole catalogue at once. */
+    override suspend fun browse(page: Int, values: FilterValues): Result<List<MediaItem>> = runCatching {
+        if (page <= 1) allSeries() else emptyList()
     }
 
     override suspend fun searchMedia(query: String): Result<List<MediaItem>> = runCatching {

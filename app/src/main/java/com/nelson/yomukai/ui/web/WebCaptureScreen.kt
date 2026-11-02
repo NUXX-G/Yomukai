@@ -64,6 +64,7 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -79,6 +80,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -249,7 +251,7 @@ fun WebCaptureScreen(
     val favorites by container.preferences.browserFavorites.collectAsStateWithLifecycle()
     val home = WebCapture.usableHome(networkSettings.browserHome, viaTor = netState.viaTor)
     val resuming = remember { store.browserState != null && store.browserStartUrl == initialUrl }
-    var started by remember { mutableStateOf(resuming) }
+    var started by remember { mutableStateOf(false) }
     var address by remember { mutableStateOf(TextFieldValue(if (resuming) store.browserUrl else initialUrl)) }
     var currentUrl by remember { mutableStateOf(if (resuming) store.browserUrl else initialUrl) }
     var pageTitle by remember { mutableStateOf("") }
@@ -267,6 +269,8 @@ fun WebCaptureScreen(
     val videos = remember { mutableStateListOf<CapturedVideo>() }
     val images = remember { mutableStateListOf<String>() }
     var showVideos by remember { mutableStateOf(false) }
+    /** Link waiting for the user's decision to hand it to another app. */
+    var leaving by remember { mutableStateOf<String?>(null) }
     var webView by remember { mutableStateOf<WebView?>(null) }
     val focusManager = LocalFocusManager.current
     val isFavorite = favorites.any { it.url == currentUrl }
@@ -334,17 +338,30 @@ fun WebCaptureScreen(
         val view = webView ?: return@LaunchedEffect
         if (netState.ready && !started) {
             started = true
-            val url = WebCapture.normalizeUrl(initialUrl, home)
-            address = TextFieldValue(url)
-            view.loadUrl(url)
+            val saved = store.browserState?.takeIf { resuming }
+            if (saved != null) {
+                view.restoreState(saved)
+            } else {
+                val url = WebCapture.normalizeUrl(initialUrl, home)
+                address = TextFieldValue(url)
+                view.loadUrl(url)
+            }
         }
+    }
+
+    // Stricter while on Tor: no plain http inside https pages and no third-party cookies.
+    LaunchedEffect(netState.viaTor, webView) {
+        val view = webView ?: return@LaunchedEffect
+        view.settings.mixedContentMode =
+            if (netState.viaTor) WebSettings.MIXED_CONTENT_NEVER_ALLOW else WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+        CookieManager.getInstance().setAcceptThirdPartyCookies(view, !netState.viaTor)
     }
 
     BackHandler {
         when {
             fullscreen != null -> fullscreen?.second?.onCustomViewHidden()
             findOpen -> closeFind()
-            canGoBack -> webView?.goBack()
+            canGoBack -> if (netState.ready) webView?.goBack()
             else -> close()
         }
     }
@@ -434,10 +451,10 @@ fun WebCaptureScreen(
             Surface(tonalElevation = 3.dp) {
                 Column(Modifier.navigationBarsPadding()) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        IconButton(onClick = { pageError = null; webView?.goBack() }, enabled = canGoBack) {
+                        IconButton(onClick = { pageError = null; webView?.goBack() }, enabled = canGoBack && netState.ready) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Página anterior")
                         }
-                        IconButton(onClick = { pageError = null; webView?.goForward() }, enabled = canGoForward) {
+                        IconButton(onClick = { pageError = null; webView?.goForward() }, enabled = canGoForward && netState.ready) {
                             Icon(Icons.AutoMirrored.Filled.ArrowForward, "Página siguiente")
                         }
                         IconButton(onClick = { open(home.url) }) { Icon(Icons.Default.Home, "Página de inicio") }
@@ -488,7 +505,7 @@ fun WebCaptureScreen(
                                 DropdownMenuItem(
                                     text = { Text("Abrir en otra app") },
                                     leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, null) },
-                                    onClick = { menuOpen = false; openOutside(currentUrl) }
+                                    onClick = { menuOpen = false; leaving = currentUrl }
                                 )
                             }
                         }
@@ -546,13 +563,11 @@ fun WebCaptureScreen(
                         settings.builtInZoomControls = true
                         settings.displayZoomControls = false
                         settings.mediaPlaybackRequiresUserGesture = false
-                        settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                         settings.setSupportMultipleWindows(false) // swallow pop-up ads
                         applyUserAgent(this, desktopMode)
-                        CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                         setFindListener { active, total, done -> if (done) findResult = active to total }
                         setDownloadListener { url, _, _, _, _ ->
-                            if (WebCapture.isHttpUrl(url)) openOutside(url)
+                            if (WebCapture.isHttpUrl(url)) leaving = url
                         }
                         webChromeClient = object : WebChromeClient() {
                             override fun onProgressChanged(view: WebView?, newProgress: Int) {
@@ -625,7 +640,6 @@ fun WebCaptureScreen(
                                 pageError = "La conexión con este sitio no es segura y se ha bloqueado."
                             }
                         }
-                        if (resuming) store.browserState?.let { restoreState(it) }
                         webView = this
                     }
                 }
@@ -677,6 +691,22 @@ fun WebCaptureScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black)
+        )
+    }
+
+    leaving?.let { url ->
+        AlertDialog(
+            onDismissRequest = { leaving = null },
+            title = { Text("¿Abrir en otra app?") },
+            text = {
+                Text(
+                    url + if (netState.viaTor) "\n\nEsa app no usa Tor: la conexión saldrá sin protección." else "",
+                    maxLines = 8,
+                    overflow = TextOverflow.Ellipsis
+                )
+            },
+            confirmButton = { TextButton(onClick = { leaving = null; openOutside(url) }) { Text("Abrir") } },
+            dismissButton = { TextButton(onClick = { leaving = null }) { Text("Cancelar") } }
         )
     }
 

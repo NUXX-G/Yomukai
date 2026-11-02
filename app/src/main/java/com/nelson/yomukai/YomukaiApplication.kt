@@ -22,6 +22,7 @@ import com.nelson.yomukai.data.network.TorManager
 import com.nelson.yomukai.data.network.WebViewProxy
 import com.nelson.yomukai.data.prefs.AppPreferences
 import com.nelson.yomukai.data.repository.ContentRepository
+import com.nelson.yomukai.data.repository.HomeCache
 import com.nelson.yomukai.data.repository.LibraryRepository
 import com.nelson.yomukai.data.source.SourceManager
 import com.nelson.yomukai.data.updates.LibraryUpdateWorker
@@ -50,6 +51,7 @@ class AppContainer(context: Context) {
     val downloadManager = DownloadManager(context, database, sourceManager, network, applicationScope, preferences, videoOffline)
     val contentRepository = ContentRepository(sourceManager, downloadManager)
     val captureStore = CaptureStore()
+    val homeCache = HomeCache(context)
 }
 
 class YomukaiApplication : Application(), SingletonImageLoader.Factory {

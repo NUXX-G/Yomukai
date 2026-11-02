@@ -2,6 +2,7 @@ package com.nelson.yomukai.data.source.manga
 
 import com.google.gson.JsonObject
 import com.nelson.yomukai.data.network.NetworkHelper
+import com.nelson.yomukai.data.source.FilterValues
 import com.nelson.yomukai.data.source.MangaSource
 import com.nelson.yomukai.data.source.SourceUtils
 import com.nelson.yomukai.data.source.arr
@@ -56,7 +57,16 @@ class OlympusScansSource(private val network: NetworkHelper) : MangaSource {
 
     /** Home page cards: newest updates first. */
     override suspend fun fetchLatestUpdates(page: Int): Result<List<MediaItem>> = runCatching {
-        parseHome(network.getString(baseUrl), catalog = allSeries().associateBy { it.id })
+        val html = network.getString(baseUrl)
+        val cards = parseHome(html, catalog = emptyMap())
+        // The full catalogue is only worth downloading when a card came without its cover.
+        if (cards.isNotEmpty() && cards.all { it.coverUrl.isNotBlank() }) cards
+        else parseHome(html, catalog = allSeries().associateBy { it.id })
+    }
+
+    /** The site lists its whole catalogue at once. */
+    override suspend fun browse(page: Int, values: FilterValues): Result<List<MediaItem>> = runCatching {
+        if (page <= 1) allSeries() else emptyList()
     }
 
     override suspend fun searchMedia(query: String): Result<List<MediaItem>> = runCatching {

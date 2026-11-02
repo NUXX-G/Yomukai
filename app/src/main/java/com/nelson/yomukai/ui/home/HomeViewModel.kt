@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import java.io.IOException
 
 enum class TypeFilter(val label: String, val types: Set<MediaType>) {
     ALL("Todo", MediaType.entries.toSet()),
@@ -55,6 +57,8 @@ data class HomeUiState(
     val continueReading: List<HistoryWithMedia> = emptyList(),
     val isRefreshing: Boolean = false
 )
+
+private const val SOURCE_TIMEOUT_MS = 40_000L
 
 class HomeViewModel(private val container: AppContainer) : ViewModel() {
 
@@ -98,24 +102,32 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             refreshing.value = true
             val settings = container.preferences.app.value
             val sources = container.sourceManager.enabled(settings.enabledSources)
-            rawSections.value = sources.map { SourceSection(it.id, it.name, it.language, it.supportedTypes) }
+            // Whatever is on screen, or was saved last time, stays visible while each source reloads.
+            val shown = rawSections.value.associate { it.sourceId to it.items }.filterValues { it.isNotEmpty() }
+                .ifEmpty { container.homeCache.load() }
+            rawSections.value = sources.map { s ->
+                val known = shown[s.id].orEmpty()
+                SourceSection(s.id, s.name, s.language, s.supportedTypes, items = known, isLoading = known.isEmpty())
+            }
 
             val jobs = sources.map { source ->
                 async {
-                    val result = source.fetchLatestUpdates(1)
+                    val result = withTimeoutOrNull(SOURCE_TIMEOUT_MS) { source.fetchLatestUpdates(1) }
+                        ?: Result.failure(IOException("${source.name} tardó demasiado en responder"))
                     updateSection(source.id) {
+                        val fresh = result.getOrDefault(emptyList())
+                        val failure = result.exceptionOrNull()?.also { e -> Log.w("YomukaiHome", "Fuente ${source.id} falló", e) }
                         it.copy(
-                            items = result.getOrDefault(emptyList()),
+                            items = fresh.ifEmpty { it.items },
                             isLoading = false,
-                            error = result.exceptionOrNull()?.let { e ->
-                                Log.w("YomukaiHome", "Fuente ${source.id} falló", e)
-                                e.message ?: "Error de conexión"
-                            }
+                            // Old titles beat an error message; a real error only shows when there is nothing else.
+                            error = failure?.takeIf { _ -> it.items.isEmpty() }?.let { e -> e.message ?: "Error de conexión" }
                         )
                     }
                 }
             }
             jobs.forEach { it.await() }
+            container.homeCache.save(rawSections.value.associate { it.sourceId to it.items })
             refreshing.value = false
         }
     }

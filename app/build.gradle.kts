@@ -1,7 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
 }
 
@@ -89,19 +88,17 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.androidx.media3.ui)
-    implementation(libs.androidx.media3.session)
     implementation(libs.androidx.media3.datasource.okhttp)
 
     // Tor (Guardian Project): embedded tor daemon + WebView proxy override
     implementation(libs.tor.android)
     implementation(libs.androidx.webkit)
 
-    // JSON Parsing (Gson & kotlinx.serialization)
+    // JSON Parsing
     implementation(libs.gson)
 
     // WorkManager (background library update checks)
     implementation(libs.androidx.work.runtime.ktx)
-    implementation(libs.kotlinx.serialization.json)
 
     // Testing
     testImplementation(libs.junit)

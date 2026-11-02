@@ -1,5 +1,6 @@
 package com.nelson.yomukai.data.source.manga
 
+import com.nelson.yomukai.data.network.HttpException
 import com.nelson.yomukai.data.network.NetworkHelper
 import com.nelson.yomukai.data.source.MangaSource
 import com.nelson.yomukai.data.source.SourceUtils
@@ -55,10 +56,15 @@ class LectorTmoSource(private val network: NetworkHelper) : MangaSource {
         var chapters = parseChapterLinks(document(mediaId), mediaId)
         if (chapters.isEmpty()) {
             // Madara-derived themes load the list through this endpoint.
-            val html = network.postString(mediaId.trimEnd('/') + "/ajax/chapters/", mapOf("Referer" to mediaId))
+            // Not every title has that endpoint: a 404 here just means there is nothing to list.
+            val html = try {
+                network.postString(mediaId.trimEnd('/') + "/ajax/chapters/", mapOf("Referer" to mediaId))
+            } catch (e: HttpException) {
+                if (e.code == 404) "" else throw e
+            }
             chapters = parseChapterLinks(Jsoup.parse(html, mediaId), mediaId)
         }
-        chapters.ifEmpty { error("No se encontraron capítulos") }
+        chapters.ifEmpty { error("Este título aún no tiene capítulos") }
     }
 
     override suspend fun fetchPageList(chapterUrl: String): Result<List<String>> = runCatching {

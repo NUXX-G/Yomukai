@@ -2,6 +2,7 @@ package com.nelson.yomukai.data.source.novel
 
 import com.google.gson.JsonObject
 import com.nelson.yomukai.data.network.NetworkHelper
+import com.nelson.yomukai.data.source.FilterValues
 import com.nelson.yomukai.data.source.NovelSource
 import com.nelson.yomukai.data.source.SourceUtils
 import com.nelson.yomukai.data.source.arr
@@ -20,6 +21,7 @@ class SkyNovelsSource(private val network: NetworkHelper) : NovelSource {
     override val baseUrl = "https://www.skynovels.net"
     override val language = "ES"
     override val supportedTypes = setOf(MediaType.NOVEL)
+    override val supportsLatestPaging = true
 
     private val api = "https://api.skynovels.net/api"
 
@@ -49,6 +51,10 @@ class SkyNovelsSource(private val network: NetworkHelper) : NovelSource {
             .flatMap { home.arr(it).objects() }
             .mapNotNull(::toItem)
             .distinctBy { it.id }
+    }
+
+    override suspend fun browse(page: Int, values: FilterValues): Result<List<MediaItem>> = runCatching {
+        getJson("/novels?page=${page.coerceAtLeast(1)}").arr("novels").objects().mapNotNull(::toItem)
     }
 
     override suspend fun searchMedia(query: String): Result<List<MediaItem>> = runCatching {
