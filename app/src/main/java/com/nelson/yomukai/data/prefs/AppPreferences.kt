@@ -216,6 +216,17 @@ class AppPreferences(context: Context) {
         _app.value = value
     }
 
+    /**
+     * Someone who ever toggled a source has a saved list, which knows nothing of sources added later.
+     * Those are switched on once; whatever the user turned off stays off.
+     */
+    fun enableNewSources(available: Set<String>) {
+        val known = prefs.getStringSet("known_sources", null)?.toSet() ?: (available - FIRST_TRACKED_SOURCES)
+        val added = available - known
+        if (added.isNotEmpty()) _app.value.enabledSources?.let { saved -> updateApp { it.copy(enabledSources = saved + added) } }
+        prefs.edit().putStringSet("known_sources", available).apply()
+    }
+
     fun updateManga(transform: (MangaReaderSettings) -> MangaReaderSettings) {
         val value = transform(_manga.value)
         prefs.edit()
@@ -294,3 +305,6 @@ class AppPreferences(context: Context) {
 }
 
 private const val SEARCH_HISTORY_LIMIT = 20
+
+/** Sources added in the version that started tracking them; every other one predates it. */
+private val FIRST_TRACKED_SOURCES = setOf("animeflv", "webtoons_en")

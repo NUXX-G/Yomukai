@@ -20,7 +20,19 @@ class DiscoveryTest {
     @Test
     fun sameNameIgnoresCaseAccentsAndYearSuffix() {
         val names = listOf("Leviathan")
-        assertEquals(MatchConfidence.SAME_WORK, TitleMatcher.compare(names, "", MediaType.MANHWA, item("LEVIATHÁN (2020)", MediaType.MANHWA)))
+        assertEquals(MatchConfidence.SAME_WORK, TitleMatcher.compare(names, "Lee", MediaType.MANHWA, item("LEVIATHÁN (2020)", MediaType.MANHWA, author = "LEE")))
+    }
+
+    @Test
+    fun aShortNameAloneProvesNothing() {
+        assertEquals(MatchConfidence.UNCONFIRMED, TitleMatcher.compare(listOf("Leviathan"), "", MediaType.MANGA, item("Leviathan", MediaType.MANGA)))
+        assertEquals(MatchConfidence.UNCONFIRMED, TitleMatcher.compare(listOf("Tower of God"), "", MediaType.MANGA, item("Tower of God", MediaType.MANHWA)))
+    }
+
+    @Test
+    fun aLongNameOrAnAnimeNeedsNoAuthors() {
+        assertEquals(MatchConfidence.SAME_WORK, TitleMatcher.compare(listOf("Tower of God"), "", MediaType.MANHWA, item("Tower of God", MediaType.MANHWA)))
+        assertEquals(MatchConfidence.SAME_WORK, TitleMatcher.compare(listOf("Berserk"), "", MediaType.ANIME, item("Berserk", MediaType.ANIME)))
     }
 
     @Test
@@ -28,7 +40,7 @@ class DiscoveryTest {
         val names = listOf("Yo solo subo de nivel", "Solo Leveling")
         assertEquals(
             MatchConfidence.SAME_WORK,
-            TitleMatcher.compare(names, "", MediaType.MANHWA, item("Na Honjaman Level Up", MediaType.MANHWA, alt = listOf("Solo Leveling")))
+            TitleMatcher.compare(names, "Chugong", MediaType.MANHWA, item("Na Honjaman Level Up", MediaType.MANHWA, "Chugong", listOf("Solo Leveling")))
         )
     }
 
@@ -42,13 +54,13 @@ class DiscoveryTest {
     fun otherMediumIsNotTheSameWork() {
         assertEquals(MatchConfidence.NONE, TitleMatcher.compare(listOf("Berserk"), "", MediaType.MANGA, item("Berserk", MediaType.ANIME)))
         assertEquals(MatchConfidence.NONE, TitleMatcher.compare(listOf("Overlord"), "", MediaType.MANGA, item("Overlord", MediaType.NOVEL)))
-        assertEquals(MatchConfidence.SAME_WORK, TitleMatcher.compare(listOf("Tower"), "", MediaType.MANGA, item("Tower", MediaType.MANHWA)))
+        assertEquals(MatchConfidence.UNCONFIRMED, TitleMatcher.compare(listOf("Tower"), "", MediaType.MANGA, item("Tower", MediaType.MANHWA)))
     }
 
     @Test
     fun differentAuthorsLowerConfidenceWithoutRejecting() {
         assertEquals(
-            MatchConfidence.PROBABLE,
+            MatchConfidence.DIFFERENT_AUTHOR,
             TitleMatcher.compare(listOf("Leviathan"), "Lee Gyuntak", MediaType.MANHWA, item("Leviathan", MediaType.MANHWA, author = "Noah Smith"))
         )
         assertEquals(

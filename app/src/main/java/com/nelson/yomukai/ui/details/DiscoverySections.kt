@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -50,7 +51,8 @@ fun SimilarSection(state: SimilarState, onLoad: () -> Unit, onOpen: (RelatedTitl
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(state.items, key = { it.title }) { related ->
+                // Different works can share a name, so the position is what identifies each card.
+                itemsIndexed(state.items, key = { index, _ -> index }) { _, related ->
                     MediaCard(
                         item = MediaItem(related.title, related.title, related.coverUrl, related.type, "", "", related.item?.sourceId.orEmpty()),
                         onClick = { onOpen(related) },
@@ -62,16 +64,17 @@ fun SimilarSection(state: SimilarState, onLoad: () -> Unit, onOpen: (RelatedTitl
     }
 }
 
-private fun noun(count: Int, isAnime: Boolean) = when {
+/** "episodio" or "capítulos", agreeing with [count]. */
+internal fun chapterNoun(count: Int, isAnime: Boolean) = when {
     isAnime -> if (count == 1) "episodio" else "episodios"
     else -> if (count == 1) "capítulo" else "capítulos"
 }
 
 /** "12 capítulos • hasta el 12,5". */
 private fun chaptersLine(alternative: Alternative, isAnime: Boolean): String {
-    val count = alternative.chapterCount ?: return "No se pudo leer la lista de " + noun(2, isAnime)
+    val count = alternative.chapterCount ?: return "No se pudo leer la lista de " + chapterNoun(2, isAnime)
     val last = alternative.lastChapter?.takeIf { it > 0f }?.let { if (it % 1f == 0f) it.toInt().toString() else it.toString() }
-    return "$count ${noun(count, isAnime)}" + (last?.let { " • hasta el $it" } ?: "")
+    return "$count ${chapterNoun(count, isAnime)}" + (last?.let { " • hasta el $it" } ?: "")
 }
 
 @Composable
@@ -91,7 +94,8 @@ private fun AlternativeRow(alternative: Alternative, isAnime: Boolean, onClick: 
                 Text(chaptersLine(alternative, isAnime), color = MaterialTheme.colorScheme.primary)
                 if (!sure) {
                     Text(
-                        "Mismo título, pero otro autor: comprueba que es la misma obra",
+                        if (alternative.confidence == MatchConfidence.DIFFERENT_AUTHOR) "Mismo título, otro autor: puede ser otra obra"
+                        else "Mismo título, sin confirmar que sea la misma obra",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error
                     )
@@ -117,7 +121,7 @@ fun AlternativesSheet(
         Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
             Text("Otras fuentes", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp))
             Text(
-                "Aquí, en $currentSource: $currentCount ${noun(currentCount, isAnime)}",
+                "Aquí, en $currentSource: $currentCount ${chapterNoun(currentCount, isAnime)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)

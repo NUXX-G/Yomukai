@@ -25,6 +25,7 @@
 | **Catálogo por fuente** | Desde Explorar entras en cualquier fuente y ves su catálogo completo con **scroll infinito** y **filtros propios de cada web** (orden, estado, tipo, género/editorial, idioma de capítulos, según lo que soporte cada una). |
 | **Búsqueda inteligente** | Insensible a mayúsculas, tildes y puntuación; tolera erratas y coincidencias parciales; busca en títulos alternativos; ordena por relevancia, **agrupa duplicados entre fuentes**, con historial y sugerencias. |
 | **Lectura continua** | En manga vertical, cómic y novela el capítulo siguiente se añade solo al final, con separador «Capítulo X»; el progreso y el historial siguen al capítulo visible. **Índice de capítulos** con búsqueda, **marcadores**, auto-scroll, recorte de bordes, filtros de color, bloqueo de orientación; en novelas **lectura en voz alta** y búsqueda en el capítulo. |
+| **Similares y otras fuentes** | En cada ficha, títulos parecidos (recomendaciones de AniList) y el mismo título en tus otras fuentes con cuántos capítulos tiene cada una, avisando cuando no se puede confirmar que sea la misma obra. |
 | **Reproductor** | Siguiente episodio automático, índice de episodios, velocidad 0,5–2x, salto de +85 s, imagen en imagen y posición recordada por episodio. |
 | **Descargas seguras** | Manga, novelas y **anime** (HLS con Media3 y MP4 con reanudación). «Descargar todo», no leídos o un rango. Solo HTTPS, comprobación de tipo y tamaño, almacenamiento privado, límite de descargas simultáneas y solo Wi-Fi. |
 | **Tor** | Tor integrado (Guardian Project `tor-android`) u Orbot: fuentes, descargas, vídeo y navegador por Tor, con indicador «Conectado a Tor», bloqueo en vez de fuga mientras no hay conexión y **Tor activable por fuente** (Cloudflare suele bloquear Tor). Buscador del navegador configurable (por defecto DuckDuckGo .onion). |
@@ -43,11 +44,11 @@
 | Marmota Comics | Cómic | ES | HTML (Madara) + AJAX |
 | LectorTMO | Manga | ES | HTML (tema propio) |
 | ZonaTMO | Manga/Manhwa/Manhua | ES | HTML |
-| WEBTOON | Manhwa | ES/EN | API JSON + HTML |
+| WEBTOON ES, WEBTOON EN | Manhwa | ES, EN | API JSON + HTML |
 | TuNovelaLigera | Novela | ES | HTML (Madara) + AJAX |
 | AnimeAV1 | Anime | ES | Datos SvelteKit + extractores |
-| LectorManga, SurtrScans | — | — | *Experimentales*: desactivadas porque sus dominios ya no resuelven. |
-| ReadAllComics | — | — | *Sin implementar*: pendiente de captura vía Tor. AnimeFLV se eliminó: su dominio original dejó de funcionar. |
+| AnimeFLV | Anime | ES | HTML + extractores |
+| ReadAllComics | — | — | *Sin implementar*: pendiente de captura vía Tor. |
 
 Los sitios web cambian con frecuencia; una fuente puede dejar de funcionar sin previo aviso.
 

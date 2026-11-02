@@ -64,7 +64,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
 
     private val filters = MutableStateFlow(TypeFilter.ALL to LanguageFilter.ALL)
     private val rawSections = MutableStateFlow<List<SourceSection>>(emptyList())
-    private val refreshing = MutableStateFlow(false)
+    private val refreshing = MutableStateFlow(true) // the first load starts right away
     private var loadJob: Job? = null
 
     val uiState: StateFlow<HomeUiState> = combine(

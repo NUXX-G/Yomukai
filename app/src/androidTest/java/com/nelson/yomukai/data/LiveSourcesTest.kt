@@ -19,6 +19,32 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class LiveSourcesTest {
+    /** Lists the servers of a few episodes of every anime source, and whether each stream answers. */
+    @Test
+    fun episodeServers() = runBlocking<Unit> {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("live") == "true")
+        val app = ApplicationProvider.getApplicationContext<YomukaiApplication>()
+        for (source in app.container.sourceManager.all.filterIsInstance<com.nelson.yomukai.data.source.AnimeSource>()) {
+            val titles = source.fetchLatestUpdates(1).getOrThrow().take(4)
+            for (title in titles) {
+                val episode = source.fetchChapterList(title.id).getOrNull()?.firstOrNull() ?: continue
+                val servers = source.fetchVideoSources(episode.url).getOrElse { e ->
+                    Log.i("YomukaiLive", "${source.id} ${title.title.take(24)}: $e")
+                    continue
+                }
+                val direct = servers.filter { it.isDirect }.joinToString { d ->
+                    val answer = runCatching {
+                        val request = okhttp3.Request.Builder().url(d.videoUrl).header("Range", "bytes=0-1023")
+                            .apply { d.headers.forEach { (k, v) -> header(k, v) } }.build()
+                        app.container.network.videoClient.newCall(request).execute().use { it.code.toString() }
+                    }.getOrElse { it::class.java.simpleName }
+                    "${d.serverName}=$answer"
+                }
+                Log.i("YomukaiLive", "${source.id} ${title.title.take(24)}: total ${servers.size}; $direct")
+            }
+        }
+    }
+
     @Test
     fun everySource() = runBlocking {
         assumeTrue(InstrumentationRegistry.getArguments().getString("live") == "true")

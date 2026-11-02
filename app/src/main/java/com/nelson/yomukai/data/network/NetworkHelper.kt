@@ -322,7 +322,7 @@ class NetworkHelper(
         private const val TOR_READ_TIMEOUT_S = 45L
         private const val TOR_CALL_TIMEOUT_S = 75L
         private const val VIDEO_CONNECT_TIMEOUT_S = 3L
-        private const val VIDEO_CONNECT_ATTEMPTS = 6
+        private const val VIDEO_CONNECT_ATTEMPTS = 8
         private const val RECENT_MS = 15_000L
         private const val RECENT_MAX_CHARS = 8 * 1024 * 1024
         private const val LOCK_STRIPES = 64

@@ -85,16 +85,18 @@ class VideoExtractors(private val network: NetworkHelper) {
         /** Voe's player config: rot13, noise markers, Base64, every char shifted by 3, reversed, Base64 again. */
         fun voeConfig(encoded: String): com.google.gson.JsonObject? = runCatching {
             val clean = VOE_NOISE.fold(rot13(encoded)) { text, noise -> text.replace(noise, "") }
-            val shifted = java.util.Base64.getDecoder().decode(clean).map { ((it.toInt() and 0xFF) - 3).toChar() }
+            // The MIME decoder skips stray characters, which the strict one rejects outright.
+            val decoder = java.util.Base64.getMimeDecoder()
+            val shifted = decoder.decode(clean).map { ((it.toInt() and 0xFF) - 3).toChar() }
             val inner = shifted.reversed().joinToString("")
-            parseJson(String(java.util.Base64.getDecoder().decode(inner), Charsets.UTF_8)).asJsonObject
+            parseJson(String(decoder.decode(inner), Charsets.UTF_8)).asJsonObject
         }.getOrNull()
 
         /** The MP4 when offered, since it also works for downloads; otherwise the HLS playlist. */
         fun voeStream(html: String): String? {
-            val data = VOE_DATA.find(html)?.groupValues?.get(1) ?: return null
-            val encoded = runCatching { parseJson(data).asJsonArray.first().asString }.getOrNull() ?: return null
-            val config = voeConfig(encoded) ?: return null
+            val config = VOE_DATA.findAll(html).firstNotNullOfOrNull { block ->
+                runCatching { parseJson(block.groupValues[1]).asJsonArray.first().asString }.getOrNull()?.let(::voeConfig)
+            } ?: return null
             return config.str("direct_access_url")?.takeIf { it.startsWith("http") }
                 ?: config.str("source")?.takeIf { it.startsWith("http") }
         }

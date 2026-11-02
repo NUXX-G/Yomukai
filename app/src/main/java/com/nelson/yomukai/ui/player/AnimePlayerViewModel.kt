@@ -227,7 +227,8 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
     }
 
     private fun playbackMessage(detail: String?) =
-        "No se pudo reproducir este vídeo en la app" + (detail?.let { " ($it)" } ?: "") + "."
+        "No se pudo reproducir este vídeo en la app" + (detail?.let { " ($it)" } ?: "") +
+            ". Puede estar borrado en este servidor: prueba con «Buscar en otras fuentes» en la ficha del título."
 
     /**
      * Called about twice a second; saves at most every ~5 s of playback. [chapterId] is the episode of the

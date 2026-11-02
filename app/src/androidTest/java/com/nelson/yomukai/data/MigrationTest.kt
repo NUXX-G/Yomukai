@@ -42,9 +42,10 @@ class MigrationTest {
         }
 
         val db = helper.runMigrationsAndValidate(
-            DB, 6, true,
+            DB, 7, true,
             YomukaiDatabase.MIGRATION_1_2, YomukaiDatabase.MIGRATION_2_3,
-            YomukaiDatabase.MIGRATION_3_4, YomukaiDatabase.MIGRATION_4_5, YomukaiDatabase.MIGRATION_5_6
+            YomukaiDatabase.MIGRATION_3_4, YomukaiDatabase.MIGRATION_4_5, YomukaiDatabase.MIGRATION_5_6,
+            YomukaiDatabase.MIGRATION_6_7
         )
         db.query("SELECT title, inLibrary FROM media WHERE mediaId='m1'").use {
             it.moveToFirst(); assertEquals("Titulo", it.getString(0)); assertEquals(1, it.getInt(1))

@@ -43,7 +43,10 @@ class AppContainer(context: Context) {
     val tor = TorManager(context, preferences.network, applicationScope)
     val network = NetworkHelper(context, preferences.network, tor.state, applicationScope)
     val database = YomukaiDatabase.build(context)
-    val sourceManager = SourceManager(network).also { sm -> network.domainsOfSources = sm::domainsOf }
+    val sourceManager = SourceManager(network).also { sm ->
+        network.domainsOfSources = sm::domainsOf
+        preferences.enableNewSources(sm.defaultEnabledIds)
+    }
     val webViewProxy = WebViewProxy(context, preferences.network, tor.state, sourceManager::domainsOf, applicationScope)
         .also { proxy ->
             network.webViewOnTor = { proxy.state.value.let { it.ready && it.viaTor } }

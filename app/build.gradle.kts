@@ -107,6 +107,8 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.room.testing)
+    // Room testing reads the exported schemas with this; the app itself does not use it.
+    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

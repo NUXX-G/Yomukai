@@ -3,16 +3,24 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## Tanda v1.4.0 (encargo actual)
-- [ ] Episodios de anime que no cargan (unos sí y otros no)
-- [ ] Títulos similares (mismo tipo/temática: Evangelion -> Gridman, Gurren Lagann)
-- [ ] Alternativas: el mismo título en otras fuentes, verificando que es la misma obra
-- [ ] WEBTOON en español además del inglés
-- [ ] Navegador: pantalla completa tipo F11
-- [ ] Quitar LectorManga y SurtrScans
-- [ ] Fuente animeflv.or.at
-- [ ] Indicador de carga que se queda como un punto
-- [ ] Buscar errores y mejorar rendimiento
+- [x] Episodios de anime que no cargan (unos sí y otros no)
+- [x] Títulos similares (mismo tipo/temática: Evangelion -> Gridman, Gurren Lagann)
+- [x] Alternativas: el mismo título en otras fuentes, verificando que es la misma obra
+- [x] WEBTOON en español además del inglés
+- [x] Navegador: pantalla completa tipo F11
+- [x] Quitar LectorManga y SurtrScans
+- [x] Fuente animeflv.or.at
+- [x] Indicador de carga que se queda como un punto
+- [x] Buscar errores y mejorar rendimiento
 - [ ] Publicar pre-release v1.4.0
+
+### Hallazgos de v1.4.0
+- Anime: el HLS de zilla-networks da 403 en los segmentos (bloqueo duro de Cloudflare, no saltárselo). MP4Upload pierde muchas conexiones en su nodo `a3` y responde al instante cuando conecta: por eso el cliente de vídeo reintenta 8 veces con 3 s. Algunos vídeos de Voe están borrados en origen (404).
+- Indicador: el de Compose se congela si Android tiene las animaciones reducidas. `AppSpinner` cuenta tiempo real de fotogramas; hay que usarlo siempre.
+- En Android una `}` sin escapar en una regex cierra la app al arrancar, y las pruebas JVM no lo ven. Pasar siempre `LiveSourcesTest` en un emulador.
+- Otras fuentes: un nombre corto no prueba nada («Leviathan» son varias obras). `MatchConfidence.SAME_WORK` exige autores iguales, nombre largo o anime.
+- Las claves de `LazyRow`/`LazyColumn` duplicadas cierran la app: nunca usar el título como clave.
+- `MigrationTest` no arranca: falla `kotlinx.serialization` en la herramienta de Room (AbstractMethodError), pendiente de arreglar. La migración 6 a 7 se comprobó actualizando de verdad de 1.3.0 a 1.4.0.
 
 ## Cómo publicar una release
 Mismo formato que las anteriores, para que se instale encima y conserve los datos:

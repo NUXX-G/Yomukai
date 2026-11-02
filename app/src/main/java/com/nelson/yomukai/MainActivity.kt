@@ -137,7 +137,10 @@ fun YomukaiApp(
 
     LaunchedEffect(pendingDetails) {
         pendingDetails?.let { (sourceId, mediaId) ->
-            navController.navigate(Routes.details(sourceId, mediaId))
+            // The activity is exported: only titles in the library, the ones notifications are about, may open this way.
+            if (container.libraryRepository.getMedia(sourceId, mediaId)?.inLibrary == true) {
+                navController.navigate(Routes.details(sourceId, mediaId))
+            }
             onDeepLinkHandled()
         }
     }

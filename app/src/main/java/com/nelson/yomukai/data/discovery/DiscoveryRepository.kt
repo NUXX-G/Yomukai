@@ -61,7 +61,7 @@ class DiscoveryRepository(
     suspend fun similar(media: MediaItem): List<RelatedTitle> {
         val own = listOf(media.title) + media.altTitles
         val entry = runCatching { aniList.lookup(own, media.type) }.getOrNull()
-        if (entry != null && entry.related.isNotEmpty()) return entry.related.take(MAX_SIMILAR)
+        if (entry != null && entry.related.isNotEmpty()) return entry.related.distinctBy { it.title to it.type }.take(MAX_SIMILAR)
         val word = media.title.split(' ').filter { it.length >= MIN_WORD }.maxByOrNull { it.length } ?: return emptyList()
         val source = sources.get(media.sourceId) ?: return emptyList()
         return source.searchMedia(word).getOrDefault(emptyList())
@@ -105,7 +105,10 @@ class DiscoveryRepository(
         for (query in searchable(names)) {
             val results = source.searchMedia(query).getOrNull() ?: continue
             pick(results, names, author, type)?.let { (item, confidence) ->
-                return Alternative(item, source.name, source.language, confidence)
+                // Search pages rarely list authors: the verdict comes from the title's own page.
+                val full = if (item.author.isBlank()) source.fetchMediaDetails(item).getOrNull() ?: item else item
+                val checked = TitleMatcher.compare(names, author, type, full).takeIf { it != MatchConfidence.NONE } ?: confidence
+                return Alternative(full, source.name, source.language, checked)
             }
             // Search pages rarely list other names: the closest entries' own pages may have them.
             results.filter { TitleMatcher.nearMatch(names, it) }.take(MAX_DETAILS).forEach { near ->

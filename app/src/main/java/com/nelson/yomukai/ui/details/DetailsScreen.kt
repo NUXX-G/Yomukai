@@ -260,7 +260,7 @@ fun DetailsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "${state.chapters.size} ${if (state.isAnime) "episodios" else "capítulos"}",
+                            "${state.chapters.size} ${chapterNoun(state.chapters.size, state.isAnime)}",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.weight(1f)
