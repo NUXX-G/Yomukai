@@ -1,0 +1,43 @@
+# Compila cada rama de trabajo y deja el APK listo para descargar. Los agentes programan en una máquina sin SDK de Android.
+name: Android
+
+on:
+  push:
+    branches: [main, "colmena/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: SDK de Android
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37" >/dev/null
+      # Misma firma que Android Studio: así el APK actualiza la app instalada sin borrar tus datos.
+      - name: Firma de depuración
+        env:
+          DEBUG_KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$DEBUG_KEYSTORE_B64" ]; then
+            mkdir -p ~/.android
+            echo "$DEBUG_KEYSTORE_B64" | base64 -d > ~/.android/debug.keystore
+          fi
+      - run: chmod +x gradlew
+      - name: Compilar
+        run: ./gradlew assembleDebug --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yomukai-debug-${{ github.sha }}
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 14
+      - name: Pruebas
+        run: ./gradlew testDebugUnitTest
