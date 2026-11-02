@@ -2,6 +2,22 @@
 
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
+## Tanda v1.4.0 (encargo actual)
+- [ ] Episodios de anime que no cargan (unos sí y otros no)
+- [ ] Títulos similares (mismo tipo/temática: Evangelion -> Gridman, Gurren Lagann)
+- [ ] Alternativas: el mismo título en otras fuentes, verificando que es la misma obra
+- [ ] WEBTOON en español además del inglés
+- [ ] Navegador: pantalla completa tipo F11
+- [ ] Quitar LectorManga y SurtrScans
+- [ ] Fuente animeflv.or.at
+- [ ] Indicador de carga que se queda como un punto
+- [ ] Buscar errores y mejorar rendimiento
+- [ ] Publicar pre-release v1.4.0
+
+## Cómo publicar una release
+Mismo formato que las anteriores, para que se instale encima y conserve los datos:
+`assembleRelease`, firmar `app-release-unsigned.apk` con `~/.android/debug.keystore` (`pass:android`; certificado `db17e934...`), subir `Yomukai-vX.Y.Z.apk` y su `.sha256` con `gh release create --prerelease`. Subir antes `versionCode` y `versionName`.
+
 ## Reglas de trabajo
 - Nada de `colmena`: se trabaja en este repo y se sube a `main`. Commits pequeños y push frecuente.
 - Esta máquina **sí compila**: JDK en `C:\jdk-21.0.7`, SDK en `%LOCALAPPDATA%\Android\Sdk`.
