@@ -3,6 +3,12 @@ package com.nelson.yomukai.data.source.anime
 import com.google.gson.JsonParser
 import com.nelson.yomukai.data.network.NetworkHelper
 import com.nelson.yomukai.data.source.AnimeSource
+import com.nelson.yomukai.data.source.FilterKeys
+import com.nelson.yomukai.data.source.FilterOption
+import com.nelson.yomukai.data.source.FilterValues
+import com.nelson.yomukai.data.source.SelectFilter
+import com.nelson.yomukai.data.source.SourceFilter
+import com.nelson.yomukai.data.source.single
 import com.nelson.yomukai.data.source.SourceUtils
 import com.nelson.yomukai.domain.model.Chapter
 import com.nelson.yomukai.domain.model.MediaItem
@@ -27,6 +33,12 @@ class AnimeAv1Source(private val network: NetworkHelper) : AnimeSource {
     private val extractors = VideoExtractors(network)
 
     private suspend fun html(path: String) = network.getString("$baseUrl$path", mapOf("Referer" to "$baseUrl/"))
+
+    override val filters: List<SourceFilter> = FILTERS
+
+    override suspend fun browse(page: Int, values: FilterValues): Result<List<MediaItem>> = runCatching {
+        parseCatalog(html(catalogueRequest(page, values)))
+    }
 
     /** Page 1 = latest episodes on the home page; later pages browse the catalogue by release. */
     override suspend fun fetchLatestUpdates(page: Int): Result<List<MediaItem>> = runCatching {
@@ -53,6 +65,26 @@ class AnimeAv1Source(private val network: NetworkHelper) : AnimeSource {
 
     companion object {
         private const val BASE = "https://animeav1.com"
+        private val SORT = SelectFilter(
+            FilterKeys.SORT, "Orden",
+            listOf(FilterOption("latest_released", "Recientes"), FilterOption("score", "Mejor valorados"), FilterOption("popular", "Populares"), FilterOption("title", "A-Z"))
+        )
+        private val GENRE = SelectFilter(
+            FilterKeys.GENRE, "Género",
+            listOf(
+                "" to "Todos", "accion" to "Acción", "aventura" to "Aventura", "ciencia-ficcion" to "Ciencia ficción", "comedia" to "Comedia",
+                "deportes" to "Deportes", "drama" to "Drama", "ecchi" to "Ecchi", "fantasia" to "Fantasía", "mecha" to "Mecha",
+                "misterio" to "Misterio", "psicologico" to "Psicológico", "romance" to "Romance", "seinen" to "Seinen",
+                "shounen" to "Shounen", "sobrenatural" to "Sobrenatural", "suspenso" to "Suspenso", "terror" to "Terror"
+            ).map { FilterOption(it.first, it.second) }
+        )
+        val FILTERS: List<SourceFilter> = listOf(SORT, GENRE)
+
+        fun catalogueRequest(page: Int, values: FilterValues): String = buildString {
+            append("/catalogo?order=${values.single(SORT)}&page=${page.coerceAtLeast(1)}")
+            values.single(GENRE).takeIf { it.isNotEmpty() }?.let { append("&genre=$it") }
+        }
+
         private val EPISODE_PATH = Regex("""^/media/([^/]+)/(\d+(?:\.\d+)?)$""")
         private val SERIES_PATH = Regex("""^/media/([^/#?]+)$""")
         private val EMBED = Regex("""\{server:"([^"]+)",url:"([^"]+)"\}""")

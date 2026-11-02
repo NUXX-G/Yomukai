@@ -15,6 +15,7 @@ import coil3.request.crossfade
 import org.conscrypt.Conscrypt
 import java.security.Security
 import com.nelson.yomukai.data.discovery.AniListClient
+import com.nelson.yomukai.data.discovery.ContentFilter
 import com.nelson.yomukai.data.discovery.DiscoveryRepository
 import com.nelson.yomukai.data.download.DownloadManager
 import com.nelson.yomukai.data.download.VideoOffline
@@ -58,7 +59,8 @@ class AppContainer(context: Context) {
     val contentRepository = ContentRepository(sourceManager, downloadManager)
     val captureStore = CaptureStore()
     val homeCache = HomeCache(context)
-    val discovery = DiscoveryRepository(sourceManager, preferences, AniListClient(network))
+    val contentFilter = ContentFilter(preferences, libraryRepository)
+    val discovery = DiscoveryRepository(sourceManager, preferences, AniListClient(network)) { contentFilter }
 }
 
 private const val IMAGE_CACHE = "images"

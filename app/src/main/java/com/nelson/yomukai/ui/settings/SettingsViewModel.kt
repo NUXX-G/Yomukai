@@ -62,6 +62,9 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    val exclusions = container.preferences.exclusions
+    fun toggleExclusion(sourceId: String?, genre: String) = container.preferences.toggleExclusion(sourceId, genre)
+
     fun clearHistory() {
         viewModelScope.launch { container.libraryRepository.clearHistory() }
     }

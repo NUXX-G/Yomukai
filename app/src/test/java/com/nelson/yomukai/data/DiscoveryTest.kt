@@ -71,6 +71,15 @@ class DiscoveryTest {
     }
 
     @Test
+    fun excludedGenresMatchAcrossNames() {
+        val rules = com.nelson.yomukai.data.discovery.GenreRules
+        assertTrue(rules.isExcluded(listOf("Drama", "Yaoi"), setOf("BL")))
+        assertTrue(rules.isExcluded(listOf("Boys' Love"), setOf("bl")))
+        assertTrue(rules.isExcluded(listOf("Horror"), setOf("Terror")))
+        assertFalse(rules.isExcluded(listOf("Drama"), setOf("BL")))
+    }
+
+    @Test
     fun readsNamesAndRecommendationsFromAniList() {
         val entry = AniListClient.parseEntries(fixture("anilist_media.json")).first()
         assertTrue("Neon Genesis Evangelion" in entry.names)

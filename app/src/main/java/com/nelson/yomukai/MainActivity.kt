@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CollectionsBookmark
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.PlayCircle
@@ -123,6 +124,7 @@ private data class TopLevelTab(val route: String, val label: String, val icon: I
 private val tabs = listOf(
     TopLevelTab(Routes.HOME, "Explorar", Icons.Default.Explore),
     TopLevelTab(Routes.SEARCH, "Buscar", Icons.Default.Search),
+    TopLevelTab(Routes.DISCOVER, "Descubrir", Icons.Default.AutoAwesome),
     TopLevelTab(Routes.LIBRARY, "Biblioteca", Icons.Default.CollectionsBookmark),
     TopLevelTab(Routes.SETTINGS, "Ajustes", Icons.Default.Settings)
 )
@@ -264,6 +266,9 @@ fun YomukaiApp(
                     onOpenUrl = { navController.navigate(Routes.webCapture(it)) },
                     modifier = tabModifier
                 )
+            }
+            composable(Routes.DISCOVER) {
+                com.nelson.yomukai.ui.discover.DiscoverScreen(onOpenMedia = ::openMedia, modifier = tabModifier)
             }
             composable(Routes.LIBRARY) {
                 LibraryScreen(

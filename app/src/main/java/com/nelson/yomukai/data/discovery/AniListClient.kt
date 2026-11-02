@@ -24,9 +24,16 @@ data class RelatedTitle(
     val names: List<String>,
     val coverUrl: String,
     val type: MediaType,
+    val genres: List<String> = emptyList(),
     /** Set when the title already comes from a source and can be opened directly. */
     val item: MediaItem? = null
 )
+
+/** What the random pick may be; a null [type] leaves that to chance too. */
+enum class RandomKind(val label: String, val type: MediaType?) {
+    ANY("Lo que sea", null), ANIME("Anime", MediaType.ANIME), MANGA("Manga", MediaType.MANGA),
+    MANHWA("Manhwa", MediaType.MANHWA), NOVEL("Novela", MediaType.NOVEL)
+}
 
 /** What AniList knows about a title. */
 @Immutable
@@ -57,6 +64,22 @@ class AniListClient(private val network: NetworkHelper) {
         val entry = if (found.related.size >= ENOUGH) found else found.copy(related = (found.related + byTags(found, type)).distinctBy { it.title })
         lock.withLock { cache[key] = entry }
         return entry
+    }
+
+    /** A random well-known title. Asks how many there are, then one page at random among them. */
+    suspend fun random(kind: RandomKind, genre: String?): RelatedTitle? {
+        val type = kind.type ?: listOf(MediaType.ANIME, MediaType.MANGA).random()
+        fun variables(page: Int) = JsonObject().apply {
+            add("p", JsonPrimitive(page))
+            add("t", JsonPrimitive(if (type == MediaType.ANIME) "ANIME" else "MANGA"))
+            if (type == MediaType.NOVEL) add("f", JsonPrimitive("NOVEL"))
+            else if (type != MediaType.ANIME) add("n", JsonPrimitive("NOVEL"))
+            genre?.let { add("g", JsonPrimitive(it)) }
+        }
+        val total = parseJson(post(RANDOM, variables(1))).asJsonObject.obj("data")?.obj("Page")?.obj("pageInfo")?.str("total")?.toIntOrNull() ?: return null
+        if (total <= 0) return null
+        val page = (1..total.coerceAtMost(MAX_RANDOM_PAGE)).random()
+        return parseJson(post(RANDOM, variables(page))).asJsonObject.obj("data")?.obj("Page")?.arr("media").objects().firstOrNull()?.let(::toRelated)
     }
 
     /** Other names of what [query] most likely refers to; each site may only know one of them. */
@@ -106,10 +129,14 @@ class AniListClient(private val network: NetworkHelper) {
         private const val MAX_ALIASES = 2
         private const val MIN_TAG_RANK = 60
 
-        private const val FIELDS = "title{romaji english native} synonyms coverImage{large} type format countryOfOrigin"
+        private const val FIELDS = "title{romaji english native} synonyms coverImage{large} type format countryOfOrigin genres"
         private val LOOKUP = """
             query(${'$'}s:String,${'$'}t:MediaType,${'$'}f:MediaFormat,${'$'}n:MediaFormat){Page(perPage:5){media(search:${'$'}s,type:${'$'}t,format:${'$'}f,format_not:${'$'}n,sort:SEARCH_MATCH){
             $FIELDS tags{name rank} recommendations(sort:RATING_DESC,perPage:24){nodes{rating mediaRecommendation{$FIELDS}}}}}}
+        """.trimIndent()
+        private const val MAX_RANDOM_PAGE = 5000
+        private val RANDOM = """
+            query(${'$'}p:Int,${'$'}t:MediaType,${'$'}f:MediaFormat,${'$'}n:MediaFormat,${'$'}g:String){Page(page:${'$'}p,perPage:1){pageInfo{total} media(type:${'$'}t,format:${'$'}f,format_not:${'$'}n,genre:${'$'}g,isAdult:false,sort:POPULARITY_DESC){$FIELDS}}}
         """.trimIndent()
         private val BY_TAGS = """
             query(${'$'}t:MediaType,${'$'}g:[String]){Page(perPage:24){media(type:${'$'}t,tag_in:${'$'}g,sort:POPULARITY_DESC){$FIELDS}}}
@@ -133,7 +160,7 @@ class AniListClient(private val network: NetworkHelper) {
             val names = namesOf(media)
             val title = media.obj("title")
             val shown = title?.str("english") ?: title?.str("romaji") ?: names.firstOrNull() ?: return null
-            return RelatedTitle(shown, names, media.obj("coverImage")?.str("large").orEmpty(), typeOf(media))
+            return RelatedTitle(shown, names, media.obj("coverImage")?.str("large").orEmpty(), typeOf(media), media.arr("genres").strings())
         }
 
         /** Every entry of a lookup answer, best match first; unrated recommendations are dropped. */

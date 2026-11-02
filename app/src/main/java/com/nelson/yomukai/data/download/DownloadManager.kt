@@ -562,13 +562,11 @@ class DownloadManager(
                                         if (response.code != 206) throw HttpException(response.code, url)
                                         val input = response.body?.byteStream() ?: throw IOException("Respuesta vacía")
                                         var position = from
-                                        while (true) {
-                                            val read = input.read(buffer)
+                                        while (position <= to) {
+                                            val read = input.read(buffer, 0, minOf(buffer.size.toLong(), to + 1 - position).toInt())
                                             if (read < 0) break
-                                            synchronized(out) {
-                                                out.seek(position)
-                                                out.write(buffer, 0, read)
-                                            }
+                                            out.seek(position)
+                                            out.write(buffer, 0, read)
                                             position += read
                                         }
                                         if (position != to + 1) throw IOException("Bloque incompleto")
@@ -644,7 +642,7 @@ class DownloadManager(
             row.isHls -> return // lives in the player's cache as loose segments, not as a video file
             row.isVideo -> {
                 val season = ExportNaming.season(title)
-                val name = DownloadSecurity.sanitizeFileName("$series - S%02dE$number.mp4".format(season))
+                val name = DownloadSecurity.sanitizeFileName("$series - S${"%02d".format(season)}E$number.mp4")
                 exporter.save("$base/Temporada $season", name, "video/mp4") { out ->
                     File(dir, VIDEO_FILE).inputStream().use { it.copyTo(out) }
                 }
@@ -677,14 +675,22 @@ class DownloadManager(
     /** `info.nfo` and the cover next to the chapters: what media libraries such as Kodi or Jellyfin read. */
     private fun exportSeriesInfo(base: String, title: String, media: MediaEntity?, row: DownloadEntity) {
         exporter.save(base, "tvshow.nfo", PublicExporter.BINARY) { it.write(ComicArchive.seriesInfo(title, media, row).toByteArray()) }
-        val cover = media?.coverUrl?.takeIf { it.startsWith("https://") } ?: return
+        val cover = media?.coverUrl?.ifBlank { null } ?: return
         runCatching {
+            val headers = sources.get(row.sourceId)?.imageHeaders.orEmpty()
+            val request = Request.Builder().url(DownloadSecurity.requireSecureUrl(cover))
+                .apply { headers.forEach { (k, v) -> header(k, v) } }.build()
             exporter.save(base, "poster.jpg", "image/jpeg") { out ->
-                val headers = sources.get(row.sourceId)?.imageHeaders.orEmpty()
-                val request = Request.Builder().url(cover).apply { headers.forEach { (k, v) -> header(k, v) } }.build()
-                network.client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) throw HttpException(response.code, cover)
-                    response.body?.byteStream()?.copyTo(out)
+                val tmp = File(context.cacheDir, "poster_${System.nanoTime()}.tmp")
+                try {
+                    network.client.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) throw HttpException(response.code, cover)
+                        if (!DownloadSecurity.isImageType(response.header("Content-Type"))) throw IOException("La portada no es una imagen")
+                        copyLimited(response.body?.byteStream() ?: throw IOException("Respuesta vacía"), tmp, DownloadSecurity.MAX_IMAGE_BYTES)
+                    }
+                    tmp.inputStream().use { it.copyTo(out) }
+                } finally {
+                    tmp.delete()
                 }
             }
         }

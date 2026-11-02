@@ -19,6 +19,34 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class LiveSourcesTest {
+    /** Downloads a chapter and an episode for real; the files can then be checked in Download/Yomukai. */
+    @Test
+    fun downloads() = runBlocking<Unit> {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("live") == "true")
+        val app = ApplicationProvider.getApplicationContext<YomukaiApplication>()
+        val container = app.container
+        for ((sourceId, index) in listOf("zonatmo" to 0, "webtoons" to 0, "animeflv" to 2)) {
+            val source = container.sourceManager.require(sourceId)
+            val item = source.fetchLatestUpdates(1).getOrThrow()[index]
+            container.libraryRepository.cacheMedia(item)
+            container.libraryRepository.refreshDetails(sourceId, item.id)
+            container.libraryRepository.refreshChapters(sourceId, item.id)
+            val media = container.libraryRepository.getMedia(sourceId, item.id)!!
+            val chapter = container.libraryRepository.getChapters(sourceId, item.id).first()
+            container.downloadManager.delete(sourceId, chapter.chapterId)
+            container.downloadManager.enqueue(media, listOf(chapter))
+            val start = System.currentTimeMillis()
+            var row = container.database.downloadDao().get(sourceId, chapter.chapterId)
+            while (row != null && row.status != com.nelson.yomukai.data.local.DownloadStatus.COMPLETED &&
+                row.status != com.nelson.yomukai.data.local.DownloadStatus.FAILED && System.currentTimeMillis() - start < 200_000
+            ) {
+                kotlinx.coroutines.delay(1_000)
+                row = container.database.downloadDao().get(sourceId, chapter.chapterId)
+            }
+            Log.i("YomukaiLive", "$sourceId ${chapter.title}: ${row?.status} ${row?.progress}/${row?.total} ${(System.currentTimeMillis() - start) / 1000}s ${row?.videoServer} ${row?.error?.take(120)}")
+        }
+    }
+
     /** Lists the servers of a few episodes of every anime source, and whether each stream answers. */
     @Test
     fun episodeServers() = runBlocking<Unit> {

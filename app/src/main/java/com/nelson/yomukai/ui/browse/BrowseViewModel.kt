@@ -54,6 +54,7 @@ class BrowseViewModel(handle: SavedStateHandle, private val container: AppContai
         _state.update { it.copy(items = emptyList(), page = 0, endReached = true, isLoading = true, error = null, query = query) }
         loadJob = viewModelScope.launch(Dispatchers.IO) {
             source.searchMedia(query)
+                .mapCatching { container.contentFilter.apply(source, it) }
                 .onSuccess { items -> _state.update { it.copy(items = items.distinctBy { i -> i.id }, isLoading = false) } }
                 .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message ?: "Error de conexión") } }
         }
@@ -76,6 +77,7 @@ class BrowseViewModel(handle: SavedStateHandle, private val container: AppContai
         _state.update { it.copy(isLoading = true, error = null) }
         loadJob = viewModelScope.launch(Dispatchers.IO) {
             source.browse(page, values)
+                .mapCatching { container.contentFilter.apply(source, it) }
                 .onSuccess { items ->
                     _state.update { st ->
                         val merged = (st.items + items).distinctBy { it.id }

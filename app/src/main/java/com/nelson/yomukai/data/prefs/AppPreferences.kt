@@ -79,6 +79,11 @@ enum class BrowserHome(val displayName: String, val url: String, val searchUrl: 
     AHMIA("Ahmia (buscador de .onion)", "https://ahmia.fi/", "https://ahmia.fi/search/?q=")
 }
 
+/** Genres to hide, everywhere and per source id. */
+data class GenreExclusions(val global: Set<String> = emptySet(), val bySource: Map<String, Set<String>> = emptyMap()) {
+    fun forSource(sourceId: String): Set<String> = global + bySource[sourceId].orEmpty()
+}
+
 /** A page the user saved or visited in the capture browser. */
 data class BrowserPage(val url: String, val title: String)
 
@@ -143,6 +148,26 @@ class AppPreferences(context: Context) {
         prefs.getString("search_history", "").orEmpty().split('\n').filter { it.isNotBlank() }
     )
     val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
+
+    /** Stored as `*` + tab + genre for global entries and source id + tab + genre for the others. */
+    private val _exclusions = MutableStateFlow(readExclusions())
+    val exclusions: StateFlow<GenreExclusions> = _exclusions.asStateFlow()
+
+    private fun readExclusions(): GenreExclusions {
+        val rows = prefs.getStringSet("excluded_genres", null).orEmpty().map { it.substringBefore('\t') to it.substringAfter('\t') }
+        return GenreExclusions(
+            global = rows.filter { it.first == "*" }.map { it.second }.toSet(),
+            bySource = rows.filter { it.first != "*" }.groupBy({ it.first }, { it.second }).mapValues { it.value.toSet() }
+        )
+    }
+
+    /** Adds [genre] to the list of [sourceId] (null = every source), or removes it when already there. */
+    fun toggleExclusion(sourceId: String?, genre: String) {
+        val row = (sourceId ?: "*") + "\t" + genre.replace('\t', ' ')
+        val current = prefs.getStringSet("excluded_genres", null).orEmpty()
+        prefs.edit().putStringSet("excluded_genres", if (row in current) current - row else current + row).apply()
+        _exclusions.value = readExclusions()
+    }
 
     /** One page per line: url, tab, title. */
     private val _browserFavorites = MutableStateFlow(

@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -91,6 +92,14 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                 .distinctUntilChanged()
                 .collect { refresh() }
         }
+        // Saved titles may include what was just excluded.
+        viewModelScope.launch {
+            container.preferences.exclusions.drop(1).collect {
+                rawSections.value = emptyList()
+                container.homeCache.save(emptyMap())
+                refresh()
+            }
+        }
     }
 
     fun setTypeFilter(filter: TypeFilter) = filters.update { it.copy(first = filter) }
@@ -112,8 +121,9 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
 
             val jobs = sources.map { source ->
                 async {
-                    val result = withTimeoutOrNull(SOURCE_TIMEOUT_MS) { source.fetchLatestUpdates(1) }
-                        ?: Result.failure(IOException("${source.name} tardó demasiado en responder"))
+                    val result = withTimeoutOrNull(SOURCE_TIMEOUT_MS) {
+                        source.fetchLatestUpdates(1).mapCatching { container.contentFilter.apply(source, it) }
+                    } ?: Result.failure(IOException("${source.name} tardó demasiado en responder"))
                     updateSection(source.id) {
                         val fresh = result.getOrDefault(emptyList())
                         val failure = result.exceptionOrNull()?.also { e -> Log.w("YomukaiHome", "Fuente ${source.id} falló", e) }

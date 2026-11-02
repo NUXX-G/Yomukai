@@ -2,6 +2,7 @@ package com.nelson.yomukai.data.discovery
 
 import androidx.compose.runtime.Immutable
 import com.nelson.yomukai.data.prefs.AppPreferences
+import com.nelson.yomukai.data.search.SmartSearch
 import com.nelson.yomukai.data.source.AnimeSource
 import com.nelson.yomukai.data.source.CatalogueSource
 import com.nelson.yomukai.data.source.MangaSource
@@ -32,7 +33,8 @@ data class Alternative(
 class DiscoveryRepository(
     private val sources: SourceManager,
     private val preferences: AppPreferences,
-    private val aniList: AniListClient
+    private val aniList: AniListClient,
+    private val filter: () -> ContentFilter
 ) {
     private fun readableIn(source: CatalogueSource, type: MediaType): Boolean = when (type) {
         MediaType.ANIME -> source is AnimeSource
@@ -51,6 +53,35 @@ class DiscoveryRepository(
         return (own + known).filter { it.isNotBlank() }.distinct()
     }
 
+    /**
+     * Recommendations from [seen]: a title suggested by several of them comes first, and whatever
+     * the user already has is left out.
+     */
+    suspend fun forYou(seen: List<MediaItem>): List<RelatedTitle> {
+        val seeds = seen.distinctBy { SmartSearch.duplicateKey(it.title) }.take(MAX_SEEDS)
+        val known = seen.map { it.title }
+        val votes = LinkedHashMap<String, Pair<RelatedTitle, Int>>()
+        seeds.forEach { seed ->
+            val entry = runCatching { aniList.lookup(listOf(seed.title) + seed.altTitles, seed.type) }.getOrNull() ?: return@forEach
+            entry.related.forEach { related ->
+                votes[related.title] = related to (votes[related.title]?.second ?: 0) + 1
+            }
+        }
+        return votes.values.sortedByDescending { it.second }.map { it.first }
+            .filterNot { TitleMatcher.shareName(it.names, known) }
+            .filter(filter()::allows)
+            .take(MAX_FOR_YOU)
+    }
+
+    /** A random title that respects the excluded genres; retries a few times before giving up. */
+    suspend fun random(kind: RandomKind, genre: String?): RelatedTitle? {
+        repeat(RANDOM_ATTEMPTS) {
+            val pick = aniList.random(kind, genre)
+            if (pick != null && filter().allows(pick)) return pick
+        }
+        return null
+    }
+
     /** Latin-script names of what [query] means, for sites that list it under another one. */
     suspend fun aliases(query: String): List<String> =
         withTimeoutOrNull(ALIAS_TIMEOUT_MS) { runCatching { aniList.otherNames(query) }.getOrNull() }.orEmpty()
@@ -66,7 +97,9 @@ class DiscoveryRepository(
     suspend fun similar(media: MediaItem): List<RelatedTitle> {
         val own = listOf(media.title) + media.altTitles
         val entry = runCatching { aniList.lookup(own, media.type) }.getOrNull()
-        if (entry != null && entry.related.isNotEmpty()) return entry.related.distinctBy { it.title to it.type }.take(MAX_SIMILAR)
+        if (entry != null && entry.related.isNotEmpty()) {
+            return entry.related.distinctBy { it.title to it.type }.filter(filter()::allows).take(MAX_SIMILAR)
+        }
         val word = media.title.split(' ').filter { it.length >= MIN_WORD }.maxByOrNull { it.length } ?: return emptyList()
         val source = sources.get(media.sourceId) ?: return emptyList()
         return source.searchMedia(word).getOrDefault(emptyList())
@@ -133,6 +166,9 @@ class DiscoveryRepository(
     private companion object {
         const val ALIAS_TIMEOUT_MS = 3_000L
         const val MAX_SIMILAR = 20
+        const val MAX_SEEDS = 8
+        const val MAX_FOR_YOU = 30
+        const val RANDOM_ATTEMPTS = 4
         const val MAX_QUERIES = 3
         const val MAX_DETAILS = 2
         const val MAX_PARALLEL = 4

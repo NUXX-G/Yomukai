@@ -6,6 +6,7 @@ object Routes {
     const val HOME = "home"
     const val SEARCH = "search?query={query}"
     const val LIBRARY = "library"
+    const val DISCOVER = "discover"
     const val SETTINGS = "settings"
     const val DIAGNOSTICS = "diagnostics"
     const val BROWSE = "browse/{sourceId}"

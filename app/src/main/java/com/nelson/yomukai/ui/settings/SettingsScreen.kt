@@ -86,6 +86,12 @@ fun SettingsScreen(
     val network by viewModel.network.collectAsStateWithLifecycle()
     val tor by viewModel.tor.collectAsStateWithLifecycle()
     var confirmHistory by remember { mutableStateOf(false) }
+    var showExclusions by remember { mutableStateOf(false) }
+    val exclusions by viewModel.exclusions.collectAsStateWithLifecycle()
+
+    if (showExclusions) {
+        ExclusionsDialog(exclusions, viewModel.sources, viewModel::toggleExclusion, onDismiss = { showExclusions = false })
+    }
 
     LaunchedEffect(Unit) { viewModel.refreshStorage(context) }
 
@@ -186,6 +192,16 @@ fun SettingsScreen(
                         LibraryUpdateWorker.runNow(context)
                         Toast.makeText(context, "Buscando novedades en segundo plano...", Toast.LENGTH_SHORT).show()
                     }
+                )
+            }
+
+            item { GroupTitle("Contenido") }
+            item {
+                val total = exclusions.global.size + exclusions.bySource.values.sumOf { it.size }
+                ListItem(
+                    headlineContent = { Text("Géneros excluidos") },
+                    supportingContent = { Text(if (total == 0) "Oculta géneros en todas las fuentes o solo en algunas" else "$total exclusiones activas") },
+                    modifier = Modifier.clickable { showExclusions = true }
                 )
             }
 

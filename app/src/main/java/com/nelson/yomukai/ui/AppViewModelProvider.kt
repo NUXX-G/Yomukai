@@ -27,6 +27,7 @@ private fun CreationExtras.container(): AppContainer =
 object AppViewModelProvider {
     val Factory = viewModelFactory {
         initializer { HomeViewModel(container()) }
+        initializer { com.nelson.yomukai.ui.discover.DiscoverViewModel(container()) }
         initializer { SearchViewModel(createSavedStateHandle(), container()) }
         initializer { BrowseViewModel(createSavedStateHandle(), container()) }
         initializer { DetailsViewModel(createSavedStateHandle(), container()) }
