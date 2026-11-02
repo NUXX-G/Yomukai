@@ -82,8 +82,18 @@ class SearchViewModel(handle: SavedStateHandle, private val container: AppContai
         }
     }
 
-    fun onQueryChange(query: String) = _state.update {
-        it.copy(query = query, suggestions = suggestionsFor(query, it.history))
+    fun onQueryChange(query: String) {
+        if (query.isBlank()) searchJob?.cancel()
+        _state.update {
+            val cleared = query.isBlank()
+            it.copy(
+                query = query,
+                suggestions = suggestionsFor(query, it.history),
+                hasSearched = it.hasSearched && !cleared,
+                groups = if (cleared) emptyList() else it.groups,
+                sources = if (cleared) emptyList() else it.sources
+            )
+        }
     }
 
     fun pickSuggestion(text: String) {

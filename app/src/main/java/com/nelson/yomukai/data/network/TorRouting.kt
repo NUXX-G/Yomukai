@@ -28,6 +28,13 @@ object TorRouting {
         return directDomains.any { h == it || h.endsWith(".$it") }
     }
 
+    /**
+     * May this page be rendered in a WebView? It is a separate connection, so while the app goes through
+     * Tor a host that must use Tor can only be rendered once the WebView itself is on Tor.
+     */
+    fun webViewFallbackAllowed(torRoutesApp: Boolean, hostSkipsTor: Boolean, webViewOnTor: Boolean): Boolean =
+        !torRoutesApp || hostSkipsTor || webViewOnTor
+
     /** Loopback addresses never go through a public exit. */
     fun isLoopback(host: String?): Boolean {
         val h = host?.lowercase() ?: return false

@@ -207,6 +207,11 @@ class DownloadManager(
         } catch (e: Exception) {
             Log.e(TAG, "Descarga fallida ${download.chapterTitle}", e)
             if (dao.get(download.sourceId, download.chapterId) != null) {
+                // Paused by "Wi-Fi only": back to the queue, it resumes from its partial file on Wi-Fi.
+                if (!networkAllowed()) {
+                    dao.updateState(download.sourceId, download.chapterId, DownloadStatus.QUEUED, download.progress, download.total, null)
+                    return
+                }
                 val message = when (e) {
                     is HttpException -> "Error HTTP ${e.code}"
                     else -> e.message ?: "Error desconocido"
@@ -325,6 +330,7 @@ class DownloadManager(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                if (!networkAllowed()) throw e // not the server's fault: wait for Wi-Fi instead of trying the next one
                 Log.w(TAG, "Servidor ${server.serverName} no se pudo descargar: $url", e)
                 failures += server.serverName to EpisodeServers.reason(e)
                 if (hls) runCatching { videoOffline.downloadManager.removeDownload(url) }
@@ -425,6 +431,7 @@ class DownloadManager(
             DownloadSecurity.checkDeclaredSize(total, DownloadSecurity.MAX_VIDEO_BYTES)
 
             var lastPercent = -1
+            var lastCheck = System.currentTimeMillis()
             java.io.RandomAccessFile(part, "rw").use { out ->
                 if (resumed) out.seek(offset) else out.setLength(0)
                 val buffer = ByteArray(64 * 1024)
@@ -436,14 +443,20 @@ class DownloadManager(
                         out.write(buffer, 0, read)
                         written += read
                         if (written > DownloadSecurity.MAX_VIDEO_BYTES) throw IOException("El vídeo supera el tamaño máximo")
+                        // Works without a declared size too: cancelling and "Wi-Fi only" apply mid-file.
+                        val now = System.currentTimeMillis()
+                        if (now - lastCheck >= CHECK_MS) {
+                            lastCheck = now
+                            if (dao.get(download.sourceId, download.chapterId) == null) {
+                                part.delete()
+                                return
+                            }
+                            if (!networkAllowed()) throw IOException("Esperando Wi-Fi")
+                        }
                         if (total > 0) {
                             val percent = (written * 100 / total).toInt()
                             if (percent != lastPercent) {
                                 lastPercent = percent
-                                if (dao.get(download.sourceId, download.chapterId) == null) {
-                                    part.delete()
-                                    return
-                                }
                                 dao.updateState(download.sourceId, download.chapterId, DownloadStatus.DOWNLOADING, percent, 100, null)
                             }
                         }
@@ -494,6 +507,7 @@ class DownloadManager(
         const val NOVEL_FILE = "chapter.txt"
         const val VIDEO_FILE = "video.mp4"
         const val POLL_MS = 5_000L
+        const val CHECK_MS = 1_000L
         const val MAX_CONCURRENT = 4
     }
 }

@@ -17,6 +17,13 @@ class PlayerServerTest {
     }
 
     @Test
+    fun skipsFailedServersAndGivesUpWhenNoneIsLeft() {
+        val servers = listOf(s("web", false), s("HLS", true), s("MP4", true))
+        assertEquals("MP4", com.nelson.yomukai.ui.player.nextServer(servers, setOf("HLS"))?.serverName)
+        assertNull(com.nelson.yomukai.ui.player.nextServer(servers, setOf("HLS", "MP4")))
+    }
+
+    @Test
     fun noDirectServerMeansNoAutoplay() {
         assertNull(pickServer(listOf(s("web", false)), "web"))
     }

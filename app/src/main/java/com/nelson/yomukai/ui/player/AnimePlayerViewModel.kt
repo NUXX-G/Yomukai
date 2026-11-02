@@ -36,7 +36,9 @@ data class Playing(
 data class PlayerUiState(
     val playing: Playing,
     val isResolving: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    /** Web embed the user can still try in a browser when no stream played here. */
+    val browserUrl: String? = null
 )
 
 /** Picks the server to autoplay: same server as before when possible, otherwise the first direct stream. */
@@ -44,6 +46,10 @@ fun pickServer(servers: List<VideoSource>, preferredName: String): VideoSource? 
     val direct = servers.filter { it.isDirect }
     return direct.firstOrNull { it.serverName.equals(preferredName, ignoreCase = true) } ?: direct.firstOrNull()
 }
+
+/** Next direct server of an episode that has not failed yet. */
+fun nextServer(servers: List<VideoSource>, failed: Set<String>): VideoSource? =
+    servers.firstOrNull { it.isDirect && it.serverName !in failed }
 
 /** Episodes finished past this fraction are marked as watched. */
 const val WATCHED_FRACTION = 0.9f
@@ -61,6 +67,9 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
 
     private var chapters: List<ChapterEntity> = emptyList()
     private var lastSavedMs = -1L
+
+    /** Servers that already failed for the current episode, so a failure never loops. */
+    private val failedServers = mutableSetOf<String>()
 
     private val _state = MutableStateFlow(
         PlayerUiState(
@@ -102,8 +111,9 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
         }
     }
 
-    private fun currentChapter(): ChapterEntity? =
-        _state.value.playing.chapterId?.let { id -> chapters.firstOrNull { it.chapterId == id } }
+    private fun chapterById(id: String?): ChapterEntity? = id?.let { chapters.firstOrNull { c -> c.chapterId == it } }
+
+    private fun currentChapter(): ChapterEntity? = chapterById(_state.value.playing.chapterId)
 
     val nextEpisode: ChapterEntity? get() = currentChapter()?.let { chapters.getOrNull(it.sortIndex + 1) }
 
@@ -114,7 +124,8 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
     /** Resolves the servers of [chapter] and switches to the best direct stream. */
     fun playEpisode(chapter: ChapterEntity) {
         val source = container.sourceManager.get(sourceId) as? AnimeSource ?: return
-        _state.update { it.copy(isResolving = true, error = null) }
+        failedServers.clear()
+        _state.update { it.copy(isResolving = true, error = null, browserUrl = null) }
         viewModelScope.launch(Dispatchers.IO) {
             val fresh = repo.getChapter(sourceId, chapter.chapterId) ?: chapter
             container.downloadManager.localVideo(sourceId, fresh.chapterId)?.let { local ->
@@ -167,12 +178,64 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
 
     fun dismissError() = _state.update { it.copy(error = null) }
 
-    /** Called about twice a second; saves at most every ~5 s of playback. */
-    fun onPosition(positionMs: Long, durationMs: Long, force: Boolean = false) {
-        val chapter = currentChapter() ?: return
+    /**
+     * The stream could not be played (blocked, expired, unsupported). Moves to the next direct server of
+     * the episode, keeping the position; the user only sees a message when none of them works.
+     */
+    fun onPlaybackError(detail: String?) {
+        val playing = _state.value.playing
+        val source = container.sourceManager.get(sourceId) as? AnimeSource
+        val chapter = currentChapter()
+        if (playing.local.isNotEmpty() || source == null || chapter == null) {
+            _state.update { it.copy(isResolving = false, error = playbackMessage(detail)) }
+            return
+        }
+        failedServers += playing.serverName
+        val position = lastSavedMs.coerceAtLeast(0L)
+        _state.update { it.copy(isResolving = true, error = null) }
+        viewModelScope.launch(Dispatchers.IO) {
+            source.fetchVideoSources(chapter.url)
+                .onSuccess { servers ->
+                    val next = nextServer(servers, failedServers)
+                    if (next == null) {
+                        _state.update {
+                            it.copy(
+                                isResolving = false,
+                                error = playbackMessage(detail),
+                                browserUrl = servers.firstOrNull { s -> !s.isDirect }?.videoUrl
+                            )
+                        }
+                    } else {
+                        _state.update {
+                            it.copy(
+                                playing = it.playing.copy(
+                                    videoUrl = next.videoUrl,
+                                    referer = next.headers["Referer"].orEmpty(),
+                                    serverName = next.serverName,
+                                    startPositionMs = position
+                                ),
+                                isResolving = false
+                            )
+                        }
+                    }
+                }
+                .onFailure { e -> _state.update { it.copy(isResolving = false, error = e.message ?: playbackMessage(detail)) } }
+        }
+    }
+
+    private fun playbackMessage(detail: String?) =
+        "No se pudo reproducir este vídeo en la app" + (detail?.let { " ($it)" } ?: "") + "."
+
+    /**
+     * Called about twice a second; saves at most every ~5 s of playback. [chapterId] is the episode of the
+     * player reporting: when switching episodes the old player reports after the state has moved on.
+     */
+    fun onPosition(chapterId: String?, positionMs: Long, durationMs: Long, force: Boolean = false) {
+        val chapter = chapterById(chapterId) ?: return
         if (durationMs <= 0 || positionMs < 0) return
+        val isCurrent = chapterId == _state.value.playing.chapterId
         if (!force && lastSavedMs >= 0 && abs(positionMs - lastSavedMs) < SAVE_INTERVAL_MS) return
-        lastSavedMs = positionMs
+        if (isCurrent) lastSavedMs = positionMs
         val fraction = (positionMs.toFloat() / durationMs).coerceIn(0f, 1f)
         viewModelScope.launch(Dispatchers.IO) {
             repo.saveProgress(

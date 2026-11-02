@@ -28,11 +28,11 @@ class LectorTmoSource(private val network: NetworkHelper) : MangaSource {
         Jsoup.parse(network.getString(url, mapOf("Referer" to "$baseUrl/")), url)
 
     override suspend fun fetchLatestUpdates(page: Int): Result<List<MediaItem>> = runCatching {
-        parseCards(document(if (page <= 1) "$baseUrl/" else "$baseUrl/manga/page/$page/").outerHtml())
+        parseCards(network.getString(if (page <= 1) "$baseUrl/" else "$baseUrl/manga/page/$page/", mapOf("Referer" to "$baseUrl/")))
     }
 
     override suspend fun searchMedia(query: String): Result<List<MediaItem>> = runCatching {
-        parseCards(document("$baseUrl/?s=${SourceUtils.encode(query)}&post_type=wp-manga").outerHtml())
+        parseCards(network.getString("$baseUrl/?s=${SourceUtils.encode(query)}&post_type=wp-manga", mapOf("Referer" to "$baseUrl/")))
     }
 
     override suspend fun fetchMediaDetails(media: MediaItem): Result<MediaItem> = runCatching {

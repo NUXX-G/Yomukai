@@ -2,6 +2,7 @@ package com.nelson.yomukai.data.network
 
 import android.content.Context
 import android.util.Log
+import android.util.LruCache
 import android.webkit.CookieManager
 import com.nelson.yomukai.data.prefs.NetworkSettings
 import com.nelson.yomukai.data.prefs.ProxyType
@@ -13,11 +14,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.Cache
 import okhttp3.Call
+import okhttp3.ConnectionPool
 import okhttp3.Cookie
 import okhttp3.CookieJar
+import okhttp3.Dispatcher
 import okhttp3.Dns
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -27,6 +34,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.dnsoverhttps.DnsOverHttps
+import org.jsoup.Jsoup
 import java.io.File
 import java.io.IOException
 import java.net.InetAddress
@@ -46,6 +54,9 @@ class SourceBlockedException(host: String, protection: String) : IOException(
         "o prueba con DNS seguro o un proxy en Ajustes › Red."
 )
 
+/** Tor is on but not connected yet: the request is refused and must not be retried any other way. */
+class TorNotReadyException(message: String) : IOException(message)
+
 /** The connection never reached the site (DNS or IP blocking by the ISP, or the site is down). */
 class SourceUnreachableException(host: String, cause: Throwable) : IOException(
     "No se pudo conectar con $host. Puede estar caído o bloqueado por tu operador; " +
@@ -55,17 +66,36 @@ class SourceUnreachableException(host: String, cause: Throwable) : IOException(
 
 /**
  * Single OkHttp stack shared by every scraper, the download manager and Coil, so cookies
- * obtained by solving a Cloudflare challenge in a WebView are reused everywhere. The client
- * is rebuilt whenever the user changes DNS-over-HTTPS or proxy settings.
+ * obtained by solving a Cloudflare challenge in a WebView are reused everywhere. The clients
+ * are rebuilt whenever the user changes DNS-over-HTTPS or proxy settings.
+ *
+ * [client] carries images, downloads and video: no rate limit and no total time limit, because a
+ * reader needs many pages at once and a video takes as long as it takes. Page and API requests go
+ * through [scrapeClient], which is spaced out per host and has a hard deadline.
  */
 class NetworkHelper(
     private val context: Context,
-    settings: StateFlow<NetworkSettings>,
+    private val settings: StateFlow<NetworkSettings>,
     private val tor: StateFlow<TorState>,
     scope: CoroutineScope
 ) {
     private val cache = Cache(File(context.cacheDir, "http_cache"), 25L * 1024 * 1024)
     private val cookieJar = WebViewCookieJar()
+    private val connectionPool = ConnectionPool(16, 2, TimeUnit.MINUTES)
+
+    /** Requests already answered a moment ago: details and chapters often read the very same page. */
+    private val recent = object : LruCache<String, Recent>(RECENT_MAX_CHARS) {
+        override fun sizeOf(key: String, value: Recent) = value.body.length.coerceAtLeast(1)
+    }
+    private val sameRequestLocks = List(LOCK_STRIPES) { Mutex() }
+
+    /** Rendering in a WebView is expensive: a few at a time, one per site. */
+    private val webViewSlots = Semaphore(MAX_WEBVIEWS)
+    private val webViewHostLocks = ConcurrentHashMap<String, Mutex>()
+
+    /** True once the process-wide WebView proxy is really sending traffic through Tor; set by the container. */
+    @Volatile
+    var webViewOnTor: () -> Boolean = { false }
 
     /**
      * Resolves source ids to the domains that must skip Tor; set once the SourceManager exists.
@@ -78,28 +108,41 @@ class NetworkHelper(
     var client: OkHttpClient = buildClient(settings.value, tor.value)
         private set
 
+    @Volatile
+    private var scrapeClient: OkHttpClient = scrapeClientFor(client, torRouted(settings.value))
+
     /** Stable factory for long-lived consumers (Coil) that always delegates to the current client. */
     val callFactory = Call.Factory { request -> client.newCall(request) }
 
     init {
         scope.launch {
-            combine(settings, tor.distinctUntilChangedBy { Triple(it.phase, it.socksPort, it.mode) }) { s, t -> s to t }.collect { (s, t) -> client = buildClient(s, t) }
+            combine(settings, tor.distinctUntilChangedBy { Triple(it.phase, it.socksPort, it.mode) }) { s, t -> s to t }.collect { (s, t) ->
+                client = buildClient(s, t)
+                scrapeClient = scrapeClientFor(client, torRouted(s))
+            }
         }
     }
 
+    private fun torRouted(settings: NetworkSettings) = settings.torMode != TorMode.OFF && settings.torRoutesApp
+
+    private fun scrapeClientFor(base: OkHttpClient, viaTor: Boolean): OkHttpClient =
+        base.newBuilder()
+            .cache(cache)
+            .callTimeout(if (viaTor) TOR_CALL_TIMEOUT_S else CALL_TIMEOUT_S, TimeUnit.SECONDS)
+            .addInterceptor(RateLimitInterceptor(minIntervalMs = 200))
+            .build()
+
     private fun buildClient(settings: NetworkSettings, torState: TorState): OkHttpClient {
         val builder = OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(if (torRouted(settings)) TOR_CONNECT_TIMEOUT_S else CONNECT_TIMEOUT_S, TimeUnit.SECONDS)
+            .readTimeout(if (torRouted(settings)) TOR_READ_TIMEOUT_S else READ_TIMEOUT_S, TimeUnit.SECONDS)
             .followRedirects(true)
             .cookieJar(cookieJar)
-            .cache(cache)
+            .connectionPool(connectionPool)
+            .dispatcher(Dispatcher().apply { maxRequests = 64; maxRequestsPerHost = 12 })
             .addInterceptor(BrowserHeadersInterceptor())
-            .addInterceptor(RateLimitInterceptor(minIntervalMs = 300))
-            .addInterceptor(RetryInterceptor(maxRetries = 2))
 
-        val useTor = settings.torMode != TorMode.OFF && settings.torRoutesApp
-        if (useTor) {
+        if (torRouted(settings)) {
             val direct = domainsOfSources(settings.torExcludedSources)
             if (torState.isConnected) {
                 builder.proxySelector(TorProxySelector(torState.socksPort, direct))
@@ -107,91 +150,113 @@ class NetworkHelper(
                 // Fail closed: never fall back to a clear connection while Tor is not ready.
                 builder.addInterceptor(TorGuardInterceptor(direct, torState))
             }
-            if (settings.dnsOverHttps) builder.dns(dohWithFallback())
+            builder.dns(ResilientDns(if (settings.dnsOverHttps) doh() else null))
         } else if (settings.proxyType != ProxyType.NONE && settings.proxyHost.isNotBlank()) {
             val type = if (settings.proxyType == ProxyType.SOCKS) Proxy.Type.SOCKS else Proxy.Type.HTTP
             // Unresolved address: with SOCKS the proxy (e.g. Tor) resolves hostnames itself.
             builder.proxy(Proxy(type, InetSocketAddress.createUnresolved(settings.proxyHost, settings.proxyPort)))
-        } else if (settings.dnsOverHttps) {
-            builder.dns(dohWithFallback())
+        } else {
+            builder.dns(ResilientDns(if (settings.dnsOverHttps) doh() else null))
         }
-        return builder.build()
+        return builder.addInterceptor(RetryInterceptor(maxRetries = 1)).build()
     }
 
-    /** Cloudflare DoH (bootstrapped by IP so it works even if system DNS is filtered), then system DNS. */
-    private fun dohWithFallback(): Dns {
-        val bootstrap = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).build()
-        val doh = DnsOverHttps.Builder()
-            .client(bootstrap)
-            .url("https://cloudflare-dns.com/dns-query".toHttpUrl())
-            .bootstrapDnsHosts(
-                InetAddress.getByAddress(byteArrayOf(1, 1, 1, 1)),
-                InetAddress.getByAddress(byteArrayOf(1, 0, 0, 1))
-            )
-            .build()
-        return object : Dns {
-            override fun lookup(hostname: String): List<InetAddress> = try {
-                doh.lookup(hostname)
-            } catch (e: UnknownHostException) {
-                Dns.SYSTEM.lookup(hostname)
-            }
-        }
+    /** Cloudflare DoH, bootstrapped by IP so it works even if system DNS is filtered. */
+    private fun doh(): Dns = DnsOverHttps.Builder()
+        .client(
+            OkHttpClient.Builder()
+                .connectionPool(connectionPool)
+                .connectTimeout(3, TimeUnit.SECONDS)
+                .callTimeout(5, TimeUnit.SECONDS)
+                .build()
+        )
+        .url("https://cloudflare-dns.com/dns-query".toHttpUrl())
+        .bootstrapDnsHosts(
+            InetAddress.getByAddress(byteArrayOf(1, 1, 1, 1)),
+            InetAddress.getByAddress(byteArrayOf(1, 0, 0, 1))
+        )
+        .build()
+
+    /** The WebView has its own connection, so with Tor on it may only be used when it goes through Tor too. */
+    private fun webViewAllowed(host: String): Boolean {
+        val current = settings.value
+        return TorRouting.webViewFallbackAllowed(
+            torRoutesApp = torRouted(current),
+            hostSkipsTor = TorRouting.bypasses(host, domainsOfSources(current.torExcludedSources)),
+            webViewOnTor = webViewOnTor()
+        )
     }
 
     /**
      * GETs [url] as text. When the response is an anti-bot page (or the request fails outright)
      * and [cloudflareFallback] is set, the page is rendered in a headless WebView instead; the
      * cookies it earns are then visible to OkHttp for following requests.
+     *
+     * Identical requests made at the same time, or a moment apart, share one response.
      */
     suspend fun getString(
         url: String,
         headers: Map<String, String> = emptyMap(),
         cloudflareFallback: Boolean = true
     ): String = withContext(Dispatchers.IO) {
+        val key = url + "|" + headers.hashCode()
+        sameRequestLocks[(key.hashCode() and Int.MAX_VALUE) % LOCK_STRIPES].withLock {
+            recent.get(key)?.takeIf { System.currentTimeMillis() - it.at < RECENT_MS }?.let { return@withContext it.body }
+            fetchString(url, headers, cloudflareFallback).also { recent.put(key, Recent(it, System.currentTimeMillis())) }
+        }
+    }
+
+    private suspend fun fetchString(url: String, headers: Map<String, String>, cloudflareFallback: Boolean): String {
         val request = Request.Builder().url(url).apply {
             headers.forEach { (k, v) -> header(k, v) }
         }.build()
         val host = request.url.host
 
         val failure: IOException = try {
-            client.newCall(request).execute().use { response ->
+            scrapeClient.newCall(request).execute().use { response ->
                 val body = response.body?.string().orEmpty()
-                val protection = detectProtection(response.code, body)
+                val protection = detectProtection(response.code, body, response.header("cf-mitigated"))
                 when {
-                    protection == null && response.isSuccessful -> return@withContext body
+                    protection == null && response.isSuccessful -> return body
                     protection != null -> SourceBlockedException(host, protection)
                     else -> HttpException(response.code, url)
                 }
             }
+        } catch (e: TorNotReadyException) {
+            throw e
         } catch (e: UnknownHostException) {
-            SourceUnreachableException(host, e)
+            throw SourceUnreachableException(host, e) // no address: a browser would not find it either
         } catch (e: SocketTimeoutException) {
-            SourceUnreachableException(host, e)
+            throw SourceUnreachableException(host, e) // the site is not answering: do not wait all over again
         } catch (e: SSLException) {
             SourceUnreachableException(host, e)
         } catch (e: IOException) {
             e
         }
 
-        if (cloudflareFallback && failure !is HttpException) {
-            Log.d(TAG, "Resolviendo $url vía WebView (${failure.message})")
-            val resolved = CloudflareResolver(context).resolveHtmlAndCookies(url)
-            val html = resolved?.first.orEmpty()
-            if (html.length > 500 && detectProtection(200, html) == null) {
-                return@withContext html
-            }
+        if (cloudflareFallback && failure !is HttpException && webViewAllowed(host)) {
+            renderInWebView(url, host)?.let { return it }
         }
         throw failure
     }
+
+    private suspend fun renderInWebView(url: String, host: String): String? =
+        webViewHostLocks.getOrPut(host) { Mutex() }.withLock {
+            webViewSlots.withPermit {
+                Log.d(TAG, "Resolviendo $url vía WebView")
+                val html = CloudflareResolver(context).resolveHtmlAndCookies(url)?.first.orEmpty()
+                html.takeIf { it.length > 200 && detectProtection(200, it) == null }?.let(::unwrapPlainText)
+            }
+        }
 
     suspend fun postString(url: String, headers: Map<String, String> = emptyMap()): String = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url)
             .post(ByteArray(0).toRequestBody(null))
             .apply { headers.forEach { (k, v) -> header(k, v) } }
             .build()
-        client.newCall(request).execute().use { response ->
+        scrapeClient.newCall(request).execute().use { response ->
             val body = response.body?.string().orEmpty()
-            detectProtection(response.code, body)?.let { throw SourceBlockedException(request.url.host, it) }
+            detectProtection(response.code, body, response.header("cf-mitigated"))?.let { throw SourceBlockedException(request.url.host, it) }
             if (!response.isSuccessful) throw HttpException(response.code, url)
             body
         }
@@ -200,14 +265,40 @@ class NetworkHelper(
     companion object {
         const val TAG = "YomukaiNetwork"
         const val USER_AGENT =
-            "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
+            "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36"
+
+        private const val CONNECT_TIMEOUT_S = 10L
+        private const val READ_TIMEOUT_S = 20L
+        private const val CALL_TIMEOUT_S = 30L
+        private const val TOR_CONNECT_TIMEOUT_S = 30L
+        private const val TOR_READ_TIMEOUT_S = 45L
+        private const val TOR_CALL_TIMEOUT_S = 75L
+        private const val RECENT_MS = 15_000L
+        private const val RECENT_MAX_CHARS = 8 * 1024 * 1024
+        private const val LOCK_STRIPES = 64
+        private const val MAX_WEBVIEWS = 2
+
+        private class Recent(val body: String, val at: Long)
+
+        /** A challenge in progress. The `challenge-platform` script alone proves nothing: Cloudflare adds it to normal pages too. */
+        fun isCloudflareChallenge(html: String): Boolean {
+            val head = html.take(6000)
+            return "cf-browser-verification" in head || "_cf_chl_opt" in head ||
+                "<title>Just a moment" in head || "<title>Un momento" in head
+        }
+
+        /** A WebView shows JSON or plain text wrapped in `<pre>`; the callers want the original text. */
+        fun unwrapPlainText(html: String): String {
+            val body = Jsoup.parse(html).body()
+            val only = body.children().singleOrNull()
+            return if (only?.tagName() == "pre" && body.ownText().isBlank()) only.wholeText() else html
+        }
 
         /** Recognizes the block pages of common anti-bot/firewall products; null when the page looks real. */
-        fun detectProtection(code: Int, body: String): String? {
+        fun detectProtection(code: Int, body: String, cfMitigated: String? = null): String? {
             val head = body.take(6000)
             return when {
-                "cf-browser-verification" in head || "<title>Just a moment...</title>" in head ||
-                    ("challenge-platform" in head && "Just a moment" in head) -> "Cloudflare"
+                cfMitigated != null || isCloudflareChallenge(body) -> "Cloudflare"
                 "Attention Required! | Cloudflare" in head || "Sorry, you have been blocked" in head -> "Cloudflare"
                 "Tu acceso a este sitio ha sido limitado" in head ||
                     "Your access to this site has been limited" in head -> "Wordfence"
@@ -252,7 +343,7 @@ private class RateLimitInterceptor(private val minIntervalMs: Long) : Intercepto
     }
 }
 
-/** Retries transient failures (I/O errors, 429, 502, 504) with linear backoff. */
+/** Retries transient failures (connection errors, 429, 502, 504) with linear backoff. */
 private class RetryInterceptor(private val maxRetries: Int) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         var attempt = 0
@@ -262,12 +353,16 @@ private class RetryInterceptor(private val maxRetries: Int) : Interceptor {
                 if (response.code !in RETRYABLE || attempt >= maxRetries) return response
                 val retryAfter = response.header("Retry-After")?.toLongOrNull()?.coerceAtMost(10)
                 response.close()
-                Thread.sleep(retryAfter?.times(1000) ?: (700L * (attempt + 1)))
+                Thread.sleep(retryAfter?.times(1000) ?: (400L * (attempt + 1)))
             } catch (e: UnknownHostException) {
                 throw e // retrying a DNS failure never helps
+            } catch (e: SocketTimeoutException) {
+                throw e // it already waited the whole timeout once
+            } catch (e: TorNotReadyException) {
+                throw e
             } catch (e: IOException) {
                 if (attempt >= maxRetries || chain.call().isCanceled()) throw e
-                Thread.sleep(700L * (attempt + 1))
+                Thread.sleep(400L * (attempt + 1))
             }
             attempt++
         }
@@ -300,7 +395,7 @@ private class TorGuardInterceptor(private val directDomains: Set<String>, privat
     override fun intercept(chain: Interceptor.Chain): Response {
         val host = chain.request().url.host
         if (TorRouting.bypasses(host, directDomains) || TorRouting.isLoopback(host)) return chain.proceed(chain.request())
-        throw IOException(
+        throw TorNotReadyException(
             when (state.phase) {
                 TorPhase.ERROR -> state.error ?: "Tor no está disponible"
                 else -> "Tor aún se está conectando. Espera unos segundos o desactívalo en Ajustes › Red."

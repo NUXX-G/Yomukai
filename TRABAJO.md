@@ -22,19 +22,19 @@ export JAVA_HOME=/c/jdk-21.0.7 ANDROID_HOME="$LOCALAPPDATA/Android/Sdk"
 7. Cuando todo eso esté, buscar errores y dejar la app bien del todo.
 
 ## Estado
-- [ ] Fuga de Tor por el WebView de Cloudflare
-- [ ] Posición del episodio anterior guardada en el siguiente (se marca visto solo)
-- [ ] Pantalla negra del reproductor: sin `onPlayerError`
-- [ ] Búsqueda: al borrar el texto no vuelve historial/sugerencias
-- [ ] Búsqueda: anime escondido bajo el manga del mismo título
-- [ ] Anime: texto «Página X de Y»
-- [ ] Favoritos: «Leyendo» se guarda como estado de publicación
-- [ ] «Solo Wi-Fi» no frena un MP4 en curso
-- [ ] Fallback de Cloudflare devuelve HTML en APIs JSON
+- [x] Fuga de Tor por el WebView de Cloudflare
+- [x] Posición del episodio anterior guardada en el siguiente (se marca visto solo)
+- [x] Pantalla negra del reproductor: sin `onPlayerError`
+- [x] Búsqueda: al borrar el texto no vuelve historial/sugerencias
+- [x] Búsqueda: anime escondido bajo el manga del mismo título
+- [x] Anime: texto «Página X de Y»
+- [x] Favoritos: «Leyendo» se guarda como estado de publicación
+- [x] «Solo Wi-Fi» no frena un MP4 en curso
+- [x] Fallback de Cloudflare devuelve HTML en APIs JSON
 - [ ] Dependencias sin usar y README
 - [ ] Fuente WEBTOON
 - [ ] Fuente ZonaTMO
-- [ ] Rendimiento de red
+- [x] Rendimiento de red
 - [ ] Navegador integrado
 - [ ] Diagnóstico real de fuentes en emuladores API 26/33/37
 - [ ] Revisión final de errores

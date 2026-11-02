@@ -64,6 +64,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -72,6 +73,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
@@ -105,6 +107,7 @@ fun AnimePlayerScreen(
     viewModel: AnimePlayerViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
     val ui by viewModel.state.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val episodes by viewModel.chapterList.collectAsStateWithLifecycle()
@@ -151,14 +154,20 @@ fun AnimePlayerScreen(
         ExoPlayer.Builder(context).build().apply {
             setMediaSource(mediaSource)
             prepare()
-            if (playing.startPositionMs > 0) seekTo(playing.startPositionMs)
             playWhenReady = true
         }
+    }
+
+    // The resume position arrives from the database after the player exists, so it cannot be applied on creation.
+    LaunchedEffect(exoPlayer, playing.startPositionMs) {
+        if (playing.startPositionMs > 0 && exoPlayer.currentPosition < playing.startPositionMs) exoPlayer.seekTo(playing.startPositionMs)
     }
 
     LaunchedEffect(exoPlayer, settings.playerSpeed) { exoPlayer.setPlaybackSpeed(settings.playerSpeed) }
 
     DisposableEffect(exoPlayer) {
+        // Fixed for this player: by the time it is released the state already points at the next episode.
+        val chapterId = playing.chapterId
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
                 isPlaying = playing
@@ -171,15 +180,20 @@ fun AnimePlayerScreen(
                 }
                 if (playbackState == Player.STATE_ENDED) {
                     val duration = exoPlayer.duration.coerceAtLeast(0L)
-                    currentViewModel.onPosition(duration, duration, force = true)
+                    currentViewModel.onPosition(chapterId, duration, duration, force = true)
                     if (currentAutoNext && currentViewModel.hasNext()) currentViewModel.playNext() else showControls = true
                 }
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                isLoading = false
+                currentViewModel.onPlaybackError(error.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' '))
             }
         }
         exoPlayer.addListener(listener)
 
         onDispose {
-            currentViewModel.onPosition(exoPlayer.currentPosition, exoPlayer.duration.coerceAtLeast(0L), force = true)
+            currentViewModel.onPosition(chapterId, exoPlayer.currentPosition, exoPlayer.duration.coerceAtLeast(0L), force = true)
             exoPlayer.removeListener(listener)
             exoPlayer.release()
         }
@@ -191,7 +205,7 @@ fun AnimePlayerScreen(
             totalDuration = exoPlayer.duration.coerceAtLeast(0L)
             if (totalDuration > 0) {
                 sliderPosition = currentPosition.toFloat() / totalDuration.toFloat()
-                viewModel.onPosition(currentPosition, totalDuration)
+                viewModel.onPosition(playing.chapterId, currentPosition, totalDuration)
             }
             delay(500)
         }
@@ -278,6 +292,10 @@ fun AnimePlayerScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(message, color = Color.White)
+                ui.browserUrl?.let { url ->
+                    TextButton(onClick = { runCatching { uriHandler.openUri(url) } }) { Text("Abrir en el navegador") }
+                }
+                TextButton(onClick = onBackClick) { Text("Volver") }
                 TextButton(onClick = viewModel::dismissError) { Text("Cerrar") }
             }
         }

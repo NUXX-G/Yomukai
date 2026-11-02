@@ -366,6 +366,10 @@ private fun ChapterRow(
                 )
                 val progressText = when {
                     chapter.read -> if (isAnime) "Visto" else "Leído"
+                    // Episodes store seconds in lastPageRead/totalPages, not pages.
+                    isAnime -> if (chapter.lastPageRead > 0 && chapter.totalPages > 0) {
+                        "Vas por ${formatEpisodeTime(chapter.lastPageRead)} de ${formatEpisodeTime(chapter.totalPages)}"
+                    } else null
                     !isNovel && chapter.lastPageRead > 0 && chapter.totalPages > 0 -> "Página ${chapter.lastPageRead + 1} de ${chapter.totalPages}"
                     isNovel && chapter.progress > 0.01f -> "${(chapter.progress * 100).toInt()}% leído"
                     else -> null
@@ -391,6 +395,13 @@ private fun ChapterRow(
             DropdownMenuItem(text = { Text("Marcar anteriores como leídos") }, onClick = { menu = false; onMarkPrevious() })
         }
     }
+}
+
+/** 754 -> "12:34", 4000 -> "1:06:40". */
+internal fun formatEpisodeTime(seconds: Int): String {
+    val minutes = seconds / 60
+    return if (minutes >= 60) "%d:%02d:%02d".format(minutes / 60, minutes % 60, seconds % 60)
+    else "%d:%02d".format(minutes, seconds % 60)
 }
 
 @Composable

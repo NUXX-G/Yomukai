@@ -221,6 +221,10 @@ private fun FavoritesTab(
             val status = ReadingStatus.parse(entity.readingStatus)
             entity.toDomain().copy(status = if (status == ReadingStatus.NONE) entity.status else status.displayName)
         }
+    // What is opened is the real record: the card's label must never be stored as publication status.
+    val openItem: (MediaItem) -> Unit = { shown ->
+        onMediaClick(state.library.firstOrNull { it.sourceId == shown.sourceId && it.mediaId == shown.id }?.toDomain() ?: shown)
+    }
 
     Column(Modifier.fillMaxSize()) {
         LazyRow(
@@ -271,11 +275,11 @@ private fun FavoritesTab(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(visible, key = { it.sourceId + it.id }) { item -> MediaCard(item, onClick = { onMediaClick(item) }) }
+                items(visible, key = { it.sourceId + it.id }) { item -> MediaCard(item, onClick = { openItem(item) }) }
             }
 
             else -> LazyColumn(Modifier.fillMaxSize()) {
-                items(visible, key = { it.sourceId + it.id }) { item -> MediaListRow(item, onClick = { onMediaClick(item) }) }
+                items(visible, key = { it.sourceId + it.id }) { item -> MediaListRow(item, onClick = { openItem(item) }) }
             }
         }
     }

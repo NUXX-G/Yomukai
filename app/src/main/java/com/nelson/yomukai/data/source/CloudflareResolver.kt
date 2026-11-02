@@ -51,10 +51,14 @@ class CloudflareResolver(private val context: Context) {
             }
 
             fun captureHtml(pageUrl: String, isTimeout: Boolean) {
+                if (finished) return
                 webView.evaluateJavascript("document.documentElement.outerHTML") { raw ->
                     val html = decodeJsString(raw)
-                    val stillChallenged = html.contains("challenge-platform") || html.contains("Just a moment")
-                    if (stillChallenged && !isTimeout) return@evaluateJavascript
+                    if (NetworkHelper.isCloudflareChallenge(html) && !isTimeout) {
+                        // The challenge reloads the page by itself once solved: look again shortly.
+                        handler.postDelayed({ captureHtml(pageUrl, isTimeout = false) }, POLL_MS)
+                        return@evaluateJavascript
+                    }
                     val cookies = CookieManager.getInstance().getCookie(pageUrl).orEmpty()
                     Log.d(TAG, "WebView resolvió $pageUrl (${html.length} chars, cookies=${cookies.length})")
                     finish(html to cookies)
@@ -63,8 +67,7 @@ class CloudflareResolver(private val context: Context) {
 
             webView.webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView?, loadedUrl: String?) {
-                    // Challenge pages reload themselves once solved; give JS time to run.
-                    handler.postDelayed({ captureHtml(loadedUrl ?: url, isTimeout = false) }, 2500)
+                    captureHtml(loadedUrl ?: url, isTimeout = false)
                 }
             }
 
@@ -82,6 +85,7 @@ class CloudflareResolver(private val context: Context) {
 
     private companion object {
         const val TAG = "YomukaiScraper"
-        const val TIMEOUT_MS = 15_000L
+        const val TIMEOUT_MS = 20_000L
+        const val POLL_MS = 500L
     }
 }

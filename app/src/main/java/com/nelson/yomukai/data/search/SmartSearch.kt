@@ -1,6 +1,7 @@
 package com.nelson.yomukai.data.search
 
 import com.nelson.yomukai.domain.model.MediaItem
+import com.nelson.yomukai.domain.model.MediaType
 import java.text.Normalizer
 
 /** A title found in one or more sources; [primary] is the best-ranked copy. */
@@ -123,6 +124,9 @@ object SmartSearch {
     /** Key shared by the same title in different sources: normalised, without "(2026)" style suffixes. */
     fun duplicateKey(title: String): String = normalize(title.replace(parenthesised, " "))
 
+    /** Manga, manhwa, manhua and comics are the same work across sources; an anime or a novel is not. */
+    private fun typeFamily(type: MediaType): String = if (type.isReadableAsImages) "images" else type.name
+
     fun rank(query: String, items: List<MediaItem>, minScore: Double = 0.3): List<Pair<MediaItem, Double>> =
         items.map { it to score(query, it) }
             .filter { it.second >= minScore }
@@ -136,7 +140,7 @@ object SmartSearch {
         val grouped = LinkedHashMap<String, MutableList<Pair<MediaItem, Double>>>()
         for (entry in rank(query, items, minScore)) {
             val key = duplicateKey(entry.first.title).ifEmpty { entry.first.id }
-            grouped.getOrPut(key) { mutableListOf() }.add(entry)
+            grouped.getOrPut(typeFamily(entry.first.type) + "|" + key) { mutableListOf() }.add(entry)
         }
         return grouped.values.map { group ->
             // Same source twice (e.g. two editions): keep only the best copy per source.
