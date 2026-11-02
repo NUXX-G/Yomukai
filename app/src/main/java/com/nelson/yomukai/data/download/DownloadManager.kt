@@ -20,14 +20,19 @@ import com.nelson.yomukai.data.local.YomukaiDatabase
 import com.nelson.yomukai.data.network.HttpException
 import com.nelson.yomukai.data.network.NetworkHelper
 import com.nelson.yomukai.data.prefs.AppPreferences
+import com.nelson.yomukai.data.prefs.AppSettings
+import com.nelson.yomukai.data.prefs.ComicFormat
+import com.nelson.yomukai.data.prefs.NovelFormat
 import com.nelson.yomukai.data.source.AnimeSource
 import com.nelson.yomukai.data.source.MangaSource
 import com.nelson.yomukai.data.source.NovelSource
 import com.nelson.yomukai.data.source.SourceManager
+import com.nelson.yomukai.domain.model.MediaType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
@@ -38,6 +43,8 @@ import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /** An episode that can be played without network. [url] is a file URI, or the HLS url keyed in the Media3 cache. */
 data class LocalVideo(val url: String, val isHls: Boolean, val referer: String)
@@ -64,6 +71,9 @@ class DownloadManager(
     private val videoOffline: VideoOffline
 ) {
     private val dao = db.downloadDao()
+    private val mediaDao = db.mediaDao()
+    private val chapterDao = db.chapterDao()
+    private val exporter = PublicExporter(context)
     private val root = File(context.filesDir, "downloads")
     private val wakeUp = Channel<Unit>(Channel.CONFLATED)
     private val running = ConcurrentHashMap.newKeySet<String>()
@@ -245,28 +255,41 @@ class DownloadManager(
         tmp.writeBytes(bytes)
         check(tmp.renameTo(File(dir, NOVEL_FILE))) { "No se pudo guardar el capítulo" }
         dao.updateState(download.sourceId, download.chapterId, DownloadStatus.COMPLETED, 1, 1, null)
+        export(download)
     }
 
     private suspend fun downloadImages(download: DownloadEntity, source: MangaSource, dir: File) {
         val pages = source.fetchPageList(download.chapterUrl).getOrThrow()
         check(pages.isNotEmpty()) { "El capítulo no tiene páginas" }
-        pages.forEachIndexed { index, url ->
-            // Stop if the user cancelled while we were downloading.
-            if (dao.get(download.sourceId, download.chapterId) == null) {
-                dir.deleteRecursively()
-                return
+        val next = AtomicInteger(0)
+        val finished = AtomicInteger(0)
+        coroutineScope {
+            repeat(PARALLEL_PAGES) {
+                launch(Dispatchers.IO) {
+                    while (true) {
+                        val index = next.getAndIncrement()
+                        if (index >= pages.size) break
+                        // Stop if the user cancelled while we were downloading.
+                        if (dao.get(download.sourceId, download.chapterId) == null) return@launch
+                        while (!networkAllowed()) {
+                            delay(POLL_MS)
+                            if (dao.get(download.sourceId, download.chapterId) == null) return@launch
+                        }
+                        downloadPage(pages[index], index, dir, source.imageHeaders)
+                        dao.updateState(download.sourceId, download.chapterId, DownloadStatus.DOWNLOADING, finished.incrementAndGet(), pages.size, null)
+                    }
+                }
             }
-            while (!networkAllowed()) {
-                delay(POLL_MS)
-                if (dao.get(download.sourceId, download.chapterId) == null) return
-            }
-            downloadPage(url, index, dir, source.imageHeaders)
-            dao.updateState(download.sourceId, download.chapterId, DownloadStatus.DOWNLOADING, index + 1, pages.size, null)
+        }
+        if (dao.get(download.sourceId, download.chapterId) == null) {
+            dir.deleteRecursively()
+            return
         }
         // Completeness: every page must be on disk before the chapter counts as downloaded.
         val onDisk = dir.listFiles { f -> f.isFile && !f.name.endsWith(".tmp") }?.size ?: 0
         check(onDisk >= pages.size) { "Descarga incompleta ($onDisk de ${pages.size} páginas)" }
         dao.updateState(download.sourceId, download.chapterId, DownloadStatus.COMPLETED, pages.size, pages.size, null)
+        export(download)
     }
 
     private fun downloadPage(url: String, index: Int, dir: File, headers: Map<String, String>) {
@@ -310,7 +333,8 @@ class DownloadManager(
      */
     private suspend fun downloadEpisode(download: DownloadEntity, source: AnimeSource, dir: File) {
         val servers = source.fetchVideoSources(download.chapterUrl).getOrThrow()
-        val candidates = EpisodeServers.candidates(servers, download.videoServer)
+        // Two rounds: a failure is often momentary, and the next try of a server may well work.
+        val candidates = EpisodeServers.candidates(servers, download.videoServer).let { it + it }
         val browserOnly = EpisodeServers.browserOnly(servers)
         val failures = mutableListOf<Pair<String, String>>()
         for (server in candidates) {
@@ -332,7 +356,7 @@ class DownloadManager(
             } catch (e: Exception) {
                 if (!networkAllowed()) throw e // not the server's fault: wait for Wi-Fi instead of trying the next one
                 Log.w(TAG, "Servidor ${server.serverName} no se pudo descargar: $url", e)
-                failures += server.serverName to EpisodeServers.reason(e)
+                if (failures.none { it.first == server.serverName }) failures += server.serverName to EpisodeServers.reason(e)
                 if (hls) runCatching { videoOffline.downloadManager.removeDownload(url) }
             }
         }
@@ -406,6 +430,15 @@ class DownloadManager(
         // One partial file per server: each serves its own encode, so bytes must never be mixed.
         val part = File(dir, DownloadSecurity.sanitizeFileName("$VIDEO_FILE.$server.part"))
         val finalFile = File(dir, VIDEO_FILE)
+        val chunked = try {
+            downloadInChunks(download, url, headers, part)
+        } catch (e: HttpException) {
+            // Some hosts refuse several connections at once: start over with a single one.
+            part.delete()
+            File(part.path + ".chunks").delete()
+            false
+        }
+        if (chunked) return
         val resumeFrom = part.takeIf { it.exists() }?.length() ?: 0L
 
         val request = Request.Builder().url(DownloadSecurity.requireSecureUrl(url))
@@ -434,7 +467,7 @@ class DownloadManager(
             var lastCheck = System.currentTimeMillis()
             java.io.RandomAccessFile(part, "rw").use { out ->
                 if (resumed) out.seek(offset) else out.setLength(0)
-                val buffer = ByteArray(64 * 1024)
+                val buffer = ByteArray(BUFFER_BYTES)
                 var written = offset
                 body.byteStream().use { input ->
                     while (true) {
@@ -473,6 +506,188 @@ class DownloadManager(
         }
         check(part.renameTo(finalFile)) { "No se pudo guardar el vídeo" }
         dao.updateState(download.sourceId, download.chapterId, DownloadStatus.COMPLETED, 100, 100, null)
+        export(download)
+    }
+
+    /**
+     * Files of 32 MB or more are fetched in chunks over several connections, which is what speeds up
+     * hosts that throttle each connection. Returns false when the server does not allow it, and the
+     * regular single download takes over.
+     */
+    private suspend fun downloadInChunks(download: DownloadEntity, url: String, headers: Map<String, String>, part: File): Boolean {
+        fun request(from: Long, to: Long) = Request.Builder().url(DownloadSecurity.requireSecureUrl(url))
+            .apply { headers.forEach { (k, v) -> header(k, v) } }
+            .apply { if ("Referer" !in headers) header("Referer", url) }
+            .header("Range", "bytes=$from-$to")
+            .build()
+
+        val total = network.videoClient.newCall(request(0, 0)).execute().use { response ->
+            if (response.code != 206 || !DownloadSecurity.isVideoType(response.header("Content-Type"))) return false
+            response.header("Content-Range")?.substringAfterLast('/')?.toLongOrNull() ?: return false
+        }
+        if (total < MIN_CHUNKED_BYTES) return false
+        DownloadSecurity.checkDeclaredSize(total, DownloadSecurity.MAX_VIDEO_BYTES)
+
+        val progress = File(part.path + ".chunks")
+        val done = ConcurrentHashMap.newKeySet<Int>()
+        if (part.length() == total && progress.exists()) progress.readLines().mapNotNullTo(done) { it.toIntOrNull() }
+        else progress.delete()
+        java.io.RandomAccessFile(part, "rw").use { it.setLength(total) }
+
+        val chunks = ((total - 1) / CHUNK_BYTES + 1).toInt()
+        val next = AtomicInteger(0)
+        val finished = AtomicInteger(done.size)
+        val stopped = AtomicBoolean(false)
+        var lastPercent = -1
+        coroutineScope {
+            repeat(PARALLEL_CHUNKS) {
+                launch(Dispatchers.IO) {
+                    java.io.RandomAccessFile(part, "rw").use { out ->
+                        val buffer = ByteArray(BUFFER_BYTES)
+                        while (!stopped.get()) {
+                            val index = next.getAndIncrement()
+                            if (index >= chunks) break
+                            if (index in done) continue
+                            if (dao.get(download.sourceId, download.chapterId) == null) {
+                                stopped.set(true)
+                                break
+                            }
+                            if (!networkAllowed()) throw IOException("Esperando Wi-Fi")
+                            val from = index * CHUNK_BYTES
+                            val to = minOf(from + CHUNK_BYTES, total) - 1
+                            var attempt = 0
+                            while (true) {
+                                try {
+                                    network.videoClient.newCall(request(from, to)).execute().use { response ->
+                                        if (response.code != 206) throw HttpException(response.code, url)
+                                        val input = response.body?.byteStream() ?: throw IOException("Respuesta vacía")
+                                        var position = from
+                                        while (true) {
+                                            val read = input.read(buffer)
+                                            if (read < 0) break
+                                            synchronized(out) {
+                                                out.seek(position)
+                                                out.write(buffer, 0, read)
+                                            }
+                                            position += read
+                                        }
+                                        if (position != to + 1) throw IOException("Bloque incompleto")
+                                    }
+                                    break
+                                } catch (e: IOException) {
+                                    if (++attempt >= CHUNK_ATTEMPTS) throw e
+                                    delay(500L * attempt)
+                                }
+                            }
+                            synchronized(progress) { progress.appendText("$index\n") }
+                            done += index
+                            val percent = finished.incrementAndGet() * 100 / chunks
+                            if (percent != lastPercent) {
+                                lastPercent = percent
+                                dao.updateState(download.sourceId, download.chapterId, DownloadStatus.DOWNLOADING, percent, 100, null)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (stopped.get()) {
+            part.delete()
+            progress.delete()
+            return true
+        }
+        progress.delete()
+        val header = ByteArray(16).also { buf -> part.inputStream().use { it.read(buf) } }
+        if (!DownloadSecurity.looksLikeMp4(header)) {
+            part.delete()
+            throw IOException("El archivo descargado no es un vídeo MP4 válido")
+        }
+        check(part.renameTo(File(part.parentFile, VIDEO_FILE))) { "No se pudo guardar el vídeo" }
+        dao.updateState(download.sourceId, download.chapterId, DownloadStatus.COMPLETED, 100, 100, null)
+        export(download)
+        return true
+    }
+
+    // --- shared storage -----------------------------------------------------------------------
+
+    /** Copies everything already downloaded; returns how many chapters it went through. */
+    suspend fun exportAll(): Int = withContext(Dispatchers.IO) {
+        val done = dao.all().filter { it.status == DownloadStatus.COMPLETED }
+        done.forEach { export(it, force = true) }
+        done.size
+    }
+
+    /** Never fails the download: the private copy is what the app reads. */
+    private suspend fun export(download: DownloadEntity, force: Boolean = false) {
+        val settings = preferences.app.value
+        if (!settings.exportDownloads && !force) return
+        runCatching { exportChapter(download, settings) }
+            .onFailure { Log.w(TAG, "No se pudo copiar ${download.chapterTitle} a Descargas", it) }
+    }
+
+    private suspend fun exportChapter(download: DownloadEntity, settings: AppSettings) {
+        val row = dao.get(download.sourceId, download.chapterId) ?: download
+        val media = mediaDao.get(row.sourceId, row.mediaId)
+        val chapter = chapterDao.get(row.sourceId, row.chapterId)
+        val type = MediaType.fromName(media?.type)
+        val title = media?.title ?: row.mediaTitle
+        val series = DownloadSecurity.sanitizeFileName(ExportNaming.seriesName(title), "Sin título")
+        val number = ExportNaming.number(chapter?.number ?: 0f)
+        val base = when {
+            row.isVideo -> "Anime/$series"
+            row.isNovel -> "Novelas/$series"
+            else -> "${DownloadSecurity.sanitizeFileName(type.displayName)}/$series"
+        }
+        val dir = File(row.localPath)
+        exportSeriesInfo(base, title, media, row)
+        when {
+            row.isHls -> return // lives in the player's cache as loose segments, not as a video file
+            row.isVideo -> {
+                val season = ExportNaming.season(title)
+                val name = DownloadSecurity.sanitizeFileName("$series - S%02dE$number.mp4".format(season))
+                exporter.save("$base/Temporada $season", name, "video/mp4") { out ->
+                    File(dir, VIDEO_FILE).inputStream().use { it.copyTo(out) }
+                }
+            }
+            row.isNovel -> {
+                val text = File(dir, NOVEL_FILE).readText()
+                val name = DownloadSecurity.sanitizeFileName("$series - Capítulo $number")
+                when (settings.novelFormat) {
+                    NovelFormat.TXT -> exporter.save(base, "$name.txt", "text/plain") { it.write(text.toByteArray()) }
+                    NovelFormat.EPUB -> exporter.save(base, "$name.epub", PublicExporter.BINARY) { out ->
+                        ComicArchive.epub(out, "$title - ${row.chapterTitle}", media?.author.orEmpty(), row.chapterTitle, text)
+                    }
+                }
+            }
+            else -> {
+                val pages = dir.listFiles { f -> f.isFile && !f.name.endsWith(".tmp") }?.sortedBy { it.name }.orEmpty()
+                val name = DownloadSecurity.sanitizeFileName("$series - Capítulo $number")
+                when (settings.comicFormat) {
+                    ComicFormat.CBZ -> exporter.save(base, "$name.cbz", PublicExporter.BINARY) { out ->
+                        ComicArchive.cbz(out, pages, ComicArchive.comicInfo(title, row.chapterTitle, number, media, pages.size))
+                    }
+                    ComicFormat.IMAGES -> pages.forEach { page ->
+                        exporter.save("$base/$name", page.name, "image/*") { out -> page.inputStream().use { it.copyTo(out) } }
+                    }
+                }
+            }
+        }
+    }
+
+    /** `info.nfo` and the cover next to the chapters: what media libraries such as Kodi or Jellyfin read. */
+    private fun exportSeriesInfo(base: String, title: String, media: MediaEntity?, row: DownloadEntity) {
+        exporter.save(base, "tvshow.nfo", PublicExporter.BINARY) { it.write(ComicArchive.seriesInfo(title, media, row).toByteArray()) }
+        val cover = media?.coverUrl?.takeIf { it.startsWith("https://") } ?: return
+        runCatching {
+            exporter.save(base, "poster.jpg", "image/jpeg") { out ->
+                val headers = sources.get(row.sourceId)?.imageHeaders.orEmpty()
+                val request = Request.Builder().url(cover).apply { headers.forEach { (k, v) -> header(k, v) } }.build()
+                network.client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) throw HttpException(response.code, cover)
+                    response.body?.byteStream()?.copyTo(out)
+                }
+            }
+        }
     }
 
     // --- helpers ----------------------------------------------------------------------------
@@ -508,6 +723,12 @@ class DownloadManager(
         const val VIDEO_FILE = "video.mp4"
         const val POLL_MS = 5_000L
         const val CHECK_MS = 1_000L
+        const val PARALLEL_PAGES = 6
+        const val PARALLEL_CHUNKS = 4
+        const val CHUNK_ATTEMPTS = 4
+        const val CHUNK_BYTES = 4L * 1024 * 1024
+        const val MIN_CHUNKED_BYTES = 32L * 1024 * 1024
+        const val BUFFER_BYTES = 256 * 1024
         const val MAX_CONCURRENT = 4
     }
 }

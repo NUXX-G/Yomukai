@@ -62,7 +62,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.nelson.yomukai.data.prefs.ComicFormat
 import com.nelson.yomukai.data.prefs.MangaReaderMode
+import com.nelson.yomukai.data.prefs.NovelFormat
 import com.nelson.yomukai.data.prefs.NetworkSettings
 import com.nelson.yomukai.data.prefs.ProxyType
 import com.nelson.yomukai.data.prefs.ThemeMode
@@ -361,6 +363,48 @@ fun SettingsScreen(
                         )
                     }
                 )
+            }
+
+            item {
+                SwitchItem(
+                    "Guardar también en Descargas",
+                    "Copia cada capítulo en Download/Yomukai, por tipo y serie, para abrirlo desde cualquier explorador de archivos. Ocupa el doble",
+                    app.exportDownloads
+                ) { v -> viewModel.updateApp { it.copy(exportDownloads = v) } }
+            }
+            if (app.exportDownloads) {
+                item {
+                    Text("Formato de manga, manhwa y cómic", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp))
+                    ChipRow {
+                        ComicFormat.entries.forEach { format ->
+                            FilterChip(
+                                selected = app.comicFormat == format,
+                                onClick = { viewModel.updateApp { it.copy(comicFormat = format) } },
+                                label = { Text(format.displayName) }
+                            )
+                        }
+                    }
+                    Text("Formato de novela", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp))
+                    ChipRow {
+                        NovelFormat.entries.forEach { format ->
+                            FilterChip(
+                                selected = app.novelFormat == format,
+                                onClick = { viewModel.updateApp { it.copy(novelFormat = format) } },
+                                label = { Text(format.displayName) }
+                            )
+                        }
+                    }
+                }
+                item {
+                    ListItem(
+                        headlineContent = { Text("Copiar lo ya descargado") },
+                        supportingContent = { Text("Pasa a Download/Yomukai lo que descargaste antes") },
+                        modifier = Modifier.clickable {
+                            Toast.makeText(context, "Copiando descargas...", Toast.LENGTH_SHORT).show()
+                            viewModel.exportDownloads { count -> Toast.makeText(context, "$count capítulos revisados", Toast.LENGTH_SHORT).show() }
+                        }
+                    )
+                }
             }
 
             item { GroupTitle("Almacenamiento") }

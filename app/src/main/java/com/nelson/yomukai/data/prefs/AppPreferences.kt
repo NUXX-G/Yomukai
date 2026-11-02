@@ -98,6 +98,10 @@ data class NetworkSettings(
     val browserHome: BrowserHome = BrowserHome.DDG_ONION
 )
 
+enum class ComicFormat(val displayName: String) { CBZ("CBZ (un archivo)"), IMAGES("Carpeta de imágenes") }
+
+enum class NovelFormat(val displayName: String) { EPUB("EPUB"), TXT("TXT") }
+
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
@@ -112,7 +116,11 @@ data class AppSettings(
     val playerSpeed: Float = 1f,
     /** Downloads wait for an unmetered connection. */
     val downloadsWifiOnly: Boolean = false,
-    val maxConcurrentDownloads: Int = 2
+    val maxConcurrentDownloads: Int = 2,
+    /** Also keep a copy in Download/Yomukai, visible from any file manager. */
+    val exportDownloads: Boolean = true,
+    val comicFormat: ComicFormat = ComicFormat.CBZ,
+    val novelFormat: NovelFormat = NovelFormat.EPUB
 )
 
 /** SharedPreferences-backed settings exposed as StateFlows so Compose reacts to changes. */
@@ -208,6 +216,9 @@ class AppPreferences(context: Context) {
             .putFloat("player_speed", value.playerSpeed)
             .putBoolean("downloads_wifi", value.downloadsWifiOnly)
             .putInt("downloads_max", value.maxConcurrentDownloads)
+            .putBoolean("export_downloads", value.exportDownloads)
+            .putString("comic_format", value.comicFormat.name)
+            .putString("novel_format", value.novelFormat.name)
             .apply {
                 if (value.enabledSources == null) remove("enabled_sources")
                 else putStringSet("enabled_sources", value.enabledSources)
@@ -271,6 +282,9 @@ class AppPreferences(context: Context) {
         playerSpeed = prefs.getFloat("player_speed", 1f),
         downloadsWifiOnly = prefs.getBoolean("downloads_wifi", false),
         maxConcurrentDownloads = prefs.getInt("downloads_max", 2),
+        exportDownloads = prefs.getBoolean("export_downloads", true),
+        comicFormat = enumOr(prefs.getString("comic_format", null), ComicFormat.CBZ),
+        novelFormat = enumOr(prefs.getString("novel_format", null), NovelFormat.EPUB),
         enabledSources = prefs.getStringSet("enabled_sources", null)?.toSet()
     )
 

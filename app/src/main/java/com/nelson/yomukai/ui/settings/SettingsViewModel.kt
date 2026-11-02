@@ -54,6 +54,14 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    /** Copies what was downloaded before to Download/Yomukai. */
+    fun exportDownloads(onDone: (Int) -> Unit) {
+        viewModelScope.launch {
+            val count = container.downloadManager.exportAll()
+            onDone(count)
+        }
+    }
+
     fun clearHistory() {
         viewModelScope.launch { container.libraryRepository.clearHistory() }
     }

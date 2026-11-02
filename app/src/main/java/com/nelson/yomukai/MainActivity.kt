@@ -155,6 +155,15 @@ fun YomukaiApp(
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
+    // Android 9 and older need permission to write to Download/Yomukai.
+    val storagePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && container.preferences.app.value.exportDownloads &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
+        ) {
+            storagePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }
+    }
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val homeViewModel: HomeViewModel = viewModel(factory = AppViewModelProvider.Factory)
