@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.webkit.CookieManager
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.nelson.yomukai.data.network.NetworkHelper
@@ -66,6 +67,12 @@ class CloudflareResolver(private val context: Context) {
             }
 
             webView.webViewClient = object : WebViewClient() {
+                // Without this, a WebView process killed for lack of memory takes the whole app with it.
+                override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
+                    finish(null)
+                    return true
+                }
+
                 override fun onPageFinished(view: WebView?, loadedUrl: String?) {
                     captureHtml(loadedUrl ?: url, isTimeout = false)
                 }

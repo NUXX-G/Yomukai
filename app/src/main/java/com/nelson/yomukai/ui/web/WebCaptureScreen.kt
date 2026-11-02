@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -666,6 +667,14 @@ fun WebCaptureScreen(
                                 if (request?.isForMainFrame == true) {
                                     pageError = WebCapture.errorMessage(request.url?.host, error?.description?.toString(), netState.viaTor)
                                 }
+                            }
+
+                            // Without this, a page process killed for lack of memory takes the whole app with it.
+                            override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
+                                webView = null
+                                store.clearBrowser()
+                                onBack()
+                                return true
                             }
 
                             override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
