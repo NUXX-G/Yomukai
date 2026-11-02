@@ -96,7 +96,8 @@ class WebtoonsSource(private val network: NetworkHelper) : MangaSource {
         private const val MAX_EPISODES = 3000
 
         private val TITLE_NO = Regex("""title_no=(\d+)""")
-        private val DTO = Regex("""dto:\s*(\{.*})\s*,?\s*$""", RegexOption.MULTILINE)
+        // Android's regex engine rejects an unescaped closing brace, unlike the JVM's.
+        private val DTO = Regex("""dto:\s*(\{.*\})\s*,?\s*$""", RegexOption.MULTILINE)
         private val IMAGE_LIST = Regex("""var\s+imageList\s*=\s*\[(.*?)];""", RegexOption.DOT_MATCHES_ALL)
         private val IMAGE_URL = Regex("""url:\s*"([^"]+)"""")
 

@@ -79,6 +79,9 @@ enum class BrowserHome(val displayName: String, val url: String, val searchUrl: 
     AHMIA("Ahmia (buscador de .onion)", "https://ahmia.fi/", "https://ahmia.fi/search/?q=")
 }
 
+/** A page the user saved or visited in the capture browser. */
+data class BrowserPage(val url: String, val title: String)
+
 /** Options to get around DNS-level blocks and firewalls that some ISPs apply to these sites. */
 data class NetworkSettings(
     val dnsOverHttps: Boolean = true,
@@ -132,6 +135,22 @@ class AppPreferences(context: Context) {
         prefs.getString("search_history", "").orEmpty().split('\n').filter { it.isNotBlank() }
     )
     val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
+
+    /** One page per line: url, tab, title. */
+    private val _browserFavorites = MutableStateFlow(
+        prefs.getString("browser_favorites", "").orEmpty().split('\n').filter { it.isNotBlank() }
+            .map { BrowserPage(it.substringBefore('\t'), it.substringAfter('\t', "")) }
+    )
+    val browserFavorites: StateFlow<List<BrowserPage>> = _browserFavorites.asStateFlow()
+
+    /** Saves [url], or removes it when it is already a favourite. */
+    fun toggleBrowserFavorite(url: String, title: String) {
+        val current = _browserFavorites.value
+        val updated = if (current.any { it.url == url }) current.filterNot { it.url == url }
+        else listOf(BrowserPage(url, title.replace('\n', ' ').replace('\t', ' '))) + current
+        prefs.edit().putString("browser_favorites", updated.joinToString("\n") { "${it.url}\t${it.title}" }).apply()
+        _browserFavorites.value = updated
+    }
 
     private fun saveHistory(list: List<String>) {
         prefs.edit().putString("search_history", list.joinToString("\n")).apply()
