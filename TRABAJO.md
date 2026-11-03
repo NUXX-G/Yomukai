@@ -2,6 +2,17 @@
 
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
+## Tanda v1.8.0 (release completa, autorizada por el usuario)
+- [x] Aleatorio siempre con fuente: solo obras que están en tus fuentes, «Disponible en» y abrir directo; cambiar tipo/género tira otra vez
+- [x] Reloj minimalista también en el lector de manga/manhwa y de novela
+- [x] Reproductor sin barras del sistema y en horizontal sin rotación automática (botón para vertical)
+- [x] Notas para cómics y novelas: MangaUpdates (manga/manhwa/manhua/novela asiática) y Open Library (cómic occidental, novela publicada), sin cuenta
+- [x] Interfaz negra «sumi y brasa», tema oscuro por defecto, barras del sistema según el tema de la app
+- [x] Botón «Empezar a leer» de tamaño fijo (antes parpadeaba al hacer scroll)
+- [x] Probado en Android 8, 13 y 17: 13/14 fuentes OK en los tres (LectorTMO: título de prueba sin capítulos)
+
+Notas de v1.8.0: Google Books ya no admite uso sin clave. En Android 8 con 3 botones la barra de navegación lleva un fondo casi negro. El primer vídeo a pantalla completa muestra el aviso de Android «Viewing full screen»: es del sistema y sale una sola vez.
+
 ## Tanda v1.7.0 a v1.7.2 (publicadas como pre-release)
 - [x] Explorar y Descubrir unidos en Inicio: «Para ti» dentro y botón de aleatorio en la cabecera
 - [x] Tarjetas sin etiquetas grandes sobre la portada; títulos a 2 líneas, sin estado debajo

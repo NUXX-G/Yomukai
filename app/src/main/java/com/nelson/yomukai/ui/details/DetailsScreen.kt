@@ -223,8 +223,6 @@ private fun DetailsContent(
     }
 
     val listState = rememberLazyListState()
-    // The button shrinks to its icon while the list moves away from the top, so it covers less.
-    val fabExpanded by remember { derivedStateOf { listState.firstVisibleItemIndex < 3 || !listState.isScrollInProgress } }
     var tab by rememberSaveable { mutableIntStateOf(0) }
 
     Scaffold(
@@ -277,8 +275,8 @@ private fun DetailsContent(
             state.continueTarget?.let { (chapter, started) ->
                 val label = ChapterLabels.of(chapter.title, chapter.number, state.isAnime, state.media?.title.orEmpty()).short
                 ExtendedFloatingActionButton(
+                    // Always the same size: resizing it while scrolling made it flicker.
                     onClick = { onOpenChapter(chapter) },
-                    expanded = fabExpanded,
                     icon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
                     text = {
                         Text(

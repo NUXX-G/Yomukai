@@ -46,6 +46,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -112,11 +114,23 @@ class MainActivity : ComponentActivity() {
             }
             // The bars follow the app's theme, not the phone's: light icons over the black interface.
             LaunchedEffect(dark) {
-                val style = if (dark) SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+                val status = if (dark) SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
                 else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
-                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+                // The 3-button navigation bar keeps a translucent backing, as Android's default does,
+                // so the buttons never sit straight on top of text. Gesture navigation stays clear.
+                val navigation = if (dark) SystemBarStyle.dark(NAV_SCRIM_DARK)
+                else SystemBarStyle.light(NAV_SCRIM_LIGHT, NAV_SCRIM_DARK)
+                enableEdgeToEdge(statusBarStyle = status, navigationBarStyle = navigation)
             }
-            CompositionLocalProvider(LocalAppContainer provides container) {
+            // Sheets and dialogs pick their bar icons from the night mode they see: they see the app's.
+            val configuration = LocalConfiguration.current
+            val themedConfiguration = remember(configuration, dark) {
+                Configuration(configuration).apply {
+                    uiMode = (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or
+                        (if (dark) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO)
+                }
+            }
+            CompositionLocalProvider(LocalAppContainer provides container, LocalConfiguration provides themedConfiguration) {
                 YomukaiTheme(darkTheme = dark, dynamicColor = settings.dynamicColor) {
                     YomukaiApp(container, pendingDetails.value, onDeepLinkHandled = { pendingDetails.value = null })
                 }
@@ -124,6 +138,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+/** Backings behind the 3-button navigation bar: Android's light one, and a near-black one for the black interface. */
+private val NAV_SCRIM_LIGHT = android.graphics.Color.argb(0xE6, 0xFF, 0xFF, 0xFF)
+private val NAV_SCRIM_DARK = android.graphics.Color.argb(0xE6, 0x00, 0x00, 0x00)
 
 private data class TopLevelTab(val route: String, val label: String, val icon: ImageVector)
 
