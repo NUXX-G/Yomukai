@@ -1,0 +1,13 @@
+.git
+**/build
+**/node_modules
+web/dist
+app
+.gradle
+.kotlin
+.idea
+.playwright-mcp
+local.properties
+data
+*.apk
+images

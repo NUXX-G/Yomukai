@@ -17,6 +17,7 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Yomukai"
-include(":app")
+// The Docker image builds only the server: it has no Android SDK.
+if (System.getenv("YOMUKAI_SERVER_ONLY") != "true") include(":app")
 include(":shared")
 include(":server")

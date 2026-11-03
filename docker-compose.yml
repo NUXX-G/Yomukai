@@ -1,0 +1,32 @@
+# Yomukai web. Settings live in .env next to this file (the install script writes it).
+services:
+  yomukai:
+    image: ${YOMUKAI_IMAGE:-ghcr.io/nuxx-g/yomukai:latest}
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - yomukai-data:/data
+    environment:
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      GUESTS_ENABLED: ${GUESTS_ENABLED:-true}
+      GUEST_DAYS: ${GUEST_DAYS:-7}
+      GUEST_RATE: ${GUEST_RATE:-240}
+      GUEST_STREAMS: ${GUEST_STREAMS:-2}
+      MAL_CLIENT_ID: ${MAL_CLIENT_ID:-}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      FLARESOLVERR_URL: http://flaresolverr:8191
+    depends_on:
+      - flaresolverr
+
+  # A real browser for the few sites behind Cloudflare challenges (Royal Road). Reachable only by Yomukai.
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:v3.3.21
+    restart: unless-stopped
+    environment:
+      LOG_LEVEL: warning
+
+volumes:
+  yomukai-data:
