@@ -2,7 +2,7 @@
 
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
-## Tanda v1.7.0 (publicada como pre-release)
+## Tanda v1.7.0 y v1.7.1 (publicadas como pre-release)
 - [x] Explorar y Descubrir unidos en Inicio: «Para ti» dentro y botón de aleatorio en la cabecera
 - [x] Tarjetas sin etiquetas grandes sobre la portada; títulos a 2 líneas, sin estado debajo
 - [x] Ficha: color de la portada como acento (Material You propio, `CoverTheme`), pestañas Capítulos/Relacionadas
@@ -14,7 +14,7 @@ Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este ficher
 - [x] Recomendadas «no encontradas»: más nombres, coincidencia cercana marcada, caché y opción de buscar en todas
 - [x] Géneros excluidos: espera corta antes de mostrar y caché de Inicio guardada sin excluidas
 
-Notas de v1.7.0: los metadatos se guardan una semana en `metadata_cache.json` (sin migración de Room). MAL: con `mal.clientId` en local.properties usa la API oficial; sin ella, Jikan (desde la red de desarrollo Jikan no responde; la API de MAL sí). La Client ID de MAL hay que crearla a mano en myanimelist.net/apiconfig (tipo android). Arranque en frío igual que v1.6.0 (≈4,1 s debug en emulador; 2 s release). AniList pide ~30 peticiones/min; la ficha y «Similares» comparten una sola. Probado en el emulador API 33 (Inicio, ficha, relacionadas, aleatorio, abrir recomendada). Reproductor probado con un episodio real: foco de audio GAIN y KEEP_SCREEN_ON confirmados con dumpsys. Sin probar: una app de música real sonando a la vez.
+Notas de v1.7.0: los metadatos se guardan una semana en `metadata_cache.json` (sin migración de Room). MAL (v1.7.1): la Client ID de la app «Yomukai» (cuenta NUXX-A, tipo android) está en `local.properties` como `mal.clientId`, que no se sube; sin ella se usa Jikan, que no responde desde la red de desarrollo. Hay que tenerla en local.properties al compilar cada release. Arranque en frío igual que v1.6.0 (≈4,1 s debug en emulador; 2 s release). AniList pide ~30 peticiones/min; la ficha y «Similares» comparten una sola. Probado en el emulador API 33 (Inicio, ficha, relacionadas, aleatorio, abrir recomendada). Reproductor probado con un episodio real: foco de audio GAIN y KEEP_SCREEN_ON confirmados con dumpsys. Sin probar: una app de música real sonando a la vez.
 
 ## Tanda v1.6.0 (publicada como release completa con autorización del usuario)
 - [x] «Recomiéndame uno» falla: nunca dar error si hay algo que mostrar
