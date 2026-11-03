@@ -25,6 +25,8 @@ RUN useradd --system --create-home --uid 10001 yomukai && mkdir -p /data && chow
 WORKDIR /app
 COPY --from=server /src/server/build/install/server/ /app/
 COPY --from=web /web/dist/ /app/web/
+# The build stages leave files readable by root only; the app runs as its own user.
+RUN chmod -R a+rX /app
 ENV PORT=8080 DATA_DIR=/data WEB_DIR=/app/web JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+UseSerialGC"
 USER yomukai
 VOLUME /data

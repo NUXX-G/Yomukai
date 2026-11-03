@@ -11,7 +11,7 @@ function Say($text) { Write-Host $text -ForegroundColor DarkYellow }
 
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { throw 'Necesitas Docker Desktop: https://www.docker.com/products/docker-desktop/' }
 docker info *> $null
-if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop no está en marcha: ábrelo y vuelve a ejecutar esta línea.' }
+if ($LASTEXITCODE -ne 0) { throw 'Abre Docker Desktop y vuelve a lanzar este comando.' }
 
 New-Item -ItemType Directory -Force -Path $Dir | Out-Null
 Set-Location $Dir
@@ -43,7 +43,7 @@ if ($LASTEXITCODE -ne 0) {
   Say 'Compilando la imagen (la primera vez tarda unos minutos)...'
   if (Test-Path src) { Remove-Item -Recurse -Force src }
   git clone --depth 1 -c core.autocrlf=false $Repo src 2>&1 | Out-Null
-  if ($LASTEXITCODE -ne 0) { throw "No se pudo descargar el código de $Repo" }
+  if ($LASTEXITCODE -ne 0) { throw "No se pudo descargar el proyecto de $Repo" }
   docker build -t ghcr.io/nuxx-g/yomukai:latest src
   if ($LASTEXITCODE -ne 0) { throw 'No se pudo compilar la imagen' }
   Remove-Item -Recurse -Force src
@@ -54,10 +54,10 @@ if ($LASTEXITCODE -ne 0) { throw 'No se pudo arrancar Yomukai' }
 
 $UsedPort = ((Get-Content .env | Where-Object { $_ -like 'PORT=*' }) -split '=')[1]
 Say ''
-Say "Yomukai está en marcha: http://localhost:$UsedPort"
+Say "Yomukai funcionando en: http://localhost:$UsedPort"
 if ($New) {
   Say 'Usuario: admin'
-  Say "Contraseña: $(((Get-Content .env | Where-Object { $_ -like 'ADMIN_PASSWORD=*' }) -split '=')[1])"
+  Say "Clave del admin: $(((Get-Content .env | Where-Object { $_ -like 'ADMIN_PASSWORD=*' }) -split '=')[1])"
   Say "(guardada en $Dir\.env)"
 }
-Say "Actualizar: vuelve a ejecutar esta misma línea. Parar: cd $Dir; docker compose down"
+Say "Para actualizar, repite este comando. Para pararlo: cd $Dir; docker compose down"
