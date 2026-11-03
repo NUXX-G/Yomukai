@@ -1,7 +1,8 @@
 <script>
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
-  import { library, sources, updates, loadUpdates, READING_STATUSES } from '../lib/store.svelte.js';
+  import { library, sources, updates, loadUpdates, READING_STATUSES, statusOf, categories, editCategory } from '../lib/store.svelte.js';
+  import Sheet from '../components/Sheet.svelte';
   import { media, reader } from '../lib/router.svelte.js';
   import { TYPE_FILTERS } from '../lib/format.js';
   import MediaCard from '../components/MediaCard.svelte';
@@ -13,6 +14,11 @@
   let status = $state(sessionStorage.getItem('library.status') || 'ALL');
   let sort = $state(sessionStorage.getItem('library.sort') || 'added');
   let typeKey = $state('ALL');
+  let category = $state(sessionStorage.getItem('library.category') || '');
+  let manageOpen = $state(false);
+  let newCategory = $state('');
+  let renaming = $state(null);
+  let renameTo = $state('');
   let filter = $state('');
   let history = $state(null);
 
@@ -20,16 +26,39 @@
     sessionStorage.setItem('library.tab', tab);
     sessionStorage.setItem('library.status', status);
     sessionStorage.setItem('library.sort', sort);
+    sessionStorage.setItem('library.category', category);
   });
+  // A category deleted elsewhere stops filtering.
+  $effect(() => { if (category && categories.loaded && !categories.list.some((c) => c.name === category)) category = ''; });
+
+  async function addCategory(e) {
+    e.preventDefault();
+    const name = newCategory.trim();
+    if (!name) return;
+    await editCategory({ new: name, sortOrder: categories.list.length });
+    newCategory = '';
+  }
+  async function rename(e) {
+    e.preventDefault();
+    const name = renameTo.trim();
+    if (name && name !== renaming) await editCategory({ old: renaming, new: name });
+    if (category === renaming) category = name;
+    renaming = null;
+  }
+  async function removeCategory(name) {
+    if (!confirm(`¿Borrar la categoría «${name}»? Las obras se quedan en tu biblioteca.`)) return;
+    await editCategory({ old: name });
+  }
 
   const keyOf = (r) => r.sourceId + '|' + r.mediaId;
   const unread = (r) => updates.byKey[keyOf(r)]?.unread || 0;
   const typeFilter = $derived(TYPE_FILTERS.find((f) => f.key === typeKey));
-  const counts = $derived(Object.fromEntries(READING_STATUSES.map(([k]) => [k, library.items.filter((r) => (r.readingStatus || 'READING') === k).length])));
+  const counts = $derived(Object.fromEntries(READING_STATUSES.map(([k]) => [k, library.items.filter((r) => statusOf(r) === k).length])));
 
   const items = $derived.by(() => {
     const list = library.items
-      .filter((r) => status === 'ALL' || (r.readingStatus || 'READING') === status)
+      .filter((r) => status === 'ALL' || statusOf(r) === status)
+      .filter((r) => !category || (r.categories || []).includes(category))
       .filter((r) => !typeFilter.types || typeFilter.types.includes(r.type))
       .filter((r) => !filter || r.title.toLowerCase().includes(filter.toLowerCase()));
     if (sort === 'title') return [...list].sort((a, b) => a.title.localeCompare(b.title, 'es'));
@@ -78,6 +107,13 @@
       {#each READING_STATUSES as [k, label]}
         {#if counts[k]}<button class="chip" class:on={status === k} onclick={() => (status = k)}>{label} · {counts[k]}</button>{/if}
       {/each}
+    </div>
+    <div class="chips" style="margin-top:8px">
+      <button class="chip" class:on={!category} onclick={() => (category = '')}>Todas las categorías</button>
+      {#each categories.list as c (c.name)}
+        <button class="chip" class:on={category === c.name} onclick={() => (category = c.name)}>{c.name} · {library.items.filter((r) => (r.categories || []).includes(c.name)).length}</button>
+      {/each}
+      <button class="chip" onclick={() => (manageOpen = true)}><Icon name="tune" size={16} /> Categorías</button>
     </div>
     <div class="chips" style="margin-top:8px">{#each TYPE_FILTERS as f}<button class="chip" class:on={typeKey === f.key} onclick={() => (typeKey = f.key)}>{f.label}</button>{/each}</div>
     {#if library.items.length}
@@ -144,6 +180,28 @@
     {/each}
   {/if}
 </div>
+
+<Sheet bind:open={manageOpen} title="Categorías">
+  <p class="small muted" style="margin-top:0">Agrupa tus obras como quieras. Una obra puede estar en varias; se eligen desde su ficha.</p>
+  <form class="tools" onsubmit={addCategory}>
+    <input class="field" placeholder="Nueva categoría" bind:value={newCategory} maxlength="100" />
+    <button class="btn primary" disabled={!newCategory.trim()}>Crear</button>
+  </form>
+  {#each categories.list as c (c.name)}
+    <div class="list-item">
+      {#if renaming === c.name}
+        <form class="tools grow" style="margin:0" onsubmit={rename}>
+          <input class="field" bind:value={renameTo} maxlength="100" />
+          <button class="btn tonal">Guardar</button>
+        </form>
+      {:else}
+        <span class="grow">{c.name}</span>
+        <button class="icon-btn" onclick={() => { renaming = c.name; renameTo = c.name; }} aria-label="Renombrar"><Icon name="text" size={20} /></button>
+        <button class="icon-btn" onclick={() => removeCategory(c.name)} aria-label="Borrar"><Icon name="delete" size={20} /></button>
+      {/if}
+    </div>
+  {/each}
+</Sheet>
 
 <style>
   .grow { flex: 1; min-width: 0; }

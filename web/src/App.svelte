@@ -76,9 +76,14 @@
       </nav>
     {/if}
     <main>
-      {#key route.path}
-        <Page />
-      {/key}
+      {#if route.name === 'read' && !sources.loaded}
+        <!-- Which reader a chapter needs depends on its source: wait for the list when a chapter link is opened directly. -->
+        <div class="center" style="min-height:100vh"><div class="spinner"></div></div>
+      {:else}
+        {#key route.path}
+          <Page />
+        {/key}
+      {/if}
     </main>
   </div>
 {/if}

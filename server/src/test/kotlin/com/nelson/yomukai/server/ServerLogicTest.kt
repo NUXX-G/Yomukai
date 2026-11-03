@@ -59,7 +59,7 @@ class ServerLogicTest {
         val b = db.createUser("b", null, false, false, null)
         db.putLibrary(a.id, LibraryRow("s", "1", "Uno", "", "MANGA", "", "", "", 1, "NONE"))
         db.putLibrary(b.id, LibraryRow("s", "2", "Dos", "", "MANGA", "", "", "", 1, "NONE"))
-        db.replaceAll(a.id, listOf(LibraryRow("s", "3", "Tres", "", "MANGA", "", "", "", 1, "NONE")), emptyList(), emptyList(), "{}")
+        db.replaceAll(a.id, listOf(LibraryRow("s", "3", "Tres", "", "MANGA", "", "", "", 1, "NONE")), emptyList(), emptyList(), emptyList(), emptyList(), "{}")
         assertEquals(listOf("3"), db.library(a.id).map { it.mediaId })
         assertEquals(listOf("2"), db.library(b.id).map { it.mediaId })
     }
@@ -154,5 +154,102 @@ class ServerLogicTest {
         assertTrue(rewritten.contains("URI=\"/api/stream?u=https%3A%2F%2Fv.example.com%2Fhls%2Fkey.bin"))
         assertTrue(rewritten.lines().any { it.startsWith("/api/stream?u=https%3A%2F%2Fv.example.com%2Fhls%2Fseg%2F0.ts") })
         assertTrue(rewritten.startsWith("#EXTM3U"))
+    }
+
+    private fun lib(id: String, at: Long, status: String = "READING", deleted: Boolean = false, cats: List<String> = emptyList()) =
+        LibraryRow("s", id, "T$id", "", "MANGA", "", "", "", 1, status, cats, at, deleted)
+
+    @Test
+    fun syncKeepsTheNewestChangeAndOnlySendsWhatIsNew() = runBlocking {
+        val db = tempDb()
+        val u = db.createUser("sync", null, admin = false, guest = false, expiresAt = null)
+        // Phone pushes two titles.
+        val first = db.sync(u.id, 0, listOf(lib("1", 100), lib("2", 100)), emptyList(), emptyList(), emptyList(), emptyList(), null)
+        assertEquals(2, first.library.size)
+        // An older change from another device loses; a newer one wins.
+        val second = db.sync(u.id, first.rev, listOf(lib("1", 50, "DROPPED"), lib("2", 200, "COMPLETED")), emptyList(), emptyList(), emptyList(), emptyList(), null)
+        assertEquals(listOf("2"), second.library.map { it.mediaId })
+        val now = db.library(u.id).associateBy { it.mediaId }
+        assertEquals("READING", now["1"]!!.readingStatus)
+        assertEquals("COMPLETED", now["2"]!!.readingStatus)
+        // Nothing new: nothing comes back.
+        val idle = db.sync(u.id, second.rev, emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null)
+        assertTrue(idle.library.isEmpty() && idle.progress.isEmpty())
+        // A deletion travels as a deleted row and leaves the library.
+        val gone = db.sync(u.id, idle.rev, listOf(lib("1", 300, deleted = true)), emptyList(), emptyList(), emptyList(), emptyList(), null)
+        assertTrue(gone.library.single().deleted)
+        assertEquals(listOf("2"), db.library(u.id).map { it.mediaId })
+    }
+
+    @Test
+    fun webDeletionsAndCategoryRenamesReachOtherDevices() = runBlocking {
+        val db = tempDb()
+        val u = db.createUser("cats", null, admin = false, guest = false, expiresAt = null)
+        val start = db.sync(u.id, 0, listOf(lib("1", 10, cats = listOf("Favoritas"))), listOf(CategoryRow("Favoritas", 0, 10)),
+            emptyList(), listOf(HistoryRow("s", "1", "c1", "Cap. 1", "T1", "", "MANGA", 10)), emptyList(), null)
+        db.editCategory(u.id, "Favoritas", "Top")
+        db.removeHistory(u.id, "s", "1")
+        val changes = db.sync(u.id, start.rev, emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null)
+        assertEquals(setOf("Favoritas" to true, "Top" to false), changes.categories.map { it.name to it.deleted }.toSet())
+        assertEquals(listOf("Top"), changes.library.single().categories)
+        assertTrue(changes.history.single().deleted)
+        assertTrue(db.history(u.id).isEmpty())
+    }
+
+    @Test
+    fun sharedSettingsSyncOnlyWhenNewer() = runBlocking {
+        val db = tempDb()
+        val u = db.createUser("prefs", null, admin = false, guest = false, expiresAt = null)
+        db.putSettings(u.id, """{"novel":{"size":20},"exclusions":{"global":["Gore"],"perSource":{}}}""", 1_000)
+        val phone = com.google.gson.JsonParser.parseString("""{"exclusions":{"global":["BL"],"perSource":{}},"updatedAt":2000}""").asJsonObject
+        val result = db.sync(u.id, 0, emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), phone)
+        val stored = com.google.gson.JsonParser.parseString(db.settings(u.id)).asJsonObject
+        assertEquals("the web's own settings stay", 20, stored.getAsJsonObject("novel").get("size").asInt)
+        assertEquals("BL", stored.getAsJsonObject("exclusions").getAsJsonArray("global")[0].asString)
+        assertEquals(2000L, result.settings!!.get("updatedAt").asLong)
+        val stale = com.google.gson.JsonParser.parseString("""{"exclusions":{"global":[],"perSource":{}},"updatedAt":1500}""").asJsonObject
+        db.sync(u.id, result.rev, emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), stale)
+        assertTrue(db.settings(u.id)!!.contains("BL"))
+    }
+
+    @Test
+    fun syncRowsAreCleanedBeforeStoring() = runBlocking {
+        val db = tempDb()
+        val u = db.createUser("clean", null, admin = false, guest = false, expiresAt = null)
+        val huge = "x".repeat(10_000)
+        db.sync(u.id, 0, listOf(lib("1", 5).copy(title = huge, categories = null)), emptyList(),
+            listOf(ProgressRow("s", "c", "1", false, -3, 10, Double.NaN, 5)), emptyList(), emptyList(), null)
+        val row = db.library(u.id).single()
+        assertEquals(500, row.title.length)
+        assertTrue(row.categories!!.isEmpty())
+        val p = db.allProgress(u.id).single()
+        assertEquals(0, p.page)
+        assertEquals(0.0, p.fraction, 0.0)
+    }
+
+    @Test
+    fun hlsPlansFollowKeysAndRefuseWhatCannotBeJoined() {
+        val text = """#EXTM3U
+            |#EXT-X-MEDIA-SEQUENCE:7
+            |#EXT-X-KEY:METHOD=AES-128,URI="key.bin"
+            |#EXTINF:4,
+            |seg0.ts
+            |#EXT-X-KEY:METHOD=NONE
+            |#EXTINF:4,
+            |https://cdn.example.com/seg1.ts
+            |#EXT-X-ENDLIST""".trimMargin()
+        val plan = HlsPlan.parse(text, "https://v.example.com/hls/index.m3u8")!!
+        assertEquals(listOf("https://v.example.com/hls/seg0.ts", "https://cdn.example.com/seg1.ts"), plan.segments.map { it.url })
+        assertEquals("https://v.example.com/hls/key.bin", plan.segments[0].keyUrl)
+        assertEquals("IV is the sequence number", 7, plan.segments[0].iv.last().toInt())
+        assertNull(plan.segments[1].keyUrl)
+        assertNull(HlsPlan.parse("#EXTM3U\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI=\"k\"\nseg.ts", "https://v.example.com/a.m3u8"))
+        assertNull(HlsPlan.parse("#EXTM3U\n#EXT-X-BYTERANGE:100@0\nseg.ts", "https://v.example.com/a.m3u8"))
+    }
+
+    @Test
+    fun downloadNamesAndXmlAreSafe() {
+        assertEquals("Solo Leveling Cap. 1 x", Downloader.safeName("Solo Leveling / Cap. 1: x"))
+        assertEquals("a &lt;b&gt; &amp; &quot;c&quot;", Downloader.xml("a <b> & \"c\"\u0001"))
     }
 }

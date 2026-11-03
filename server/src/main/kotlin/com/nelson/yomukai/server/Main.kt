@@ -35,6 +35,7 @@ import io.ktor.server.plugins.compression.matchContentType
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.defaultheaders.DefaultHeaders
 import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.request.receiveParameters
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
@@ -80,6 +81,7 @@ class Services(val config: Config) {
     )
     val proxy = MediaProxy(http, config.secret, File(config.dataDir, "cache"), config.guestStreams)
     val catalog = Catalog(sources, aniList, metadata, proxy)
+    val downloads = Downloader(catalog, proxy, http)
 
     suspend fun prefs(user: User) = UserPrefs.parse(db.settings(user.id))
 }
@@ -122,6 +124,16 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 userRoutes(services)
                 get("/img") { services.proxy.serveImage(call) }
                 get("/stream") { services.proxy.serveStream(call, call.user) }
+                // Files for the user's device. GET for one chapter (a plain link), POST from a form for many.
+                get("/download") {
+                    val p = call.request.queryParameters
+                    services.downloads.serve(call, call.user, p["s"].orEmpty(), p["id"].orEmpty(), p.getAll("c").orEmpty().take(MAX_DOWNLOAD_IDS), p["t"])
+                }
+                post("/download") {
+                    val p = call.receiveParameters()
+                    val ids = p.getAll("c").orEmpty() + p["ids"].orEmpty().split('\n').map { it.trim() }.filter { it.isNotEmpty() }
+                    services.downloads.serve(call, call.user, p["s"].orEmpty(), p["id"].orEmpty(), ids.take(MAX_DOWNLOAD_IDS), p["t"])
+                }
             }
             route("/admin") {
                 install(requireUser(services.auth, admin = true))
@@ -370,9 +382,58 @@ private fun typeOf(name: String) = runCatching { MediaType.valueOf(name) }.getOr
 private fun Route.userRoutes(s: Services) {
     get("/library") { call.respond(s.db.library(call.user.id)) }
     put("/library") {
-        val row = gson.fromJson(call.receiveText(), LibraryRow::class.java)
-        s.db.putLibrary(call.user.id, row.copy(addedAt = row.addedAt.takeIf { it > 0 } ?: System.currentTimeMillis()))
+        val text = call.receiveText()
+        require(text.length < MAX_ROW_CHARS) { "Demasiado grande" }
+        val json = JsonParser.parseString(text).asJsonObject
+        val row = gson.fromJson(json, LibraryRow::class.java)
+        require(!row.sourceId.isNullOrBlank() && !row.mediaId.isNullOrBlank()) { "Falta la obra" }
+        val now = System.currentTimeMillis()
+        // A save that does not mention categories keeps the ones the title already has.
+        val categories = if (json.has("categories")) row.categories else s.db.libraryRow(call.user.id, row.sourceId, row.mediaId)?.categories
+        s.db.putLibrary(call.user.id, row.copy(addedAt = row.addedAt.takeIf { it > 0 } ?: now, categories = categories, updatedAt = now, deleted = false))
         call.respond(mapOf("ok" to true))
+    }
+    get("/categories") { call.respond(s.db.categories(call.user.id)) }
+    // {old, new}: only new creates, both rename, only old deletes; titles follow.
+    post("/categories") {
+        val body = JsonParser.parseString(call.receiveText().take(MAX_ROW_CHARS)).asJsonObject
+        val old = body.get("old")?.takeIf { it.isJsonPrimitive }?.asString?.trim()?.takeIf { it.isNotEmpty() }
+        val new = body.get("new")?.takeIf { it.isJsonPrimitive }?.asString?.trim()?.take(100)?.takeIf { it.isNotEmpty() }
+        require(old != null || new != null) { "Falta el nombre" }
+        if (new != null && old == null) require(s.db.categories(call.user.id).size < MAX_CATEGORIES) { "Demasiadas categorías" }
+        s.db.editCategory(call.user.id, old, new, body.get("sortOrder")?.asInt ?: 0)
+        call.respond(s.db.categories(call.user.id))
+    }
+    get("/bookmarks") { call.respond(s.db.bookmarks(call.user.id, call.q("s"), call.q("id"))) }
+    put("/bookmarks") {
+        val row = gson.fromJson(call.receiveText().take(MAX_ROW_CHARS), BookmarkRow::class.java)
+        require(!row.sourceId.isNullOrBlank() && !row.chapterId.isNullOrBlank()) { "Falta el capítulo" }
+        val now = System.currentTimeMillis()
+        s.db.putBookmark(call.user.id, row.copy(createdAt = row.createdAt.takeIf { it > 0 } ?: now, updatedAt = now))
+        call.respond(mapOf("ok" to true))
+    }
+    post("/sync") {
+        val text = call.receiveText()
+        require(text.length < MAX_IMPORT_CHARS) { "Demasiados cambios de una vez" }
+        val root = JsonParser.parseString(text).asJsonObject
+        fun <T> list(key: String, type: Class<T>): List<T> = root.getAsJsonArray(key)?.map { gson.fromJson(it, type) }.orEmpty()
+        val library = list("library", LibraryRow::class.java)
+        val categories = list("categories", CategoryRow::class.java)
+        val progress = list("progress", ProgressRow::class.java)
+        val history = list("history", HistoryRow::class.java)
+        val bookmarks = list("bookmarks", BookmarkRow::class.java)
+        require(library.size + categories.size + progress.size + history.size + bookmarks.size <= MAX_SYNC_ROWS) { "Demasiados cambios de una vez" }
+        // Rows without their keys are dropped rather than stored half empty.
+        val changes = s.db.sync(
+            call.user.id, root.get("since")?.asLong ?: 0L,
+            library.filter { !it.sourceId.isNullOrBlank() && !it.mediaId.isNullOrBlank() },
+            categories.filter { !it.name.isNullOrBlank() },
+            progress.filter { !it.sourceId.isNullOrBlank() && !it.chapterId.isNullOrBlank() && !it.mediaId.isNullOrBlank() },
+            history.filter { !it.sourceId.isNullOrBlank() && !it.mediaId.isNullOrBlank() && !it.chapterId.isNullOrBlank() },
+            bookmarks.filter { !it.sourceId.isNullOrBlank() && !it.chapterId.isNullOrBlank() && !it.mediaId.isNullOrBlank() },
+            root.getAsJsonObject("settings")
+        )
+        call.respond(changes)
     }
     delete("/library") {
         s.db.removeLibrary(call.user.id, call.q("s"), call.q("id"))
@@ -382,6 +443,7 @@ private fun Route.userRoutes(s: Services) {
     post("/progress") {
         val body = JsonParser.parseString(call.receiveText()).asJsonObject
         val rows = body.getAsJsonArray("rows")?.map { gson.fromJson(it, ProgressRow::class.java) }.orEmpty()
+            .filter { !it.sourceId.isNullOrBlank() && !it.chapterId.isNullOrBlank() && !it.mediaId.isNullOrBlank() }
         if (rows.size > MAX_PROGRESS_ROWS) throw IllegalArgumentException("Demasiados capítulos de una vez")
         s.db.putProgress(call.user.id, rows)
         body.getAsJsonObject("history")?.let { s.db.putHistory(call.user.id, gson.fromJson(it, HistoryRow::class.java)) }
@@ -396,18 +458,25 @@ private fun Route.userRoutes(s: Services) {
     put("/settings") {
         val text = call.receiveText()
         require(text.length < MAX_SETTINGS_CHARS) { "Ajustes demasiado grandes" }
-        JsonParser.parseString(text).asJsonObject
-        s.db.putSettings(call.user.id, text)
+        val incoming = JsonParser.parseString(text).asJsonObject
+        // The sources and excluded genres also live in the Android app: they count as changed only
+        // when they really are different, so saving the font size does not overrule the phone.
+        val stored = s.db.settings(call.user.id)?.let { runCatching { JsonParser.parseString(it).asJsonObject }.getOrNull() }
+        val sharedChanged = stored == null || Database.SHARED_SETTINGS.any { incoming.get(it) != stored.get(it) }
+        val sharedAt = if (sharedChanged) System.currentTimeMillis() else s.db.sharedUpdatedAtOf(call.user.id)
+        s.db.putSettings(call.user.id, text, sharedAt)
         call.respond(mapOf("ok" to true))
     }
     get("/export") {
         val user = call.user
         val export = JsonObject().apply {
             addProperty("format", "yomukai-export")
-            addProperty("version", 1)
+            addProperty("version", 2)
             addProperty("exportedAt", System.currentTimeMillis())
             addProperty("user", user.name)
             add("library", gson.toJsonTree(s.db.library(user.id)))
+            add("categories", gson.toJsonTree(s.db.categories(user.id)))
+            add("bookmarks", gson.toJsonTree(s.db.allBookmarks(user.id)))
             add("progress", gson.toJsonTree(s.db.allProgress(user.id)))
             add("history", gson.toJsonTree(s.db.history(user.id, Int.MAX_VALUE)))
             add("settings", s.db.settings(user.id)?.let { JsonParser.parseString(it) } ?: JsonObject())
@@ -424,20 +493,30 @@ private fun Route.userRoutes(s: Services) {
         require(text.length < MAX_IMPORT_CHARS) { "El archivo es demasiado grande" }
         val root = runCatching { JsonParser.parseString(text).asJsonObject }.getOrNull()
         require(root?.get("format")?.asString == "yomukai-export") { "No es una copia de Yomukai" }
-        val library = root!!.getAsJsonArray("library")?.map { gson.fromJson(it, LibraryRow::class.java) }.orEmpty()
-        val progress = root.getAsJsonArray("progress")?.map { gson.fromJson(it, ProgressRow::class.java) }.orEmpty()
-        val history = root.getAsJsonArray("history")?.map { gson.fromJson(it, HistoryRow::class.java) }.orEmpty()
-        val settings = root.getAsJsonObject("settings")?.toString()
+        fun <T> list(key: String, type: Class<T>): List<T> = root!!.getAsJsonArray(key)?.mapNotNull { runCatching { gson.fromJson(it, type) }.getOrNull() }.orEmpty()
+        val library = list("library", LibraryRow::class.java).filter { !it.sourceId.isNullOrBlank() && !it.mediaId.isNullOrBlank() }
+            .map { it.copy(deleted = false) }
+        val progress = list("progress", ProgressRow::class.java).filter { !it.sourceId.isNullOrBlank() && !it.chapterId.isNullOrBlank() && !it.mediaId.isNullOrBlank() }
+        val history = list("history", HistoryRow::class.java).filter { !it.sourceId.isNullOrBlank() && !it.mediaId.isNullOrBlank() && !it.chapterId.isNullOrBlank() }
+            .map { it.copy(deleted = false) }
+        val categories = list("categories", CategoryRow::class.java).filter { !it.name.isNullOrBlank() }.map { it.copy(deleted = false) }.take(MAX_CATEGORIES)
+        val bookmarks = list("bookmarks", BookmarkRow::class.java).filter { !it.sourceId.isNullOrBlank() && !it.chapterId.isNullOrBlank() && !it.mediaId.isNullOrBlank() }
+            .map { it.copy(deleted = false) }
+        val settings = root!!.getAsJsonObject("settings")?.toString()
         if (call.request.queryParameters["mode"] == "replace") {
-            s.db.replaceAll(call.user.id, library, progress, history, settings)
+            s.db.replaceAll(call.user.id, library, progress, history, categories, bookmarks, settings)
         } else {
-            // Merging keeps what is already here and adds what the copy brings.
+            // Merging: what the copy brings counts as changed now, except reading progress, where the
+            // newest of the two wins.
+            val now = System.currentTimeMillis()
             s.db.tx {
                 with(s.db) {
-                    library.forEach { upsertLibrary(call.user.id, it) }
+                    categories.forEach { upsertCategory(call.user.id, it.copy(updatedAt = now)) }
+                    library.forEach { upsertLibrary(call.user.id, it.copy(updatedAt = now)) }
                     progress.forEach { upsertProgress(call.user.id, it) }
-                    history.forEach { upsertHistory(call.user.id, it) }
-                    if (settings != null) upsertSettings(call.user.id, settings)
+                    history.forEach { upsertHistory(call.user.id, it.copy(updatedAt = maxOf(it.readAt, 1))) }
+                    bookmarks.forEach { upsertBookmark(call.user.id, it.copy(updatedAt = now)) }
+                    if (settings != null) upsertSettings(call.user.id, settings, now)
                 }
             }
         }
@@ -467,6 +546,11 @@ private fun Route.webApp(dir: File) {
 }
 
 private const val MAX_PROGRESS_ROWS = 5_000
+private const val MAX_ROW_CHARS = 64 * 1024
+private const val MAX_CATEGORIES = 200
+private const val MAX_DOWNLOAD_IDS = 200
+/** Per sync call; the app sends bigger change sets in several calls. */
+private const val MAX_SYNC_ROWS = 20_000
 private const val MIN_PASSWORD = 8
 private const val MAX_SETTINGS_CHARS = 256 * 1024
 private const val MAX_IMPORT_CHARS = 32 * 1024 * 1024

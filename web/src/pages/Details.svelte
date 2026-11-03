@@ -2,7 +2,8 @@
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
   import { route, navigate, back, media as mediaHref, reader } from '../lib/router.svelte.js';
-  import { sourceById, inLibrary, toggleLibrary, notify, seenItem, READING_STATUSES, setReadingStatus } from '../lib/store.svelte.js';
+  import { session, sourceById, inLibrary, toggleLibrary, notify, seenItem, READING_STATUSES, setReadingStatus, statusOf, categories, setCategories, editCategory } from '../lib/store.svelte.js';
+  import { downloadChapters } from '../lib/api.js';
   import { coverSeed, themeFor, styleOf } from '../lib/cover.js';
   import { TYPE_NAMES, TYPE_COLORS, parseStatus, statusName, score, monthYear, chapterNoun } from '../lib/format.js';
   import { progressMap, continueTarget, markThrough, markOne } from '../lib/progress.js';
@@ -35,6 +36,49 @@
   let issuesOpen = $state(false);
 
   let chapterQuery = $state('');
+  let catsOpen = $state(false);
+  const onPhone = /iPhone|iPad|Android/i.test(navigator.userAgent);
+  let newCat = $state('');
+  let dlOpen = $state(false);
+  let dlFrom = $state(0);
+  let dlTo = $state(0);
+  let marksOpen = $state(false);
+  let marks = $state(null);
+  const maxDownload = $derived(session.user?.guest ? 20 : 100);
+
+  function toggleCat(name) {
+    const current = saved?.categories || [];
+    setCategories(sourceId, mediaId, current.includes(name) ? current.filter((c) => c !== name) : [...current, name]);
+  }
+  async function createCat(e) {
+    e.preventDefault();
+    const name = newCat.trim();
+    if (!name) return;
+    await editCategory({ new: name, sortOrder: categories.list.length });
+    toggleCat(name);
+    newCat = '';
+  }
+
+  function openDownloads() {
+    menu = false;
+    dlFrom = 0;
+    dlTo = Math.min(list.chapters.length, maxDownload) - 1;
+    dlOpen = true;
+  }
+  function download(chapters) {
+    if (!chapters.length) { notify('No hay nada que descargar'); return; }
+    if (chapters.length > maxDownload) { notify(`Como mucho ${maxDownload} capítulos por descarga`); return; }
+    downloadChapters({ sourceId, mediaId, title: item?.title, chapterIds: chapters.map((c) => c.id) }, (msg) => notify('No se pudo descargar: ' + msg));
+    notify(chapters.length === 1 ? 'Descargando...' : `Preparando ${chapters.length} capítulos; tu navegador lo guardará al terminar de llegar`);
+    dlOpen = false;
+  }
+  const unreadChapters = $derived(list.chapters.filter((c) => !progress[c.id]?.read));
+
+  async function openMarks() {
+    menu = false;
+    marksOpen = true;
+    marks = await api.bookmarks(sourceId, mediaId).catch(() => []);
+  }
   const saved = $derived(inLibrary(sourceId, mediaId));
   /** "120", "cap 120" or part of a chapter's name. */
   const matches = (c, q) => {
@@ -153,9 +197,13 @@
       {#if saved}
         <div class="statuses" role="radiogroup" aria-label="Estado de lectura">
           {#each READING_STATUSES as [key, label]}
-            <button class="chip" role="radio" aria-checked={saved.readingStatus === key} class:on={saved.readingStatus === key} onclick={() => setReadingStatus(sourceId, mediaId, key)}>{anime && key === 'READING' ? 'Viendo' : label}</button>
+            <button class="chip" role="radio" aria-checked={statusOf(saved) === key} class:on={statusOf(saved) === key} onclick={() => setReadingStatus(sourceId, mediaId, key)}>{anime && key === 'READING' ? 'Viendo' : label}</button>
           {/each}
         </div>
+        <button class="cats" onclick={() => (catsOpen = true)}>
+          <Icon name="library" size={16} />
+          {saved.categories?.length ? saved.categories.join(' · ') : 'Añadir a una categoría'}
+        </button>
       {/if}
 
       {#if synopsis}
@@ -272,8 +320,75 @@
 <Sheet bind:open={menu} title="Opciones">
   <button class="list-item opt" onclick={openAlternatives}><Icon name="search" /> Buscar en otras fuentes</button>
   {#if list.chapters.length}
+    <button class="list-item opt" onclick={openDownloads}><Icon name="download" /> Descargar en este dispositivo</button>
+    {#if !anime}<button class="list-item opt" onclick={openMarks}><Icon name="bookmark" /> Marcadores</button>{/if}
     <button class="list-item opt" onclick={() => markAllBefore(list.chapters[list.chapters.length - 1], true)}><Icon name="check" /> Marcar todo como {anime ? 'visto' : 'leído'}</button>
     <button class="list-item opt" onclick={() => markAllBefore(list.chapters[list.chapters.length - 1], false)}><Icon name="close" /> Quitar todas las marcas</button>
+  {/if}
+</Sheet>
+
+<Sheet bind:open={catsOpen} title="Categorías">
+  {#if !categories.list.length}<p class="small muted" style="margin-top:0">Aún no tienes categorías. Crea una:</p>{/if}
+  <div class="wrap">
+    {#each categories.list as c (c.name)}
+      <button class="chip" class:on={saved?.categories?.includes(c.name)} onclick={() => toggleCat(c.name)}>{c.name}</button>
+    {/each}
+  </div>
+  <form class="row-form" onsubmit={createCat}>
+    <input class="field" placeholder="Nueva categoría" bind:value={newCat} maxlength="100" />
+    <button class="btn tonal" disabled={!newCat.trim()}>Crear y añadir</button>
+  </form>
+</Sheet>
+
+<Sheet bind:open={dlOpen} title={anime ? 'Descargar episodios' : 'Descargar capítulos'}>
+  <p class="small muted" style="margin-top:0">
+    Se guarda en este {onPhone ? 'móvil' : 'ordenador'}, no en el servidor.
+    {anime ? 'Los episodios se descargan como vídeo, de uno en uno.' : source?.kind === 'novel' ? 'Las novelas se descargan como libro EPUB (Libros del iPhone, Google Play Libros, Kindle...).' : 'Los cómics se descargan como CBZ, que abre cualquier lector de cómics; varios capítulos van juntos en un ZIP.'}
+  </p>
+  {#if anime}
+    <div class="dl-list">
+      {#each [...list.chapters].reverse() as c (c.id)}
+        <div class="list-item">
+          <span class="grow">{c.label}{#if c.name} <span class="small muted">{c.name}</span>{/if}</span>
+          <button class="icon-btn" onclick={() => download([c])} aria-label="Descargar {c.label}"><Icon name="download" size={20} /></button>
+        </div>
+      {/each}
+    </div>
+  {:else}
+    <div class="dl-actions">
+      {#if unreadChapters.length && unreadChapters.length <= maxDownload}
+        <button class="btn tonal" onclick={() => download(unreadChapters)}>No leídos · {unreadChapters.length}</button>
+      {/if}
+      {#if list.chapters.length <= maxDownload}
+        <button class="btn tonal" onclick={() => download(list.chapters)}>Todos · {list.chapters.length}</button>
+      {/if}
+    </div>
+    <div class="small muted">Desde y hasta (máximo {maxDownload} de una vez)</div>
+    <div class="range">
+      <select class="field" bind:value={dlFrom}>{#each list.chapters as c, i}<option value={i}>{c.label}</option>{/each}</select>
+      <select class="field" bind:value={dlTo}>{#each list.chapters as c, i}<option value={i}>{c.label}</option>{/each}</select>
+    </div>
+    <button class="btn primary block" style="margin-top:12px" onclick={() => download(list.chapters.slice(Math.min(dlFrom, dlTo), Math.max(dlFrom, dlTo) + 1))}>
+      <Icon name="download" size={18} /> Descargar {Math.abs(dlTo - dlFrom) + 1} {chapterNoun(Math.abs(dlTo - dlFrom) + 1, anime)}
+    </button>
+  {/if}
+</Sheet>
+
+<Sheet bind:open={marksOpen} title="Marcadores">
+  {#if marks === null}
+    <div class="spinner"></div>
+  {:else if !marks.length}
+    <p class="muted">Sin marcadores. Ponlos desde el lector con el botón del marcador.</p>
+  {:else}
+    {#each marks as m (m.chapterId + m.position)}
+      <a class="list-item opt" href={reader(source?.kind, sourceId, mediaId, m.chapterId) + '?p=' + m.position} onclick={() => (marksOpen = false)}>
+        <Icon name="bookmark" size={20} />
+        <span class="grow">
+          {m.chapterTitle} · {source?.kind === 'novel' ? 'párrafo' : 'página'} {m.position + 1}
+          {#if m.label}<span class="small muted mark-label">{m.label}</span>{/if}
+        </span>
+      </a>
+    {/each}
   {/if}
 </Sheet>
 
@@ -361,6 +476,14 @@
   .related { padding: 0 16px; }
   .fab { position: fixed; right: max(16px, calc((100vw - 960px) / 2 + 16px)); bottom: calc(16px + var(--safe-bottom)); z-index: 30; height: 56px; padding: 0 22px 0 18px; border-radius: 18px; display: flex; align-items: center; gap: 10px; background: var(--primary-container); color: var(--on-primary-container); font-weight: 600; box-shadow: 0 6px 20px #0008; }
   .opt { width: 100%; text-align: left; gap: 14px; }
+  .cats { position: relative; display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 0.82rem; color: var(--text-dim); text-align: left; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+  .row-form { display: flex; gap: 8px; margin-top: 14px; }
+  .row-form .field { flex: 1; min-width: 0; height: 44px; }
+  .dl-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .range { display: flex; gap: 8px; margin-top: 6px; }
+  .range .field { flex: 1; min-width: 0; height: 44px; }
+  .mark-label { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .alt { align-items: flex-start; }
   .sure { color: var(--primary); font-size: 0.8rem; }
   .searching { display: flex; gap: 12px; align-items: center; padding: 12px 0; }

@@ -3,6 +3,7 @@
   import { api } from '../lib/api.js';
   import { session, settings, sources, saveSettings, notify, resetUserState, loadUserData } from '../lib/store.svelte.js';
   import Icon from '../components/Icon.svelte';
+  import Sheet from '../components/Sheet.svelte';
 
   const COMMON_GENRES = ['BL', 'GL', 'Ecchi', 'Gore', 'Harem', 'Terror', 'Adulto', 'Violencia sexual', 'Romance', 'Isekai', 'Mecha', 'Deportes'];
 
@@ -37,6 +38,27 @@
     const list = settings.exclusions.global;
     settings.exclusions.global = list.includes(g) ? list.filter((x) => x !== g) : [...list, g];
     saveSettings();
+  }
+
+  // Genres hidden in one source only (the app has the same setting).
+  let perSourceFor = $state(null);
+  let perSourceOpen = $state(false);
+  let perSourceGenre = $state('');
+  const perSourceList = $derived(perSourceFor ? settings.exclusions.perSource?.[perSourceFor.id] || [] : []);
+  function togglePerSource(g) {
+    const id = perSourceFor.id;
+    const all = { ...(settings.exclusions.perSource || {}) };
+    const list = all[id] || [];
+    all[id] = list.includes(g) ? list.filter((x) => x !== g) : [...list, g];
+    if (!all[id].length) delete all[id];
+    settings.exclusions.perSource = all;
+    saveSettings();
+  }
+  function addPerSource(e) {
+    e.preventDefault();
+    const g = perSourceGenre.trim();
+    if (g && !perSourceList.includes(g)) togglePerSource(g);
+    perSourceGenre = '';
   }
 
   function addGenre(e) {
@@ -144,6 +166,9 @@
             </span>
           {/if}
         </span>
+        <button class="icon-btn" onclick={(e) => { e.preventDefault(); perSourceFor = s; perSourceOpen = true; }} aria-label="Géneros ocultos en {s.name}" title="Géneros ocultos en esta fuente">
+          <Icon name="tune" size={20} />{#if settings.exclusions.perSource?.[s.id]?.length}<span class="count">{settings.exclusions.perSource[s.id].length}</span>{/if}
+        </button>
         <input type="checkbox" checked={enabledIds.has(s.id)} onchange={() => toggleSource(s.id)} />
       </label>
     {/each}
@@ -162,6 +187,19 @@
     </div>
     <form class="add" onsubmit={addGenre}><input class="field" placeholder="Otro género" bind:value={customGenre} /><button class="btn tonal">Añadir</button></form>
   </section>
+
+  {#if !session.user.guest}
+    <h2 class="h">App de Android</h2>
+    <section class="card">
+      <p class="small muted" style="margin-top:0">
+        La app puede guardar lo mismo que ves aquí: biblioteca, categorías, progreso, historial, marcadores, fuentes y géneros excluidos.
+        En la app ve a <b>Ajustes › Sincronizar con servidor</b> y pon:
+      </p>
+      <div class="sync-box"><span class="small muted">Servidor</span><code>{location.origin}</code></div>
+      <div class="sync-box"><span class="small muted">Usuario</span><code>{session.user.name}</code></div>
+      <p class="small muted">y tu contraseña de aquí. {location.protocol === 'https:' ? '' : 'Para usarla fuera de casa, el servidor necesita HTTPS; sin él, la app solo se conecta en tu red.'}</p>
+    </section>
+  {/if}
 
   <h2 class="h">Lectura</h2>
   <section class="card">
@@ -200,6 +238,16 @@
   {/if}
 </div>
 
+<Sheet bind:open={perSourceOpen} title={perSourceFor ? `Géneros ocultos en ${perSourceFor.name}` : ''}>
+  <p class="small muted" style="margin-top:0">Solo para esta fuente; los de «Géneros excluidos» se ocultan en todas.</p>
+  <div class="wrap">
+    {#each [...new Set([...COMMON_GENRES, ...perSourceList])] as g}
+      <button class="chip" class:on={perSourceList.includes(g)} onclick={() => togglePerSource(g)}>{g}</button>
+    {/each}
+  </div>
+  <form class="add" onsubmit={addPerSource}><input class="field" placeholder="Otro género" bind:value={perSourceGenre} /><button class="btn tonal">Añadir</button></form>
+</Sheet>
+
 <style>
   .narrow { max-width: 720px; }
   .h { font-size: 0.85rem; color: var(--primary); margin: 24px 4px 8px; }
@@ -210,11 +258,15 @@
   .list { padding: 4px 16px; }
   .toggle { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--outline-variant); }
   .toggle:last-child { border-bottom: 0; }
+  .toggle .icon-btn { position: relative; color: var(--text-dim); }
+  .toggle .count { position: absolute; top: 4px; right: 2px; min-width: 16px; height: 16px; border-radius: 8px; background: var(--primary); color: var(--on-primary); font-size: 0.65rem; font-weight: 700; display: grid; place-items: center; }
   .wrap { display: flex; flex-wrap: wrap; gap: 8px; }
   .check { display: block; margin-top: 2px; color: var(--text-dim); }
   .check.ok { color: #6fcf8a; }
   .check.fail { color: var(--error, #ff8a80); }
   .diag { padding: 12px 0; }
+  .sync-box { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin: 6px 0; border-radius: 10px; background: var(--surface-high); }
+  .sync-box code { flex: 1; min-width: 0; overflow-wrap: anywhere; user-select: all; }
   .add { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
   .add .field { flex: 1; min-width: 140px; }
   .created { margin: 12px 0; padding: 12px; border-radius: 10px; background: var(--primary-container); color: var(--on-primary-container); }

@@ -20,20 +20,86 @@ data class User(
     val expiresAt: Long?
 )
 
+/*
+ * Synced rows. Every change gets [updatedAt] (when it happened, by the clock of whoever made it) and a
+ * server revision: devices ask for "everything after revision N", so a device whose clock is wrong
+ * never misses a change. When two devices change the same row, the later [updatedAt] wins. Deleting
+ * keeps the row with deleted = true, so the deletion reaches the other devices too.
+ *
+ * Gson fills these from JSON without running Kotlin defaults: a missing field arrives as null or 0,
+ * hence [normalized] before anything is written.
+ */
+
 data class LibraryRow(
     val sourceId: String, val mediaId: String, val title: String, val cover: String, val type: String,
-    val status: String, val author: String, val genres: String, val addedAt: Long, val readingStatus: String
-)
+    val status: String, val author: String, val genres: String, val addedAt: Long, val readingStatus: String,
+    /** Names of the user's categories this title belongs to. */
+    val categories: List<String>? = emptyList(),
+    val updatedAt: Long = 0, val deleted: Boolean = false
+) {
+    fun normalized() = copy(
+        sourceId = clip(sourceId, ID_MAX), mediaId = clip(mediaId, ID_MAX), title = clip(title, TEXT_MAX),
+        cover = clip(cover, ID_MAX), type = clip(type, 20).ifEmpty { "MANGA" }, status = clip(status, 100),
+        author = clip(author, TEXT_MAX), genres = clip(genres, 2_000), readingStatus = clip(readingStatus, 20).ifEmpty { "NONE" }.let { if (it == "PLAN") "PLAN_TO_READ" else it },
+        categories = categories.orEmpty().map { clip(it, 100).trim() }.filter { it.isNotEmpty() }.distinct().take(50)
+    )
+}
 
 data class ProgressRow(
     val sourceId: String, val chapterId: String, val mediaId: String, val read: Boolean,
     val page: Int, val total: Int, val fraction: Double, val updatedAt: Long
-)
+) {
+    fun normalized() = copy(
+        sourceId = clip(sourceId, ID_MAX), chapterId = clip(chapterId, ID_MAX), mediaId = clip(mediaId, ID_MAX),
+        page = page.coerceAtLeast(0), total = total.coerceAtLeast(0),
+        fraction = if (fraction.isFinite()) fraction.coerceIn(0.0, 1.0) else 0.0
+    )
+}
 
 data class HistoryRow(
     val sourceId: String, val mediaId: String, val chapterId: String, val chapterTitle: String,
-    val title: String, val cover: String, val type: String, val readAt: Long
+    val title: String, val cover: String, val type: String, val readAt: Long,
+    val updatedAt: Long = 0, val deleted: Boolean = false
+) {
+    fun normalized() = copy(
+        sourceId = clip(sourceId, ID_MAX), mediaId = clip(mediaId, ID_MAX), chapterId = clip(chapterId, ID_MAX),
+        chapterTitle = clip(chapterTitle, TEXT_MAX), title = clip(title, TEXT_MAX), cover = clip(cover, ID_MAX),
+        type = clip(type, 20).ifEmpty { "MANGA" }, updatedAt = updatedAt.takeIf { it > 0 } ?: readAt
+    )
+}
+
+/** A saved spot: page index for images, paragraph index for novels. */
+data class BookmarkRow(
+    val sourceId: String, val mediaId: String, val chapterId: String, val chapterTitle: String,
+    val position: Int, val label: String, val createdAt: Long, val updatedAt: Long = 0, val deleted: Boolean = false
+) {
+    fun normalized() = copy(
+        sourceId = clip(sourceId, ID_MAX), mediaId = clip(mediaId, ID_MAX), chapterId = clip(chapterId, ID_MAX),
+        chapterTitle = clip(chapterTitle, TEXT_MAX), label = clip(label, 300), position = position.coerceAtLeast(0),
+        updatedAt = updatedAt.takeIf { it > 0 } ?: createdAt
+    )
+}
+
+data class CategoryRow(val name: String, val sortOrder: Int, val updatedAt: Long, val deleted: Boolean = false) {
+    fun normalized() = copy(name = clip(name, 100).trim())
+}
+
+/** What a device has not seen yet, from [Database.changesSince]. */
+data class SyncChanges(
+    val rev: Long,
+    val library: List<LibraryRow>,
+    val categories: List<CategoryRow>,
+    val progress: List<ProgressRow>,
+    val history: List<HistoryRow>,
+    val bookmarks: List<BookmarkRow>,
+    /** The shared part of the settings, with its updatedAt, when it changed. */
+    val settings: com.google.gson.JsonObject?
 )
+
+private val gson = com.google.gson.Gson()
+private const val ID_MAX = 2_000
+private const val TEXT_MAX = 500
+private fun clip(value: String?, max: Int) = value.orEmpty().take(max)
 
 /**
  * SQLite, one file in the data folder. A single connection used one statement at a time is plenty
@@ -51,6 +117,40 @@ class Database(file: File) {
             s.execute("PRAGMA busy_timeout=5000")
             SCHEMA.forEach(s::execute)
         }
+        migrate()
+    }
+
+    /** Columns added after the first version; SQLite has no ADD COLUMN IF NOT EXISTS. */
+    private fun migrate() {
+        fun columns(table: String) = connection.createStatement().use { s ->
+            s.executeQuery("PRAGMA table_info($table)").use { rs -> rs.all { getString("name") }.toSet() }
+        }
+        fun add(table: String, column: String, definition: String) {
+            if (column !in columns(table)) connection.createStatement().use { it.execute("ALTER TABLE $table ADD COLUMN $column $definition") }
+        }
+        add("library", "categories", "TEXT NOT NULL DEFAULT '[]'")
+        add("library", "updated_at", "INTEGER NOT NULL DEFAULT 0")
+        add("library", "deleted", "INTEGER NOT NULL DEFAULT 0")
+        add("library", "rev", "INTEGER NOT NULL DEFAULT 0")
+        add("progress", "rev", "INTEGER NOT NULL DEFAULT 0")
+        add("history", "updated_at", "INTEGER NOT NULL DEFAULT 0")
+        add("history", "deleted", "INTEGER NOT NULL DEFAULT 0")
+        add("history", "rev", "INTEGER NOT NULL DEFAULT 0")
+        add("settings", "shared_updated_at", "INTEGER NOT NULL DEFAULT 0")
+        add("settings", "rev", "INTEGER NOT NULL DEFAULT 0")
+        connection.createStatement().use { s ->
+            listOf("library", "progress", "history", "bookmarks", "categories").forEach { t ->
+                s.execute("CREATE INDEX IF NOT EXISTS ${t}_rev ON $t(user_id, rev)")
+            }
+            // Rows from before revisions existed: give them one so the first sync of a device sees them.
+            listOf("library", "progress", "history", "settings").forEach { t ->
+                s.execute("UPDATE $t SET rev = 1 WHERE rev = 0")
+            }
+            s.execute("UPDATE library SET updated_at = added_at WHERE updated_at = 0")
+            // The web used "PLAN" before it shared the app's names.
+            s.execute("UPDATE library SET reading_status = 'PLAN_TO_READ' WHERE reading_status = 'PLAN'")
+            s.execute("UPDATE history SET updated_at = read_at WHERE updated_at = 0")
+        }
     }
 
     /** Runs [block] on the IO threads with the connection to itself. */
@@ -67,6 +167,12 @@ class Database(file: File) {
                 connection.autoCommit = auto
             }
         }
+    }
+
+    /** The next server revision; every write takes one. */
+    private fun Connection.nextRev(): Long {
+        prepare("UPDATE counters SET value = value + 1 WHERE name = 'rev'") { executeUpdate() }
+        return prepare("SELECT value FROM counters WHERE name = 'rev'") { executeQuery().use { it.next(); it.getLong(1) } }
     }
 
     // Users and sessions
@@ -135,31 +241,81 @@ class Database(file: File) {
     // Library
 
     suspend fun library(userId: Long): List<LibraryRow> = tx {
-        prepare("SELECT * FROM library WHERE user_id = ? ORDER BY added_at DESC") {
+        prepare("SELECT * FROM library WHERE user_id = ? AND deleted = 0 ORDER BY added_at DESC") {
             setLong(1, userId)
             executeQuery().use { rs -> rs.all { libraryRow() } }
         }
     }
 
+    suspend fun libraryRow(userId: Long, sourceId: String, mediaId: String): LibraryRow? = tx {
+        prepare("SELECT * FROM library WHERE user_id = ? AND source_id = ? AND media_id = ?") {
+            setLong(1, userId); setString(2, sourceId); setString(3, mediaId)
+            executeQuery().use { if (it.next()) it.libraryRow() else null }
+        }
+    }
+
     suspend fun putLibrary(userId: Long, row: LibraryRow) = tx { upsertLibrary(userId, row) }
 
-    fun Connection.upsertLibrary(userId: Long, row: LibraryRow) {
-        prepare(
-            "INSERT INTO library(user_id, source_id, media_id, title, cover, type, status, author, genres, added_at, reading_status) " +
-                "VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id, source_id, media_id) DO UPDATE SET " +
+    /** Writes [row] unless the stored one changed later. Returns whether it was written. */
+    fun Connection.upsertLibrary(userId: Long, input: LibraryRow): Boolean {
+        val row = input.normalized()
+        return prepare(
+            "INSERT INTO library(user_id, source_id, media_id, title, cover, type, status, author, genres, added_at, reading_status, " +
+                "categories, updated_at, deleted, rev) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id, source_id, media_id) DO UPDATE SET " +
                 "title=excluded.title, cover=excluded.cover, type=excluded.type, status=excluded.status, author=excluded.author, " +
-                "genres=excluded.genres, reading_status=excluded.reading_status"
+                "genres=excluded.genres, added_at=excluded.added_at, reading_status=excluded.reading_status, categories=excluded.categories, " +
+                "updated_at=excluded.updated_at, deleted=excluded.deleted, rev=excluded.rev WHERE excluded.updated_at > library.updated_at"
         ) {
             setLong(1, userId); setString(2, row.sourceId); setString(3, row.mediaId); setString(4, row.title)
             setString(5, row.cover); setString(6, row.type); setString(7, row.status); setString(8, row.author)
             setString(9, row.genres); setLong(10, row.addedAt); setString(11, row.readingStatus)
-            executeUpdate()
+            setString(12, gson.toJson(row.categories)); setLong(13, row.updatedAt); setInt(14, row.deleted.int); setLong(15, nextRev())
+            executeUpdate() > 0
         }
     }
 
     suspend fun removeLibrary(userId: Long, sourceId: String, mediaId: String) = tx {
-        prepare("DELETE FROM library WHERE user_id = ? AND source_id = ? AND media_id = ?") {
-            setLong(1, userId); setString(2, sourceId); setString(3, mediaId); executeUpdate()
+        prepare("UPDATE library SET deleted = 1, updated_at = ?, rev = ? WHERE user_id = ? AND source_id = ? AND media_id = ?") {
+            setLong(1, System.currentTimeMillis()); setLong(2, nextRev()); setLong(3, userId); setString(4, sourceId); setString(5, mediaId)
+            executeUpdate()
+        }
+    }
+
+    // Categories
+
+    suspend fun categories(userId: Long): List<CategoryRow> = tx {
+        prepare("SELECT * FROM categories WHERE user_id = ? AND deleted = 0 ORDER BY sort_order, name COLLATE NOCASE") {
+            setLong(1, userId); executeQuery().use { rs -> rs.all { categoryRow() } }
+        }
+    }
+
+    fun Connection.upsertCategory(userId: Long, input: CategoryRow): Boolean {
+        val row = input.normalized()
+        if (row.name.isEmpty()) return false
+        return prepare(
+            "INSERT INTO categories(user_id, name, sort_order, updated_at, deleted, rev) VALUES(?,?,?,?,?,?) " +
+                "ON CONFLICT(user_id, name) DO UPDATE SET sort_order=excluded.sort_order, updated_at=excluded.updated_at, " +
+                "deleted=excluded.deleted, rev=excluded.rev WHERE excluded.updated_at > categories.updated_at"
+        ) {
+            setLong(1, userId); setString(2, row.name); setInt(3, row.sortOrder); setLong(4, row.updatedAt)
+            setInt(5, row.deleted.int); setLong(6, nextRev()); executeUpdate() > 0
+        }
+    }
+
+    /** Creates, renames or deletes a category; titles in it follow. */
+    suspend fun editCategory(userId: Long, oldName: String?, newName: String?, sortOrder: Int = 0) = tx {
+        val now = System.currentTimeMillis()
+        if (newName != null) upsertCategory(userId, CategoryRow(newName, sortOrder, now))
+        if (oldName != null && oldName != newName) {
+            upsertCategory(userId, CategoryRow(oldName, 0, now, deleted = true))
+            // Titles that were in it move to the new name, or leave it when it is deleted.
+            val rows = prepare("SELECT * FROM library WHERE user_id = ? AND deleted = 0") {
+                setLong(1, userId); executeQuery().use { rs -> rs.all { libraryRow() } }
+            }.filter { oldName in it.categories.orEmpty() }
+            rows.forEach { r ->
+                val names = r.categories.orEmpty().map { if (it == oldName) newName else it }.filterNotNull().distinct()
+                upsertLibrary(userId, r.copy(categories = names, updatedAt = now))
+            }
         }
     }
 
@@ -178,20 +334,23 @@ class Database(file: File) {
 
     suspend fun putProgress(userId: Long, rows: List<ProgressRow>) = tx { rows.forEach { upsertProgress(userId, it) } }
 
-    fun Connection.upsertProgress(userId: Long, row: ProgressRow) {
-        prepare(
-            "INSERT INTO progress(user_id, source_id, chapter_id, media_id, read, page, total, fraction, updated_at) VALUES(?,?,?,?,?,?,?,?,?) " +
-                "ON CONFLICT(user_id, source_id, chapter_id) DO UPDATE SET read=excluded.read, page=excluded.page, " +
-                "total=excluded.total, fraction=excluded.fraction, updated_at=excluded.updated_at"
+    fun Connection.upsertProgress(userId: Long, input: ProgressRow): Boolean {
+        val row = input.normalized()
+        return prepare(
+            "INSERT INTO progress(user_id, source_id, chapter_id, media_id, read, page, total, fraction, updated_at, rev) VALUES(?,?,?,?,?,?,?,?,?,?) " +
+                "ON CONFLICT(user_id, source_id, chapter_id) DO UPDATE SET media_id=excluded.media_id, read=excluded.read, page=excluded.page, " +
+                "total=excluded.total, fraction=excluded.fraction, updated_at=excluded.updated_at, rev=excluded.rev " +
+                "WHERE excluded.updated_at > progress.updated_at"
         ) {
             setLong(1, userId); setString(2, row.sourceId); setString(3, row.chapterId); setString(4, row.mediaId)
             setInt(5, row.read.int); setInt(6, row.page); setInt(7, row.total); setDouble(8, row.fraction); setLong(9, row.updatedAt)
-            executeUpdate()
+            setLong(10, nextRev())
+            executeUpdate() > 0
         }
     }
 
     suspend fun history(userId: Long, limit: Int = 200): List<HistoryRow> = tx {
-        prepare("SELECT * FROM history WHERE user_id = ? ORDER BY read_at DESC LIMIT ?") {
+        prepare("SELECT * FROM history WHERE user_id = ? AND deleted = 0 ORDER BY read_at DESC LIMIT ?") {
             setLong(1, userId); setInt(2, limit)
             executeQuery().use { rs -> rs.all { historyRow() } }
         }
@@ -199,50 +358,160 @@ class Database(file: File) {
 
     suspend fun putHistory(userId: Long, row: HistoryRow) = tx { upsertHistory(userId, row) }
 
-    fun Connection.upsertHistory(userId: Long, row: HistoryRow) {
-        prepare(
-            "INSERT INTO history(user_id, source_id, media_id, chapter_id, chapter_title, title, cover, type, read_at) VALUES(?,?,?,?,?,?,?,?,?) " +
-                "ON CONFLICT(user_id, source_id, media_id) DO UPDATE SET chapter_id=excluded.chapter_id, chapter_title=excluded.chapter_title, " +
-                "title=excluded.title, cover=excluded.cover, type=excluded.type, read_at=excluded.read_at"
+    fun Connection.upsertHistory(userId: Long, input: HistoryRow): Boolean {
+        val row = input.normalized()
+        return prepare(
+            "INSERT INTO history(user_id, source_id, media_id, chapter_id, chapter_title, title, cover, type, read_at, updated_at, deleted, rev) " +
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id, source_id, media_id) DO UPDATE SET chapter_id=excluded.chapter_id, " +
+                "chapter_title=excluded.chapter_title, title=excluded.title, cover=excluded.cover, type=excluded.type, read_at=excluded.read_at, " +
+                "updated_at=excluded.updated_at, deleted=excluded.deleted, rev=excluded.rev WHERE excluded.updated_at > history.updated_at"
         ) {
             setLong(1, userId); setString(2, row.sourceId); setString(3, row.mediaId); setString(4, row.chapterId)
             setString(5, row.chapterTitle); setString(6, row.title); setString(7, row.cover); setString(8, row.type); setLong(9, row.readAt)
-            executeUpdate()
+            setLong(10, row.updatedAt); setInt(11, row.deleted.int); setLong(12, nextRev())
+            executeUpdate() > 0
         }
     }
 
     suspend fun removeHistory(userId: Long, sourceId: String, mediaId: String) = tx {
-        prepare("DELETE FROM history WHERE user_id = ? AND source_id = ? AND media_id = ?") {
-            setLong(1, userId); setString(2, sourceId); setString(3, mediaId); executeUpdate()
+        prepare("UPDATE history SET deleted = 1, updated_at = ?, rev = ? WHERE user_id = ? AND source_id = ? AND media_id = ?") {
+            setLong(1, System.currentTimeMillis()); setLong(2, nextRev()); setLong(3, userId); setString(4, sourceId); setString(5, mediaId)
+            executeUpdate()
         }
     }
 
-    // Settings: one JSON document per user, owned by the web app.
+    // Bookmarks
 
-    suspend fun settings(userId: Long): String? = tx {
+    suspend fun bookmarks(userId: Long, sourceId: String, mediaId: String): List<BookmarkRow> = tx {
+        prepare("SELECT * FROM bookmarks WHERE user_id = ? AND source_id = ? AND media_id = ? AND deleted = 0 ORDER BY created_at DESC") {
+            setLong(1, userId); setString(2, sourceId); setString(3, mediaId); executeQuery().use { rs -> rs.all { bookmarkRow() } }
+        }
+    }
+
+    suspend fun allBookmarks(userId: Long): List<BookmarkRow> = tx {
+        prepare("SELECT * FROM bookmarks WHERE user_id = ? AND deleted = 0") { setLong(1, userId); executeQuery().use { rs -> rs.all { bookmarkRow() } } }
+    }
+
+    suspend fun putBookmark(userId: Long, row: BookmarkRow) = tx { upsertBookmark(userId, row) }
+
+    fun Connection.upsertBookmark(userId: Long, input: BookmarkRow): Boolean {
+        val row = input.normalized()
+        return prepare(
+            "INSERT INTO bookmarks(user_id, source_id, chapter_id, position, media_id, chapter_title, label, created_at, updated_at, deleted, rev) " +
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id, source_id, chapter_id, position) DO UPDATE SET media_id=excluded.media_id, " +
+                "chapter_title=excluded.chapter_title, label=excluded.label, created_at=excluded.created_at, updated_at=excluded.updated_at, " +
+                "deleted=excluded.deleted, rev=excluded.rev WHERE excluded.updated_at > bookmarks.updated_at"
+        ) {
+            setLong(1, userId); setString(2, row.sourceId); setString(3, row.chapterId); setInt(4, row.position); setString(5, row.mediaId)
+            setString(6, row.chapterTitle); setString(7, row.label); setLong(8, row.createdAt); setLong(9, row.updatedAt)
+            setInt(10, row.deleted.int); setLong(11, nextRev())
+            executeUpdate() > 0
+        }
+    }
+
+    // Settings: one JSON document per user, owned by the web app. Its shared part (sources and excluded
+    // genres) is also synced with the Android app.
+
+    suspend fun settings(userId: Long): String? = tx { settingsJson(userId) }
+
+    private fun Connection.settingsJson(userId: Long): String? =
         prepare("SELECT json FROM settings WHERE user_id = ?") { setLong(1, userId); executeQuery().use { if (it.next()) it.getString(1) else null } }
-    }
 
-    suspend fun putSettings(userId: Long, json: String) = tx { upsertSettings(userId, json) }
+    suspend fun putSettings(userId: Long, json: String, sharedUpdatedAt: Long = System.currentTimeMillis()) =
+        tx { upsertSettings(userId, json, sharedUpdatedAt) }
 
-    fun Connection.upsertSettings(userId: Long, json: String) {
-        prepare("INSERT INTO settings(user_id, json) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET json=excluded.json") {
-            setLong(1, userId); setString(2, json); executeUpdate()
+    fun Connection.upsertSettings(userId: Long, json: String, sharedUpdatedAt: Long = System.currentTimeMillis()) {
+        prepare(
+            "INSERT INTO settings(user_id, json, shared_updated_at, rev) VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET " +
+                "json=excluded.json, shared_updated_at=excluded.shared_updated_at, rev=excluded.rev"
+        ) {
+            setLong(1, userId); setString(2, json); setLong(3, sharedUpdatedAt); setLong(4, nextRev()); executeUpdate()
         }
     }
 
-    /** Replaces everything a user has; used by import. */
-    suspend fun replaceAll(userId: Long, library: List<LibraryRow>, progress: List<ProgressRow>, history: List<HistoryRow>, settings: String?) = tx {
-        listOf("library", "progress", "history").forEach { table ->
-            prepare("DELETE FROM $table WHERE user_id = ?") { setLong(1, userId); executeUpdate() }
-        }
+    suspend fun sharedUpdatedAtOf(userId: Long): Long = tx { sharedUpdatedAt(userId) }
+
+    private fun Connection.sharedUpdatedAt(userId: Long): Long =
+        prepare("SELECT shared_updated_at FROM settings WHERE user_id = ?") { setLong(1, userId); executeQuery().use { if (it.next()) it.getLong(1) else 0L } }
+
+    // Sync
+
+    /** One device's changes, applied where they are newer; then everything the device has not seen. */
+    suspend fun sync(
+        userId: Long, since: Long, library: List<LibraryRow>, categories: List<CategoryRow>, progress: List<ProgressRow>,
+        history: List<HistoryRow>, bookmarks: List<BookmarkRow>, shared: com.google.gson.JsonObject?
+    ): SyncChanges = tx {
+        categories.forEach { upsertCategory(userId, it) }
         library.forEach { upsertLibrary(userId, it) }
         progress.forEach { upsertProgress(userId, it) }
         history.forEach { upsertHistory(userId, it) }
-        if (settings != null) upsertSettings(userId, settings)
+        bookmarks.forEach { upsertBookmark(userId, it) }
+        val sharedAt = shared?.get("updatedAt")?.takeIf { it.isJsonPrimitive }?.asLong ?: 0L
+        if (shared != null && sharedAt > sharedUpdatedAt(userId)) {
+            val current = settingsJson(userId)?.let { runCatching { com.google.gson.JsonParser.parseString(it).asJsonObject }.getOrNull() }
+                ?: com.google.gson.JsonObject()
+            for (key in SHARED_SETTINGS) {
+                if (shared.has(key)) current.add(key, shared.get(key)) else current.remove(key)
+            }
+            upsertSettings(userId, current.toString(), sharedAt)
+        }
+        changesSince(userId, since)
+    }
+
+    private fun Connection.changesSince(userId: Long, since: Long): SyncChanges {
+        fun <T> rows(table: String, read: ResultSet.() -> T): List<T> =
+            prepare("SELECT * FROM $table WHERE user_id = ? AND rev > ?") {
+                setLong(1, userId); setLong(2, since); executeQuery().use { rs -> rs.all(read) }
+            }
+        val settingsRow = prepare("SELECT json, shared_updated_at FROM settings WHERE user_id = ? AND rev > ?") {
+            setLong(1, userId); setLong(2, since)
+            executeQuery().use { rs ->
+                if (!rs.next()) null else {
+                    val all = runCatching { com.google.gson.JsonParser.parseString(rs.getString(1)).asJsonObject }.getOrNull() ?: com.google.gson.JsonObject()
+                    com.google.gson.JsonObject().apply {
+                        SHARED_SETTINGS.forEach { key -> all.get(key)?.let { add(key, it) } }
+                        addProperty("updatedAt", rs.getLong(2))
+                    }
+                }
+            }
+        }
+        val rev = prepare("SELECT value FROM counters WHERE name = 'rev'") { executeQuery().use { it.next(); it.getLong(1) } }
+        return SyncChanges(
+            rev = rev,
+            library = rows("library") { libraryRow() },
+            categories = rows("categories") { categoryRow() },
+            progress = rows("progress") { progressRow() },
+            history = rows("history") { historyRow() },
+            bookmarks = rows("bookmarks") { bookmarkRow() },
+            settings = settingsRow
+        )
+    }
+
+    /** Replaces everything a user has; used by import. */
+    suspend fun replaceAll(
+        userId: Long, library: List<LibraryRow>, progress: List<ProgressRow>, history: List<HistoryRow>,
+        categories: List<CategoryRow>, bookmarks: List<BookmarkRow>, settings: String?
+    ) = tx {
+        // Everything already there is marked deleted (so synced devices drop it too), then the copy is written.
+        val now = System.currentTimeMillis()
+        listOf("library", "history", "bookmarks", "categories").forEach { table ->
+            prepare("UPDATE $table SET deleted = 1, updated_at = ?, rev = ? WHERE user_id = ? AND deleted = 0") {
+                setLong(1, now); setLong(2, nextRev()); setLong(3, userId); executeUpdate()
+            }
+        }
+        prepare("DELETE FROM progress WHERE user_id = ?") { setLong(1, userId); executeUpdate() }
+        categories.forEach { upsertCategory(userId, it.copy(updatedAt = now + 1)) }
+        library.forEach { upsertLibrary(userId, it.copy(updatedAt = now + 1)) }
+        progress.forEach { upsertProgress(userId, it) }
+        history.forEach { upsertHistory(userId, it.copy(updatedAt = now + 1)) }
+        bookmarks.forEach { upsertBookmark(userId, it.copy(updatedAt = now + 1)) }
+        if (settings != null) upsertSettings(userId, settings, now + 1)
     }
 
     companion object {
+        /** Settings both the web and the Android app understand. */
+        val SHARED_SETTINGS = listOf("enabledSources", "exclusions")
+
         private val SCHEMA = listOf(
             """CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE COLLATE NOCASE,
                pass_hash TEXT, is_admin INTEGER NOT NULL DEFAULT 0, is_guest INTEGER NOT NULL DEFAULT 0,
@@ -263,7 +532,17 @@ class Database(file: File) {
                media_id TEXT NOT NULL, chapter_id TEXT NOT NULL, chapter_title TEXT NOT NULL, title TEXT NOT NULL, cover TEXT NOT NULL,
                type TEXT NOT NULL, read_at INTEGER NOT NULL, PRIMARY KEY(user_id, source_id, media_id))""",
             "CREATE INDEX IF NOT EXISTS history_recent ON history(user_id, read_at)",
-            "CREATE TABLE IF NOT EXISTS settings(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, json TEXT NOT NULL)"
+            "CREATE TABLE IF NOT EXISTS settings(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, json TEXT NOT NULL)",
+            """CREATE TABLE IF NOT EXISTS categories(user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, name TEXT NOT NULL,
+               sort_order INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0,
+               rev INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(user_id, name))""",
+            """CREATE TABLE IF NOT EXISTS bookmarks(user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, source_id TEXT NOT NULL,
+               chapter_id TEXT NOT NULL, position INTEGER NOT NULL, media_id TEXT NOT NULL, chapter_title TEXT NOT NULL,
+               label TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0,
+               rev INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(user_id, source_id, chapter_id, position))""",
+            "CREATE INDEX IF NOT EXISTS bookmarks_media ON bookmarks(user_id, source_id, media_id)",
+            "CREATE TABLE IF NOT EXISTS counters(name TEXT PRIMARY KEY, value INTEGER NOT NULL)",
+            "INSERT OR IGNORE INTO counters(name, value) VALUES('rev', 1)"
         )
     }
 }
@@ -278,6 +557,8 @@ private inline fun <T> ResultSet.all(row: ResultSet.() -> T): List<T> {
     return out
 }
 
+private val stringList = object : com.google.gson.reflect.TypeToken<List<String>>() {}.type
+
 private fun ResultSet.user() = User(
     id = getLong("id"), name = getString("name"), isAdmin = getInt("is_admin") == 1, isGuest = getInt("is_guest") == 1,
     createdAt = getLong("created_at"), expiresAt = getLong("expires_at").takeIf { !wasNull() }
@@ -285,7 +566,9 @@ private fun ResultSet.user() = User(
 
 private fun ResultSet.libraryRow() = LibraryRow(
     getString("source_id"), getString("media_id"), getString("title"), getString("cover"), getString("type"),
-    getString("status"), getString("author"), getString("genres"), getLong("added_at"), getString("reading_status")
+    getString("status"), getString("author"), getString("genres"), getLong("added_at"), getString("reading_status"),
+    categories = runCatching { gson.fromJson<List<String>>(getString("categories"), stringList) }.getOrNull().orEmpty(),
+    updatedAt = getLong("updated_at"), deleted = getInt("deleted") == 1
 )
 
 private fun ResultSet.progressRow() = ProgressRow(
@@ -295,5 +578,13 @@ private fun ResultSet.progressRow() = ProgressRow(
 
 private fun ResultSet.historyRow() = HistoryRow(
     getString("source_id"), getString("media_id"), getString("chapter_id"), getString("chapter_title"),
-    getString("title"), getString("cover"), getString("type"), getLong("read_at")
+    getString("title"), getString("cover"), getString("type"), getLong("read_at"),
+    updatedAt = getLong("updated_at"), deleted = getInt("deleted") == 1
 )
+
+private fun ResultSet.bookmarkRow() = BookmarkRow(
+    getString("source_id"), getString("media_id"), getString("chapter_id"), getString("chapter_title"),
+    getInt("position"), getString("label"), getLong("created_at"), getLong("updated_at"), getInt("deleted") == 1
+)
+
+private fun ResultSet.categoryRow() = CategoryRow(getString("name"), getInt("sort_order"), getLong("updated_at"), getInt("deleted") == 1)

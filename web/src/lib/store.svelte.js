@@ -66,6 +66,20 @@ export async function loadUserData() {
   library.loaded = true;
   sources.list = src;
   sources.loaded = true;
+  loadCategories();
+}
+
+/**
+ * The phone app may have changed the library or settings meanwhile: coming back to the tab after a
+ * while picks that up.
+ */
+let lastRefresh = Date.now();
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || !session.user || Date.now() - lastRefresh < 60_000) return;
+    lastRefresh = Date.now();
+    loadUserData().catch(() => {});
+  });
 }
 
 let saveTimer = 0;
@@ -91,20 +105,43 @@ export async function toggleLibrary(media) {
     await api.removeLibrary(media.sourceId, media.id).catch((e) => notify(e.message));
     return false;
   }
+  // Same as the app: a title just added is "plan to read" until reading starts.
   const row = {
     sourceId: media.sourceId, mediaId: media.id, title: media.title, cover: media.cover, type: media.type,
     status: media.status || '', author: media.author || '', genres: (media.genres || []).join('|'),
-    addedAt: Date.now(), readingStatus: 'READING'
+    addedAt: Date.now(), readingStatus: 'PLAN_TO_READ', categories: []
   };
   library.items = [row, ...library.items];
   await api.saveLibrary(row).catch((e) => notify(e.message));
   return true;
 }
 
-/** The app's reading statuses, in the order the library shows them. */
+/** The app's reading statuses (same names, so they sync), in the order the library shows them. */
 export const READING_STATUSES = [
-  ['READING', 'Leyendo'], ['PLAN', 'Pendiente'], ['COMPLETED', 'Completada'], ['ON_HOLD', 'En pausa'], ['DROPPED', 'Abandonada']
+  ['READING', 'Leyendo'], ['PLAN_TO_READ', 'Pendiente'], ['COMPLETED', 'Completado'], ['ON_HOLD', 'En pausa'], ['DROPPED', 'Abandonado'], ['NONE', 'Sin estado']
 ];
+/** Older web rows used "PLAN". */
+export const statusOf = (row) => (row?.readingStatus === 'PLAN' ? 'PLAN_TO_READ' : row?.readingStatus || 'NONE');
+
+/** The user's own library categories. */
+export const categories = $state({ list: [], loaded: false });
+export async function loadCategories() {
+  try { categories.list = await api.categories(); categories.loaded = true; } catch {}
+}
+export async function editCategory(change) {
+  try {
+    categories.list = await api.editCategory(change);
+    // Titles in a renamed or deleted category changed on the server too.
+    library.items = await api.library();
+  } catch (e) { notify(e.message); }
+}
+export async function setCategories(sourceId, mediaId, names) {
+  const row = inLibrary(sourceId, mediaId);
+  if (!row) return;
+  const updated = { ...row, categories: names };
+  library.items = library.items.map((r) => (r === row ? updated : r));
+  await api.saveLibrary(updated).catch((e) => notify(e.message));
+}
 
 export async function setReadingStatus(sourceId, mediaId, status) {
   const row = inLibrary(sourceId, mediaId);

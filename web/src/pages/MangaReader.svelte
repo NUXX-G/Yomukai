@@ -1,10 +1,11 @@
 <script>
   import { onMount, onDestroy, tick } from 'svelte';
-  import { api } from '../lib/api.js';
+  import { api, downloadChapters } from '../lib/api.js';
   import { route, back, navigate, media as mediaHref, reader } from '../lib/router.svelte.js';
   import { settings, saveSettings, notify } from '../lib/store.svelte.js';
   import { track, markThrough, flush, progressMap } from '../lib/progress.js';
   import { clock } from '../lib/format.js';
+  import { detectCrop, cropStyles } from '../lib/crop.js';
   import Icon from '../components/Icon.svelte';
   import Sheet from '../components/Sheet.svelte';
 
@@ -12,6 +13,14 @@
   const mediaId = route.params.id;
   const startId = route.params.chapter;
   const WIDTHS = [['narrow', 'Estrecho'], ['normal', 'Normal'], ['wide', 'Ancho'], ['full', 'Toda la pantalla']];
+  const FILTERS = [['none', 'Normal'], ['sepia', 'Sepia'], ['gray', 'Grises'], ['invert', 'Invertido']];
+
+  let indexTab = $state('chapters');
+  let bookmarks = $state([]);
+  /** src -> styles for pages with margins cut. */
+  const crops = $state({});
+  let scrolling = $state(false);
+  let scrollFrame = 0;
 
   let item = $state(null);
   let chapters = $state([]);
@@ -35,6 +44,53 @@
   let resumePage = 0;
 
   const mode = $derived(settings.reader.mode);
+  const filter = $derived(settings.reader.filter || 'none');
+  const brightness = $derived(settings.reader.brightness ?? 1);
+  const marked = $derived(current && bookmarks.some((b) => b.chapterId === current.id && b.position === page));
+
+  async function toggleBookmark() {
+    if (!current || !item) return;
+    const existing = bookmarks.find((b) => b.chapterId === current.id && b.position === page);
+    const row = existing
+      ? { ...existing, deleted: true }
+      : { sourceId, mediaId, chapterId: current.id, chapterTitle: current.label, position: page, label: '', createdAt: Date.now(), deleted: false };
+    bookmarks = existing ? bookmarks.filter((b) => b !== existing) : [row, ...bookmarks];
+    notify(existing ? 'Marcador quitado' : `Marcador en la página ${page + 1}`);
+    await api.saveBookmark(row).catch((e) => notify(e.message));
+  }
+
+  function openBookmark(b) {
+    indexOpen = false;
+    if (b.chapterId === current?.id) { jumpTo(b.position); return; }
+    flush();
+    navigate(reader('manga', sourceId, mediaId, b.chapterId) + '?p=' + b.position, { replace: true });
+  }
+
+  // Auto-scroll for long strips: a steady glide, stopped by a tap or at the end.
+  function toggleScroll() {
+    scrolling = !scrolling;
+    if (scrolling) { ui = false; glide(); } else cancelAnimationFrame(scrollFrame);
+  }
+  function glide() {
+    let last = performance.now();
+    let carry = 0;
+    const step = (t) => {
+      if (!scrolling) return;
+      carry += ((t - last) / 1000) * (settings.reader.autoSpeed || 80);
+      last = t;
+      const px = Math.floor(carry);
+      if (px > 0) { window.scrollBy(0, px); carry -= px; }
+      if (innerHeight + scrollY >= document.documentElement.scrollHeight - 2) { scrolling = false; return; }
+      scrollFrame = requestAnimationFrame(step);
+    };
+    scrollFrame = requestAnimationFrame(step);
+  }
+
+  function cropFor(e, src) {
+    if (!settings.reader.crop) return;
+    const c = detectCrop(e.currentTarget, mode === 'vertical');
+    if (c) crops[src] = cropStyles(e.currentTarget, c);
+  }
   const rtl = $derived(settings.reader.direction === 'rtl');
   const width = $derived(settings.reader.width || 'normal');
   const flat = $derived(loaded.flatMap((l) => l.pages.map((src, i) => ({ src, i, chapter: l.chapter, total: l.pages.length }))));
@@ -188,7 +244,10 @@
       const start = chapters.find((c) => c.id === startId) || chapters[0];
       if (!start) { error = 'No hay capítulos'; return; }
       const saved = progress[start.id];
-      resumePage = saved && !saved.read && saved.page > 0 ? saved.page : 0;
+      // A bookmark opens at its page; otherwise back where the user stopped.
+      const asked = parseInt(route.query.get('p') || '', 10);
+      resumePage = asked >= 0 ? asked : saved && !saved.read && saved.page > 0 ? saved.page : 0;
+      api.bookmarks(sourceId, mediaId).then((b) => (bookmarks = b)).catch(() => {});
       current = start;
       await loadChapter(start);
       if (mode === 'paged') {
@@ -203,22 +262,25 @@
     }
   });
 
-  onDestroy(() => { observer?.disconnect(); clearInterval(clockTimer); flush(); });
+  onDestroy(() => { observer?.disconnect(); clearInterval(clockTimer); cancelAnimationFrame(scrollFrame); scrolling = false; flush(); });
 </script>
 
 <svelte:window onkeydown={key} />
 
-<div class="reader" class:paged={mode === 'paged'}>
+<div class="reader f-{filter}" class:paged={mode === 'paged'}>
+  {#if brightness < 1}<div class="dim" style:opacity={1 - brightness}></div>{/if}
   {#if error}
     <div class="center"><p>{error}</p><button class="btn tonal" onclick={() => back(mediaHref(sourceId, mediaId))}>Volver</button></div>
   {:else if mode === 'vertical'}
-    <div class="strip w-{width}" onclick={() => (ui = !ui)} role="presentation">
+    <div class="strip w-{width}" onclick={() => { if (scrolling) { scrolling = false; return; } ui = !ui; }} role="presentation">
       {#each loaded as l, li (l.chapter.id)}
         {#if li > 0}<div class="divider">{l.chapter.label}{l.chapter.name ? ' · ' + l.chapter.name : ''}</div>{/if}
         {#if l.error}<p class="center error-text">{l.error}</p>{/if}
         {#if !l.pages.length && !l.error}<div class="center"><div class="spinner"></div></div>{/if}
         {#each l.pages as src, i (src)}
-          <img {src} alt="Página {i + 1}" loading={i < 3 || (li === 0 && i <= resumePage + 2) ? 'eager' : 'lazy'} decoding="async" class:ready={ready[src]} onload={(e) => pageLoaded(e, l.chapter, i, l.pages.length, src)} data-page data-chapter={l.chapter.id} data-index={i} data-total={l.pages.length} />
+          <div class="pg" class:ready={ready[src]} class:cropped={crops[src]} style:aspect-ratio={crops[src]?.ratio} data-page data-chapter={l.chapter.id} data-index={i} data-total={l.pages.length}>
+            <img {src} alt="Página {i + 1}" loading={i < 3 || (li === 0 && i <= resumePage + 2) ? 'eager' : 'lazy'} decoding="async" style:width={crops[src]?.width} style:left={crops[src]?.left} style:top={crops[src]?.top} onload={(e) => { cropFor(e, src); pageLoaded(e, l.chapter, i, l.pages.length, src); }} />
+          </div>
         {/each}
       {/each}
       {#if current && !nextOf(current) && loaded.at(-1)?.pages.length}<div class="divider">Fin. No hay más capítulos.</div>{/if}
@@ -228,7 +290,12 @@
     </div>
   {:else}
     <div class="single" onclick={tapPaged} role="presentation" ontouchstart={(e) => (touchX = e.touches[0].clientX)} ontouchend={swipe}>
-      {#if flat[pagedIndex]}<img src={flat[pagedIndex].src} alt="Página {pagedIndex + 1}" />{:else}<div class="spinner"></div>{/if}
+      {#if flat[pagedIndex]}
+        {@const p = flat[pagedIndex]}
+        <div class="pg one" class:cropped={crops[p.src]} style:aspect-ratio={crops[p.src]?.ratio} style:width={crops[p.src] ? `min(100vw, calc(100dvh * ${crops[p.src].ratio}))` : null}>
+          <img src={p.src} alt="Página {pagedIndex + 1}" style:width={crops[p.src]?.width} style:left={crops[p.src]?.left} style:top={crops[p.src]?.top} onload={(e) => cropFor(e, p.src)} />
+        </div>
+      {:else}<div class="spinner"></div>{/if}
     </div>
   {/if}
 
@@ -239,6 +306,7 @@
         <div class="t1">{item?.title ?? ''}</div>
         <div class="t2">{current?.label ?? ''}{current?.name ? ' · ' + current.name : ''}</div>
       </div>
+      <button class="icon-btn" class:on={marked} onclick={toggleBookmark} aria-label={marked ? 'Quitar marcador' : 'Poner marcador en esta página'} title="Marcador"><Icon name="bookmark" /></button>
       <button class="icon-btn" onclick={() => (indexOpen = true)} aria-label="Índice de capítulos" title="Índice"><Icon name="list" /></button>
       <button class="icon-btn" onclick={() => (optionsOpen = true)} aria-label="Ajustes de lectura" title="Ajustes de lectura"><Icon name="tune" /></button>
     </header>
@@ -248,6 +316,7 @@
         <input class="slider" type="range" min="0" max={currentPages - 1} value={page} dir={mode === 'paged' && rtl ? 'rtl' : 'ltr'} onchange={(e) => jumpTo(+e.target.value)} aria-label="Página" />
       {/if}
       <span class="small count">{current ? `${page + 1} / ${currentPages || '…'}` : ''}</span>
+      {#if mode === 'vertical'}<button class="icon-btn" onclick={toggleScroll} aria-label={scrolling ? 'Parar desplazamiento' : 'Desplazamiento automático'} title="Desplazamiento automático"><Icon name={scrolling ? 'pause' : 'play'} /></button>{/if}
       <button class="btn text" disabled={!current || !nextOf(current)} onclick={() => open(nextOf(current))}>Siguiente</button>
     </footer>
   {:else}
@@ -255,16 +324,35 @@
   {/if}
 </div>
 
-<Sheet bind:open={indexOpen} title="Capítulos">
-  <input class="field" type="search" placeholder="Buscar capítulo" bind:value={indexQuery} />
-  <div class="index">
-    {#each indexList as c (c.id)}
-      <button class="list-item idx" class:here={c.id === current?.id} onclick={() => { indexOpen = false; if (c.id !== current?.id) open(c); }}>
-        <span class="grow">{c.label}{#if c.name} <span class="muted small">{c.name}</span>{/if}</span>
-        {#if c.date}<span class="small muted">{c.date}</span>{/if}
+<Sheet bind:open={indexOpen} title="Índice">
+  <div class="wrap" style="margin-top:0">
+    <button class="chip" class:on={indexTab === 'chapters'} onclick={() => (indexTab = 'chapters')}>Capítulos</button>
+    <button class="chip" class:on={indexTab === 'marks'} onclick={() => (indexTab = 'marks')}>Marcadores · {bookmarks.length}</button>
+  </div>
+  {#if indexTab === 'chapters'}
+    <input class="field" type="search" placeholder="Buscar capítulo" bind:value={indexQuery} />
+    <div class="index">
+      {#each indexList as c (c.id)}
+        <button class="list-item idx" class:here={c.id === current?.id} onclick={() => { indexOpen = false; if (c.id !== current?.id) open(c); }}>
+          <span class="grow">{c.label}{#if c.name} <span class="muted small">{c.name}</span>{/if}</span>
+          {#if c.date}<span class="small muted">{c.date}</span>{/if}
+        </button>
+      {/each}
+    </div>
+  {:else if !bookmarks.length}
+    <p class="muted">Sin marcadores. Pulsa el marcador de arriba para guardar la página que estás viendo.</p>
+  {:else}
+    {#each bookmarks as b (b.chapterId + '|' + b.position)}
+      <button class="list-item idx" onclick={() => openBookmark(b)}>
+        <Icon name="bookmark" size={18} /><span class="grow">{b.chapterTitle} · página {b.position + 1}</span>
       </button>
     {/each}
-  </div>
+  {/if}
+  {#if current && item}
+    <button class="btn outline block" style="margin-top:14px" onclick={() => { indexOpen = false; downloadChapters({ sourceId, mediaId, title: item.title, chapterIds: [current.id] }, (m) => notify('No se pudo descargar: ' + m)); }}>
+      <Icon name="download" size={18} /> Descargar {current.label} en este dispositivo
+    </button>
+  {/if}
 </Sheet>
 
 <Sheet bind:open={optionsOpen} title="Lectura">
@@ -286,6 +374,17 @@
     </div>
   {/if}
   <label class="toggle"><span class="grow">Pasar solo al siguiente capítulo</span><input type="checkbox" checked={settings.reader.infinite} onchange={(e) => setReader('infinite', e.target.checked)} /></label>
+  <label class="toggle"><span class="grow">Recortar bordes blancos o negros</span><input type="checkbox" checked={!!settings.reader.crop} onchange={(e) => setReader('crop', e.target.checked)} /></label>
+  <div class="small muted" style="margin-top:12px">Brillo</div>
+  <input class="range" type="range" min="0.2" max="1" step="0.05" value={brightness} oninput={(e) => setReader('brightness', +e.target.value)} aria-label="Brillo" />
+  <div class="small muted">Color</div>
+  <div class="wrap">
+    {#each FILTERS as [k, label]}<button class="chip" class:on={filter === k} onclick={() => setReader('filter', k)}>{label}</button>{/each}
+  </div>
+  {#if mode === 'vertical'}
+    <div class="small muted">Velocidad del desplazamiento automático</div>
+    <input class="range" type="range" min="20" max="400" step="10" value={settings.reader.autoSpeed || 80} oninput={(e) => setReader('autoSpeed', +e.target.value)} aria-label="Velocidad" />
+  {/if}
   <p class="small muted">Teclado: ← → para pasar página, Esc para salir. En el móvil puedes pellizcar para hacer zoom.</p>
 </Sheet>
 
@@ -296,8 +395,19 @@
   .strip.w-wide { max-width: 1240px; }
   .strip.w-full { max-width: none; }
   /* Until a page arrives it holds a tall space: otherwise every unloaded page would be "on screen" at once. */
-  .strip img { display: block; width: 100%; height: auto; min-height: 80vh; background: #0a0a0a; }
-  .strip img.ready { min-height: 0; background: none; }
+  .strip .pg { position: relative; min-height: 80vh; background: #0a0a0a; }
+  .strip .pg.ready { min-height: 0; background: none; }
+  .pg img { display: block; width: 100%; height: auto; }
+  .pg.cropped { overflow: hidden; }
+  .pg.cropped img { position: absolute; max-width: none; max-height: none; }
+  .single .pg.one { position: relative; }
+  .single .pg.one.cropped { max-height: 100dvh; }
+  .dim { position: fixed; inset: 0; background: #000; pointer-events: none; z-index: 15; }
+  .f-sepia .pg img { filter: sepia(0.8); }
+  .f-gray .pg img { filter: grayscale(1); }
+  .f-invert .pg img { filter: invert(1) hue-rotate(180deg); }
+  .icon-btn.on { color: var(--primary); }
+  .range { width: 100%; accent-color: var(--primary); margin: 6px 0 14px; }
   .divider { text-align: center; padding: 28px 12px; color: var(--text-dim); font-weight: 600; }
   .single { height: 100vh; height: 100dvh; display: grid; place-items: center; overflow: hidden; touch-action: pan-y pinch-zoom; }
   .single img { max-width: 100%; max-height: 100vh; max-height: 100dvh; object-fit: contain; user-select: none; -webkit-user-drag: none; }

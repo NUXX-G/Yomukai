@@ -58,6 +58,11 @@ export const api = {
   removeLibrary: (s, id) => request('DELETE', `/api/library?${qs({ s, id })}`),
   progress: (s, id) => request('GET', `/api/progress?${qs({ s, id })}`),
   saveProgress: (rows, history) => request('POST', '/api/progress', { rows, history }),
+  categories: () => request('GET', '/api/categories'),
+  /** {old, new}: only new creates, both rename, only old deletes. Returns the new list. */
+  editCategory: (change) => request('POST', '/api/categories', change),
+  bookmarks: (s, id) => request('GET', `/api/bookmarks?${qs({ s, id })}`),
+  saveBookmark: (row) => request('PUT', '/api/bookmarks', row),
   history: () => request('GET', '/api/history'),
   removeHistory: (s, id) => request('DELETE', `/api/history?${qs({ s, id })}`),
   settings: () => request('GET', '/api/settings'),
@@ -70,6 +75,49 @@ export const api = {
   adminReset: (id) => request('POST', `/api/admin/users/${id}/password`),
   adminDelete: (id) => request('DELETE', `/api/admin/users/${id}`)
 };
+
+/**
+ * Downloads chapters to the user's device; the server puts the file together while it is sent.
+ * One chapter is a plain link (every browser, iPhone included, hands it to its download manager);
+ * several go as a form post into a hidden frame, which only loads when the server answers with an error.
+ */
+export function downloadChapters({ sourceId, mediaId, title, chapterIds }, onError) {
+  if (chapterIds.length === 1) {
+    const a = document.createElement('a');
+    a.href = `/api/download?${qs({ s: sourceId, id: mediaId, t: title, c: chapterIds[0] })}`;
+    a.download = '';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return;
+  }
+  const name = 'yk-download-' + Date.now();
+  const frame = document.createElement('iframe');
+  frame.name = name;
+  frame.hidden = true;
+  frame.onload = () => {
+    // A finished download never loads the frame; an error page does.
+    try {
+      const text = frame.contentDocument?.body?.innerText || '';
+      if (text) onError?.(safeJson(text).error || text);
+    } catch {}
+    setTimeout(() => frame.remove(), 1000);
+  };
+  document.body.appendChild(frame);
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/api/download';
+  form.target = name;
+  const add = (k, v) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = v; form.appendChild(i); };
+  add('s', sourceId); add('id', mediaId); add('t', title || '');
+  add('ids', chapterIds.join('\n'));
+  document.body.appendChild(form);
+  form.submit();
+  form.remove();
+  // The frame stays a while in case the server answers late with an error.
+  setTimeout(() => frame.remove(), 30 * 60_000);
+}
 
 /**
  * Searches all enabled sources; [onUpdate] gets the ranked groups each time one answers.

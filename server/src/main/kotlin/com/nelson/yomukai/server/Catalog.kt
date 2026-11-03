@@ -255,10 +255,34 @@ class Catalog(
         return list.map { urls -> urls.map { proxy.image(it, source.imageHeaders) } }
     }
 
+    /** Page addresses as the site gives them, with the headers its images need; for downloads. */
+    suspend fun rawPages(sourceId: String, chapterUrl: String): Result<Pair<List<String>, Map<String, String>>> {
+        val source = require(sourceId) as? MangaSource ?: return Result.failure(IllegalArgumentException("No es una fuente de imágenes"))
+        val k = key(sourceId, chapterUrl)
+        val list = pages.get(k)?.let { Result.success(it) } ?: shared("pages|$k") { source.fetchPageList(chapterUrl).onSuccess { pages.put(k, it) } }
+        return list.map { it to source.imageHeaders }
+    }
+
+    /** Video servers as the site gives them; for downloads. */
+    suspend fun rawVideos(sourceId: String, episodeUrl: String): Result<List<com.nelson.yomukai.domain.model.VideoSource>> {
+        val source = require(sourceId) as? AnimeSource ?: return Result.failure(IllegalArgumentException("No es una fuente de anime"))
+        val k = key(sourceId, episodeUrl)
+        return videos.get(k)?.let { Result.success(it) } ?: shared("videos|$k") { source.fetchVideoSources(episodeUrl).onSuccess { videos.put(k, it) } }
+    }
+
+    fun languageOf(sourceId: String): String? = sources.get(sourceId)?.language
+
+    fun imageHeadersOf(sourceId: String): Map<String, String> = sources.get(sourceId)?.imageHeaders.orEmpty()
+
+    fun kindOf(sourceId: String): String? = sources.get(sourceId)?.let { s ->
+        when (s) { is AnimeSource -> "anime"; is NovelSource -> "novel"; is MangaSource -> "manga"; else -> null }
+    }
+
     suspend fun text(sourceId: String, chapterUrl: String): Result<String> {
         val source = require(sourceId) as? NovelSource ?: return Result.failure(IllegalArgumentException("No es una fuente de novelas"))
         val k = key(sourceId, chapterUrl)
-        return texts.get(k)?.let { Result.success(it) } ?: shared("text|$k") { source.fetchChapterText(chapterUrl).onSuccess { texts.put(k, it) } }
+        // Some sites send half of an emoji; such text cannot be written out as UTF-8, so it is dropped.
+        return texts.get(k)?.let { Result.success(it) } ?: shared("text|$k") { source.fetchChapterText(chapterUrl).map(::withoutBrokenSurrogates).onSuccess { texts.put(k, it) } }
     }
 
     suspend fun videos(sourceId: String, episodeUrl: String): Result<List<VideoDto>> {
@@ -333,4 +357,21 @@ class Catalog(
         const val ALTERNATIVES_TIMEOUT_MS = 40_000L
         const val MAX_GROUPS = 80
     }
+}
+
+/** [text] without lone UTF-16 surrogates (half characters), which make UTF-8 encoding fail. */
+fun withoutBrokenSurrogates(text: String): String {
+    if (text.none { it.isSurrogate() }) return text
+    val out = StringBuilder(text.length)
+    var i = 0
+    while (i < text.length) {
+        val c = text[i]
+        when {
+            c.isHighSurrogate() && i + 1 < text.length && text[i + 1].isLowSurrogate() -> { out.append(c).append(text[i + 1]); i++ }
+            c.isSurrogate() -> Unit
+            else -> out.append(c)
+        }
+        i++
+    }
+    return out.toString()
 }

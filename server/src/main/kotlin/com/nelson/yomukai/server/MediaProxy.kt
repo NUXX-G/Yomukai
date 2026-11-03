@@ -77,8 +77,19 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
 
     suspend fun serveImage(call: ApplicationCall) {
         val (url, headers) = verified("img", call) ?: return call.respond(HttpStatusCode.Forbidden)
+        val (bytes, type) = fetchImage(url, headers) ?: return call.respond(HttpStatusCode.BadGateway)
+        // Proxied links never change for the same address: the browser may keep the image for a month.
+        call.response.header(HttpHeaders.CacheControl, "public, max-age=2592000, immutable")
+        // Whatever the site claims, only a raster image type goes out: a page or an SVG served from
+        // this origin could run scripts in it. Browsers decode images by their bytes anyway.
+        call.response.header("Content-Security-Policy", "sandbox; default-src 'none'")
+        call.respondBytes(bytes, ContentType.parse(safeImageType(type)))
+    }
+
+    /** An image's bytes and type, from the disk cache or the site. */
+    suspend fun fetchImage(url: String, headers: Map<String, String>): Pair<ByteArray, String>? {
         val cached = imageCache.get(url)
-        val (bytes, type) = cached ?: withContext(Dispatchers.IO) {
+        return cached ?: withContext(Dispatchers.IO) {
             val request = Request.Builder().url(url)
                 .header("User-Agent", headers["User-Agent"] ?: http.userAgentFor(url.toHttpUrlOrNull()?.host.orEmpty()))
                 .header("Accept", "image/avif,image/webp,image/*,*/*;q=0.8")
@@ -91,14 +102,18 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
                 if (body.size > MAX_IMAGE_BYTES) return@withContext null
                 body to type.ifBlank { "image/jpeg" }
             }
-        }?.also { if (cached == null) imageCache.put(url, it.first, it.second) } ?: return call.respond(HttpStatusCode.BadGateway)
-        // Proxied links never change for the same address: the browser may keep the image for a month.
-        call.response.header(HttpHeaders.CacheControl, "public, max-age=2592000, immutable")
-        // Whatever the site claims, only a raster image type goes out: a page or an SVG served from
-        // this origin could run scripts in it. Browsers decode images by their bytes anyway.
-        call.response.header("Content-Security-Policy", "sandbox; default-src 'none'")
-        call.respondBytes(bytes, ContentType.parse(safeImageType(type)))
+        }?.also { if (cached == null) imageCache.put(url, it.first, it.second) }
     }
+
+    /** Counts a download as one of the user's open videos; false when a guest already has too many. */
+    fun openStream(user: User): Boolean {
+        val open = openStreams.getOrPut(user.id) { AtomicInteger() }
+        if (user.isGuest && open.get() >= guestStreams) return false
+        open.incrementAndGet()
+        return true
+    }
+
+    fun closeStream(user: User) { openStreams[user.id]?.decrementAndGet() }
 
     /**
      * Streams a video with Range passed through, so seeking works. HLS playlists are rewritten so
