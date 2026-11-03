@@ -23,7 +23,9 @@ curl -fsSL "$RAW/docker-compose.yml" -o docker-compose.yml
 
 # Settings are kept between updates; the admin password is generated only once.
 if [ ! -f .env ]; then
-  PASSWORD="$(LC_ALL=C tr -dc 'a-km-z2-9' </dev/urandom | head -c 16 | sed 's/.\{4\}/&-/g; s/-$//')"
+  # head closes the pipe early on purpose: pipefail must not count that as a failure.
+  RAW_PASSWORD="$(set +o pipefail; LC_ALL=C tr -dc 'a-km-z2-9' </dev/urandom | head -c 16 || true)"
+  PASSWORD="$(printf '%s' "$RAW_PASSWORD" | sed 's/.\{4\}/&-/g; s/-$//')"
   cat > .env <<EOF
 # Yomukai: change these and run "docker compose up -d" again.
 PORT=${PORT:-8080}
