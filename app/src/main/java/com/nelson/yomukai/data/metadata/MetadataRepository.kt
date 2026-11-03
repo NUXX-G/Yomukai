@@ -96,7 +96,12 @@ class MetadataRepository(
     suspend fun load(media: MediaItem): TitleMetadata = coroutineScope {
         val key = SmartSearch.keyOf(media)
         cache[key]?.let { return@coroutineScope it }
-        store?.get(key)?.let { saved -> cache[key] = saved; return@coroutineScope saved }
+        store?.get(key)?.let { saved ->
+            // Guessed genres are worked out again: the rules may have changed since they were saved.
+            val fresh = if (saved.inferredGenres) withLocalGenres(saved, media) else saved
+            cache[key] = fresh
+            return@coroutineScope fresh
+        }
         val names = (listOf(media.title) + media.altTitles).filter { it.isNotBlank() }.distinct()
         val malScore = async { mal?.let { client -> safely { withTimeoutOrNull(MAL_TIMEOUT_MS) { client.score(names, media.type) } } } }
         val entry = safely { withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { aniList.lookup(names, media.type) } }
@@ -129,6 +134,12 @@ class MetadataRepository(
         private const val LOOKUP_TIMEOUT_MS = 12_000L
         private const val KITSU_TIMEOUT_MS = 6_000L
         private const val MAL_TIMEOUT_MS = 8_000L
+
+        /** [saved] with its guessed genres worked out again from the title's synopsis. */
+        fun withLocalGenres(saved: TitleMetadata, media: MediaItem): TitleMetadata {
+            val genres = KeywordTagger.infer(media.description.ifBlank { saved.synopsis })
+            return saved.copy(genres = genres, inferredGenres = genres.isNotEmpty())
+        }
 
         fun statusOf(aniListStatus: String): PublicationStatus? = when (aniListStatus) {
             "RELEASING" -> PublicationStatus.ONGOING
