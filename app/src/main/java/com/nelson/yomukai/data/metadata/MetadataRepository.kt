@@ -108,8 +108,9 @@ class MetadataRepository(private val aniList: AniListClient, private val kitsu: 
 
         /** Pure: joins the layers. */
         fun build(media: MediaItem, entry: AniListEntry?, kitsuScore: Float?): TitleMetadata {
-            val official = entry?.genres.orEmpty() + entry?.tags.orEmpty().take(MAX_OFFICIAL_TAGS)
-            var genres = GenreTaxonomy.merge(media.genres, official)
+            // AniList tags are many and in English: only the ones the taxonomy knows become genres.
+            val official = entry?.genres.orEmpty() + entry?.tags.orEmpty().filter(GenreTaxonomy::isKnown).take(MAX_OFFICIAL_TAGS)
+            var genres = GenreTaxonomy.merge(media.genres, official).take(MAX_GENRES)
             var inferred = false
             if (genres.isEmpty()) {
                 genres = KeywordTagger.infer(media.description.ifBlank { entry?.description.orEmpty() })
@@ -133,5 +134,6 @@ class MetadataRepository(private val aniList: AniListClient, private val kitsu: 
         }
 
         private const val MAX_OFFICIAL_TAGS = 4
+        private const val MAX_GENRES = 10
     }
 }

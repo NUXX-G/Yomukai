@@ -141,14 +141,15 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
         val gaps = issues.filterIsInstance<ChapterIssue.Gap>()
             .mapNotNull { gap -> chapters.getOrNull(gap.afterIndex)?.let { it.chapterId to gap } }
             .toMap()
-        val sourceStatus = PublicationStatus.parse(media?.status.orEmpty())
-        // The database's status wins: a source often keeps "ongoing" on finished works.
-        val status = metadata?.officialStatus ?: sourceStatus
+        val statuses = listOfNotNull(PublicationStatus.parse(media?.status.orEmpty()), metadata?.officialStatus)
+        // Ongoing for someone and finished for no one: a source or AniList saying it ended settles it.
+        val ongoing = PublicationStatus.ONGOING in statuses &&
+            statuses.none { it == PublicationStatus.COMPLETED || it == PublicationStatus.CANCELLED }
         val dates = chapters.map { it.dateUploaded }
         ChapterInsights(
             issues = issues,
             gapAfter = gaps,
-            abandoned = Abandonment.isLikelyAbandoned(status == PublicationStatus.ONGOING, dates),
+            abandoned = Abandonment.isLikelyAbandoned(ongoing, dates),
             lastUpdate = Abandonment.latest(dates)
         )
     }.flowOn(Dispatchers.Default)

@@ -86,11 +86,20 @@ object GenreTaxonomy {
 
     fun isKnown(genre: String): Boolean = SmartSearch.normalize(genre) in canonicalOf
 
+    /** Tags about the format or the release, not the story: they only add noise next to genres. */
+    private val NOISE = setOf(
+        "long strip", "full color", "web comic", "webcomic", "adaptation", "official colored", "award winning",
+        "oneshot", "one shot", "anthology", "doujinshi", "fan colored", "user created", "4 koma", "manhwa", "manhua",
+        "manga", "webtoon", "novela", "novel", "comic", "anime"
+    ).map(SmartSearch::normalize).toSet()
+
+    fun isNoise(genre: String): Boolean = SmartSearch.normalize(genre) in NOISE
+
     /** Merges genre lists from several origins into one tidy list without repeats, keeping the order seen. */
     fun merge(vararg lists: Collection<String>): List<String> {
         val seen = LinkedHashMap<String, String>()
         lists.forEach { list ->
-            list.filter { it.isNotBlank() && it.length <= MAX_LENGTH }.forEach { genre ->
+            list.filter { it.isNotBlank() && it.length <= MAX_LENGTH && !isNoise(it) }.forEach { genre ->
                 val label = canonical(genre)
                 seen.putIfAbsent(SmartSearch.normalize(label), label)
             }

@@ -2,6 +2,20 @@
 
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
+## Tanda v1.7.0 (en `main`, sin publicar)
+- [x] Explorar y Descubrir unidos en Inicio: «Para ti» dentro y botón de aleatorio en la cabecera
+- [x] Tarjetas sin etiquetas grandes sobre la portada; títulos a 2 líneas, sin estado debajo
+- [x] Ficha: color de la portada como acento (Material You propio, `CoverTheme`), pestañas Capítulos/Relacionadas
+- [x] Capítulos como «Cap. 133», fechas e iconos atenuados, botón flotante que no tapa la lista y dice desde qué capítulo sigue
+- [x] Metadatos: AniList (nota, estado, sinopsis, relaciones) con Kitsu de respaldo, taxonomía de géneros y etiquetas por palabras clave
+- [x] Avisos de saltos/duplicados/desorden en la lista y de posible abandono (en emisión y más de 2 años sin capítulos)
+- [x] Relacionadas entre formatos: precuelas, secuelas, adaptaciones (anime, novela, manga...)
+- [x] Reproductor: HUD oculto con reloj, pantalla encendida, foco de audio (pausa Spotify); los lectores no tocan el audio
+- [x] Recomendadas «no encontradas»: más nombres, coincidencia cercana marcada, caché y opción de buscar en todas
+- [x] Géneros excluidos: espera corta antes de mostrar y caché de Inicio guardada sin excluidas
+
+Notas de v1.7.0: los metadatos solo viven en memoria durante la sesión (sin migración de Room). AniList pide ~30 peticiones/min; la ficha y «Similares» comparten una sola. Probado en el emulador API 33 (Inicio, ficha, relacionadas, aleatorio, abrir recomendada). Sin probar en pantalla: el reproductor con un episodio real y el foco de audio frente a otra app de música.
+
 ## Tanda v1.6.0 (publicada como release completa con autorización del usuario)
 - [x] «Recomiéndame uno» falla: nunca dar error si hay algo que mostrar
 - [x] Para ti: portadas centradas y usar también el historial
