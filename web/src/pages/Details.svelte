@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
   import { route, navigate, back, media as mediaHref, reader } from '../lib/router.svelte.js';
-  import { sourceById, inLibrary, toggleLibrary, notify, seenItem } from '../lib/store.svelte.js';
+  import { sourceById, inLibrary, toggleLibrary, notify, seenItem, READING_STATUSES, setReadingStatus } from '../lib/store.svelte.js';
   import { coverSeed, themeFor, styleOf } from '../lib/cover.js';
   import { TYPE_NAMES, TYPE_COLORS, parseStatus, statusName, score, monthYear, chapterNoun } from '../lib/format.js';
   import { progressMap, continueTarget, markThrough, markOne } from '../lib/progress.js';
@@ -10,6 +10,7 @@
   import Icon from '../components/Icon.svelte';
   import MediaCard from '../components/MediaCard.svelte';
   import Sheet from '../components/Sheet.svelte';
+  import Row from '../components/Row.svelte';
 
   const sourceId = route.params.source;
   const mediaId = route.params.id;
@@ -33,8 +34,18 @@
   let alternatives = $state(null);
   let issuesOpen = $state(false);
 
+  let chapterQuery = $state('');
   const saved = $derived(inLibrary(sourceId, mediaId));
-  const shown = $derived(descending ? [...list.chapters].reverse() : list.chapters);
+  /** "120", "cap 120" or part of a chapter's name. */
+  const matches = (c, q) => {
+    const digits = q.replace(/[^\d.]/g, '');
+    return (digits && String(c.number) === digits) || (c.label + ' ' + (c.name || '')).toLowerCase().includes(q);
+  };
+  const shown = $derived.by(() => {
+    const q = chapterQuery.trim().toLowerCase();
+    const all = descending ? [...list.chapters].reverse() : list.chapters;
+    return q ? all.filter((c) => matches(c, q)) : all;
+  });
   const gapAfter = $derived(Object.fromEntries(list.issues.filter((i) => i.afterChapterId).map((i) => [i.afterChapterId, i])));
   const target = $derived(continueTarget(list.chapters, progress));
   const readCount = $derived(list.chapters.filter((c) => progress[c.id]?.read).length);
@@ -100,6 +111,8 @@
 </script>
 
 <div class="details" style={styleOf(theme)}>
+  {#if item?.cover}<div class="backdrop" style:background-image="url('{item.cover}')"></div>{/if}
+  <div class="wrap">
   <header class="bar">
     <button class="icon-btn" onclick={() => back('/')} aria-label="Volver"><Icon name="back" /></button>
     <span class="grow"></span>
@@ -111,8 +124,8 @@
   {:else if !item}
     <div class="center"><div class="spinner"></div></div>
   {:else}
+   <div class="layout">
     <section class="hero">
-      {#if item.cover}<div class="backdrop" style:background-image="url('{item.cover}')"></div>{/if}
       <div class="hero-inner">
         <img class="poster" src={item.cover} alt="" />
         <div class="facts">
@@ -137,6 +150,13 @@
       <button class="btn tonal block lib" onclick={library}>
         <Icon name={saved ? 'heart' : 'heartOutline'} size={18} /> {saved ? 'En tu biblioteca' : 'Añadir a la biblioteca'}
       </button>
+      {#if saved}
+        <div class="statuses" role="radiogroup" aria-label="Estado de lectura">
+          {#each READING_STATUSES as [key, label]}
+            <button class="chip" role="radio" aria-checked={saved.readingStatus === key} class:on={saved.readingStatus === key} onclick={() => setReadingStatus(sourceId, mediaId, key)}>{anime && key === 'READING' ? 'Viendo' : label}</button>
+          {/each}
+        </div>
+      {/if}
 
       {#if synopsis}
         <p class="synopsis" class:open={expanded} onclick={() => (expanded = !expanded)}>{synopsis}</p>
@@ -150,6 +170,7 @@
       {/if}
     </section>
 
+    <div class="main">
     <div class="tabs" role="tablist">
       <button role="tab" class:on={tab === 0} aria-selected={tab === 0} onclick={() => (tab = 0)}>{anime ? 'Episodios' : 'Capítulos'} · {list.chapters.length}</button>
       <button role="tab" class:on={tab === 1} aria-selected={tab === 1} onclick={() => (tab = 1)}>Relacionadas</button>
@@ -160,6 +181,12 @@
         <span class="small muted">{readCount ? `${readCount} ${anime ? 'vistos' : 'leídos'} de ${list.chapters.length}` : ''}</span>
         <button class="btn text" onclick={() => (descending = !descending)}><Icon name="sort" size={18} /> {descending ? 'Más recientes' : 'Desde el principio'}</button>
       </div>
+      {#if list.chapters.length > 20}
+        <div class="ch-search">
+          <Icon name="search" size={18} />
+          <input type="search" inputmode="search" placeholder={anime ? 'Ir al episodio...' : 'Ir al capítulo...'} bind:value={chapterQuery} aria-label="Buscar capítulo" />
+        </div>
+      {/if}
       {#if list.issues.length}
         <button class="integrity" onclick={() => (issuesOpen = !issuesOpen)}>
           <span class="warn"><Icon name="warning" size={16} /></span>
@@ -206,21 +233,21 @@
           <div class="spinner" style="margin:16px"></div>
         {:else if meta?.relations?.length}
           <div class="section-title"><h2>Universo de la obra</h2></div>
-          <div class="row">
+          <Row>
             {#each meta.relations as r, i (i)}
               <MediaCard title={r.title} cover={r.cover} type={r.type} showType subtitle={[r.relation, r.format].filter(Boolean).join(' · ')} onclick={() => openRelated(r)} />
             {/each}
-          </div>
+          </Row>
         {/if}
         {#if similar?.loading}
           <div class="section-title"><h2>Similares</h2></div><div class="spinner" style="margin:8px 0"></div>
         {:else if similar?.items.length}
           <div class="section-title"><h2>Similares</h2></div>
-          <div class="row">
+          <Row>
             {#each similar.items as r, i (i)}
               <MediaCard title={r.title} cover={r.cover} type={r.type} showType subtitle={r.format} onclick={() => openRelated(r)} />
             {/each}
-          </div>
+          </Row>
         {/if}
         <button class="chip" style="margin-top:16px" onclick={openAlternatives}><Icon name="search" size={18} /> Buscar en otras fuentes</button>
         {#if !metaLoading && !meta?.relations?.length && similar && !similar.loading && !similar.items.length}
@@ -229,7 +256,10 @@
       </div>
     {/if}
     <div style="height:120px"></div>
+    </div>
+   </div>
   {/if}
+  </div>
 </div>
 
 {#if target && item}
@@ -269,12 +299,27 @@
 </Sheet>
 
 <style>
-  .details { background: var(--bg); min-height: 100vh; transition: background 0.45s; max-width: 960px; margin: 0 auto; }
+  .details { position: relative; background: var(--bg); min-height: 100vh; transition: background 0.45s; overflow-x: clip; }
+  .wrap { position: relative; max-width: 1200px; margin: 0 auto; }
   .bar { position: sticky; top: 0; z-index: 10; display: flex; padding: calc(var(--safe-top) + 4px) 4px 4px; background: linear-gradient(var(--bg), transparent); }
   .grow { flex: 1; }
   .hero { position: relative; padding: 0 16px; }
-  .backdrop { position: absolute; inset: -60px 0 auto; height: 300px; background-size: cover; background-position: center; filter: blur(32px); opacity: 0.5; z-index: 0; }
+  .backdrop { position: absolute; left: 0; right: 0; top: 0; height: 360px; background-size: cover; background-position: center 30%; filter: blur(36px); opacity: 0.45; transform: scale(1.1); }
   .backdrop::after { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent, var(--bg)); }
+  .statuses { position: relative; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .statuses .chip { height: 30px; padding: 0 12px; font-size: 0.8rem; }
+  .ch-search { display: flex; align-items: center; gap: 8px; margin: 4px 16px 8px; padding: 0 12px; height: 40px; border-radius: 20px; background: var(--surface-high); color: var(--text-dim); }
+  .ch-search input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--text); font-size: 0.95rem; }
+  /* Computers: the title's card stays on the left while the chapter list scrolls on the right. */
+  @media (min-width: 1000px) {
+    .layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 36px; padding: 0 24px; align-items: start; }
+    .hero { position: sticky; top: calc(var(--safe-top) + 56px); padding: 0; max-height: calc(100vh - 72px); overflow-y: auto; scrollbar-width: thin; }
+    .hero-inner { flex-direction: column; align-items: flex-start; }
+    .poster { width: 100% !important; height: auto !important; aspect-ratio: 0.7; }
+    h1 { font-size: 1.6rem; }
+    .main .tabs { margin-top: 0; top: calc(var(--safe-top) + 52px); }
+    .fab.fab { right: max(24px, calc((100vw - 1200px) / 2 + 24px)); }
+  }
   .hero-inner { position: relative; display: flex; gap: 16px; align-items: flex-end; }
   .poster { width: 116px; height: 166px; object-fit: cover; border-radius: 14px; box-shadow: 0 10px 30px #000a; background: var(--surface-variant); flex: none; }
   @media (min-width: 760px) { .poster { width: 160px; height: 228px; } }

@@ -7,6 +7,7 @@
   import { openRelated } from '../lib/open.svelte.js';
   import { TYPE_FILTERS, LANGUAGES } from '../lib/format.js';
   import MediaCard from '../components/MediaCard.svelte';
+  import Row from '../components/Row.svelte';
   import RandomSheet from '../components/RandomSheet.svelte';
   import Icon from '../components/Icon.svelte';
 
@@ -66,7 +67,7 @@
 
   {#if history.length}
     <div class="section-title"><h2>Continuar</h2></div>
-    <div class="row continue">
+    <Row class="continue">
       {#each history as h (h.sourceId + h.mediaId)}
         <a class="cont" href={continueHref(h)}>
           <img src={h.cover} alt="" loading="lazy" />
@@ -76,7 +77,7 @@
           </div>
         </a>
       {/each}
-    </div>
+    </Row>
   {/if}
 
   {#if forYou.loading || forYou.items.length}
@@ -84,11 +85,11 @@
     {#if forYou.loading}
       <div class="row">{#each Array(6) as _}<div><div class="skeleton" style="aspect-ratio:0.7"></div></div>{/each}</div>
     {:else}
-      <div class="row">
+      <Row>
         {#each forYou.items as r, i (i)}
           <MediaCard title={r.title} cover={r.cover} type={r.type} subtitle={r.format} showType onclick={() => openRelated(r)} />
         {/each}
-      </div>
+      </Row>
     {/if}
   {/if}
 
@@ -107,11 +108,11 @@
     {:else if section.error && !section.items.length}
       <p class="small error-text">No disponible: {section.error}</p>
     {:else}
-      <div class="row">
+      <Row>
         {#each filtered(section.items) as item (item.id)}
           <MediaCard title={item.title} cover={item.cover} href={media(item.sourceId, item.id)} />
         {/each}
-      </div>
+      </Row>
     {/if}
   {/each}
 </div>
@@ -120,7 +121,7 @@
 
 <style>
   .right { display: flex; align-items: center; gap: 4px; }
-  .continue > .cont { width: 260px; }
+  :global(.continue) > .cont { width: 260px; }
   .cont { display: flex; gap: 10px; align-items: center; padding: 8px; border-radius: 14px; background: var(--surface-high); }
   .cont img { width: 52px; height: 74px; object-fit: cover; border-radius: 6px; background: var(--surface-variant); flex: none; }
   .cont-text { min-width: 0; }

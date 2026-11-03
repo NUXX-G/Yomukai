@@ -1,7 +1,7 @@
 // What the whole app shares: who is logged in, their settings (kept on the server) and the library.
 import { api } from './api.js';
 
-export const session = $state({ user: null, ready: false, guestsEnabled: true, guestDays: 7 });
+export const session = $state({ user: null, ready: false, offline: false, guestsEnabled: true, guestDays: 7 });
 
 const DEFAULT_SETTINGS = {
   enabledSources: null,
@@ -24,13 +24,20 @@ export function notify(text) {
   setTimeout(() => { if (toast.at === at) toast.text = ''; }, 3500);
 }
 
-export async function loadSession() {
+export async function loadSession(attempt = 0) {
   try {
     const me = await api.me();
     session.user = me.user;
     session.guestsEnabled = me.guestsEnabled;
     session.guestDays = me.guestDays;
   } catch (e) {
+    // The server is restarting or the connection dropped: the session is still good, so wait and retry
+    // instead of showing the login screen.
+    if (e.status !== 401 && attempt < 30) {
+      session.offline = true;
+      await new Promise((r) => setTimeout(r, Math.min(5000, 1000 + attempt * 500)));
+      return loadSession(attempt + 1);
+    }
     session.user = null;
     if (e.status === 401) {
       // The answer still says whether guests may come in.
@@ -42,6 +49,7 @@ export async function loadSession() {
       } catch {}
     }
   }
+  session.offline = false;
   session.ready = true;
   if (session.user) await loadUserData();
 }
@@ -91,6 +99,35 @@ export async function toggleLibrary(media) {
   library.items = [row, ...library.items];
   await api.saveLibrary(row).catch((e) => notify(e.message));
   return true;
+}
+
+/** The app's reading statuses, in the order the library shows them. */
+export const READING_STATUSES = [
+  ['READING', 'Leyendo'], ['PLAN', 'Pendiente'], ['COMPLETED', 'Completada'], ['ON_HOLD', 'En pausa'], ['DROPPED', 'Abandonada']
+];
+
+export async function setReadingStatus(sourceId, mediaId, status) {
+  const row = inLibrary(sourceId, mediaId);
+  if (!row) return;
+  const updated = { ...row, readingStatus: status };
+  library.items = library.items.map((r) => (r === row ? updated : r));
+  await api.saveLibrary(updated).catch((e) => notify(e.message));
+}
+
+/** New chapters per saved title, fetched once per visit and shared by the library and the title pages. */
+export const updates = $state({ byKey: {}, loading: false, at: 0 });
+export async function loadUpdates(force = false) {
+  if (updates.loading || (!force && Date.now() - updates.at < 10 * 60_000)) return;
+  updates.loading = true;
+  try {
+    const rows = await api.updates();
+    updates.byKey = Object.fromEntries(rows.map((r) => [r.sourceId + '|' + r.mediaId, r]));
+    updates.at = Date.now();
+  } catch (e) {
+    notify('No se pudieron buscar novedades: ' + e.message);
+  } finally {
+    updates.loading = false;
+  }
 }
 
 export function sourceById(id) {

@@ -51,6 +51,7 @@ export const api = {
   locate: (related) => request('POST', '/api/locate', related),
   random: (kind, genre) => request('GET', `/api/random?${qs({ kind, genre })}`),
   forYou: () => request('GET', '/api/foryou'),
+  updates: () => request('GET', '/api/updates'),
 
   library: () => request('GET', '/api/library'),
   saveLibrary: (row) => request('PUT', '/api/library', row),

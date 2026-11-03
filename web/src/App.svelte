@@ -56,7 +56,10 @@
 </script>
 
 {#if !session.ready}
-  <div class="center" style="min-height:100vh"><div class="spinner"></div></div>
+  <div class="center" style="min-height:100vh">
+    <div class="spinner"></div>
+    {#if session.offline}<p class="muted small">Conectando con el servidor...</p>{/if}
+  </div>
 {:else if !session.user}
   <Login />
 {:else}

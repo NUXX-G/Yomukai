@@ -50,7 +50,10 @@ import io.ktor.server.routing.routing
 import io.ktor.server.sse.SSE
 import io.ktor.server.sse.sse
 import io.ktor.sse.ServerSentEvent
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import java.io.File
@@ -300,7 +303,39 @@ private fun Route.catalogRoutes(s: Services) {
         val seen = history.zip(library).flatMap { listOf(it.first, it.second) } + history.drop(library.size) + library.drop(history.size)
         call.reply(s.catalog.forYou(user, s.prefs(user), seen))
     }
+    // New chapters of every saved title, counted from the last one read. Chapter lists are cached
+    // for a few minutes, so opening the library again costs nothing.
+    get("/updates") {
+        val user = call.user
+        val library = s.db.library(user.id).take(MAX_UPDATE_TITLES)
+        val progress = s.db.allProgress(user.id).groupBy { it.sourceId + "|" + it.mediaId }
+        val gate = kotlinx.coroutines.sync.Semaphore(6)
+        val rows = kotlinx.coroutines.coroutineScope {
+            library.map { row ->
+                async {
+                    gate.withPermit {
+                        val list = kotlinx.coroutines.withTimeoutOrNull(25_000) {
+                            s.catalog.chapters(row.sourceId, row.mediaId, null).getOrNull()
+                        } ?: return@withPermit null
+                        val chapters = list.chapters
+                        val read = progress[row.sourceId + "|" + row.mediaId].orEmpty().filter { it.read }.map { it.chapterId }.toSet()
+                        val lastRead = chapters.lastOrNull { it.id in read }?.index
+                        val latest = chapters.lastOrNull()
+                        mapOf(
+                            "sourceId" to row.sourceId, "mediaId" to row.mediaId, "total" to chapters.size,
+                            "unread" to if (lastRead == null) null else chapters.count { it.index > lastRead },
+                            "next" to chapters.firstOrNull { lastRead == null || it.index > lastRead }?.id,
+                            "latestLabel" to latest?.label, "lastUpdate" to list.lastUpdate
+                        )
+                    }
+                }
+            }.awaitAll().filterNotNull()
+        }
+        call.respond(rows)
+    }
 }
+
+private const val MAX_UPDATE_TITLES = 300
 
 private fun typeOf(name: String) = runCatching { MediaType.valueOf(name) }.getOrDefault(MediaType.MANGA)
 

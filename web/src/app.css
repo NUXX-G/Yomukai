@@ -85,3 +85,7 @@ img { display: block; }
 .center { display: grid; place-items: center; min-height: 40vh; text-align: center; gap: 12px; }
 
 .toast { position: fixed; left: 50%; bottom: calc(var(--nav-h) + var(--safe-bottom) + 16px); transform: translateX(-50%); background: var(--surface-highest); color: var(--text); padding: 12px 18px; border-radius: 12px; z-index: 100; max-width: min(92vw, 520px); box-shadow: 0 8px 24px #0009; }
+input[type='checkbox'] { appearance: none; width: 44px; height: 26px; border-radius: 13px; background: var(--surface-highest); position: relative; transition: background 0.2s; flex: none; }
+input[type='checkbox']::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--text-dim); transition: transform 0.2s, background 0.2s; }
+input[type='checkbox']:checked { background: var(--primary); }
+input[type='checkbox']:checked::after { transform: translateX(18px); background: var(--on-primary); }

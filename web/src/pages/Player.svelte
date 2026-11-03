@@ -26,6 +26,15 @@
   let ui = $state(false);
   let now = $state(clock());
   let serversOpen = $state(false);
+  let episodesOpen = $state(false);
+  let muted = $state(false);
+  let volume = $state(1);
+  let flash = $state('');
+  let flashTimer;
+  let lastTap = { at: 0, x: 0 };
+  let tapTimer;
+  let watchedIds = $state({});
+  const canPip = typeof document !== 'undefined' && document.pictureInPictureEnabled;
   let video;
   let shell;
   let hls = null;
@@ -107,6 +116,49 @@
 
   function tap() { ui ? (ui = false) : poke(); }
 
+  function showFlash(text) {
+    flash = text;
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => (flash = ''), 700);
+  }
+
+  /**
+   * Touch: one tap shows or hides the controls, two quick taps on a side jump 10 s.
+   * Mouse: a click shows the controls, a double click goes full screen.
+   */
+  function press(e) {
+    if (e.pointerType === 'mouse') { poke(); return; }
+    const now = Date.now();
+    const x = e.clientX / innerWidth;
+    if (now - lastTap.at < 300 && Math.abs(x - lastTap.x) < 0.2 && (x < 0.4 || x > 0.6)) {
+      clearTimeout(tapTimer);
+      lastTap = { at: 0, x: 0 };
+      const delta = x < 0.5 ? -10 : 10;
+      seek(delta);
+      showFlash(delta < 0 ? '« 10 s' : '10 s »');
+      return;
+    }
+    lastTap = { at: now, x };
+    clearTimeout(tapTimer);
+    tapTimer = setTimeout(tap, 250);
+  }
+
+  async function pip() {
+    try {
+      if (document.pictureInPictureElement) await document.exitPictureInPicture();
+      else await video.requestPictureInPicture();
+    } catch {}
+  }
+
+  function setVolume(v) {
+    volume = Math.min(1, Math.max(0, v));
+    video.volume = volume;
+    muted = volume === 0;
+    video.muted = muted;
+    try { localStorage.setItem('player.volume', String(volume)); } catch {}
+  }
+  function toggleMute() { muted = !muted; video.muted = muted; showFlash(muted ? 'Silencio' : `Volumen ${Math.round(volume * 100)}%`); }
+
   /** Full screen and landscape on Android; on iPhone, Safari's own full-screen video. */
   async function fullscreen() {
     try {
@@ -130,10 +182,16 @@
   function setSpeed(s) { settings.player.speed = s; video.playbackRate = s; saveSettings(); }
 
   function key(e) {
+    if (e.target.closest?.('input[type=search], input[type=text], textarea') || serversOpen || episodesOpen) return;
     if (e.key === ' ' || e.key === 'k') { e.preventDefault(); toggle(); }
-    if (e.key === 'ArrowRight') seek(10);
-    if (e.key === 'ArrowLeft') seek(-10);
+    if (e.key === 'ArrowRight') { seek(e.shiftKey ? 85 : 10); showFlash(e.shiftKey ? '+85 s' : '10 s »'); }
+    if (e.key === 'ArrowLeft') { seek(-10); showFlash('« 10 s'); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); setVolume(volume + 0.1); showFlash(`Volumen ${Math.round(volume * 100)}%`); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setVolume(volume - 0.1); showFlash(`Volumen ${Math.round(volume * 100)}%`); }
+    if (e.key === 'm') toggleMute();
     if (e.key === 'f') fullscreen();
+    if (e.key === 'n' && next) go(next);
+    if (e.key === 'Escape' && !document.fullscreenElement) back(mediaHref(sourceId, mediaId));
   }
 
   onMount(async () => {
@@ -145,6 +203,8 @@
       episode = chapters.find((c) => c.id === episodeId) || chapters[0];
       const p = progress[episode.id];
       resumeAt = p && !p.read ? p.page : 0;
+      watchedIds = Object.fromEntries(Object.values(progress).filter((r) => r.read).map((r) => [r.chapterId, true]));
+      try { const v = parseFloat(localStorage.getItem('player.volume')); if (v >= 0 && v <= 1) { volume = v; video.volume = v; } } catch {}
       servers = await api.videos(sourceId, episode.url);
       if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({ title: `${m.title} · ${episode.label}`, artwork: m.cover ? [{ src: m.cover, sizes: '512x512' }] : [] });
@@ -158,7 +218,8 @@
   });
 
   onDestroy(() => {
-    clearInterval(clockTimer); clearTimeout(hideTimer); hls?.destroy(); keepAwake(false); flush();
+    clearInterval(clockTimer); clearTimeout(hideTimer); clearTimeout(tapTimer); clearTimeout(flashTimer); hls?.destroy();
+    if (document.pictureInPictureElement) document.exitPictureInPicture().catch(() => {}); keepAwake(false); flush();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     screen.orientation?.unlock?.();
   });
@@ -172,12 +233,13 @@
 <div class="player" bind:this={shell}>
   <video
     bind:this={video} playsinline preload="auto"
-    onclick={tap} onplay={() => (playing = true)} onpause={() => { playing = false; poke(); }}
+    onpointerup={press} ondblclick={fullscreen} onpointermove={(e) => { if (e.pointerType === 'mouse' && playing) poke(); }} onplay={() => (playing = true)} onpause={() => { playing = false; poke(); }}
     onwaiting={() => (loading = true)} onplaying={() => (loading = false)}
     onloadedmetadata={onLoaded} ontimeupdate={onTime} onended={onEnded} onerror={onError}
   ></video>
 
   {#if loading && !error}<div class="spin"><div class="spinner big"></div></div>{/if}
+  {#if flash}<div class="flash">{flash}</div>{/if}
   {#if error}
     <div class="message">
       <p>{error}</p>
@@ -187,13 +249,15 @@
   {/if}
 
   {#if ui}
-    <div class="hud" onclick={(e) => { if (e.target === e.currentTarget) tap(); }} role="presentation">
+    <div class="hud" onpointerup={(e) => { if (e.target === e.currentTarget) press(e); }} ondblclick={(e) => { if (e.target === e.currentTarget) fullscreen(); }} onpointermove={(e) => { if (e.pointerType === 'mouse' && playing) poke(); }} role="presentation">
       <div class="top">
         <button class="icon-btn" onclick={() => back(mediaHref(sourceId, mediaId))} aria-label="Volver"><Icon name="back" /></button>
         <div class="title">{item?.title ?? ''} · {episode?.label ?? ''}</div>
+        <button class="icon-btn" onclick={() => (episodesOpen = true)} aria-label="Episodios" title="Episodios"><Icon name="list" /></button>
         <button class="btn text light" onclick={() => (serversOpen = true)}>Servidores</button>
         <button class="btn text light" onclick={() => setSpeed(SPEEDS[(SPEEDS.indexOf(settings.player.speed) + 1) % SPEEDS.length])}>{settings.player.speed}x</button>
-        <button class="icon-btn" onclick={fullscreen} aria-label="Pantalla completa"><Icon name="fullscreen" /></button>
+        {#if canPip}<button class="icon-btn" onclick={pip} aria-label="Imagen en imagen" title="Imagen en imagen"><Icon name="pip" /></button>{/if}
+        <button class="icon-btn" onclick={fullscreen} aria-label="Pantalla completa" title="Pantalla completa (F)"><Icon name="fullscreen" /></button>
       </div>
       <div class="middle">
         <button class="icon-btn lg" onclick={() => seek(-10)} aria-label="Retroceder 10 s"><Icon name="rewind" size={36} /></button>
@@ -205,6 +269,10 @@
         <input type="range" min="0" max={duration || 0} step="1" value={current} oninput={(e) => { video.currentTime = +e.target.value; poke(); }} style="--p:{duration ? (current / duration) * 100 : 0}%" aria-label="Progreso" />
         <div class="actions">
           <button class="btn text light" onclick={() => seek(85)}>+85 s</button>
+          <span class="volume">
+            <button class="icon-btn" onclick={toggleMute} aria-label={muted ? 'Activar sonido' : 'Silenciar'}><Icon name={muted || volume === 0 ? 'mute' : 'volume'} /></button>
+            <input class="vol" type="range" min="0" max="1" step="0.05" value={muted ? 0 : volume} oninput={(e) => setVolume(+e.target.value)} style="--p:{(muted ? 0 : volume) * 100}%" aria-label="Volumen" />
+          </span>
           <span class="grow"></span>
           {#if next}<button class="btn primary" onclick={() => go(next)}><Icon name="next" size={18} /> Siguiente</button>{/if}
         </div>
@@ -214,6 +282,15 @@
     <div class="mini-clock">{now}</div>
   {/if}
 </div>
+
+<Sheet bind:open={episodesOpen} title="Episodios">
+  {#each [...chapters].reverse() as c (c.id)}
+    <button class="list-item srv" class:current={c.id === episode?.id} onclick={() => { episodesOpen = false; if (c.id !== episode?.id) go(c); }}>
+      <span class="grow" class:seen={watchedIds[c.id]}>{c.label}{#if c.name} <span class="small muted">{c.name}</span>{/if}</span>
+      {#if watchedIds[c.id]}<Icon name="check" size={18} />{/if}
+    </button>
+  {/each}
+</Sheet>
 
 <Sheet bind:open={serversOpen} title="Servidores">
   {#each servers as s, i}
@@ -251,6 +328,11 @@
   .mini-clock { position: absolute; top: calc(var(--safe-top) + 12px); right: 18px; color: #fff9; font-size: 0.8rem; font-weight: 500; text-shadow: 0 0 6px #000; pointer-events: none; }
   .srv { width: 100%; text-align: left; gap: 12px; }
   .srv.current { color: var(--primary); }
+  .seen { opacity: 0.55; }
+  .flash { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 3; padding: 10px 18px; border-radius: 14px; background: #000a; color: #fff; font-weight: 600; pointer-events: none; animation: in 0.15s; }
+  .volume { display: none; align-items: center; }
+  .vol { width: 90px; margin: 0; }
+  @media (hover: hover) and (pointer: fine) { .volume { display: inline-flex; } }
   @keyframes in { from { opacity: 0; } }
   @keyframes slide-down { from { transform: translateY(-30%); opacity: 0; } }
   @keyframes slide-up { from { transform: translateY(30%); opacity: 0; } }

@@ -46,6 +46,24 @@
     customGenre = '';
   }
 
+  /** sourceId -> { state: 'run' | 'ok' | 'fail', ms, count, error } */
+  let checks = $state({});
+  let checking = $state(false);
+  async function checkSources() {
+    checking = true;
+    checks = Object.fromEntries(sources.list.map((s) => [s.id, { state: 'run' }]));
+    await Promise.all(sources.list.map(async (s) => {
+      const t = performance.now();
+      try {
+        const items = await api.latest(s.id);
+        checks[s.id] = { state: items.length ? 'ok' : 'fail', ms: Math.round(performance.now() - t), count: items.length, error: items.length ? '' : 'Respondió sin obras' };
+      } catch (e) {
+        checks[s.id] = { state: 'fail', ms: Math.round(performance.now() - t), error: e.message };
+      }
+    }));
+    checking = false;
+  }
+
   async function logout() {
     await api.logout().catch(() => {});
     resetUserState();
@@ -117,10 +135,21 @@
   <section class="card list">
     {#each sources.list as s (s.id)}
       <label class="toggle">
-        <span class="grow">{s.name} <span class="tag">{s.language}</span>{#if s.experimental} <span class="small muted">experimental</span>{/if}</span>
+        <span class="grow">
+          {s.name} <span class="tag">{s.language}</span>{#if s.experimental} <span class="small muted">experimental</span>{/if}
+          {#if checks[s.id]}
+            {@const c = checks[s.id]}
+            <span class="small check {c.state}">
+              {#if c.state === 'run'}Probando...{:else if c.state === 'ok'}✓ Funciona · {c.count} obras · {(c.ms / 1000).toFixed(1)} s{:else}✗ {c.error}{/if}
+            </span>
+          {/if}
+        </span>
         <input type="checkbox" checked={enabledIds.has(s.id)} onchange={() => toggleSource(s.id)} />
       </label>
     {/each}
+    <div class="diag">
+      <button class="btn outline" onclick={checkSources} disabled={checking}>{checking ? 'Probando fuentes...' : 'Comprobar todas las fuentes'}</button>
+    </div>
   </section>
 
   <h2 class="h">Géneros excluidos</h2>
@@ -181,11 +210,11 @@
   .list { padding: 4px 16px; }
   .toggle { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--outline-variant); }
   .toggle:last-child { border-bottom: 0; }
-  input[type='checkbox'] { appearance: none; width: 44px; height: 26px; border-radius: 13px; background: var(--surface-highest); position: relative; transition: background 0.2s; flex: none; }
-  input[type='checkbox']::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--text-dim); transition: transform 0.2s, background 0.2s; }
-  input[type='checkbox']:checked { background: var(--primary); }
-  input[type='checkbox']:checked::after { transform: translateX(18px); background: var(--on-primary); }
   .wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+  .check { display: block; margin-top: 2px; color: var(--text-dim); }
+  .check.ok { color: #6fcf8a; }
+  .check.fail { color: var(--error, #ff8a80); }
+  .diag { padding: 12px 0; }
   .add { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
   .add .field { flex: 1; min-width: 140px; }
   .created { margin: 12px 0; padding: 12px; border-radius: 10px; background: var(--primary-container); color: var(--on-primary-container); }
