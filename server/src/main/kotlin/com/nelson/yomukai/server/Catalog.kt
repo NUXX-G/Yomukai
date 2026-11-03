@@ -130,6 +130,9 @@ class Catalog(
 
     fun enabled(prefs: UserPrefs) = sources.enabled(prefs.enabledSources)
 
+    /** Whether the chapter list is already in memory, so reading it costs the site nothing. */
+    fun hasCachedChapters(sourceId: String, mediaId: String) = chapters.get(key(sourceId, mediaId)) != null
+
     private fun require(id: String): CatalogueSource = sources.get(id) ?: throw NoSuchElementException("Fuente desconocida: $id")
 
     suspend fun latest(sourceId: String, page: Int, prefs: UserPrefs): Result<List<MediaDto>> {

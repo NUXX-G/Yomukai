@@ -307,13 +307,25 @@ private fun Route.catalogRoutes(s: Services) {
     // for a few minutes, so opening the library again costs nothing.
     get("/updates") {
         val user = call.user
-        val library = s.db.library(user.id).take(MAX_UPDATE_TITLES)
+        val now = System.currentTimeMillis()
+        UpdateLimits.recent[user.id]?.takeIf { now - it.first < UpdateLimits.REUSE_MS }?.let { return@get call.respond(it.second) }
+        // One run per person at a time: a second click waits for nothing and costs the sites nothing.
+        if (!UpdateLimits.running.add(user.id)) {
+            return@get call.respond(HttpStatusCode.TooManyRequests, mapOf("error" to "Ya se están buscando novedades"))
+        }
+        try {
+        val enabled = s.catalog.enabled(s.prefs(user)).map { it.id }.toSet()
+        val library = s.db.library(user.id).filter { it.sourceId in enabled }.take(MAX_UPDATE_TITLES)
         val progress = s.db.allProgress(user.id).groupBy { it.sourceId + "|" + it.mediaId }
-        val gate = kotlinx.coroutines.sync.Semaphore(6)
+        // Lists already in memory are free; only a limited number per run may be fetched from the sites.
+        var budget = if (user.isGuest) UpdateLimits.GUEST_FETCHES else UpdateLimits.ACCOUNT_FETCHES
+        val allowed = library.filter { row ->
+            s.catalog.hasCachedChapters(row.sourceId, row.mediaId) || budget-- > 0
+        }
         val rows = kotlinx.coroutines.coroutineScope {
-            library.map { row ->
+            allowed.map { row ->
                 async {
-                    gate.withPermit {
+                    UpdateLimits.gate.withPermit {
                         val list = kotlinx.coroutines.withTimeoutOrNull(25_000) {
                             s.catalog.chapters(row.sourceId, row.mediaId, null).getOrNull()
                         } ?: return@withPermit null
@@ -331,11 +343,27 @@ private fun Route.catalogRoutes(s: Services) {
                 }
             }.awaitAll().filterNotNull()
         }
+        UpdateLimits.recent[user.id] = now to rows
+        if (UpdateLimits.recent.size > 2000) UpdateLimits.recent.entries.removeIf { now - it.value.first > UpdateLimits.REUSE_MS }
         call.respond(rows)
+        } finally {
+            UpdateLimits.running.remove(user.id)
+        }
     }
 }
 
 private const val MAX_UPDATE_TITLES = 300
+
+/** Keeps the new-chapters check from turning one request into hundreds aimed at the sites. */
+private object UpdateLimits {
+    /** Shared by everyone: at most this many chapter lists are fetched at once. */
+    val gate = kotlinx.coroutines.sync.Semaphore(8)
+    val running: MutableSet<Long> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+    val recent = java.util.concurrent.ConcurrentHashMap<Long, Pair<Long, List<Map<String, Any?>>>>()
+    const val REUSE_MS = 2 * 60_000L
+    const val ACCOUNT_FETCHES = 60
+    const val GUEST_FETCHES = 20
+}
 
 private fun typeOf(name: String) = runCatching { MediaType.valueOf(name) }.getOrDefault(MediaType.MANGA)
 
