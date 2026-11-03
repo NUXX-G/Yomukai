@@ -122,7 +122,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             val jobs = sources.map { source ->
                 async {
                     val result = withTimeoutOrNull(SOURCE_TIMEOUT_MS) {
-                        source.fetchLatestUpdates(1).mapCatching { container.contentFilter.known(source, it) }
+                        source.fetchLatestUpdates(1).mapCatching { container.contentFilter.screen(source, it) }
                     } ?: Result.failure(IOException("${source.name} tardó demasiado en responder"))
                     updateSection(source.id) {
                         val fresh = result.getOrDefault(emptyList())
@@ -139,14 +139,16 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             jobs.forEach { it.await() }
             container.homeCache.save(rawSections.value.associate { it.sourceId to it.items })
             refreshing.value = false
-            // Titles whose genres no list gave are checked after everything is on screen.
-            sources.forEach { source ->
+            // Titles whose genres no list gave are checked after everything is on screen, and the saved
+            // copy is written again without them, so they never show up on the next start.
+            sources.map { source ->
                 launch {
                     val shown = rawSections.value.firstOrNull { it.sourceId == source.id }?.items.orEmpty()
                     val hidden = container.contentFilter.check(source, shown)
                     if (hidden.isNotEmpty()) updateSection(source.id) { s -> s.copy(items = s.items.filterNot { it.id in hidden }) }
                 }
-            }
+            }.forEach { it.join() }
+            container.homeCache.save(rawSections.value.associate { it.sourceId to it.items })
         }
     }
 

@@ -66,6 +66,15 @@ object TitleMatcher {
     fun nearMatch(names: Collection<String>, candidate: MediaItem): Boolean =
         names.any { SmartSearch.scoreTitle(it, candidate.title) >= NEAR_SCORE }
 
+    /**
+     * How much [name] and the candidate's names are the same name, 0..1, measured both ways: a
+     * sequel ("Solo Leveling: Ragnarok") contains the name but the name does not contain it.
+     */
+    fun closeness(name: String, candidate: MediaItem): Double =
+        (listOf(candidate.title) + candidate.altTitles).maxOfOrNull { other ->
+            minOf(SmartSearch.scoreTitle(name, other), SmartSearch.scoreTitle(other, name))
+        } ?: 0.0
+
     private const val MIN_KEY_LENGTH = 3
     private const val SPECIFIC_NAME_WORDS = 3
     private const val NEAR_SCORE = 0.6

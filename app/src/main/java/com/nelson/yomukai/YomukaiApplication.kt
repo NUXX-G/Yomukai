@@ -62,8 +62,10 @@ class AppContainer(context: Context) {
     /** First catalogue page of each source opened in this session. */
     val browseMemory = android.util.LruCache<String, List<com.nelson.yomukai.domain.model.MediaItem>>(16)
     val contentFilter = ContentFilter(preferences, libraryRepository)
+    private val aniList = AniListClient(network)
+    val metadata = com.nelson.yomukai.data.metadata.MetadataRepository(aniList, com.nelson.yomukai.data.metadata.KitsuClient(network))
     val discovery = DiscoveryRepository(
-        sourceManager, preferences, AniListClient(network),
+        sourceManager, preferences, aniList,
         savedTitles = { homeCache.load().values.flatten() },
         filter = { contentFilter }
     )

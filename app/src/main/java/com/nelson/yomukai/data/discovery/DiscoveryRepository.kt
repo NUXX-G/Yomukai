@@ -99,8 +99,8 @@ class DiscoveryRepository(
         withTimeoutOrNull(ALIAS_TIMEOUT_MS) { runCatching { aniList.otherNames(query) }.getOrNull() }.orEmpty()
             .filter { name -> name.none { it.code > LATIN_LIMIT } && !name.equals(query, ignoreCase = true) }
 
-    private fun searchable(names: List<String>): List<String> =
-        names.sortedBy { name -> name.any { it.code > LATIN_LIMIT } }.take(MAX_QUERIES)
+    private fun searchable(names: List<String>, count: Int = MAX_QUERIES): List<String> =
+        names.distinctBy(SmartSearch::duplicateKey).sortedBy { name -> name.any { it.code > LATIN_LIMIT } }.take(count)
 
     /**
      * Titles like [media]: its community's recommendations, or for works AniList does not cover
@@ -134,13 +134,44 @@ class DiscoveryRepository(
         }
     }
 
-    /** Where a recommended title can be read, for opening it. */
+    /** Places already found for recommended titles in this session, so opening one again is instant. */
+    private val located = java.util.concurrent.ConcurrentHashMap<String, List<Alternative>>()
+
+    private fun locateKey(related: RelatedTitle) = related.type.name + "|" + related.names.joinToString("|") { SmartSearch.duplicateKey(it) }
+
+    /**
+     * Where a recommended title can be read, for opening it. A title that already comes from a source
+     * opens there. Otherwise every enabled source is searched with each of its names; when no entry
+     * carries exactly one of them, the closest one that is clearly the same name (another spelling,
+     * a subtitle cut off) is offered too, marked as unconfirmed. Titles of excluded genres are left out.
+     */
     suspend fun locate(related: RelatedTitle): List<Alternative> {
+        related.item?.let { item ->
+            val source = sources.get(item.sourceId)
+            if (source != null) return listOf(Alternative(item, source.name, source.language, MatchConfidence.SAME_WORK))
+        }
+        located[locateKey(related)]?.let { return it }
+        val names = (related.names + related.title).filter { it.isNotBlank() }.distinct()
         val found = java.util.Collections.synchronizedList(mutableListOf<Alternative>())
         forEachSource(related.type, null) { source ->
-            match(source, related.names, "", related.type)?.let { found += it }
+            val hit = match(source, names, "", related.type, queries = MAX_LOCATE_QUERIES) ?: closest(source, names, related.type)
+            if (hit != null && filter().known(source, listOf(hit.item)).isNotEmpty()) found += hit
         }
-        return found.sortedBy { it.sourceName }
+        val result = found.sortedWith(compareBy({ it.confidence.ordinal }, { it.sourceName }))
+        if (result.isNotEmpty()) located[locateKey(related)] = result
+        return result
+    }
+
+    /** The entry whose title is the same name as one of [names] in both directions, for spellings no key catches. */
+    private suspend fun closest(source: CatalogueSource, names: List<String>, type: MediaType): Alternative? {
+        val query = searchable(names).firstOrNull() ?: return null
+        val results = source.searchMedia(query).getOrNull() ?: return null
+        val best = results.filter { TitleMatcher.sameFamily(type, it.type) }
+            .map { item -> item to names.maxOf { name -> TitleMatcher.closeness(name, item) } }
+            .maxByOrNull { it.second }
+            ?.takeIf { it.second >= CLOSE_SCORE }
+            ?: return null
+        return Alternative(best.first, source.name, source.language, MatchConfidence.UNCONFIRMED)
     }
 
     private suspend fun forEachSource(type: MediaType, exclude: String?, block: suspend (CatalogueSource) -> Unit) = coroutineScope {
@@ -151,8 +182,10 @@ class DiscoveryRepository(
     }
 
     /** Searches [source] for the title and returns the entry that is the same work, if any. */
-    private suspend fun match(source: CatalogueSource, names: List<String>, author: String, type: MediaType): Alternative? {
-        for (query in searchable(names)) {
+    private suspend fun match(
+        source: CatalogueSource, names: List<String>, author: String, type: MediaType, queries: Int = MAX_QUERIES
+    ): Alternative? {
+        for (query in searchable(names, queries)) {
             val results = source.searchMedia(query).getOrNull() ?: continue
             pick(results, names, author, type)?.let { (item, confidence) ->
                 // Search pages rarely list authors: the verdict comes from the title's own page.
@@ -183,6 +216,8 @@ class DiscoveryRepository(
         const val RANDOM_ATTEMPTS = 4
         const val RANDOM_TIMEOUT_MS = 6_000L
         const val MAX_QUERIES = 3
+        const val MAX_LOCATE_QUERIES = 4
+        const val CLOSE_SCORE = 0.75
         const val MAX_DETAILS = 2
         const val MAX_PARALLEL = 4
         const val MIN_WORD = 4

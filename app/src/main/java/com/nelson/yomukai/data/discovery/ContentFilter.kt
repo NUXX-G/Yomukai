@@ -1,5 +1,6 @@
 package com.nelson.yomukai.data.discovery
 
+import com.nelson.yomukai.data.metadata.GenreTaxonomy
 import com.nelson.yomukai.data.prefs.AppPreferences
 import com.nelson.yomukai.data.repository.LibraryRepository
 import com.nelson.yomukai.data.search.SmartSearch
@@ -15,31 +16,10 @@ import java.util.concurrent.ConcurrentHashMap
 
 /** Which genres hide a title. Pure, so it is unit tested. */
 object GenreRules {
-    private val SAME = listOf(
-        setOf("bl", "yaoi", "boys love", "boy s love", "shounen ai", "shonen ai"),
-        setOf("gl", "yuri", "girls love", "girl s love", "shoujo ai", "shojo ai"),
-        setOf("gore", "violencia extrema"),
-        setOf("harem", "harén"),
-        setOf("sci fi", "ciencia ficcion", "science fiction"),
-        setOf("terror", "horror"),
-        setOf("accion", "action"),
-        setOf("romance", "romantico"),
-        setOf("comedia", "comedy"),
-        setOf("fantasia", "fantasy"),
-        setOf("sobrenatural", "supernatural"),
-        setOf("psicologico", "psychological"),
-        setOf("deportes", "sports"),
-        setOf("recuentos de la vida", "slice of life")
-    ).map { group -> group.map(SmartSearch::normalize).toSet() }
-
-    private fun variants(genre: String): Set<String> {
-        val key = SmartSearch.normalize(genre)
-        return SAME.firstOrNull { key in it } ?: setOf(key)
-    }
-
-    /** True when any of [genres] is one of [excluded], in any language or spelling the rules know. */
+    /** True when any of [genres] is one of [excluded], in any language or spelling the taxonomy knows. */
     fun isExcluded(genres: Collection<String>, excluded: Set<String>): Boolean {
-        val banned = excluded.flatMap(::variants).toSet()
+        if (excluded.isEmpty()) return false
+        val banned = excluded.flatMap(GenreTaxonomy::variants).toSet()
         return genres.any { SmartSearch.normalize(it) in banned }
     }
 }
@@ -71,6 +51,18 @@ class ContentFilter(private val preferences: AppPreferences, private val library
         return items.filterNot { GenreRules.isExcluded(knownGenres(it).orEmpty() + it.type.displayName, excluded) }
     }
 
+    /**
+     * [known], plus a short wait for the pages of titles without listed genres, so excluded titles
+     * do not flash on screen and vanish a moment later. What is still unknown after the wait is shown
+     * and checked by [check] in the background; every page read meanwhile is remembered.
+     */
+    suspend fun screen(source: CatalogueSource, items: List<MediaItem>): List<MediaItem> {
+        val allowed = known(source, items)
+        if (preferences.exclusions.value.forSource(source.id).isEmpty()) return allowed
+        val hidden = withTimeoutOrNull(SCREEN_WAIT_MS) { check(source, allowed) }
+        return if (hidden != null) allowed.filterNot { it.id in hidden } else known(source, allowed)
+    }
+
     /** Reads the pages of titles without known genres and returns the ids that turned out to be excluded. */
     suspend fun check(source: CatalogueSource, items: List<MediaItem>): Set<String> {
         val excluded = preferences.exclusions.value.forSource(source.id)
@@ -94,12 +86,18 @@ class ContentFilter(private val preferences: AppPreferences, private val library
         return full.genres
     }
 
-    /** Recommendations carry their genres, and only the global list applies to them. */
-    fun allows(related: RelatedTitle): Boolean = !GenreRules.isExcluded(related.genres, preferences.exclusions.value.global)
+    /**
+     * Recommendations carry their genres and tags, and only the global list applies to them. The
+     * type counts too, as it does for source lists, so excluding "Manhwa" hides recommended manhwa
+     * instead of showing cards that then lead nowhere.
+     */
+    fun allows(related: RelatedTitle): Boolean =
+        !GenreRules.isExcluded(related.genres + related.tags + related.type.displayName, preferences.exclusions.value.global)
 
     private companion object {
         const val PARALLEL = 3
         const val MAX_LOOKUPS = 24
         const val LOOKUP_TIMEOUT_MS = 10_000L
+        const val SCREEN_WAIT_MS = 2_500L
     }
 }

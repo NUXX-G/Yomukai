@@ -153,7 +153,7 @@ class SearchViewModel(handle: SavedStateHandle, private val container: AppContai
             sources.forEach { source ->
                 launch {
                     val outcome = searchSource(source, query, aliases)
-                    val allowed = container.contentFilter.known(source, outcome.first)
+                    val allowed = container.contentFilter.screen(source, outcome.first)
                     synchronized(found) { found[source.id] = allowed.filter { it.type in current.typeFilter.types } }
                     val groups = synchronized(found) { SmartSearch.rankAndGroup(query, found.values.flatten(), trusted = trusted.toSet()) }
                     _state.update { st ->

@@ -58,7 +58,7 @@ class BrowseViewModel(handle: SavedStateHandle, private val container: AppContai
         _state.update { it.copy(items = emptyList(), page = 0, endReached = true, isLoading = true, error = null, query = query) }
         loadJob = viewModelScope.launch(Dispatchers.IO) {
             source.searchMedia(query)
-                .mapCatching { container.contentFilter.known(source, it) }
+                .mapCatching { container.contentFilter.screen(source, it) }
                 .onSuccess { items ->
                     _state.update { it.copy(items = items.distinctBy { i -> i.id }, isLoading = false) }
                     val hidden = container.contentFilter.check(source, items)
@@ -85,7 +85,7 @@ class BrowseViewModel(handle: SavedStateHandle, private val container: AppContai
         _state.update { it.copy(isLoading = true, error = null) }
         loadJob = viewModelScope.launch(Dispatchers.IO) {
             source.browse(page, values)
-                .mapCatching { container.contentFilter.known(source, it) }
+                .mapCatching { container.contentFilter.screen(source, it) }
                 .onSuccess { items ->
                     if (page == 1 && st0Query(values)) container.browseMemory.put(source.id, items)
                     launch {

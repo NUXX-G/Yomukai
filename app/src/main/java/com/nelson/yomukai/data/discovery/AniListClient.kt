@@ -28,7 +28,13 @@ data class RelatedTitle(
     val type: MediaType,
     val genres: List<String> = emptyList(),
     /** Set when the title already comes from a source and can be opened directly. */
-    val item: MediaItem? = null
+    val item: MediaItem? = null,
+    /** How it relates to the title it was found for ("Secuela", "Adaptación"...), for related works. */
+    val relation: String? = null,
+    /** Kind of release shown under the card ("Anime", "Película", "Novela ligera"...). */
+    val format: String = "",
+    /** AniList's tags, which hold what its genres do not (Boys' Love, Gore...). */
+    val tags: List<String> = emptyList()
 )
 
 /** What the random pick may be; a null [type] leaves that to chance too. */
@@ -42,7 +48,17 @@ enum class RandomKind(val label: String, val type: MediaType?) {
 data class AniListEntry(
     val names: List<String>,
     val related: List<RelatedTitle>,
-    val tags: List<String>
+    val tags: List<String>,
+    val id: Int = 0,
+    /** Community score from 0 to 100, when there are enough ratings. */
+    val score: Int? = null,
+    /** RELEASING, FINISHED, HIATUS, CANCELLED or NOT_YET_RELEASED. */
+    val status: String = "",
+    val description: String = "",
+    val genres: List<String> = emptyList(),
+    val siteUrl: String = "",
+    /** Prequels, sequels, adaptations and spin-offs, in any format. */
+    val relations: List<RelatedTitle> = emptyList()
 )
 
 /**
@@ -70,8 +86,16 @@ class AniListClient(private val network: NetworkHelper) {
         val title = names.firstOrNull() ?: return null
         val key = "${type.name}|${SmartSearch.duplicateKey(title)}"
         lock.withLock { cache[key] }?.let { return it }
-        val found = parseEntries(query(LOOKUP, title, type)).firstOrNull { TitleMatcher.shareName(names, it.names) }
-            ?: return null
+        // AniList's search is fuzzy; an answer only counts when one of its names is one of ours.
+        val queries = names.filter { it.isNotBlank() }.distinct()
+            .sortedBy { name -> name.any { it.code > LATIN_LIMIT } }
+            .take(MAX_LOOKUP_QUERIES)
+        var found: AniListEntry? = null
+        for (search in queries) {
+            found = parseEntries(query(LOOKUP, search, type)).firstOrNull { TitleMatcher.shareName(names, it.names) }
+            if (found != null) break
+        }
+        if (found == null) return null
         val entry = if (found.related.size >= ENOUGH) found else found.copy(related = (found.related + byTags(found, type)).distinctBy { it.title })
         lock.withLock { cache[key] = entry }
         return entry
@@ -176,11 +200,15 @@ class AniListClient(private val network: NetworkHelper) {
         private const val ENOUGH = 8
         private const val MAX_ALIASES = 2
         private const val MIN_TAG_RANK = 60
+        private const val MAX_LOOKUP_QUERIES = 2
+        private const val LATIN_LIMIT = 0x24F
 
-        private const val FIELDS = "title{romaji english native} synonyms coverImage{large} type format countryOfOrigin genres"
+        private const val FIELDS = "title{romaji english native} synonyms coverImage{large} type format countryOfOrigin genres tags{name rank}"
         private val LOOKUP = """
             query(${'$'}s:String,${'$'}t:MediaType,${'$'}f:MediaFormat,${'$'}n:MediaFormat){Page(perPage:5){media(search:${'$'}s,type:${'$'}t,format:${'$'}f,format_not:${'$'}n,sort:SEARCH_MATCH){
-            $FIELDS tags{name rank} recommendations(sort:RATING_DESC,perPage:24){nodes{rating mediaRecommendation{$FIELDS}}}}}}
+            $FIELDS id averageScore meanScore status description(asHtml:false) siteUrl
+            relations{edges{relationType node{$FIELDS}}}
+            recommendations(sort:RATING_DESC,perPage:24){nodes{rating mediaRecommendation{$FIELDS}}}}}}
         """.trimIndent()
         private const val RANDOM_PAGE_SIZE = 25
         private const val MAX_RANDOM_PAGE = 100
@@ -206,11 +234,70 @@ class AniListClient(private val network: NetworkHelper) {
             else -> MediaType.MANGA
         }
 
+        private fun tagsOf(media: JsonObject): List<String> =
+            media.arr("tags").objects().filter { (it.str("rank")?.toIntOrNull() ?: 0) >= MIN_TAG_RANK }.mapNotNull { it.str("name") }
+
+        /** "TV" -> "Anime", "NOVEL" -> "Novela ligera"... */
+        fun formatLabel(format: String?, type: MediaType): String = when (format) {
+            "TV" -> "Anime"
+            "TV_SHORT" -> "Anime corto"
+            "MOVIE" -> "Película"
+            "SPECIAL" -> "Especial"
+            "OVA" -> "OVA"
+            "ONA" -> "ONA"
+            "MUSIC" -> "Música"
+            "NOVEL" -> "Novela ligera"
+            "ONE_SHOT" -> "One-shot"
+            else -> type.displayName
+        }
+
+        /** AniList's relation type in Spanish; null for the ones that only add noise. */
+        fun relationLabel(type: String?): String? = when (type) {
+            "PREQUEL" -> "Precuela"
+            "SEQUEL" -> "Secuela"
+            "ADAPTATION" -> "Adaptación"
+            "SOURCE" -> "Obra original"
+            "PARENT" -> "Historia principal"
+            "SIDE_STORY" -> "Historia paralela"
+            "SPIN_OFF" -> "Spin-off"
+            "ALTERNATIVE" -> "Versión alternativa"
+            "SUMMARY" -> "Resumen"
+            "COMPILATION" -> "Recopilación"
+            "CONTAINS" -> "Incluye"
+            else -> null
+        }
+
+        /** Order in which relations are shown: the main line of the story first. */
+        private val RELATION_ORDER = listOf(
+            "Precuela", "Secuela", "Obra original", "Adaptación", "Historia principal", "Historia paralela", "Spin-off", "Versión alternativa"
+        )
+
+        private fun relationRank(label: String?) = RELATION_ORDER.indexOf(label).let { if (it < 0) RELATION_ORDER.size else it }
+
         private fun toRelated(media: JsonObject): RelatedTitle? {
             val names = namesOf(media)
             val title = media.obj("title")
             val shown = title?.str("english") ?: title?.str("romaji") ?: names.firstOrNull() ?: return null
-            return RelatedTitle(shown, names, media.obj("coverImage")?.str("large").orEmpty(), typeOf(media), media.arr("genres").strings())
+            val type = typeOf(media)
+            return RelatedTitle(
+                shown, names, media.obj("coverImage")?.str("large").orEmpty(), type, media.arr("genres").strings(),
+                format = formatLabel(media.str("format"), type), tags = tagsOf(media)
+            )
+        }
+
+        private val BREAK = Regex("(?i)<br\\s*/?>")
+        private val TAG = Regex("<[^>]+>")
+        private val CREDIT = Regex("(?is)\\(\\s*source:.*?\\)|\\[\\s*written by.*?]")
+        private val NOTE = Regex("(?im)^\\s*note:.*$")
+        private val BLANK_LINES = Regex("\\n{3,}")
+
+        /** AniList descriptions carry HTML, source credits and notes: only the story is kept. */
+        fun cleanDescription(raw: String?): String {
+            if (raw.isNullOrBlank()) return ""
+            return raw.replace(BREAK, "\n").replace(TAG, "").replace(CREDIT, "").replace(NOTE, "")
+                .replace("&quot;", "\"").replace("&amp;", "&").replace("&#039;", "'")
+                .replace(BLANK_LINES, "\n\n")
+                .trim()
         }
 
         /** Every entry of a lookup answer, best match first; unrated recommendations are dropped. */
@@ -221,9 +308,17 @@ class AniListClient(private val network: NetworkHelper) {
                     related = media.obj("recommendations")?.arr("nodes").objects()
                         .filter { (it.str("rating")?.toIntOrNull() ?: 0) > 0 }
                         .mapNotNull { it.obj("mediaRecommendation")?.let(::toRelated) },
-                    tags = media.arr("tags").objects()
-                        .filter { (it.str("rank")?.toIntOrNull() ?: 0) >= MIN_TAG_RANK }
-                        .mapNotNull { it.str("name") }
+                    tags = tagsOf(media),
+                    id = media.str("id")?.toIntOrNull() ?: 0,
+                    score = (media.str("averageScore") ?: media.str("meanScore"))?.toIntOrNull(),
+                    status = media.str("status").orEmpty(),
+                    description = cleanDescription(media.str("description")),
+                    genres = media.arr("genres").strings(),
+                    siteUrl = media.str("siteUrl").orEmpty(),
+                    relations = media.obj("relations")?.arr("edges").objects().mapNotNull { edge ->
+                        val label = relationLabel(edge.str("relationType")) ?: return@mapNotNull null
+                        edge.obj("node")?.let(::toRelated)?.copy(relation = label)
+                    }.sortedBy { relationRank(it.relation) }
                 )
             }
     }
