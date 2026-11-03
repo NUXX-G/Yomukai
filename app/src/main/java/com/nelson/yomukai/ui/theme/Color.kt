@@ -2,10 +2,9 @@ package com.nelson.yomukai.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
-
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+/** Yomukai's own palette: night ink with a warm coral, so covers stay the most colourful thing on screen. */
+val InkNight = Color(0xFF111118)
+val InkPanel = Color(0xFF232330)
+val InkCoral = Color(0xFFFF8A8F)
+val InkLilac = Color(0xFFC4BEFF)
+val InkGold = Color(0xFFF2C568)

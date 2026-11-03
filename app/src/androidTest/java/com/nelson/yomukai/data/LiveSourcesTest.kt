@@ -36,7 +36,7 @@ class LiveSourcesTest {
         val zona = container.sourceManager.require("zonatmo")
         val all = zona.browse(1, emptyMap()).getOrThrow()
         container.preferences.toggleExclusion("zonatmo", "Drama")
-        val kept = container.contentFilter.apply(zona, all)
+        val hidden = container.contentFilter.check(zona, all); val kept = container.contentFilter.known(zona, all)
         container.preferences.toggleExclusion("zonatmo", "Drama")
         Log.i("YomukaiLive", "exclusion Drama zonatmo: ${all.size} -> ${kept.size}")
         val names = container.discovery.aliases("Frieren")

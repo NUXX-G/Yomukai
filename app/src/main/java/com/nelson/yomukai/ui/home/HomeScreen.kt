@@ -55,6 +55,7 @@ import com.nelson.yomukai.ui.components.LanguageTag
 import com.nelson.yomukai.ui.components.MediaCard
 import com.nelson.yomukai.ui.components.RefreshSpinner
 import com.nelson.yomukai.ui.components.SectionHeader
+import com.nelson.yomukai.ui.components.SkeletonRow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,12 +77,7 @@ fun HomeScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("Yomukai", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                        Text(
-                            "Manga, manhwa, novelas y anime",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Text("Yomukai", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
                     }
                 },
                 actions = {
@@ -157,24 +153,18 @@ fun HomeScreen(
                     item(key = "header_${section.sourceId}") {
                         SectionHeader(
                             title = section.sourceName,
+                            modifier = Modifier.clickable { onBrowseSource(section.sourceId) },
                             action = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     LanguageTag(section.language)
-                                    IconButton(onClick = { onBrowseSource(section.sourceId) }) {
-                                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Ver todo")
-                                    }
+                                    TextButton(onClick = { onBrowseSource(section.sourceId) }) { Text("Ver todo") }
                                 }
                             }
                         )
                     }
                     item(key = "row_${section.sourceId}") {
                         when {
-                            section.isLoading -> Box(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(200.dp),
-                                contentAlignment = Alignment.Center
-                            ) { AppSpinner() }
+                            section.isLoading -> SkeletonRow()
 
                             section.error != null -> Row(
                                 Modifier.padding(horizontal = 16.dp),

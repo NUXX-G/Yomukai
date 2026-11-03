@@ -40,8 +40,12 @@ class BrowseViewModel(handle: SavedStateHandle, private val container: AppContai
     private var loadJob: Job? = null
 
     init {
+        // Reopening a source shows its last first page at once, and it refreshes behind.
+        container.browseMemory.get(source.id)?.let { saved -> _state.update { it.copy(items = saved) } }
         loadNextPage()
     }
+
+    private fun st0Query(values: FilterValues) = values.isEmpty()
 
     /** Searches this source only; a blank [text] goes back to the catalogue. */
     fun search(text: String) {
@@ -54,8 +58,12 @@ class BrowseViewModel(handle: SavedStateHandle, private val container: AppContai
         _state.update { it.copy(items = emptyList(), page = 0, endReached = true, isLoading = true, error = null, query = query) }
         loadJob = viewModelScope.launch(Dispatchers.IO) {
             source.searchMedia(query)
-                .mapCatching { container.contentFilter.apply(source, it) }
-                .onSuccess { items -> _state.update { it.copy(items = items.distinctBy { i -> i.id }, isLoading = false) } }
+                .mapCatching { container.contentFilter.known(source, it) }
+                .onSuccess { items ->
+                    _state.update { it.copy(items = items.distinctBy { i -> i.id }, isLoading = false) }
+                    val hidden = container.contentFilter.check(source, items)
+                    if (hidden.isNotEmpty()) _state.update { st -> st.copy(items = st.items.filterNot { it.id in hidden }) }
+                }
                 .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message ?: "Error de conexión") } }
         }
     }
@@ -77,16 +85,22 @@ class BrowseViewModel(handle: SavedStateHandle, private val container: AppContai
         _state.update { it.copy(isLoading = true, error = null) }
         loadJob = viewModelScope.launch(Dispatchers.IO) {
             source.browse(page, values)
-                .mapCatching { container.contentFilter.apply(source, it) }
+                .mapCatching { container.contentFilter.known(source, it) }
                 .onSuccess { items ->
+                    if (page == 1 && st0Query(values)) container.browseMemory.put(source.id, items)
+                    launch {
+                        val hidden = container.contentFilter.check(source, items)
+                        if (hidden.isNotEmpty()) _state.update { st -> st.copy(items = st.items.filterNot { it.id in hidden }) }
+                    }
                     _state.update { st ->
-                        val merged = (st.items + items).distinctBy { it.id }
+                        // The first page replaces what was shown from memory.
+                        val merged = (if (page == 1) items else st.items + items).distinctBy { it.id }
                         st.copy(
                             items = merged,
                             page = page,
                             isLoading = false,
                             // Stop when the source has no paging or returned nothing new.
-                            endReached = !source.supportsLatestPaging || merged.size == st.items.size
+                            endReached = !source.supportsLatestPaging || items.isEmpty() || (page > 1 && merged.size == st.items.size)
                         )
                     }
                 }

@@ -48,6 +48,8 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLException
 
+private const val NO_RETRY_HEADER = "X-Yomukai-No-Retry"
+
 class HttpException(val code: Int, url: String) : IOException("HTTP $code en $url")
 
 /** The site answered with a firewall/anti-bot page instead of content. */
@@ -285,11 +287,12 @@ class NetworkHelper(
         }
     }
 
-    /** POSTs a JSON [body] and returns the answer as text. */
+    /** POSTs a JSON [body] and returns the answer as text. Never waits to retry: the caller has a fallback. */
     suspend fun postJson(url: String, body: String): String = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url)
             .post(body.toRequestBody("application/json".toMediaType()))
             .header("Accept", "application/json")
+            .header(NO_RETRY_HEADER, "1")
             .build()
         scrapeClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw HttpException(response.code, url)
@@ -427,6 +430,9 @@ private class RateLimitInterceptor(private val minIntervalMs: Long) : Intercepto
 /** Retries transient failures (connection errors, 429, 502, 504) with linear backoff. */
 private class RetryInterceptor(private val maxRetries: Int) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
+        if (chain.request().header(NO_RETRY_HEADER) != null) {
+            return chain.proceed(chain.request().newBuilder().removeHeader(NO_RETRY_HEADER).build())
+        }
         var attempt = 0
         while (true) {
             try {

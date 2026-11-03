@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonPrimitive
+import com.nelson.yomukai.data.network.HttpException
 import com.nelson.yomukai.data.network.NetworkHelper
 import com.nelson.yomukai.data.search.SmartSearch
 import com.nelson.yomukai.data.source.arr
@@ -16,6 +17,7 @@ import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.io.IOException
 
 /** A title recommended for another one; [names] find it in the user's sources. */
 @Immutable
@@ -54,6 +56,15 @@ class AniListClient(private val network: NetworkHelper) {
     }
     private val lock = Mutex()
 
+    /** While set, AniList said to slow down: nothing is sent, and callers use what they already have. */
+    @Volatile
+    private var quietUntil = 0L
+
+    /** Random picks waiting to be shown, and how many pages each kind of list has. */
+    private val pools = HashMap<String, ArrayDeque<RelatedTitle>>()
+    private val shown = HashMap<String, MutableList<RelatedTitle>>()
+    private val pages = HashMap<String, Int>()
+
     /** The entry whose names best fit [names], or null when AniList does not know the title. */
     suspend fun lookup(names: List<String>, type: MediaType): AniListEntry? {
         val title = names.firstOrNull() ?: return null
@@ -66,20 +77,51 @@ class AniListClient(private val network: NetworkHelper) {
         return entry
     }
 
-    /** A random well-known title. Asks how many there are, then one page at random among them. */
+    /**
+     * A random well-known title. One request brings a whole page of them, so most picks need no
+     * network and the rate limit is never at risk. A short list simply starts over; while AniList
+     * cannot be reached, titles already seen are reused.
+     */
     suspend fun random(kind: RandomKind, genre: String?): RelatedTitle? {
         val type = kind.type ?: listOf(MediaType.ANIME, MediaType.MANGA).random()
+        val key = "${type.name}|$genre"
+        lock.withLock { pools[key]?.removeFirstOrNull() }?.let { return remember(key, it) }
+        val fresh = runCatching { randomPage(key, type, genre) }.getOrDefault(emptyList())
+        if (fresh.isEmpty()) return lock.withLock { shown[key]?.randomOrNull() }
+        val pick = lock.withLock {
+            val pool = pools.getOrPut(key) { ArrayDeque() }
+            pool.addAll(fresh.shuffled())
+            pool.removeFirstOrNull()
+        }
+        return pick?.let { remember(key, it) }
+    }
+
+    private suspend fun remember(key: String, title: RelatedTitle): RelatedTitle {
+        lock.withLock { shown.getOrPut(key) { mutableListOf() }.add(title) }
+        return title
+    }
+
+    private suspend fun randomPage(key: String, type: MediaType, genre: String?): List<RelatedTitle> {
         fun variables(page: Int) = JsonObject().apply {
             add("p", JsonPrimitive(page))
             add("t", JsonPrimitive(if (type == MediaType.ANIME) "ANIME" else "MANGA"))
             if (type == MediaType.NOVEL) add("f", JsonPrimitive("NOVEL"))
             else if (type != MediaType.ANIME) add("n", JsonPrimitive("NOVEL"))
+            if (type == MediaType.MANHWA) add("c", JsonPrimitive("KR"))
+            else if (type == MediaType.MANGA) add("c", JsonPrimitive("JP"))
             genre?.let { add("g", JsonPrimitive(it)) }
         }
-        val total = parseJson(post(RANDOM, variables(1))).asJsonObject.obj("data")?.obj("Page")?.obj("pageInfo")?.str("total")?.toIntOrNull() ?: return null
-        if (total <= 0) return null
-        val page = (1..total.coerceAtMost(MAX_RANDOM_PAGE)).random()
-        return parseJson(post(RANDOM, variables(page))).asJsonObject.obj("data")?.obj("Page")?.arr("media").objects().firstOrNull()?.let(::toRelated)
+        fun page(answer: String) = parseJson(answer).asJsonObject.obj("data")?.obj("Page")
+        val known = lock.withLock { pages[key] }
+        if (known == null) {
+            val first = page(post(RANDOM, variables(1)))
+            val total = first?.obj("pageInfo")?.str("total")?.toIntOrNull() ?: return emptyList()
+            val count = (total / RANDOM_PAGE_SIZE + 1).coerceAtMost(MAX_RANDOM_PAGE)
+            lock.withLock { pages[key] = count }
+            if (count > 1) return page(post(RANDOM, variables((1..count).random())))?.arr("media").objects().mapNotNull(::toRelated)
+            return first.arr("media").objects().mapNotNull(::toRelated)
+        }
+        return page(post(RANDOM, variables((1..known).random())))?.arr("media").objects().mapNotNull(::toRelated)
     }
 
     /** Other names of what [query] most likely refers to; each site may only know one of them. */
@@ -115,11 +157,17 @@ class AniListClient(private val network: NetworkHelper) {
     }
 
     private suspend fun post(document: String, variables: JsonObject): String {
+        if (System.currentTimeMillis() < quietUntil) throw IOException("AniList pide esperar")
         val body = JsonObject().apply {
             add("query", JsonPrimitive(document))
             add("variables", variables)
         }
-        return network.postJson(ENDPOINT, body.toString())
+        return try {
+            network.postJson(ENDPOINT, body.toString())
+        } catch (e: HttpException) {
+            if (e.code == 429) quietUntil = System.currentTimeMillis() + QUIET_MS
+            throw e
+        }
     }
 
     companion object {
@@ -134,9 +182,11 @@ class AniListClient(private val network: NetworkHelper) {
             query(${'$'}s:String,${'$'}t:MediaType,${'$'}f:MediaFormat,${'$'}n:MediaFormat){Page(perPage:5){media(search:${'$'}s,type:${'$'}t,format:${'$'}f,format_not:${'$'}n,sort:SEARCH_MATCH){
             $FIELDS tags{name rank} recommendations(sort:RATING_DESC,perPage:24){nodes{rating mediaRecommendation{$FIELDS}}}}}}
         """.trimIndent()
-        private const val MAX_RANDOM_PAGE = 5000
+        private const val RANDOM_PAGE_SIZE = 25
+        private const val MAX_RANDOM_PAGE = 100
+        private const val QUIET_MS = 60_000L
         private val RANDOM = """
-            query(${'$'}p:Int,${'$'}t:MediaType,${'$'}f:MediaFormat,${'$'}n:MediaFormat,${'$'}g:String){Page(page:${'$'}p,perPage:1){pageInfo{total} media(type:${'$'}t,format:${'$'}f,format_not:${'$'}n,genre:${'$'}g,isAdult:false,sort:POPULARITY_DESC){$FIELDS}}}
+            query(${'$'}p:Int,${'$'}t:MediaType,${'$'}f:MediaFormat,${'$'}n:MediaFormat,${'$'}g:String,${'$'}c:CountryCode){Page(page:${'$'}p,perPage:$RANDOM_PAGE_SIZE){pageInfo{total} media(type:${'$'}t,format:${'$'}f,format_not:${'$'}n,genre:${'$'}g,countryOfOrigin:${'$'}c,isAdult:false,sort:POPULARITY_DESC){$FIELDS}}}
         """.trimIndent()
         private val BY_TAGS = """
             query(${'$'}t:MediaType,${'$'}g:[String]){Page(perPage:24){media(type:${'$'}t,tag_in:${'$'}g,sort:POPULARITY_DESC){$FIELDS}}}

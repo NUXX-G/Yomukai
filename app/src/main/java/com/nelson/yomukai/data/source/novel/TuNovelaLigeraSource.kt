@@ -65,8 +65,12 @@ class TuNovelaLigeraSource(private val network: NetworkHelper) : NovelSource {
         )
 
         fun catalogueUrl(page: Int, values: FilterValues): String {
-            val path = if (page <= 1) "/novelas/" else "/novelas/page/$page/"
-            return "https://tunovelaligera.com$path?m_orderby=${values.single(SORT)}"
+            // The site answers 404 to a first page with an order parameter, and to /page/1/. The latest
+            // list has a plain first page; the other orders can only start at page 2.
+            val sort = values.single(SORT)
+            if (sort == "latest" && page <= 1) return "https://tunovelaligera.com/novelas/"
+            val number = if (sort == "latest") page else page.coerceAtLeast(1) + 1
+            return "https://tunovelaligera.com/novelas/page/$number/?m_orderby=$sort"
         }
 
         private fun clean(url: String) = url.substringBefore('?')

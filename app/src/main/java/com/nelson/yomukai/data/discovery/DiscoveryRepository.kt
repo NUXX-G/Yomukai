@@ -34,6 +34,7 @@ class DiscoveryRepository(
     private val sources: SourceManager,
     private val preferences: AppPreferences,
     private val aniList: AniListClient,
+    private val savedTitles: () -> List<MediaItem>,
     private val filter: () -> ContentFilter
 ) {
     private fun readableIn(source: CatalogueSource, type: MediaType): Boolean = when (type) {
@@ -53,12 +54,17 @@ class DiscoveryRepository(
         return (own + known).filter { it.isNotBlank() }.distinct()
     }
 
+    /** The last recommendations with what they were built from: entering the tab again costs nothing. */
+    @Volatile
+    private var lastForYou: Pair<List<String>, List<RelatedTitle>>? = null
+
     /**
      * Recommendations from [seen]: a title suggested by several of them comes first, and whatever
      * the user already has is left out.
      */
     suspend fun forYou(seen: List<MediaItem>): List<RelatedTitle> {
         val seeds = seen.distinctBy { SmartSearch.duplicateKey(it.title) }.take(MAX_SEEDS)
+        lastForYou?.takeIf { it.first == seeds.map(MediaItem::title) }?.let { return it.second }
         val known = seen.map { it.title }
         val votes = LinkedHashMap<String, Pair<RelatedTitle, Int>>()
         seeds.forEach { seed ->
@@ -67,19 +73,25 @@ class DiscoveryRepository(
                 votes[related.title] = related to (votes[related.title]?.second ?: 0) + 1
             }
         }
-        return votes.values.sortedByDescending { it.second }.map { it.first }
+        val found = votes.values.sortedByDescending { it.second }.map { it.first }
             .filterNot { TitleMatcher.shareName(it.names, known) }
             .filter(filter()::allows)
             .take(MAX_FOR_YOU)
+        if (found.isNotEmpty()) lastForYou = seeds.map(MediaItem::title) to found
+        return found
     }
 
-    /** A random title that respects the excluded genres; retries a few times before giving up. */
+    /**
+     * A random title that respects the excluded genres. When AniList is out of reach it comes from
+     * the titles saved from the user's own sources, so the button always gives something.
+     */
     suspend fun random(kind: RandomKind, genre: String?): RelatedTitle? {
         repeat(RANDOM_ATTEMPTS) {
-            val pick = aniList.random(kind, genre)
-            if (pick != null && filter().allows(pick)) return pick
+            val pick = withTimeoutOrNull(RANDOM_TIMEOUT_MS) { aniList.random(kind, genre) } ?: return@repeat
+            if (filter().allows(pick)) return pick
         }
-        return null
+        return savedTitles().filter { kind.type == null || it.type == kind.type }.randomOrNull()
+            ?.let { RelatedTitle(it.title, listOf(it.title), it.coverUrl, it.type, item = it) }
     }
 
     /** Latin-script names of what [query] means, for sites that list it under another one. */
@@ -169,6 +181,7 @@ class DiscoveryRepository(
         const val MAX_SEEDS = 8
         const val MAX_FOR_YOU = 30
         const val RANDOM_ATTEMPTS = 4
+        const val RANDOM_TIMEOUT_MS = 6_000L
         const val MAX_QUERIES = 3
         const val MAX_DETAILS = 2
         const val MAX_PARALLEL = 4

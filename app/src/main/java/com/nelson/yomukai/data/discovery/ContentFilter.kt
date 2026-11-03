@@ -11,6 +11,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.ConcurrentHashMap
 
 /** Which genres hide a title. Pure, so it is unit tested. */
 object GenreRules {
@@ -44,30 +45,51 @@ object GenreRules {
 }
 
 /**
- * Hides titles of excluded genres. Most sites list no genres in their catalogues, so the genres
- * of those titles are read from their pages, a few at a time, and remembered in the database.
- * Nothing of this runs while no genre is excluded.
+ * Hides titles of excluded genres in two steps, so lists never wait for it. [known] answers at once
+ * with what is already known; [check] then reads the pages of titles whose genres nobody listed,
+ * a few at a time and in the background, and each answer is remembered.
  */
 class ContentFilter(private val preferences: AppPreferences, private val library: LibraryRepository) {
-    suspend fun apply(source: CatalogueSource, items: List<MediaItem>): List<MediaItem> {
+    /** Genres by source|id; an empty list means the title's page was read and lists none. */
+    private val genres = ConcurrentHashMap<String, List<String>>()
+
+    private fun key(item: MediaItem) = SmartSearch.keyOf(item)
+
+    private suspend fun knownGenres(item: MediaItem): List<String>? {
+        if (item.genres.isNotEmpty()) return item.genres
+        genres[key(item)]?.let { return it }
+        val stored = library.getMedia(item.sourceId, item.id)?.genres?.split('|')?.filter { it.isNotBlank() }.orEmpty()
+        if (stored.isEmpty()) return null
+        genres[key(item)] = stored
+        return stored
+    }
+
+    /** Removes what is already known to be excluded. Does no network work. */
+    suspend fun known(source: CatalogueSource, items: List<MediaItem>): List<MediaItem> {
         val excluded = preferences.exclusions.value.forSource(source.id)
-        if (excluded.isEmpty() || items.isEmpty()) return items
+        if (excluded.isEmpty()) return items
+        return items.filterNot { GenreRules.isExcluded(knownGenres(it).orEmpty() + it.type.displayName, excluded) }
+    }
+
+    /** Reads the pages of titles without known genres and returns the ids that turned out to be excluded. */
+    suspend fun check(source: CatalogueSource, items: List<MediaItem>): Set<String> {
+        val excluded = preferences.exclusions.value.forSource(source.id)
+        if (excluded.isEmpty()) return emptySet()
+        val unknown = items.filter { knownGenres(it) == null }.take(MAX_LOOKUPS)
         val limiter = Semaphore(PARALLEL)
-        var lookups = 0
         return coroutineScope {
-            items.map { item ->
-                val known = item.genres.ifEmpty { library.getMedia(item.sourceId, item.id)?.genres?.split('|')?.filter { it.isNotBlank() }.orEmpty() }
-                val lookup = known.isEmpty() && lookups++ < MAX_LOOKUPS
+            unknown.map { item ->
                 async {
-                    val genres = if (lookup) limiter.withPermit { lookupGenres(source, item) } else known
-                    item.takeUnless { GenreRules.isExcluded(genres + item.type.displayName, excluded) }
+                    val found = limiter.withPermit { lookup(source, item) }
+                    item.id.takeIf { GenreRules.isExcluded(found, excluded) }
                 }
-            }.awaitAll().filterNotNull()
+            }.awaitAll().filterNotNull().toSet()
         }
     }
 
-    private suspend fun lookupGenres(source: CatalogueSource, item: MediaItem): List<String> {
+    private suspend fun lookup(source: CatalogueSource, item: MediaItem): List<String> {
         val full = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { source.fetchMediaDetails(item).getOrNull() } ?: return emptyList()
+        genres[key(item)] = full.genres
         runCatching { library.cacheMedia(full) }
         return full.genres
     }
@@ -76,8 +98,8 @@ class ContentFilter(private val preferences: AppPreferences, private val library
     fun allows(related: RelatedTitle): Boolean = !GenreRules.isExcluded(related.genres, preferences.exclusions.value.global)
 
     private companion object {
-        const val PARALLEL = 4
-        const val MAX_LOOKUPS = 40
-        const val LOOKUP_TIMEOUT_MS = 12_000L
+        const val PARALLEL = 3
+        const val MAX_LOOKUPS = 24
+        const val LOOKUP_TIMEOUT_MS = 10_000L
     }
 }

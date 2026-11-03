@@ -18,6 +18,11 @@ import com.nelson.yomukai.data.source.str
 import com.nelson.yomukai.domain.model.Chapter
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import org.jsoup.Jsoup
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -65,17 +70,35 @@ class WebtoonsSource(private val network: NetworkHelper, private val siteLanguag
     override suspend fun fetchChapterList(mediaId: String): Result<List<Chapter>> = runCatching {
         val titleNo = titleNo(mediaId) ?: error("Título no válido")
         val kind = if ("/canvas/" in mediaId) "canvas" else "webtoon"
-        val chapters = mutableListOf<Chapter>()
-        var cursor: String? = null
-        do {
+        suspend fun page(cursor: Int?): JsonObject {
             val path = "$MOBILE/api/v1/$kind/$titleNo/episodes?pageSize=$PAGE_SIZE" + (cursor?.let { "&cursor=$it" } ?: "")
-            val result = parseJson(
+            return parseJson(
                 network.getString(path, mapOf("Accept" to "application/json", "Referer" to mediaId), cloudflareFallback = false)
             ).asJsonObject.obj("result") ?: error("WEBTOON no devolvió episodios")
-            chapters += parseEpisodes(result, mediaId)
-            cursor = result.str("nextCursor")?.takeIf { it != "0" && it.isNotBlank() }
-        } while (cursor != null && chapters.size < MAX_EPISODES)
-        chapters.ifEmpty { error("Sin episodios disponibles") }
+        }
+        // Each page takes about a second, so the rest are asked for together. The cursor is the last
+        // episode number, which the title page says how far it goes.
+        val first = page(null)
+        val chapters = parseEpisodes(first, mediaId).toMutableList()
+        var next = first.str("nextCursor")?.toIntOrNull()?.takeIf { it > 0 }
+        if (next != null) {
+            val total = TOTAL_EPISODES.find(network.getString(mediaId, referer))?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            val limiter = Semaphore(PARALLEL_PAGES)
+            chapters += coroutineScope {
+                (next!! until minOf(total, MAX_EPISODES) step PAGE_SIZE).map { cursor ->
+                    async { limiter.withPermit { page(cursor) } }
+                }.awaitAll()
+            }.flatMap { parseEpisodes(it, mediaId) }
+            // Episode numbers can have gaps: whatever is left is walked one page at a time.
+            next = chapters.maxOfOrNull { it.chapterNumber.toInt() }?.takeIf { chapters.size < total }
+            while (next != null && chapters.size < MAX_EPISODES) {
+                val result = page(next)
+                val fresh = parseEpisodes(result, mediaId)
+                chapters += fresh
+                next = result.str("nextCursor")?.toIntOrNull()?.takeIf { it > 0 && fresh.isNotEmpty() }
+            }
+        }
+        chapters.distinctBy { it.id }.ifEmpty { error("Sin episodios disponibles") }
     }
 
     override suspend fun fetchPageList(chapterUrl: String): Result<List<String>> = runCatching {
@@ -89,6 +112,8 @@ class WebtoonsSource(private val network: NetworkHelper, private val siteLanguag
         private const val DESKTOP_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
         private const val PAGE_SIZE = 30
+        private const val PARALLEL_PAGES = 5
+        private val TOTAL_EPISODES = Regex(""""totalEpisodeCount":(\d+)""")
         private const val MAX_EPISODES = 3000
 
         private val TITLE_NO = Regex("""title_no=(\d+)""")
@@ -128,7 +153,8 @@ class WebtoonsSource(private val network: NetworkHelper, private val siteLanguag
                     status = "",
                     description = "",
                     sourceId = sourceId,
-                    author = card.selectFirst(".author")?.text()?.trim().orEmpty()
+                    author = card.selectFirst(".author")?.text()?.trim().orEmpty(),
+                    genres = listOfNotNull(card.selectFirst(".genre")?.text()?.trim()?.ifBlank { null })
                 )
             }.distinctBy { it.id }
 

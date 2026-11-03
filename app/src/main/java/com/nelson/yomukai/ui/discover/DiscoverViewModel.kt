@@ -44,16 +44,13 @@ class DiscoverViewModel(private val container: AppContainer) : ViewModel() {
     val locate: StateFlow<LocateState?> = _locate.asStateFlow()
 
     private var locateJob: Job? = null
-    private var loaded = false
 
     fun setKind(kind: RandomKind) = _state.update { it.copy(kind = kind) }
     fun setGenre(genre: String?) = _state.update { it.copy(genre = genre) }
 
-    /** Built from the library first, then the history: what the user chose to keep says the most. */
+    /** Recent history and library in turns: what was just read says as much as what was kept. */
     fun loadForYou() {
-        if (loaded && _state.value.forYou.isNotEmpty()) return
-        loaded = true
-        _state.update { it.copy(loading = true) }
+        _state.update { it.copy(loading = it.forYou.isEmpty()) }
         viewModelScope.launch(Dispatchers.IO) {
             val repo = container.libraryRepository
             val library = repo.observeLibrary().first()
@@ -61,11 +58,13 @@ class DiscoverViewModel(private val container: AppContainer) : ViewModel() {
                 library.firstOrNull { it.sourceId == media.sourceId && it.id == media.mediaId }
                     ?: com.nelson.yomukai.domain.model.MediaItem(media.mediaId, media.title, "", com.nelson.yomukai.domain.model.MediaType.fromName(media.type), "", "", media.sourceId)
             }
-            val found = runCatching { container.discovery.forYou(library + history) }.getOrElse { e ->
+            val seen = history.zip(library).flatMap { listOf(it.first, it.second) } +
+                history.drop(library.size) + library.drop(history.size)
+            val found = runCatching { container.discovery.forYou(seen) }.getOrElse { e ->
                 if (e is CancellationException) throw e
                 emptyList()
             }
-            _state.update { it.copy(loading = false, forYou = found) }
+            _state.update { it.copy(loading = false, forYou = found.ifEmpty { it.forYou }) }
         }
     }
 
@@ -75,7 +74,7 @@ class DiscoverViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             val pick = runCatching { container.discovery.random(current.kind, current.genre) }.onFailure { if (it is CancellationException) throw it }.getOrNull()
             _state.update {
-                it.copy(rolling = false, random = pick, randomError = if (pick == null) "No se pudo obtener una recomendación. Prueba otra vez." else null)
+                it.copy(rolling = false, random = pick ?: it.random, randomError = if (pick == null) "Sin conexión ahora mismo. Prueba en un momento." else null)
             }
         }
     }

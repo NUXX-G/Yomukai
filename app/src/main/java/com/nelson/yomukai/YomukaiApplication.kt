@@ -59,8 +59,14 @@ class AppContainer(context: Context) {
     val contentRepository = ContentRepository(sourceManager, downloadManager)
     val captureStore = CaptureStore()
     val homeCache = HomeCache(context)
+    /** First catalogue page of each source opened in this session. */
+    val browseMemory = android.util.LruCache<String, List<com.nelson.yomukai.domain.model.MediaItem>>(16)
     val contentFilter = ContentFilter(preferences, libraryRepository)
-    val discovery = DiscoveryRepository(sourceManager, preferences, AniListClient(network)) { contentFilter }
+    val discovery = DiscoveryRepository(
+        sourceManager, preferences, AniListClient(network),
+        savedTitles = { homeCache.load().values.flatten() },
+        filter = { contentFilter }
+    )
 }
 
 private const val IMAGE_CACHE = "images"

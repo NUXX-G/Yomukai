@@ -14,6 +14,7 @@ import com.nelson.yomukai.ui.home.TypeFilter
 import com.nelson.yomukai.ui.home.matches
 import com.nelson.yomukai.ui.navigation.Routes
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
@@ -147,11 +148,12 @@ class SearchViewModel(handle: SavedStateHandle, private val container: AppContai
         }
         trusted.clear()
         searchJob = viewModelScope.launch(Dispatchers.IO) {
-            val aliases = async { container.discovery.aliases(query) }
+            // Lazy: it only runs for a source that came back nearly empty, and AniList requests are scarce.
+            val aliases = async(start = CoroutineStart.LAZY) { container.discovery.aliases(query) }
             sources.forEach { source ->
                 launch {
                     val outcome = searchSource(source, query, aliases)
-                    val allowed = container.contentFilter.apply(source, outcome.first)
+                    val allowed = container.contentFilter.known(source, outcome.first)
                     synchronized(found) { found[source.id] = allowed.filter { it.type in current.typeFilter.types } }
                     val groups = synchronized(found) { SmartSearch.rankAndGroup(query, found.values.flatten(), trusted = trusted.toSet()) }
                     _state.update { st ->
@@ -161,6 +163,12 @@ class SearchViewModel(handle: SavedStateHandle, private val container: AppContai
                                 if (it.sourceId == source.id) it.copy(isLoading = false, error = outcome.second) else it
                             }
                         )
+                    }
+                    val hidden = container.contentFilter.check(source, allowed)
+                    if (hidden.isNotEmpty()) {
+                        synchronized(found) { found[source.id] = found[source.id].orEmpty().filterNot { it.id in hidden } }
+                        val updated = synchronized(found) { SmartSearch.rankAndGroup(query, found.values.flatten(), trusted = trusted.toSet()) }
+                        _state.update { it.copy(groups = updated) }
                     }
                 }
             }

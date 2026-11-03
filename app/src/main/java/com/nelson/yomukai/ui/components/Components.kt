@@ -42,7 +42,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -179,8 +178,8 @@ fun TypeBadge(type: MediaType, modifier: Modifier = Modifier) {
         fontSize = 9.sp,
         fontWeight = FontWeight.Bold,
         modifier = modifier
-            .background(type.badgeColor(), RoundedCornerShape(4.dp))
-            .padding(horizontal = 6.dp, vertical = 2.dp)
+            .background(type.badgeColor().copy(alpha = 0.92f), RoundedCornerShape(6.dp))
+            .padding(horizontal = 7.dp, vertical = 3.dp)
     )
 }
 
@@ -189,21 +188,16 @@ fun TypeBadge(type: MediaType, modifier: Modifier = Modifier) {
 fun MediaCard(item: MediaItem, onClick: () -> Unit, modifier: Modifier = Modifier, subtitle: String? = null) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(0.7f)
-                .clip(RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(14.dp))
         ) {
             CoverImage(item.coverUrl, item.sourceId, item.title, Modifier.fillMaxSize())
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.55f)))
-            )
             TypeBadge(item.type, Modifier.align(Alignment.TopStart).padding(6.dp))
         }
         Text(
@@ -260,12 +254,36 @@ fun MediaListRow(item: MediaItem, onClick: () -> Unit, modifier: Modifier = Modi
     }
 }
 
+/** Placeholder shaped like the row it replaces, so nothing jumps when the titles arrive. */
+@Composable
+fun SkeletonRow(modifier: Modifier = Modifier) {
+    Row(modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        repeat(4) {
+            Column(Modifier.width(120.dp)) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(0.7f)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(14.dp))
+                )
+                Box(
+                    Modifier
+                        .padding(top = 8.dp)
+                        .fillMaxWidth(0.8f)
+                        .height(10.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(5.dp))
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun SectionHeader(title: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp),
+            .padding(start = 16.dp, end = 8.dp, top = 18.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(

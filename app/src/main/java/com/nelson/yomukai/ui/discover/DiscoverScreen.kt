@@ -3,6 +3,7 @@ package com.nelson.yomukai.ui.discover
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,11 +41,11 @@ import com.nelson.yomukai.ui.components.SectionHeader
 import com.nelson.yomukai.ui.details.LocateSheet
 
 @Composable
-private fun RelatedCard(related: RelatedTitle, onOpen: (RelatedTitle) -> Unit, width: Int = 110) {
+private fun RelatedCard(related: RelatedTitle, onOpen: (RelatedTitle) -> Unit, modifier: Modifier = Modifier) {
     MediaCard(
-        item = MediaItem(related.title, related.title, related.coverUrl, related.type, "", "", ""),
+        item = MediaItem(related.title, related.title, related.coverUrl, related.type, "", "", related.item?.sourceId.orEmpty()),
         onClick = { onOpen(related) },
-        modifier = Modifier.width(width.dp)
+        modifier = modifier
     )
 }
 
@@ -97,7 +98,7 @@ fun DiscoverScreen(
             item {
                 when {
                     state.rolling -> AppSpinner(Modifier.padding(16.dp).size(32.dp), strokeWidth = 3.dp)
-                    state.random != null -> Row(Modifier.padding(horizontal = 16.dp)) { RelatedCard(state.random!!, viewModel::open, width = 160) }
+                    state.random != null -> Row(Modifier.padding(horizontal = 16.dp)) { RelatedCard(state.random!!, viewModel::open, Modifier.width(160.dp)) }
                     state.randomError != null -> Text(
                         state.randomError!!,
                         color = MaterialTheme.colorScheme.error,
@@ -119,7 +120,11 @@ fun DiscoverScreen(
                     Row(
                         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) { row.forEach { RelatedCard(it, viewModel::open) } }
+                    ) {
+                        // Equal shares, so the cards span the screen and an incomplete last row keeps the grid.
+                        row.forEach { RelatedCard(it, viewModel::open, Modifier.weight(1f)) }
+                        repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                    }
                 }
             }
         }

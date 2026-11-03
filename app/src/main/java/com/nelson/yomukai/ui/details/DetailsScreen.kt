@@ -78,7 +78,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
+import com.nelson.yomukai.ui.LocalAppContainer
+import com.nelson.yomukai.ui.components.rememberImageRequest
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -315,14 +324,36 @@ private fun Header(state: DetailsUiState, onToggleLibrary: () -> Unit) {
     val type = MediaType.fromName(media.type)
     var expanded by rememberSaveable { mutableStateOf(false) }
 
+    val background = MaterialTheme.colorScheme.background
+    val imageHeaders = LocalAppContainer.current.sourceManager.get(media.sourceId)?.imageHeaders.orEmpty()
+    Box {
+        if (media.coverUrl.isNotBlank()) {
+            AsyncImage(
+                model = rememberImageRequest(media.coverUrl, imageHeaders),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                alpha = 0.45f,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(260.dp)
+                    .blur(28.dp)
+            )
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(260.dp)
+                    .background(Brush.verticalGradient(0f to background.copy(alpha = 0.2f), 1f to background))
+            )
+        }
     Column(Modifier.padding(16.dp)) {
         Row {
             CoverImage(
                 media.coverUrl, media.sourceId, media.title,
                 Modifier
-                    .width(120.dp)
-                    .height(172.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .width(124.dp)
+                    .height(178.dp)
+                    .shadow(10.dp, RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(14.dp))
             )
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
@@ -343,7 +374,7 @@ private fun Header(state: DetailsUiState, onToggleLibrary: () -> Unit) {
                 Spacer(Modifier.height(4.dp))
                 Text(state.sourceName, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(12.dp))
-                OutlinedButton(onClick = onToggleLibrary) {
+                FilledTonalButton(onClick = onToggleLibrary) {
                     Icon(
                         if (media.inLibrary) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = null,
@@ -383,6 +414,7 @@ private fun Header(state: DetailsUiState, onToggleLibrary: () -> Unit) {
                 genres.forEach { AssistChip(onClick = {}, label = { Text(it, style = MaterialTheme.typography.labelSmall) }) }
             }
         }
+    }
     }
 }
 

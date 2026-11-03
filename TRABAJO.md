@@ -2,7 +2,15 @@
 
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
-## Tanda v1.5.0 (encargo actual)
+## Tanda v1.6.0 (encargo actual; publicar SOLO cuando el usuario lo confirme)
+- [ ] «Recomiéndame uno» falla: nunca dar error si hay algo que mostrar
+- [ ] Para ti: portadas centradas y usar también el historial
+- [ ] TuNovelaLigera da 404
+- [ ] Rendimiento: lo ideal es 1-3 s al abrir una fuente
+- [ ] Interfaz bonita e intuitiva
+- [ ] Buscar más errores
+
+## Tanda v1.5.0
 - [x] Carpeta pública `Download/Yomukai` con metadatos y formato a elegir
 - [x] Descargas más rápidas (anime y WEBTOON) y el fallo puntual de AnimeFLV
 - [x] Al leer un capítulo se marcan los anteriores; marcar y desmarcar a mano

@@ -45,10 +45,10 @@ class CatalogueFiltersTest {
                 2, mapOf(FilterKeys.SORT to setOf("views"), FilterKeys.STATUS to setOf("end"), FilterKeys.GENRE to setOf("dc-comics"))
             )
         )
-        assertEquals("https://tunovelaligera.com/novelas/?m_orderby=latest", TuNovelaLigeraSource.catalogueUrl(1, emptyMap()))
+        assertEquals("https://tunovelaligera.com/novelas/", TuNovelaLigeraSource.catalogueUrl(1, emptyMap()))
         assertEquals(
             "https://tunovelaligera.com/novelas/page/3/?m_orderby=alphabet",
-            TuNovelaLigeraSource.catalogueUrl(3, mapOf(FilterKeys.SORT to setOf("alphabet")))
+            TuNovelaLigeraSource.catalogueUrl(2, mapOf(FilterKeys.SORT to setOf("alphabet")))
         )
     }
 }
