@@ -152,7 +152,9 @@ class SearchViewModel(handle: SavedStateHandle, private val container: AppContai
             val aliases = async(start = CoroutineStart.LAZY) { container.discovery.aliases(query) }
             sources.forEach { source ->
                 launch {
-                    val outcome = searchSource(source, query, aliases)
+                    val result = com.nelson.yomukai.data.search.SourceSearch.search(source, query) { aliases.await() }
+                    trusted += result.trusted
+                    val outcome = result.items to result.error
                     val allowed = container.contentFilter.screen(source, outcome.first)
                     synchronized(found) { found[source.id] = allowed.filter { it.type in current.typeFilter.types } }
                     val groups = synchronized(found) { SmartSearch.rankAndGroup(query, found.values.flatten(), trusted = trusted.toSet()) }
@@ -175,41 +177,4 @@ class SearchViewModel(handle: SavedStateHandle, private val container: AppContai
         }
     }
 
-    /**
-     * Sources match literally, so when the exact query yields little we also try relaxed variants
-     * (longest word, shortened word); [SmartSearch] then ranks everything fuzzily.
-     */
-    private suspend fun searchSource(source: CatalogueSource, query: String, aliases: Deferred<List<String>>): Pair<List<MediaItem>, String?> {
-        val items = LinkedHashMap<String, MediaItem>()
-        var error: String? = null
-        for ((index, variant) in SmartSearch.queryVariants(query).withIndex()) {
-            if (index > 0 && items.size >= RELAX_THRESHOLD) break
-            source.searchMedia(variant)
-                .onSuccess { list ->
-                    list.forEach { items.putIfAbsent(it.id, it) }
-                    if (index == 0) trusted += list.map(SmartSearch::keyOf)
-                }
-                .onFailure { e -> if (e is CancellationException) throw e else error = e.message ?: "Error" }
-            // A hard failure (blocked/offline) will not improve with another variant.
-            if (error != null && items.isEmpty()) break
-        }
-        // Few results may just mean the site uses another name for it (Frieren / Sousou no Frieren).
-        if (error == null && items.size < RELAX_THRESHOLD) {
-            aliases.await().take(MAX_ALIASES).forEach { alias ->
-                source.searchMedia(alias).onSuccess { list ->
-                    list.filter { SmartSearch.scoreTitle(alias, it.title) >= ALIAS_SCORE }.forEach { item ->
-                        items.putIfAbsent(item.id, item)
-                        trusted += SmartSearch.keyOf(item)
-                    }
-                }
-            }
-        }
-        return items.values.toList() to if (items.isEmpty()) error else null
-    }
-
-    private companion object {
-        const val RELAX_THRESHOLD = 5
-        const val MAX_ALIASES = 3
-        const val ALIAS_SCORE = 0.5
-    }
 }

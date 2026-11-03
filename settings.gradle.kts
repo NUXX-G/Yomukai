@@ -19,3 +19,4 @@ dependencyResolutionManagement {
 rootProject.name = "Yomukai"
 include(":app")
 include(":shared")
+include(":server")
