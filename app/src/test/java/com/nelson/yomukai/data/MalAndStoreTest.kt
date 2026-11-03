@@ -41,6 +41,21 @@ class MalAndStoreTest {
     }
 
     @Test
+    fun mangaUpdatesTellsTheManhwaFromTheNovel() {
+        val json = checkNotNull(javaClass.classLoader?.getResource("mangaupdates_search.json")).readText()
+        assertEquals(8.47f, com.nelson.yomukai.data.metadata.MangaUpdatesClient.parse(json, listOf("Solo Leveling"), MediaType.MANHWA)!!, 0.001f)
+        assertEquals(7.31f, com.nelson.yomukai.data.metadata.MangaUpdatesClient.parse(json, listOf("Solo Leveling"), MediaType.NOVEL)!!, 0.001f)
+        assertNull(com.nelson.yomukai.data.metadata.MangaUpdatesClient.parse(json, listOf("Berserk"), MediaType.MANGA))
+    }
+
+    @Test
+    fun openLibraryNeedsEnoughRatingsAndTheSameAuthor() {
+        val json = checkNotNull(javaClass.classLoader?.getResource("openlibrary_search.json")).readText()
+        assertEquals(8.94f, com.nelson.yomukai.data.metadata.OpenLibraryClient.parse(json, listOf("Watchmen"), "Alan Moore")!!, 0.01f)
+        assertNull("another author's Watchmen", com.nelson.yomukai.data.metadata.OpenLibraryClient.parse(json, listOf("Watchmen"), "Ben Bova"))
+    }
+
+    @Test
     fun searchNameKeepsLatinNamesAndDropsSymbols() {
         assertEquals("Magia Record: Mahou Shoujo Madoka Magica Gaiden", MalClient.searchName(listOf("Magia Record: Mahou Shoujo Madoka☆Magica Gaiden")))
         assertEquals("Solo Leveling", MalClient.searchName(listOf("나 혼자만 레벨업", "Solo Leveling")))

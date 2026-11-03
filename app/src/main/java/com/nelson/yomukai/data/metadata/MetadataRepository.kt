@@ -86,7 +86,9 @@ class MetadataRepository(
     private val aniList: AniListClient,
     private val kitsu: KitsuClient,
     private val mal: MalClient? = null,
-    private val store: MetadataStore? = null
+    private val store: MetadataStore? = null,
+    private val mangaUpdates: MangaUpdatesClient? = null,
+    private val openLibrary: OpenLibraryClient? = null
 ) {
     private val cache = ConcurrentHashMap<String, TitleMetadata>()
 
@@ -109,12 +111,17 @@ class MetadataRepository(
         val malValue = malScore.await() ?: entry?.names?.minus(names.toSet())?.takeIf { it.isNotEmpty() }?.let { other ->
             mal?.let { client -> safely { withTimeoutOrNull(MAL_TIMEOUT_MS) { client.score(other + names, media.type) } } }
         }
-        val kitsuScore = if (entry?.score == null && malValue == null) {
-            safely { withTimeoutOrNull(KITSU_TIMEOUT_MS) { kitsu.score(names + entry?.names.orEmpty(), media.type) } }
+        // Without AniList or MAL, the other databases are asked in turn, each for what it covers best:
+        // MangaUpdates (Asian comics and novels), Kitsu, then Open Library (Western comics, published novels).
+        val fallback: Pair<Float, String>? = if (entry?.score == null && malValue == null) {
+            val all = names + entry?.names.orEmpty()
+            safely { withTimeoutOrNull(EXTRA_TIMEOUT_MS) { mangaUpdates?.score(all, media.type) } }?.let { it to "MangaUpdates" }
+                ?: safely { withTimeoutOrNull(KITSU_TIMEOUT_MS) { kitsu.score(all, media.type) } }?.let { it to "Kitsu" }
+                ?: safely { withTimeoutOrNull(EXTRA_TIMEOUT_MS) { openLibrary?.score(all, media.author, media.type) } }?.let { it to "Open Library" }
         } else null
-        val result = build(media, entry, kitsuScore, malValue)
+        val result = build(media, entry, fallback?.first, malValue, fallback?.second ?: "Kitsu")
         // A failed lookup is retried next time; a complete answer is kept.
-        if (entry != null || kitsuScore != null || malValue != null) {
+        if (entry != null || fallback != null || malValue != null) {
             cache[key] = result
             store?.put(key, result)
         }
@@ -134,6 +141,7 @@ class MetadataRepository(
         private const val LOOKUP_TIMEOUT_MS = 12_000L
         private const val KITSU_TIMEOUT_MS = 6_000L
         private const val MAL_TIMEOUT_MS = 8_000L
+        private const val EXTRA_TIMEOUT_MS = 7_000L
 
         /** [saved] with its guessed genres worked out again from the title's synopsis. */
         fun withLocalGenres(saved: TitleMetadata, media: MediaItem): TitleMetadata {
@@ -150,7 +158,9 @@ class MetadataRepository(
         }
 
         /** Pure: joins the layers. */
-        fun build(media: MediaItem, entry: AniListEntry?, kitsuScore: Float?, malScore: Float? = null): TitleMetadata {
+        fun build(
+            media: MediaItem, entry: AniListEntry?, kitsuScore: Float?, malScore: Float? = null, fallbackSource: String = "Kitsu"
+        ): TitleMetadata {
             // AniList tags are many and in English: only the ones the taxonomy knows become genres.
             val official = entry?.genres.orEmpty() + entry?.tags.orEmpty().filter(GenreTaxonomy::isKnown).take(MAX_OFFICIAL_TAGS)
             var genres = GenreTaxonomy.merge(media.genres, official).take(MAX_GENRES)
@@ -164,7 +174,7 @@ class MetadataRepository(
                 score = score,
                 scoreSource = when {
                     entry?.score != null -> "AniList"
-                    kitsuScore != null -> "Kitsu"
+                    kitsuScore != null -> fallbackSource
                     else -> ""
                 },
                 malScore = malScore,

@@ -89,7 +89,7 @@ data class AlternativesState(
 @Immutable
 data class LocateState(val title: String, val searching: Boolean, val options: List<Alternative> = emptyList())
 
-private const val METADATA_ATTEMPTS = 3
+private const val METADATA_ATTEMPTS = 2
 private const val METADATA_RETRY_MS = 6_000L
 
 class DetailsViewModel(handle: SavedStateHandle, private val container: AppContainer) : ViewModel() {

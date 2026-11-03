@@ -67,7 +67,9 @@ class AppContainer(context: Context) {
         aniList,
         com.nelson.yomukai.data.metadata.KitsuClient(network),
         com.nelson.yomukai.data.metadata.MalClient(network, BuildConfig.MAL_CLIENT_ID),
-        com.nelson.yomukai.data.metadata.MetadataStore(context)
+        com.nelson.yomukai.data.metadata.MetadataStore(context),
+        com.nelson.yomukai.data.metadata.MangaUpdatesClient(network),
+        com.nelson.yomukai.data.metadata.OpenLibraryClient(network)
     )
     val discovery = DiscoveryRepository(
         sourceManager, preferences, aniList,
