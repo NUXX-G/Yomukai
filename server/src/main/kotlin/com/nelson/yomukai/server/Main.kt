@@ -381,22 +381,21 @@ private fun Route.userRoutes(s: Services) {
 
 /** The built web app; any path that is not a file is a page of the app and gets index.html. */
 private fun Route.webApp(dir: File) {
-    val index = File(dir, "index.html")
+    if (!File(dir, "index.html").exists()) log.warn("No está la web compilada en {}: solo funcionará la API", dir.absolutePath)
+    // Existing files are served as they are; any other path is a page of the app and gets index.html.
     staticFiles("/", dir) {
         default("index.html")
-        cacheControl { file ->
-            // Built files carry a hash in their name and never change; index.html must always be fresh.
-            if (file.name == "index.html" || file.name == "sw.js") listOf(io.ktor.http.CacheControl.NoCache(null))
-            else listOf(io.ktor.http.CacheControl.MaxAge(31_536_000, visibility = io.ktor.http.CacheControl.Visibility.Public))
+        contentType { file ->
+            when (file.extension) {
+                "webmanifest" -> ContentType.parse("application/manifest+json")
+                "js", "mjs" -> ContentType.parse("text/javascript")
+                else -> null
+            }
         }
-    }
-    get("{...}") {
-        if (call.request.local.uri.startsWith("/api/")) return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Ruta desconocida"))
-        if (index.exists()) {
-            call.response.header(HttpHeaders.CacheControl, "no-cache")
-            call.respondFile(index)
-        } else {
-            call.respondText("Yomukai: falta la web compilada en ${dir.absolutePath}", status = HttpStatusCode.NotFound)
+        cacheControl { file ->
+            // Built files carry a hash in their name and never change; the rest must stay fresh.
+            if (file.parentFile?.name == "assets") listOf(io.ktor.http.CacheControl.MaxAge(31_536_000, visibility = io.ktor.http.CacheControl.Visibility.Public))
+            else listOf(io.ktor.http.CacheControl.NoCache(null))
         }
     }
 }
