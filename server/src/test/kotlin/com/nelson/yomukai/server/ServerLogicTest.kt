@@ -135,7 +135,9 @@ class ServerLogicTest {
 
     @Test
     fun ipv6AddressesGroupByTheirNetwork() {
-        assertEquals("2001:db8:1:2::/64", LoginThrottle.addressKey("2001:db8:1:2:aaaa:bbbb:cccc:dddd"))
+        assertEquals("20010db800010002/64", LoginThrottle.addressKey("2001:db8:1:2:aaaa:bbbb:cccc:dddd"))
+        assertEquals("shortened forms are the same network", LoginThrottle.addressKey("2001:db8::1"), LoginThrottle.addressKey("2001:0db8:0000:0000::9"))
+        assertEquals("1.2.3.4", LoginThrottle.addressKey("::ffff:1.2.3.4"))
         assertEquals(LoginThrottle.addressKey("2001:db8:1:2::1"), LoginThrottle.addressKey("2001:db8:1:2:ffff::9"))
         assertEquals("1.2.3.4", LoginThrottle.addressKey("1.2.3.4"))
     }

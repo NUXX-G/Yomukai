@@ -151,9 +151,14 @@ class LoginThrottle {
 
         /** The key for an address: IPv6 by its /64, which is what one connection usually owns. */
         fun addressKey(address: String): String {
-            if (':' !in address) return address
-            val parts = address.substringBefore('%').split(':')
-            return if (parts.size >= 4 && "" !in parts.take(4)) parts.take(4).joinToString(":") + "::/64" else address
+            // Parsed, never split as text: "2001:db8::1" and its long form are the same address.
+            val parsed = runCatching { java.net.InetAddress.getByName(address.substringBefore('%').trim()) }.getOrNull() ?: return address
+            return when (parsed) {
+                // IPv4 and IPv4-mapped IPv6 (Java gives an Inet4Address for both).
+                is java.net.Inet4Address -> parsed.hostAddress
+                is java.net.Inet6Address -> parsed.address.take(8).joinToString("") { "%02x".format(it) } + "/64"
+                else -> address
+            }
         }
     }
 }
