@@ -2,7 +2,7 @@
   // Inicio: continue reading, recommendations, and the newest titles of every enabled source.
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
-  import { sources } from '../lib/store.svelte.js';
+  import { sources, rememberItems } from '../lib/store.svelte.js';
   import { media, reader } from '../lib/router.svelte.js';
   import { openRelated } from '../lib/open.svelte.js';
   import { TYPE_FILTERS, LANGUAGES } from '../lib/format.js';
@@ -31,7 +31,7 @@
     if (sections[source.id]) return;
     sections[source.id] = { loading: true, items: [], error: '' };
     api.latest(source.id).then(
-      (items) => (sections[source.id] = { loading: false, items, error: '' }),
+      (items) => { rememberItems(items); sections[source.id] = { loading: false, items, error: '' }; },
       (e) => (sections[source.id] = { loading: false, items: [], error: e.message })
     );
   }

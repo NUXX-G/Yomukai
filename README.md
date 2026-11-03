@@ -82,6 +82,44 @@ adb shell am instrument -w -e live true -e class com.nelson.yomukai.data.LiveSou
 adb logcat -d -s YomukaiLive:I
 ```
 
+### Versión web (PC, iPhone, servidor propio)
+
+La misma app en el navegador: inicio, búsqueda, biblioteca, lectores de manga y novela, reproductor de anime, notas y recomendaciones. Se instala como app (PWA) en iPhone y Android desde «Añadir a pantalla de inicio».
+
+**Instalar con una línea** (necesita Docker con Compose):
+
+```bash
+# Linux / macOS
+curl -fsSL https://raw.githubusercontent.com/NUXX-G/Yomukai/main/install.sh | bash
+```
+
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/NUXX-G/Yomukai/main/install.ps1 | iex
+```
+
+El instalador crea `~/yomukai`, genera una contraseña de administrador, arranca Yomukai y FlareSolverr (para las webs con Cloudflare) y te enseña la dirección y el usuario. La primera vez compila la imagen y tarda unos minutos. Para actualizar, vuelve a ejecutar la misma línea: tus datos se conservan en el volumen `yomukai-data`.
+
+- **Cuentas:** entra como `admin` y crea las cuentas de tus amigos en Ajustes › Administración. La sesión dura hasta que se cierre.
+- **Invitados:** «Probar sin cuenta» no pide contraseña y permite hacer de todo; la cuenta y sus datos se borran a los 7 días.
+- **Exportar e importar:** Ajustes › Tus datos descarga un JSON con biblioteca, progreso, historial y ajustes, y lo importa en cualquier otra cuenta o servidor (fusionar o reemplazar).
+
+Opciones en `~/yomukai/.env` (aplícalas con `docker compose up -d`):
+
+| Variable | Por defecto | Qué hace |
+|---|---|---|
+| `PORT` | `8080` | Puerto en el que escucha |
+| `ADMIN_USER` / `ADMIN_PASSWORD` | `admin` / generada | Cuenta de administrador inicial |
+| `GUESTS_ENABLED` | `true` | Permite entrar como invitado |
+| `GUEST_DAYS` | `7` | Días hasta borrar a un invitado |
+| `GUEST_RATE` / `GUEST_STREAMS` | `240` / `2` | Peticiones por minuto y vídeos a la vez por invitado |
+| `MAL_CLIENT_ID` | vacío | Client ID de MyAnimeList (opcional) |
+| `TRUST_PROXY` | `false` | Ponlo a `true` solo si hay un proxy inverso delante (nginx, Caddy) |
+
+Detrás de nginx o Caddy con HTTPS, apunta el proxy a `http://127.0.0.1:8080`, pon `TRUST_PROXY=true` y desactiva el buffering para que la búsqueda en vivo y el vídeo fluyan (`proxy_buffering off;` en nginx).
+
+Para desarrollar sin Docker: `./gradlew :server:installDist` (con `YOMUKAI_SERVER_ONLY=true` no hace falta el SDK de Android), `cd web && npm install && npm run dev`, y arranca `server/build/install/server/bin/server` con `PORT=8099`.
+
 ---
 
 ## English
@@ -154,6 +192,19 @@ cd Yomukai
 ./gradlew assembleDebug          # APK in app/build/outputs/apk/debug/
 ./gradlew testDebugUnitTest      # parser unit tests
 ```
+
+### Web version (self-hosted)
+
+The same app in the browser, installable as a PWA on iPhone and Android. One line with Docker Compose:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/NUXX-G/Yomukai/main/install.sh | bash      # Linux / macOS
+irm https://raw.githubusercontent.com/NUXX-G/Yomukai/main/install.ps1 | iex             # Windows PowerShell
+```
+
+It creates `~/yomukai`, generates an admin password, starts Yomukai plus FlareSolverr and prints the address. Run it again to update. Create accounts for friends in Settings › Administration; guests need no password and are deleted after 7 days; data can be exported and imported as JSON. Options live in `~/yomukai/.env` (see the table above). Behind a reverse proxy, set `TRUST_PROXY=true` and disable response buffering.
+
+The backend is a Ktor server (`server/`) reusing the app's sources from the pure-Kotlin `shared/` module; the frontend is Svelte 5 + Vite (`web/`). User data is stored in SQLite, and images and video go through a signed proxy with a disk cache.
 
 ---
 

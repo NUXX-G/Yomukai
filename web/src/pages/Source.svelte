@@ -3,7 +3,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { api } from '../lib/api.js';
   import { route, back, media } from '../lib/router.svelte.js';
-  import { sourceById } from '../lib/store.svelte.js';
+  import { sourceById, rememberItems } from '../lib/store.svelte.js';
   import MediaCard from '../components/MediaCard.svelte';
   import Sheet from '../components/Sheet.svelte';
   import Icon from '../components/Icon.svelte';
@@ -35,6 +35,7 @@
       const list = hasFilters ? await api.browse(id, next, $state.snapshot(values)) : await api.latest(id, next);
       const known = new Set(items.map((i) => i.id));
       const fresh = list.filter((i) => !known.has(i.id));
+      rememberItems(fresh);
       items = [...items, ...fresh];
       page = next;
       if (!fresh.length) ended = true;

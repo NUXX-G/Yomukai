@@ -1,7 +1,7 @@
 <script>
   import { onDestroy } from 'svelte';
   import { searchStream } from '../lib/api.js';
-  import { settings, rememberSearch, saveSettings } from '../lib/store.svelte.js';
+  import { settings, rememberSearch, saveSettings, rememberItems } from '../lib/store.svelte.js';
   import { route, navigate, media } from '../lib/router.svelte.js';
   import { TYPE_FILTERS, LANGUAGES, TYPE_NAMES, TYPE_COLORS } from '../lib/format.js';
   import Icon from '../components/Icon.svelte';
@@ -26,6 +26,7 @@
     const types = TYPE_FILTERS.find((f) => f.key === typeKey).types;
     stop = searchStream(q, { types, lang }, (update) => {
       groups = update.groups; pending = update.pending; errors = update.errors;
+      rememberItems(update.groups.flatMap((g) => [g.primary, ...g.others]));
       if (update.done) searching = false;
     }, () => (searching = false));
   }

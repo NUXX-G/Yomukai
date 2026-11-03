@@ -110,3 +110,13 @@ export function resetUserState() {
   library.loaded = false;
   Object.assign(settings, structuredClone(DEFAULT_SETTINGS));
 }
+
+/** Titles seen in lists, so a title page can show its header at once while the rest loads. */
+const seenItems = new Map();
+export function rememberItems(items) {
+  for (const i of items || []) seenItems.set(i.sourceId + '|' + i.id, i);
+  if (seenItems.size > 3000) seenItems.delete(seenItems.keys().next().value);
+}
+export function seenItem(sourceId, id) {
+  return seenItems.get(sourceId + '|' + id) || null;
+}

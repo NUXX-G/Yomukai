@@ -18,9 +18,9 @@ Estructura:
 Fases:
 - [x] 1. Sacar la lógica a `shared/` sin romper Android (131 pruebas en verde, release probada)
 - [x] 2. Servidor: API de fuentes, cuentas, invitados, export/import, proxy (probado en local con curl y 6 pruebas)
-- [ ] 3. Web: Inicio, Buscar, Biblioteca, ficha, lectores de manga y novela
-- [ ] 4. Reproductor de anime en la web
-- [ ] 5. Docker, instalación en una línea y README
+- [x] 3. Web: Inicio, Buscar, Biblioteca, ficha, lectores de manga y novela
+- [x] 4. Reproductor de anime en la web
+- [x] 5. Docker, instalación en una línea y README
 
 ## Tanda v1.8.0 (release completa, autorizada por el usuario)
 - [x] Aleatorio siempre con fuente: solo obras que están en tus fuentes, «Disponible en» y abrir directo; cambiar tipo/género tira otra vez

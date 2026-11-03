@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
   import { route, navigate, back, media as mediaHref, reader } from '../lib/router.svelte.js';
-  import { sourceById, inLibrary, toggleLibrary, notify } from '../lib/store.svelte.js';
+  import { sourceById, inLibrary, toggleLibrary, notify, seenItem } from '../lib/store.svelte.js';
   import { coverSeed, themeFor, styleOf } from '../lib/cover.js';
   import { TYPE_NAMES, TYPE_COLORS, parseStatus, statusName, score, monthYear, chapterNoun } from '../lib/format.js';
   import { progressMap, continueTarget, markThrough, markOne } from '../lib/progress.js';
@@ -16,7 +16,8 @@
   const source = $derived(sourceById(sourceId));
   const anime = $derived(source?.kind === 'anime');
 
-  let item = $state(null);
+  // What the list already knew, shown at once; the full page replaces it when it arrives.
+  let item = $state(seenItem(sourceId, mediaId));
   let error = $state('');
   let list = $state({ loading: true, chapters: [], issues: [], abandoned: false, lastUpdate: null, error: '' });
   let progress = $state({});
@@ -45,9 +46,11 @@
   const synopsis = $derived(item?.description || meta?.synopsis || '');
 
   onMount(async () => {
+    const early = item?.cover;
+    if (early) coverSeed(early).then((seed) => (theme = themeFor(seed)));
     try {
       item = await api.media(sourceId, mediaId);
-      coverSeed(item.cover).then((seed) => (theme = themeFor(seed)));
+      if (item.cover !== early) coverSeed(item.cover).then((seed) => (theme = themeFor(seed)));
     } catch (e) {
       error = e.message;
     }
