@@ -95,19 +95,44 @@ class LoginThrottle {
         return true
     }
 
-    /** Ends an attempt started with [begin]. A failure counts against every key; a success clears them. */
+    /**
+     * Ends an attempt started with [begin]. A failure counts against every key. A success clears
+     * only the keys starting with "pair:": the address keeps its own count, so one right password
+     * never resets the guesses made against other accounts.
+     */
     @Synchronized
     fun finish(keys: List<String>, success: Boolean, now: Long = System.currentTimeMillis()) {
         keys.forEach { key ->
             val record = records[key] ?: return@forEach
             record.inFlight = (record.inFlight - 1).coerceAtLeast(0)
             if (success) {
-                if (record.inFlight == 0) records.remove(key)
+                if (key.startsWith("pair:") && record.inFlight == 0) records.remove(key)
             } else {
                 record.failures++
                 if (record.failures >= MAX_FAILURES) record.lockedUntil = now + LOCK_MS
             }
         }
+    }
+
+    private val accountFailures = ConcurrentHashMap<String, Record>()
+
+    /**
+     * Account-wide brake that never locks the owner out: after [SLOW_AFTER] failures from anywhere
+     * within [WINDOW_MS], every attempt on that account waits a little longer, up to [MAX_DELAY_MS].
+     */
+    fun accountDelay(account: String, now: Long = System.currentTimeMillis()): Long {
+        val record = accountFailures[account] ?: return 0
+        if (now - record.since > WINDOW_MS) { accountFailures.remove(account); return 0 }
+        return ((record.failures - SLOW_AFTER).coerceAtLeast(0) * STEP_MS).coerceAtMost(MAX_DELAY_MS)
+    }
+
+    fun accountFailed(account: String, now: Long = System.currentTimeMillis()) {
+        val record = accountFailures.getOrPut(account) { Record(0, 0, now, 0) }
+        synchronized(record) {
+            if (now - record.since > WINDOW_MS) { record.failures = 0; record.since = now }
+            record.failures++
+        }
+        if (accountFailures.size > MAX_RECORDS) accountFailures.entries.removeIf { now - it.value.since > WINDOW_MS }
     }
 
     /** One wrong attempt, outside [begin]/[finish] (tests). */
@@ -119,7 +144,17 @@ class LoginThrottle {
         const val MAX_FAILURES = 5
         const val WINDOW_MS = 15 * 60_000L
         const val LOCK_MS = 15 * 60_000L
+        const val SLOW_AFTER = 10
+        private const val STEP_MS = 250L
+        const val MAX_DELAY_MS = 5_000L
         private const val MAX_RECORDS = 100_000
+
+        /** The key for an address: IPv6 by its /64, which is what one connection usually owns. */
+        fun addressKey(address: String): String {
+            if (':' !in address) return address
+            val parts = address.substringBefore('%').split(':')
+            return if (parts.size >= 4 && "" !in parts.take(4)) parts.take(4).joinToString(":") + "::/64" else address
+        }
     }
 }
 

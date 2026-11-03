@@ -114,6 +114,33 @@ class ServerLogicTest {
     }
 
     @Test
+    fun accountsSlowDownWithoutLockingTheOwner() {
+        val throttle = LoginThrottle()
+        repeat(LoginThrottle.SLOW_AFTER) { throttle.accountFailed("amigo", 0) }
+        assertEquals(0L, throttle.accountDelay("amigo", 0))
+        repeat(100) { throttle.accountFailed("amigo", 0) }
+        assertEquals(LoginThrottle.MAX_DELAY_MS, throttle.accountDelay("amigo", 0))
+        assertEquals("the brake ends with the window", 0L, throttle.accountDelay("amigo", LoginThrottle.WINDOW_MS + 1))
+    }
+
+    @Test
+    fun oneRightPasswordDoesNotResetTheAddress() {
+        val throttle = LoginThrottle()
+        repeat(LoginThrottle.MAX_FAILURES - 1) { throttle.failed(listOf("ip:7.7.7.7", "pair:7.7.7.7|victima"), 0) }
+        assertTrue(throttle.begin(listOf("ip:7.7.7.7", "pair:7.7.7.7|propia"), 0))
+        throttle.finish(listOf("ip:7.7.7.7", "pair:7.7.7.7|propia"), success = true, now = 0)
+        throttle.failed(listOf("ip:7.7.7.7", "pair:7.7.7.7|victima"), 0)
+        assertTrue("the address hit its limit despite the success in between", throttle.waitFor(listOf("ip:7.7.7.7"), 0) > 0)
+    }
+
+    @Test
+    fun ipv6AddressesGroupByTheirNetwork() {
+        assertEquals("2001:db8:1:2::/64", LoginThrottle.addressKey("2001:db8:1:2:aaaa:bbbb:cccc:dddd"))
+        assertEquals(LoginThrottle.addressKey("2001:db8:1:2::1"), LoginThrottle.addressKey("2001:db8:1:2:ffff::9"))
+        assertEquals("1.2.3.4", LoginThrottle.addressKey("1.2.3.4"))
+    }
+
+    @Test
     fun proxyLinksAreSignedAndPlaylistsRewritten() {
         val proxy = MediaProxy(ServerHttp(null), ByteArray(32) { 7 }, Files.createTempDirectory("yk").toFile(), 2)
         val link = proxy.image("https://cdn.example.com/a.jpg", mapOf("Referer" to "https://example.com/"))

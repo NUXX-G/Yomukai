@@ -144,8 +144,9 @@ private fun Route.authRoutes(s: Services) {
         val name = body.get("name")?.asString.orEmpty().take(64)
         val password = body.get("password")?.asString.orEmpty().take(256)
         // Limited per address and per address+account: nobody can lock a friend out from elsewhere.
-        val ip = clientAddress(call, s.config)
-        val keys = listOf("ip:$ip", "pair:$ip|" + name.trim().lowercase())
+        val ip = LoginThrottle.addressKey(clientAddress(call, s.config))
+        val account = name.trim().lowercase()
+        val keys = listOf("ip:$ip", "pair:$ip|$account")
         if (!s.auth.throttle.begin(keys)) {
             val wait = s.auth.throttle.waitFor(keys).coerceAtLeast(1)
             return@post call.respond(
@@ -154,12 +155,15 @@ private fun Route.authRoutes(s: Services) {
             )
         }
         val session = try {
+            // Many failures against this account from anywhere slow every attempt on it down.
+            s.auth.throttle.accountDelay(account).takeIf { it > 0 }?.let { delay(it) }
             s.auth.login(name, password)
         } catch (e: Throwable) {
             s.auth.throttle.finish(keys, success = false)
             throw e
         }
         s.auth.throttle.finish(keys, success = session != null)
+        if (session == null) s.auth.throttle.accountFailed(account)
         if (session == null) {
             return@post call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Usuario o contraseña incorrectos"))
         }
@@ -192,10 +196,15 @@ private fun User.dto() = UserDto(name, isAdmin, isGuest, expiresAt)
  * Earlier entries come from the visitor and can be anything.
  */
 private fun clientAddress(call: ApplicationCall, config: Config): String {
-    if (config.trustProxy) {
+    val peer = call.request.local.remoteAddress
+    // Forwarded headers count only when the connection itself comes from the proxy: a private
+    // address on the same machine or Docker network. A visitor reaching the port directly cannot.
+    val fromProxy = runCatching { !PublicAddresses.isPublic(java.net.InetAddress.getByName(peer)) }.getOrDefault(false)
+    if (config.trustProxy && fromProxy) {
         call.request.headers["X-Forwarded-For"]?.split(',')?.lastOrNull()?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+        call.request.headers["X-Real-IP"]?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
     }
-    return call.request.local.remoteAddress
+    return peer
 }
 
 private fun Route.adminRoutes(s: Services) {
