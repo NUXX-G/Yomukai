@@ -63,7 +63,12 @@ class AppContainer(context: Context) {
     val browseMemory = android.util.LruCache<String, List<com.nelson.yomukai.domain.model.MediaItem>>(16)
     val contentFilter = ContentFilter(preferences, libraryRepository)
     private val aniList = AniListClient(network)
-    val metadata = com.nelson.yomukai.data.metadata.MetadataRepository(aniList, com.nelson.yomukai.data.metadata.KitsuClient(network))
+    val metadata = com.nelson.yomukai.data.metadata.MetadataRepository(
+        aniList,
+        com.nelson.yomukai.data.metadata.KitsuClient(network),
+        com.nelson.yomukai.data.metadata.MalClient(network, BuildConfig.MAL_CLIENT_ID),
+        com.nelson.yomukai.data.metadata.MetadataStore(context)
+    )
     val discovery = DiscoveryRepository(
         sourceManager, preferences, aniList,
         savedTitles = { homeCache.load().values.flatten() },

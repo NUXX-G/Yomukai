@@ -82,7 +82,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             continueReading = history.take(12),
             isRefreshing = isRefreshing
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState(isRefreshing = true))
 
     init {
         // Reload whenever the set of enabled sources changes.

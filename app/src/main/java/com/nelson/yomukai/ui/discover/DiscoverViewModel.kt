@@ -36,6 +36,8 @@ data class DiscoverUiState(
     val forYou: List<RelatedTitle> = emptyList()
 )
 
+private const val RECENT_HISTORY = 24
+
 class DiscoverViewModel(private val container: AppContainer) : ViewModel() {
     private val _state = MutableStateFlow(DiscoverUiState())
     val state: StateFlow<DiscoverUiState> = _state.asStateFlow()
@@ -54,7 +56,8 @@ class DiscoverViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             val repo = container.libraryRepository
             val library = repo.observeLibrary().first()
-            val history = repo.observeHistory().first().mapNotNull { repo.getMedia(it.sourceId, it.mediaId) }.map { media ->
+            // Only the recent past counts, and each row costs a database read.
+            val history = repo.observeHistory().first().take(RECENT_HISTORY).mapNotNull { repo.getMedia(it.sourceId, it.mediaId) }.map { media ->
                 library.firstOrNull { it.sourceId == media.sourceId && it.id == media.mediaId }
                     ?: com.nelson.yomukai.domain.model.MediaItem(media.mediaId, media.title, "", com.nelson.yomukai.domain.model.MediaType.fromName(media.type), "", "", media.sourceId)
             }

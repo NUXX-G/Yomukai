@@ -40,6 +40,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -81,6 +82,7 @@ fun HomeScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var shuffle by rememberSaveable { mutableStateOf(false) }
 
+    LaunchedEffect(Unit) { discoverViewModel.loadForYou() }
     LocateHandler(discoverViewModel, onOpenMedia = onMediaClick, onSearch = onSearchTitle)
     if (shuffle) ShuffleSheet(discoverViewModel, onDismiss = { shuffle = false })
 

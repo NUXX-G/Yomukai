@@ -71,6 +71,7 @@ class AniListClient(private val network: NetworkHelper) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, AniListEntry>) = size > MAX_CACHED
     }
     private val lock = Mutex()
+    private val misses = HashSet<String>()
 
     /** While set, AniList said to slow down: nothing is sent, and callers use what they already have. */
     @Volatile
@@ -86,6 +87,8 @@ class AniListClient(private val network: NetworkHelper) {
         val title = names.firstOrNull() ?: return null
         val key = "${type.name}|${SmartSearch.duplicateKey(title)}"
         lock.withLock { cache[key] }?.let { return it }
+        // A title AniList answered without a match is not asked again this session.
+        if (lock.withLock { key in misses }) return null
         // AniList's search is fuzzy; an answer only counts when one of its names is one of ours.
         val queries = names.filter { it.isNotBlank() }.distinct()
             .sortedBy { name -> name.any { it.code > LATIN_LIMIT } }
@@ -95,7 +98,10 @@ class AniListClient(private val network: NetworkHelper) {
             found = parseEntries(query(LOOKUP, search, type)).firstOrNull { TitleMatcher.shareName(names, it.names) }
             if (found != null) break
         }
-        if (found == null) return null
+        if (found == null) {
+            lock.withLock { misses.add(key) }
+            return null
+        }
         val entry = if (found.related.size >= ENOUGH) found else found.copy(related = (found.related + byTags(found, type)).distinctBy { it.title })
         lock.withLock { cache[key] = entry }
         return entry

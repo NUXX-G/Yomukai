@@ -472,11 +472,15 @@ private fun Header(state: DetailsUiState, metadata: TitleMetadata?, insights: Ch
                         }
                     }
                     Spacer(Modifier.height(2.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    FlowRow(verticalArrangement = Arrangement.Center) {
                         Text(state.sourceName, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                         metadata?.score?.let { score ->
                             MetaDot()
                             ScoreLabel(score, metadata.scoreSource)
+                        }
+                        metadata?.malScore?.let { score ->
+                            MetaDot()
+                            ScoreLabel(score, "MAL")
                         }
                     }
                 }

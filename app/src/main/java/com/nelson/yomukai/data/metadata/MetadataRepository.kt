@@ -17,6 +17,8 @@ import com.nelson.yomukai.domain.model.MediaType
 import com.nelson.yomukai.domain.model.PublicationStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 
@@ -27,6 +29,8 @@ data class TitleMetadata(
     val score: Float? = null,
     /** "AniList" or "Kitsu". */
     val scoreSource: String = "",
+    /** MyAnimeList's score out of 10, shown next to the main one. */
+    val malScore: Float? = null,
     /** Status from the database, more reliable than the sources' free text. */
     val officialStatus: PublicationStatus? = null,
     /** Clean official synopsis, usually in English. */
@@ -38,7 +42,11 @@ data class TitleMetadata(
     /** Prequels, sequels and adaptations in every format. */
     val relations: List<RelatedTitle> = emptyList(),
     val siteUrl: String = ""
-)
+) {
+    /** True when some database answered; false when only the local layers (taxonomy, keywords) did. */
+    val fromNetwork: Boolean
+        get() = score != null || malScore != null || officialStatus != null || synopsis.isNotBlank() || relations.isNotEmpty()
+}
 
 /** Kitsu's public API: only a score, used when AniList does not know the title or is out of reach. */
 class KitsuClient(private val network: NetworkHelper) {
@@ -69,20 +77,35 @@ class KitsuClient(private val network: NetworkHelper) {
  * 2. [GenreTaxonomy]: every genre in Yomukai's own names.
  * 3. [KeywordTagger]: genres guessed from the synopsis when no one lists any.
  */
-class MetadataRepository(private val aniList: AniListClient, private val kitsu: KitsuClient) {
+class MetadataRepository(
+    private val aniList: AniListClient,
+    private val kitsu: KitsuClient,
+    private val mal: MalClient? = null,
+    private val store: MetadataStore? = null
+) {
     private val cache = ConcurrentHashMap<String, TitleMetadata>()
 
     fun cached(media: MediaItem): TitleMetadata? = cache[SmartSearch.keyOf(media)]
 
-    suspend fun load(media: MediaItem): TitleMetadata {
-        cache[SmartSearch.keyOf(media)]?.let { return it }
+    /** Memory first, then the copy on disk, then AniList and MAL at the same time (Kitsu only when both fail). */
+    suspend fun load(media: MediaItem): TitleMetadata = coroutineScope {
+        val key = SmartSearch.keyOf(media)
+        cache[key]?.let { return@coroutineScope it }
+        store?.get(key)?.let { saved -> cache[key] = saved; return@coroutineScope saved }
         val names = (listOf(media.title) + media.altTitles).filter { it.isNotBlank() }.distinct()
+        val malScore = async { mal?.let { client -> safely { withTimeoutOrNull(MAL_TIMEOUT_MS) { client.score(names, media.type) } } } }
         val entry = safely { withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { aniList.lookup(names, media.type) } }
-        val kitsuScore = if (entry?.score == null) safely { withTimeoutOrNull(KITSU_TIMEOUT_MS) { kitsu.score(names + entry?.names.orEmpty(), media.type) } } else null
-        val result = build(media, entry, kitsuScore)
+        val malValue = malScore.await()
+        val kitsuScore = if (entry?.score == null && malValue == null) {
+            safely { withTimeoutOrNull(KITSU_TIMEOUT_MS) { kitsu.score(names + entry?.names.orEmpty(), media.type) } }
+        } else null
+        val result = build(media, entry, kitsuScore, malValue)
         // A failed lookup is retried next time; a complete answer is kept.
-        if (entry != null || kitsuScore != null) cache[SmartSearch.keyOf(media)] = result
-        return result
+        if (entry != null || kitsuScore != null || malValue != null) {
+            cache[key] = result
+            store?.put(key, result)
+        }
+        result
     }
 
     private suspend fun <T> safely(block: suspend () -> T?): T? =
@@ -95,8 +118,9 @@ class MetadataRepository(private val aniList: AniListClient, private val kitsu: 
         }
 
     companion object {
-        private const val LOOKUP_TIMEOUT_MS = 8_000L
+        private const val LOOKUP_TIMEOUT_MS = 12_000L
         private const val KITSU_TIMEOUT_MS = 6_000L
+        private const val MAL_TIMEOUT_MS = 8_000L
 
         fun statusOf(aniListStatus: String): PublicationStatus? = when (aniListStatus) {
             "RELEASING" -> PublicationStatus.ONGOING
@@ -107,7 +131,7 @@ class MetadataRepository(private val aniList: AniListClient, private val kitsu: 
         }
 
         /** Pure: joins the layers. */
-        fun build(media: MediaItem, entry: AniListEntry?, kitsuScore: Float?): TitleMetadata {
+        fun build(media: MediaItem, entry: AniListEntry?, kitsuScore: Float?, malScore: Float? = null): TitleMetadata {
             // AniList tags are many and in English: only the ones the taxonomy knows become genres.
             val official = entry?.genres.orEmpty() + entry?.tags.orEmpty().filter(GenreTaxonomy::isKnown).take(MAX_OFFICIAL_TAGS)
             var genres = GenreTaxonomy.merge(media.genres, official).take(MAX_GENRES)
@@ -124,6 +148,7 @@ class MetadataRepository(private val aniList: AniListClient, private val kitsu: 
                     kitsuScore != null -> "Kitsu"
                     else -> ""
                 },
+                malScore = malScore,
                 officialStatus = entry?.status?.let(::statusOf),
                 synopsis = entry?.description.orEmpty(),
                 genres = genres,

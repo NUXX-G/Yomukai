@@ -88,7 +88,7 @@ fun LocateHandler(viewModel: DiscoverViewModel, onOpenMedia: (MediaItem) -> Unit
 @Composable
 fun ForYouSection(viewModel: DiscoverViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    LaunchedEffect(Unit) { viewModel.loadForYou() }
+
     if (!state.loading && state.forYou.isEmpty()) return
     Column {
         SectionHeader("Para ti")

@@ -14,7 +14,7 @@
 
 | Área | Qué incluye |
 |---|---|
-| **Explorar y buscar** | Novedades por fuente, filtros por tipo (manga, manhwa, novela, anime) e idioma, búsqueda simultánea en todas las fuentes activas, catálogo por fuente en cuadrícula o lista con paginación. |
+| **Inicio y búsqueda** | Novedades por fuente, «Para ti» y botón de aleatorio en la cabecera, filtros por tipo (manga, manhwa, novela, anime) e idioma, búsqueda simultánea en todas las fuentes activas, catálogo por fuente en cuadrícula o lista con paginación. |
 | **Lector de manga** | Modo vertical (webtoon) y por páginas (izq.→der. / der.→izq.), zoom con pellizco y doble toque, toque en los bordes para pasar página, barra de páginas, brillo, pantalla siempre encendida, modo inmersivo, reanudación en la última página. |
 | **Lector de novelas** | Temas Oscuro / OLED / Sepia / Claro, fuente, tamaño, interlineado, márgenes, texto justificado y progreso guardado por capítulo. |
 | **Anime** | Lista de episodios, selector de servidor, reproducción en la app (ExoPlayer/Media3) de flujos HLS y MP4 directos; los servidores no compatibles se abren en el navegador. |
@@ -22,11 +22,13 @@
 | **Actualizaciones en segundo plano** | Un *worker* de WorkManager comprueba periódicamente los títulos de la biblioteca y envía una **notificación** cuando hay capítulos o episodios nuevos (frecuencia configurable, opción solo Wi-Fi). |
 | **Navegador con captura** | WebView integrado con atrás/adelante, favoritos, historial, búsqueda en la página y versión de escritorio. Detecta los **flujos de vídeo** (m3u8/mp4) que carga la página y las **imágenes del capítulo**, para reproducirlos o leerlos en sus visores nativos. |
 | **Red** | Limitación de peticiones, reintentos, cookies compartidas con WebView para superar desafíos de Cloudflare, **DNS sobre HTTPS** y **proxy HTTP/SOCKS5** (p. ej. Orbot/Tor) para sitios bloqueados por el operador. |
-| **Catálogo por fuente** | Desde Explorar entras en cualquier fuente y ves su catálogo completo con **scroll infinito** y **filtros propios de cada web** (orden, estado, tipo, género/editorial, idioma de capítulos, según lo que soporte cada una). |
+| **Catálogo por fuente** | Desde Inicio entras en cualquier fuente y ves su catálogo completo con **scroll infinito** y **filtros propios de cada web** (orden, estado, tipo, género/editorial, idioma de capítulos, según lo que soporte cada una). |
 | **Búsqueda inteligente** | Insensible a mayúsculas, tildes y puntuación; tolera erratas y coincidencias parciales; busca en títulos alternativos; ordena por relevancia, **agrupa duplicados entre fuentes**, con historial y sugerencias. |
 | **Lectura continua** | En manga vertical, cómic y novela el capítulo siguiente se añade solo al final, con separador «Capítulo X»; el progreso y el historial siguen al capítulo visible. **Índice de capítulos** con búsqueda, **marcadores**, auto-scroll, recorte de bordes, filtros de color, bloqueo de orientación; en novelas **lectura en voz alta** y búsqueda en el capítulo. |
-| **Similares y otras fuentes** | En cada ficha, títulos parecidos (recomendaciones de AniList) y el mismo título en tus otras fuentes con cuántos capítulos tiene cada una, avisando cuando no se puede confirmar que sea la misma obra. |
-| **Descubrir** | Recomendaciones según tu biblioteca e historial, y un título aleatorio con tipo y género opcionales. |
+| **Similares, relacionadas y otras fuentes** | En cada ficha, precuelas, secuelas y adaptaciones en cualquier formato, títulos parecidos (recomendaciones de AniList) y el mismo título en tus otras fuentes con cuántos capítulos tiene cada una, avisando cuando no se puede confirmar que sea la misma obra. |
+| **Descubrir** | En Inicio: recomendaciones según tu biblioteca e historial, y un título aleatorio con tipo y género opcionales. |
+| **Ficha inteligente** | Color tomado de la portada, nota de AniList y MyAnimeList (Kitsu de respaldo), géneros unificados en español (o deducidos de la sinopsis), aviso de saltos o desorden en los capítulos y de posible abandono. |
+| **Reproductor limpio** | Solo un reloj hasta que tocas la pantalla; la pantalla no se apaga y pausa la música de otras apps. Leer no toca tu música. |
 | **Géneros excluidos** | Oculta cualquier género en todas las fuentes o solo en algunas. |
 | **Carpeta pública** | Cada descarga se copia a `Download/Yomukai`, por tipo, serie y temporada: MP4, CBZ o imágenes, EPUB o TXT, con `tvshow.nfo` y portada. |
 | **Reproductor** | Siguiente episodio automático, índice de episodios, velocidad 0,5–2x, salto de +85 s, imagen en imagen y posición recordada por episodio. |
@@ -67,6 +69,8 @@ cd Yomukai
 ./gradlew assembleDebug          # APK en app/build/outputs/apk/debug/
 ./gradlew testDebugUnitTest      # pruebas unitarias de los parsers
 ```
+
+Nota de MyAnimeList (opcional): crea una Client ID de tipo *android* en <https://myanimelist.net/apiconfig> y añádela a `local.properties` como `mal.clientId=...` (o en la variable de entorno `MAL_CLIENT_ID`). Sin ella, la app lee la nota pública de MAL a través de Jikan.
 
 Para probar todas las fuentes contra las webs reales en un dispositivo conectado:
 

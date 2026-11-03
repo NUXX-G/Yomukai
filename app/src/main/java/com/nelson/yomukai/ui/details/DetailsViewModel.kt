@@ -89,6 +89,9 @@ data class AlternativesState(
 @Immutable
 data class LocateState(val title: String, val searching: Boolean, val options: List<Alternative> = emptyList())
 
+private const val METADATA_ATTEMPTS = 3
+private const val METADATA_RETRY_MS = 6_000L
+
 class DetailsViewModel(handle: SavedStateHandle, private val container: AppContainer) : ViewModel() {
     val sourceId: String = checkNotNull(handle[Routes.ARG_SOURCE])
     val mediaId: String = checkNotNull(handle[Routes.ARG_MEDIA])
@@ -162,14 +165,19 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
 
     private fun loadMetadata() {
         viewModelScope.launch(Dispatchers.IO) {
-            val media = mediaItem()
-            _metadata.value = media?.let {
-                runCatching { container.metadata.load(it) }.getOrElse { e ->
+            val media = mediaItem() ?: run { _metadataLoading.value = false; return@launch }
+            // AniList may be busy with the home screen's recommendations right after start: what
+            // came back empty is asked again a little later, and the genres shown meanwhile stay.
+            repeat(METADATA_ATTEMPTS) { attempt ->
+                val found = runCatching { container.metadata.load(media) }.getOrElse { e ->
                     if (e is CancellationException) throw e
                     null
                 }
+                if (found != null) _metadata.value = found
+                _metadataLoading.value = false
+                if (found?.fromNetwork == true) return@launch
+                if (attempt < METADATA_ATTEMPTS - 1) kotlinx.coroutines.delay(METADATA_RETRY_MS)
             }
-            _metadataLoading.value = false
         }
     }
 

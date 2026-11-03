@@ -1,7 +1,15 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+}
+
+val malClientId: String = run {
+    val props = Properties()
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { props.load(it) }
+    (props.getProperty("mal.clientId") ?: System.getenv("MAL_CLIENT_ID") ?: "").trim()
 }
 
 android {
@@ -14,8 +22,8 @@ android {
         applicationId = "com.nelson.yomukai"
         minSdk = 26
         targetSdk = 37
-        versionCode = 14
-        versionName = "1.6.0"
+        versionCode = 15
+        versionName = "1.7.0"
 
         ndk {
             // tor ships ~7 MB per ABI; 32-bit x86 devices are not supported.
@@ -23,6 +31,10 @@ android {
         }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Optional MyAnimeList Client ID (https://myanimelist.net/apiconfig, type "android"), read from
+        // local.properties as mal.clientId. Without it the app reads MAL's public data through Jikan.
+        buildConfigField("String", "MAL_CLIENT_ID", "\"$malClientId\"")
     }
 
     buildTypes {

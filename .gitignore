@@ -22,3 +22,6 @@ local.properties
 
 # IDE AI-assistant plugin sessions (may contain private prompts/keys)
 /.idea/deepseek-sessions.json*
+
+# Browser automation artifacts
+.playwright-mcp/
