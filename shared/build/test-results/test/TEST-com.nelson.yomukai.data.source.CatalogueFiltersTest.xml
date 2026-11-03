@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.nelson.yomukai.data.source.CatalogueFiltersTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-03T14:24:50.443Z" hostname="NUXX" time="0.023">
-  <properties/>
-  <testcase name="madaraUrls" classname="com.nelson.yomukai.data.source.CatalogueFiltersTest" time="0.011"/>
-  <testcase name="mangaDexDefaultsAndFilters" classname="com.nelson.yomukai.data.source.CatalogueFiltersTest" time="0.006"/>
-  <testcase name="asuraQuery" classname="com.nelson.yomukai.data.source.CatalogueFiltersTest" time="0.005"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

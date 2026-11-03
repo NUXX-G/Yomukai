@@ -25,3 +25,6 @@ local.properties
 
 # Browser automation artifacts
 .playwright-mcp/
+
+# Build output of every module (shared, server...)
+build/
