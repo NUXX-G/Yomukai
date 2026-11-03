@@ -72,7 +72,7 @@ class RateLimiter {
  * account, within [WINDOW_MS], that key is locked for [LOCK_MS]. A right password clears the account.
  */
 class LoginThrottle {
-    private class Record(var failures: Int, var since: Long, var lockedUntil: Long)
+    private class Record(var failures: Int, var inFlight: Int, var since: Long, var lockedUntil: Long)
 
     private val records = ConcurrentHashMap<String, Record>()
 
@@ -80,20 +80,39 @@ class LoginThrottle {
     fun waitFor(keys: List<String>, now: Long = System.currentTimeMillis()): Long =
         keys.maxOf { key -> records[key]?.lockedUntil?.minus(now)?.coerceAtLeast(0) ?: 0 }
 
-    fun failed(keys: List<String>, now: Long = System.currentTimeMillis()) {
+    /**
+     * Reserves one attempt on every key before the password is checked, so many requests sent at
+     * once cannot all slip under the limit. False when any key is locked or out of attempts;
+     * every true must be followed by [finish].
+     */
+    @Synchronized
+    fun begin(keys: List<String>, now: Long = System.currentTimeMillis()): Boolean {
+        val all = keys.map { records.getOrPut(it) { Record(0, 0, now, 0) } }
+        all.forEach { if (now - it.since > WINDOW_MS && it.inFlight == 0) { it.failures = 0; it.since = now } }
+        if (all.any { it.lockedUntil > now || it.failures + it.inFlight >= MAX_FAILURES }) return false
+        all.forEach { it.inFlight++ }
+        if (records.size > MAX_RECORDS) records.entries.removeIf { now - it.value.since > WINDOW_MS && it.value.lockedUntil < now && it.value.inFlight == 0 }
+        return true
+    }
+
+    /** Ends an attempt started with [begin]. A failure counts against every key; a success clears them. */
+    @Synchronized
+    fun finish(keys: List<String>, success: Boolean, now: Long = System.currentTimeMillis()) {
         keys.forEach { key ->
-            val record = records.getOrPut(key) { Record(0, now, 0) }
-            synchronized(record) {
-                if (now - record.since > WINDOW_MS) { record.failures = 0; record.since = now }
+            val record = records[key] ?: return@forEach
+            record.inFlight = (record.inFlight - 1).coerceAtLeast(0)
+            if (success) {
+                if (record.inFlight == 0) records.remove(key)
+            } else {
                 record.failures++
                 if (record.failures >= MAX_FAILURES) record.lockedUntil = now + LOCK_MS
             }
         }
-        if (records.size > MAX_RECORDS) records.entries.removeIf { now - it.value.since > WINDOW_MS && it.value.lockedUntil < now }
     }
 
-    fun succeeded(key: String) {
-        records.remove(key)
+    /** One wrong attempt, outside [begin]/[finish] (tests). */
+    fun failed(keys: List<String>, now: Long = System.currentTimeMillis()) {
+        if (begin(keys, now)) finish(keys, success = false, now = now)
     }
 
     companion object {

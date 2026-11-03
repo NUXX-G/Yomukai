@@ -99,7 +99,18 @@ class ServerLogicTest {
         throttle.failed(keys, 0)
         assertTrue(throttle.waitFor(keys, 0) > 0)
         assertEquals("unlocked after the lock time", 0L, throttle.waitFor(keys, LoginThrottle.LOCK_MS + 1))
-        assertTrue("another address against the same account stays locked", throttle.waitFor(listOf("ip:9.9.9.9", "user:amigo"), 0) > 0)
+        assertTrue("another address may still try that account", throttle.begin(listOf("ip:9.9.9.9", "pair:9.9.9.9|amigo"), 0))
+    }
+
+    @Test
+    fun attemptsSentAtOnceCannotSlipUnderTheLimit() {
+        val throttle = LoginThrottle()
+        val keys = listOf("ip:5.5.5.5", "pair:5.5.5.5|amigo")
+        repeat(LoginThrottle.MAX_FAILURES) { assertTrue(throttle.begin(keys, 0)) }
+        assertFalse("still checking five passwords: a sixth waits", throttle.begin(keys, 0))
+        throttle.finish(keys, success = true, now = 0)
+        repeat(LoginThrottle.MAX_FAILURES - 1) { throttle.finish(keys, success = false, now = 0) }
+        assertTrue(throttle.begin(keys, 0))
     }
 
     @Test

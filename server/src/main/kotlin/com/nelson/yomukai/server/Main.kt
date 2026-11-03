@@ -143,20 +143,26 @@ private fun Route.authRoutes(s: Services) {
         val body = JsonParser.parseString(call.receiveText()).asJsonObject
         val name = body.get("name")?.asString.orEmpty().take(64)
         val password = body.get("password")?.asString.orEmpty().take(256)
-        val keys = listOf("ip:" + clientAddress(call, s.config), "user:" + name.trim().lowercase())
-        val wait = s.auth.throttle.waitFor(keys)
-        if (wait > 0) {
+        // Limited per address and per address+account: nobody can lock a friend out from elsewhere.
+        val ip = clientAddress(call, s.config)
+        val keys = listOf("ip:$ip", "pair:$ip|" + name.trim().lowercase())
+        if (!s.auth.throttle.begin(keys)) {
+            val wait = s.auth.throttle.waitFor(keys).coerceAtLeast(1)
             return@post call.respond(
                 HttpStatusCode.TooManyRequests,
                 mapOf("error" to "Demasiados intentos. Prueba otra vez en ${(wait / 60_000) + 1} min")
             )
         }
-        val session = s.auth.login(name, password)
+        val session = try {
+            s.auth.login(name, password)
+        } catch (e: Throwable) {
+            s.auth.throttle.finish(keys, success = false)
+            throw e
+        }
+        s.auth.throttle.finish(keys, success = session != null)
         if (session == null) {
-            s.auth.throttle.failed(keys)
             return@post call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Usuario o contraseña incorrectos"))
         }
-        s.auth.throttle.succeeded(keys[1])
         call.response.cookies.append(s.auth.sessionCookie(session.second, secure(call)))
         call.respond(session.first.dto())
     }
@@ -180,11 +186,14 @@ private fun Route.authRoutes(s: Services) {
 
 private fun User.dto() = UserDto(name, isAdmin, isGuest, expiresAt)
 
-/** The visitor's address; behind a reverse proxy (TRUST_PROXY, on by default) the one it forwards. */
+/**
+ * The visitor's address. With TRUST_PROXY (off by default; turn it on only behind a reverse proxy
+ * such as nginx or Caddy) the last X-Forwarded-For entry is used: the one the proxy itself added.
+ * Earlier entries come from the visitor and can be anything.
+ */
 private fun clientAddress(call: ApplicationCall, config: Config): String {
     if (config.trustProxy) {
-        call.request.headers["X-Real-IP"]?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
-        call.request.headers["X-Forwarded-For"]?.substringBefore(',')?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+        call.request.headers["X-Forwarded-For"]?.split(',')?.lastOrNull()?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
     }
     return call.request.local.remoteAddress
 }
