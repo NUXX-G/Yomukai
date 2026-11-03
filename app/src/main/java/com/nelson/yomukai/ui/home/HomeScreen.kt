@@ -84,7 +84,7 @@ fun HomeScreen(
 
     LaunchedEffect(Unit) { discoverViewModel.loadForYou() }
     LocateHandler(discoverViewModel, onOpenMedia = onMediaClick, onSearch = onSearchTitle)
-    if (shuffle) ShuffleSheet(discoverViewModel, onDismiss = { shuffle = false })
+    if (shuffle) ShuffleSheet(discoverViewModel, onOpenMedia = onMediaClick, onDismiss = { shuffle = false })
 
     Scaffold(
         modifier = modifier,

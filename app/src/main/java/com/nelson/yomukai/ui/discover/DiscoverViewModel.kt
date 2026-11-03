@@ -31,6 +31,8 @@ data class DiscoverUiState(
     val genre: String? = null,
     val rolling: Boolean = false,
     val random: RelatedTitle? = null,
+    /** Sources holding [random]; the pick only shows once at least one is known. */
+    val randomPlaces: List<com.nelson.yomukai.data.discovery.Alternative> = emptyList(),
     val randomError: String? = null,
     val loading: Boolean = false,
     val forYou: List<RelatedTitle> = emptyList()
@@ -47,8 +49,17 @@ class DiscoverViewModel(private val container: AppContainer) : ViewModel() {
 
     private var locateJob: Job? = null
 
-    fun setKind(kind: RandomKind) = _state.update { it.copy(kind = kind) }
-    fun setGenre(genre: String?) = _state.update { it.copy(genre = genre) }
+    /** Changing what to pick rolls again at once: the shown pick always fits the chips. */
+    fun setKind(kind: RandomKind) {
+        if (_state.value.kind == kind) return
+        _state.update { it.copy(kind = kind) }
+        rollRandom()
+    }
+    fun setGenre(genre: String?) {
+        if (_state.value.genre == genre) return
+        _state.update { it.copy(genre = genre) }
+        rollRandom()
+    }
 
     /** Recent history and library in turns: what was just read says as much as what was kept. */
     fun loadForYou() {
@@ -71,13 +82,19 @@ class DiscoverViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    private var rollJob: Job? = null
+
+    /** A random title that some source has, with those sources; the previous one stays until it arrives. */
     fun rollRandom() {
         val current = _state.value
+        rollJob?.cancel()
         _state.update { it.copy(rolling = true, randomError = null) }
-        viewModelScope.launch(Dispatchers.IO) {
-            val pick = runCatching { container.discovery.random(current.kind, current.genre) }.onFailure { if (it is CancellationException) throw it }.getOrNull()
+        rollJob = viewModelScope.launch(Dispatchers.IO) {
+            val found = runCatching { container.discovery.randomAvailable(current.kind, current.genre) }
+                .onFailure { if (it is CancellationException) throw it }.getOrNull()
             _state.update {
-                it.copy(rolling = false, random = pick ?: it.random, randomError = if (pick == null) "Sin conexión ahora mismo. Prueba en un momento." else null)
+                if (found == null) it.copy(rolling = false, randomError = "Sin conexión ahora mismo. Prueba en un momento.")
+                else it.copy(rolling = false, random = found.first, randomPlaces = found.second)
             }
         }
     }

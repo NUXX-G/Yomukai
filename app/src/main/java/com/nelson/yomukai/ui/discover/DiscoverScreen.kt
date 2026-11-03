@@ -22,6 +22,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Button
+import androidx.compose.material3.AssistChip
+import com.nelson.yomukai.ui.components.LanguageTag
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -50,6 +52,8 @@ import com.nelson.yomukai.ui.details.LocateSheet
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 @Composable
 fun RelatedCard(related: RelatedTitle, onOpen: (RelatedTitle) -> Unit, modifier: Modifier = Modifier, subtitle: String? = null) {
@@ -108,11 +112,11 @@ fun ForYouSection(viewModel: DiscoverViewModel) {
 /** Random pick with optional type and genre, opened from the shuffle button of the home screen. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ShuffleSheet(viewModel: DiscoverViewModel, onDismiss: () -> Unit) {
+fun ShuffleSheet(viewModel: DiscoverViewModel, onOpenMedia: (MediaItem) -> Unit, onDismiss: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { if (state.random == null && !state.rolling) viewModel.rollRandom() }
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
+        Column(Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
             Text(
                 "Descubrir al azar",
                 style = MaterialTheme.typography.titleMedium,
@@ -138,19 +142,46 @@ fun ShuffleSheet(viewModel: DiscoverViewModel, onDismiss: () -> Unit) {
                     label = "shuffle"
                 ) { (rolling, pick, error) ->
                     when {
-                        rolling -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { AppSpinner(Modifier.size(36.dp), strokeWidth = 3.dp) }
-                        pick != null -> RandomPick(pick, onOpen = { viewModel.open(pick); onDismiss() })
+                        rolling -> Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                            AppSpinner(Modifier.size(36.dp), strokeWidth = 3.dp)
+                            Spacer(Modifier.height(8.dp))
+                            Text("Buscando uno que esté en tus fuentes...", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        pick != null -> RandomPick(pick, onOpen = { state.randomPlaces.firstOrNull()?.let { onOpenMedia(it.item); onDismiss() } })
                         error != null -> Text(error, color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
-            Row(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Where the pick can be read, straight away: one tap opens it there.
+            if (!state.rolling && state.random != null && state.randomPlaces.isNotEmpty()) {
+                Text(
+                    "Disponible en",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                )
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(state.randomPlaces, key = { it.item.sourceId + it.item.id }) { place ->
+                        AssistChip(
+                            onClick = { onOpenMedia(place.item); onDismiss() },
+                            label = { Text(place.sourceName) },
+                            trailingIcon = { LanguageTag(place.language) }
+                        )
+                    }
+                }
+            }
+            Row(Modifier.padding(horizontal = 24.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(onClick = viewModel::rollRandom, enabled = !state.rolling) {
                     Icon(Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
                     Text("Otro", modifier = Modifier.padding(start = 8.dp))
                 }
-                state.random?.let { pick ->
-                    OutlinedButton(onClick = { viewModel.open(pick); onDismiss() }, enabled = !state.rolling) { Text("Abrir") }
+                state.randomPlaces.firstOrNull()?.takeIf { state.random != null }?.let { place ->
+                    OutlinedButton(onClick = { onOpenMedia(place.item); onDismiss() }, enabled = !state.rolling) {
+                        Text("Abrir en ${place.sourceName}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
         }

@@ -375,6 +375,16 @@ fun NovelReaderScreen(
             }
         }
 
+        // With the menus hidden only a small clock stays, in the top corner.
+        if (!overlayVisible && !searchOpen) {
+            com.nelson.yomukai.ui.components.MiniClock(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                pill = true
+            )
+        }
         AnimatedVisibility(
             visible = overlayVisible || searchOpen,
             enter = fadeIn(),

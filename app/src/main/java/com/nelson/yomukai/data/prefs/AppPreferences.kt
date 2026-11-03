@@ -108,7 +108,7 @@ enum class ComicFormat(val displayName: String) { CBZ("CBZ (un archivo)"), IMAGE
 enum class NovelFormat(val displayName: String) { EPUB("EPUB"), TXT("TXT") }
 
 data class AppSettings(
-    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val themeMode: ThemeMode = ThemeMode.DARK,
     val dynamicColor: Boolean = false,
     /** null = use the source manager's defaults. */
     val enabledSources: Set<String>? = null,
@@ -131,8 +131,9 @@ data class AppSettings(
 /** SharedPreferences-backed settings exposed as StateFlows so Compose reacts to changes. */
 class AppPreferences(context: Context) {
     private val prefs = context.getSharedPreferences("yomukai_prefs", Context.MODE_PRIVATE)
+    private val BLACK_THEME_MIGRATED = "black_theme_v1"
 
-    private val _app = MutableStateFlow(readApp())
+    private val _app = MutableStateFlow(migrateTheme().let { readApp() })
     val app: StateFlow<AppSettings> = _app.asStateFlow()
 
     private val _manga = MutableStateFlow(readManga())
@@ -297,8 +298,21 @@ class AppPreferences(context: Context) {
         _novel.value = value
     }
 
+    /**
+     * v1.8.0 brought the black interface: "follow the system", the old default, becomes dark once.
+     * A choice made after that is respected.
+     */
+    private fun migrateTheme() {
+        if (prefs.getBoolean(BLACK_THEME_MIGRATED, false)) return
+        val current = prefs.getString("theme_mode", null)
+        prefs.edit().apply {
+            if (current == null || current == ThemeMode.SYSTEM.name) putString("theme_mode", ThemeMode.DARK.name)
+            putBoolean(BLACK_THEME_MIGRATED, true)
+        }.apply()
+    }
+
     private fun readApp() = AppSettings(
-        themeMode = enumOr(prefs.getString("theme_mode", null), ThemeMode.SYSTEM),
+        themeMode = enumOr(prefs.getString("theme_mode", null), ThemeMode.DARK),
         dynamicColor = prefs.getBoolean("dynamic_color_v2", false),
         updatesEnabled = prefs.getBoolean("updates_enabled", true),
         updateIntervalHours = prefs.getInt("updates_interval", 12),

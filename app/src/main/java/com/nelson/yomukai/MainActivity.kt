@@ -10,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.SystemBarStyle
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -108,6 +109,12 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
+            }
+            // The bars follow the app's theme, not the phone's: light icons over the black interface.
+            LaunchedEffect(dark) {
+                val style = if (dark) SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+                else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
             }
             CompositionLocalProvider(LocalAppContainer provides container) {
                 YomukaiTheme(darkTheme = dark, dynamicColor = settings.dynamicColor) {
@@ -384,6 +391,7 @@ private fun EpisodeServerDialog(
             LazyColumn {
                 items(state.servers) { server ->
                     ListItem(
+                        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                         headlineContent = { Text(server.serverName) },
                         supportingContent = {
                             Text(server.quality + if (server.isDirect) " • Reproducir en la app" else " • Abrir en el navegador")

@@ -25,16 +25,16 @@ import java.io.File
  * [MAX_ENTRIES] titles are kept.
  */
 class MetadataStore(context: Context) {
-    private val file = File(context.filesDir, "metadata_cache_v3.json").also {
-        // Older copies lack scores added since (MAL, MangaUpdates, Open Library): they are dropped.
-        listOf("metadata_cache.json", "metadata_cache_v2.json").forEach { File(context.filesDir, it).delete() }
-    }
+    private val dir = context.filesDir
+    private val file = File(dir, "metadata_cache_v3.json")
     private val lock = Mutex()
     private var entries: LinkedHashMap<String, Pair<Long, TitleMetadata>>? = null
 
     private suspend fun loaded(): LinkedHashMap<String, Pair<Long, TitleMetadata>> {
         entries?.let { return it }
         val read = withContext(Dispatchers.IO) {
+            // Older copies lack scores added since (MAL, MangaUpdates, Open Library): they are dropped.
+            listOf("metadata_cache.json", "metadata_cache_v2.json").forEach { File(dir, it).delete() }
             runCatching { if (file.exists()) decodeAll(file.readText()) else null }.getOrNull()
         } ?: LinkedHashMap()
         entries = read

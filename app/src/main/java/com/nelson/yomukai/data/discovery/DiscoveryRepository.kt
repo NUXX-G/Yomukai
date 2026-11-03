@@ -151,21 +151,49 @@ class DiscoveryRepository(
      * carries exactly one of them, the closest one that is clearly the same name (another spelling,
      * a subtitle cut off) is offered too, marked as unconfirmed. Titles of excluded genres are left out.
      */
-    suspend fun locate(related: RelatedTitle): List<Alternative> {
+    suspend fun locate(related: RelatedTitle, deadlineMs: Long? = null): List<Alternative> {
         related.item?.let { item ->
             val source = sources.get(item.sourceId)
             if (source != null) return listOf(Alternative(item, source.name, source.language, MatchConfidence.SAME_WORK))
         }
         located[locateKey(related)]?.let { return it }
         val names = (related.names + related.title).filter { it.isNotBlank() }.distinct()
+        // Sites search literally: "Sousou no Frieren" finds what "Sousou no Frieren: ..." does not.
+        val queries = (searchable(names, MAX_LOCATE_QUERIES) + shortNames(names)).distinctBy(SmartSearch::duplicateKey)
         val found = java.util.Collections.synchronizedList(mutableListOf<Alternative>())
-        forEachSource(related.type, null) { source ->
-            val hit = match(source, names, "", related.type, queries = MAX_LOCATE_QUERIES) ?: closest(source, names, related.type)
-            if (hit != null && filter().known(source, listOf(hit.item)).isNotEmpty()) found += hit
+        val search: suspend () -> Unit = {
+            forEachSource(related.type, null) { source ->
+                val hit = match(source, names, "", related.type, queryList = queries) ?: closest(source, names, related.type)
+                if (hit != null && filter().known(source, listOf(hit.item)).isNotEmpty()) found += hit
+            }
         }
-        val result = found.sortedWith(compareBy({ it.confidence.ordinal }, { it.sourceName }))
+        // With a deadline, whatever was found by then is the answer: slow sites do not hold it back.
+        if (deadlineMs != null) withTimeoutOrNull(deadlineMs) { search() } else search()
+        val result = synchronized(found) { found.toList() }.sortedWith(compareBy({ it.confidence.ordinal }, { it.sourceName }))
         if (result.isNotEmpty()) located[locateKey(related)] = result
         return result
+    }
+
+    /** The part of each name before a subtitle ("Re:Zero kara..." keeps its colon: too short to cut). */
+    private fun shortNames(names: List<String>): List<String> = names.mapNotNull { name ->
+        val cut = name.substringBefore(": ").substringBefore(" - ").trim()
+        cut.takeIf { it != name.trim() && it.length >= MIN_SHORT_NAME && it.none { c -> c.code > LATIN_LIMIT } }
+    }.take(MAX_SHORT_NAMES)
+
+    /**
+     * A random title together with where it can be read. Each AniList pick is looked for in the
+     * user's sources and only kept when some source has it; after a few misses the pick comes from
+     * titles already seen in the user's sources, so the answer always opens.
+     */
+    suspend fun randomAvailable(kind: RandomKind, genre: String?): Pair<RelatedTitle, List<Alternative>>? {
+        repeat(RANDOM_LOCATE_ATTEMPTS) {
+            val pick = withTimeoutOrNull(RANDOM_TIMEOUT_MS) { aniList.random(kind, genre) }?.takeIf(filter()::allows) ?: return@repeat
+            val places = locate(pick, RANDOM_LOCATE_MS)
+            if (places.isNotEmpty()) return pick to places
+        }
+        val saved = savedTitles().filter { kind.type == null || it.type == kind.type }.randomOrNull() ?: return null
+        val pick = RelatedTitle(saved.title, listOf(saved.title), saved.coverUrl, saved.type, saved.genres, item = saved)
+        return pick to locate(pick)
     }
 
     /** The entry whose title is the same name as one of [names] in both directions, for spellings no key catches. */
@@ -189,9 +217,9 @@ class DiscoveryRepository(
 
     /** Searches [source] for the title and returns the entry that is the same work, if any. */
     private suspend fun match(
-        source: CatalogueSource, names: List<String>, author: String, type: MediaType, queries: Int = MAX_QUERIES
+        source: CatalogueSource, names: List<String>, author: String, type: MediaType, queryList: List<String>? = null
     ): Alternative? {
-        for (query in searchable(names, queries)) {
+        for (query in queryList ?: searchable(names)) {
             val results = source.searchMedia(query).getOrNull() ?: continue
             pick(results, names, author, type)?.let { (item, confidence) ->
                 // Search pages rarely list authors: the verdict comes from the title's own page.
@@ -223,6 +251,10 @@ class DiscoveryRepository(
         const val RANDOM_TIMEOUT_MS = 6_000L
         const val MAX_QUERIES = 3
         const val MAX_LOCATE_QUERIES = 4
+        const val MAX_SHORT_NAMES = 2
+        const val MIN_SHORT_NAME = 4
+        const val RANDOM_LOCATE_ATTEMPTS = 3
+        const val RANDOM_LOCATE_MS = 12_000L
         const val CLOSE_SCORE = 0.75
         const val MAX_DETAILS = 2
         const val MAX_PARALLEL = 4

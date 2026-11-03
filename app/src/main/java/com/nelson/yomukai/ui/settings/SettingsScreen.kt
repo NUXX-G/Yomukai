@@ -184,6 +184,7 @@ fun SettingsScreen(
             }
             item {
                 ListItem(
+                    colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                     headlineContent = { Text("Buscar ahora") },
                     supportingContent = { Text("Comprueba ya los títulos de tu biblioteca con avisos activos") },
                     leadingContent = { Icon(Icons.Default.Refresh, null) },
@@ -199,6 +200,7 @@ fun SettingsScreen(
             item {
                 val total = exclusions.global.size + exclusions.bySource.values.sumOf { it.size }
                 ListItem(
+                    colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                     headlineContent = { Text("Géneros excluidos") },
                     supportingContent = { Text(if (total == 0) "Oculta géneros en todas las fuentes o solo en algunas" else "$total exclusiones activas") },
                     modifier = Modifier.clickable { showExclusions = true }
@@ -208,6 +210,7 @@ fun SettingsScreen(
             item { GroupTitle("Fuentes") }
             items(viewModel.sources, key = { it.id }) { source ->
                 ListItem(
+                    colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                     headlineContent = {
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(source.name)
@@ -229,6 +232,7 @@ fun SettingsScreen(
 
             item {
                 ListItem(
+                    colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                     headlineContent = { Text("Diagnóstico de fuentes") },
                     supportingContent = { Text("Probar cada fuente y ver si funciona") },
                     modifier = Modifier.clickable(onClick = onOpenDiagnostics)
@@ -285,6 +289,7 @@ fun SettingsScreen(
             if (network.torMode != TorMode.OFF) {
                 item {
                     ListItem(
+                        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                         headlineContent = {
                             Text(
                                 when (tor.phase) {
@@ -317,6 +322,7 @@ fun SettingsScreen(
                 }
                 items(viewModel.sources, key = { "tor-" + it.id }) { source ->
                     ListItem(
+                        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                         headlineContent = { Text(source.name) },
                         supportingContent = { Text(if (source.id in network.torExcludedSources) "Conexión directa" else "Por Tor") },
                         trailingContent = {
@@ -355,6 +361,7 @@ fun SettingsScreen(
             }
             item {
                 ListItem(
+                    colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                     headlineContent = { Text("Descargas simultáneas") },
                     supportingContent = {
                         ChipRow {
@@ -371,6 +378,7 @@ fun SettingsScreen(
             }
             item {
                 ListItem(
+                    colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                     headlineContent = { Text("Seguridad de las descargas") },
                     supportingContent = {
                         Text(
@@ -413,6 +421,7 @@ fun SettingsScreen(
                 }
                 item {
                     ListItem(
+                        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                         headlineContent = { Text("Copiar lo ya descargado") },
                         supportingContent = { Text("Pasa a Download/Yomukai lo que descargaste antes") },
                         modifier = Modifier.clickable {
@@ -426,6 +435,7 @@ fun SettingsScreen(
             item { GroupTitle("Almacenamiento") }
             item {
                 ListItem(
+                    colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                     headlineContent = { Text("Limpiar caché de imágenes") },
                     supportingContent = { Text("En uso: ${Formatter.formatShortFileSize(context, storage.first)}") },
                     leadingContent = { Icon(Icons.Default.Image, null) },
@@ -434,6 +444,7 @@ fun SettingsScreen(
             }
             item {
                 ListItem(
+                    colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                     headlineContent = { Text("Capítulos descargados") },
                     supportingContent = {
                         Text("${Formatter.formatShortFileSize(context, storage.second)} • Gestiónalos en Biblioteca › Descargas")
@@ -443,6 +454,7 @@ fun SettingsScreen(
             }
             item {
                 ListItem(
+                    colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                     headlineContent = { Text("Borrar historial de lectura") },
                     leadingContent = { Icon(Icons.Default.History, null) },
                     modifier = Modifier.clickable { confirmHistory = true }
@@ -452,6 +464,7 @@ fun SettingsScreen(
             item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
             item {
                 ListItem(
+                    colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                     headlineContent = { Text("Yomukai ${BuildConfig.VERSION_NAME}") },
                     supportingContent = { Text("Manga, manhwa, novelas ligeras y anime. Sin cuentas ni seguimiento.") },
                     leadingContent = { Icon(Icons.Default.Info, null) }
@@ -498,6 +511,7 @@ private fun ChipRow(content: @Composable () -> Unit) {
 @Composable
 private fun SwitchItem(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     ListItem(
+        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
         headlineContent = { Text(title) },
         supportingContent = { Text(subtitle) },
         trailingContent = { Switch(checked = checked, onCheckedChange = onChange) },

@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
@@ -370,6 +371,36 @@ fun LanguageTag(language: String, modifier: Modifier = Modifier) {
             modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
         )
     }
+}
+
+/**
+ * Small, faint clock for full-screen reading and watching, when everything else is hidden. With
+ * [pill] it sits on a dark translucent capsule, readable over any page.
+ */
+@Composable
+fun MiniClock(modifier: Modifier = Modifier, pill: Boolean = false) {
+    val context = LocalContext.current
+    val format = remember(context) { android.text.format.DateFormat.getTimeFormat(context) }
+    var now by remember { mutableStateOf(format.format(java.util.Date())) }
+    LaunchedEffect(format) {
+        while (true) {
+            now = format.format(java.util.Date())
+            // Wakes up right after the minute changes instead of polling all the time.
+            kotlinx.coroutines.delay(60_000L - System.currentTimeMillis() % 60_000L + 50L)
+        }
+    }
+    Text(
+        now,
+        color = Color.White.copy(alpha = if (pill) 0.85f else 0.6f),
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Medium,
+        style = MaterialTheme.typography.labelMedium.copy(
+            shadow = if (pill) null else androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.6f), blurRadius = 6f)
+        ),
+        modifier = modifier
+            .then(if (pill) Modifier.background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(50)) else Modifier)
+            .padding(horizontal = if (pill) 8.dp else 0.dp, vertical = if (pill) 2.dp else 0.dp)
+    )
 }
 
 fun relativeTime(epochMs: Long, now: Long = System.currentTimeMillis()): String {

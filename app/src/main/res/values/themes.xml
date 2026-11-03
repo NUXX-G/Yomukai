@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <style name="Theme.Yomukai" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- The app is black by default: the first frame is too, whatever the phone's own mode. -->
+    <style name="Theme.Yomukai" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#FF000000</item>
+    </style>
 </resources>

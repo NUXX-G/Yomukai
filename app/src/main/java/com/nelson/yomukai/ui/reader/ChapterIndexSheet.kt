@@ -89,7 +89,7 @@ fun ChapterIndexSheet(
                         trailingContent = if (chapter.read) ({ Icon(Icons.Default.CheckCircle, "Leído") }) else null,
                         colors = ListItemDefaults.colors(
                             containerColor = if (current) MaterialTheme.colorScheme.primaryContainer
-                            else MaterialTheme.colorScheme.surfaceContainerLow,
+                            else androidx.compose.ui.graphics.Color.Transparent,
                             headlineColor = if (chapter.read && !current) MaterialTheme.colorScheme.onSurfaceVariant
                             else MaterialTheme.colorScheme.onSurface
                         ),

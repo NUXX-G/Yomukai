@@ -45,6 +45,7 @@ fun BookmarksSheet(
             LazyColumn(Modifier.heightIn(max = 480.dp)) {
                 items(bookmarks, key = { it.id }) { bookmark ->
                     ListItem(
+                        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                         headlineContent = { Text("${bookmark.chapterTitle} · ${positionLabel(bookmark.position)}") },
                         supportingContent = bookmark.label.takeIf { it.isNotBlank() }?.let { { Text(it, maxLines = 2) } },
                         leadingContent = { Icon(Icons.Default.Bookmark, null) },

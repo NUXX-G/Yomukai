@@ -83,6 +83,7 @@ private fun chaptersLine(alternative: Alternative, isAnime: Boolean): String {
 private fun AlternativeRow(alternative: Alternative, isAnime: Boolean, onClick: () -> Unit) {
     val sure = alternative.confidence == MatchConfidence.SAME_WORK
     ListItem(
+        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
         headlineContent = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(alternative.sourceName)
@@ -189,6 +190,7 @@ fun LocateSheet(
                 else -> LazyColumn(Modifier.heightIn(max = 460.dp)) {
                     items(state.options, key = { it.item.sourceId + it.item.id }) { option ->
                         ListItem(
+                            colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                             headlineContent = { Text(option.sourceName) },
                             supportingContent = {
                                 Column {

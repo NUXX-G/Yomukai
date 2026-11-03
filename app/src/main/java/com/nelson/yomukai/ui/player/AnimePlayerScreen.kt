@@ -1,6 +1,7 @@
 package com.nelson.yomukai.ui.player
 
 import com.nelson.yomukai.ui.components.AppSpinner
+import com.nelson.yomukai.ui.components.MiniClock
 import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.ContextWrapper
@@ -18,6 +19,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import android.view.WindowManager
+import android.content.pm.ActivityInfo
+import androidx.compose.material.icons.filled.ScreenRotation
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -270,6 +274,19 @@ fun AnimePlayerScreen(
         onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
     }
 
+    // True full screen: no status bar, no navigation bar. A swipe from the edge shows them for a moment.
+    com.nelson.yomukai.ui.reader.ReaderWindowEffects(brightness = -1f, keepScreenOn = false, immersive = true)
+
+    // Episodes turn to landscape on their own, whether or not auto-rotate is on in the phone; the
+    // rotate button goes back to portrait. Either way the sensor picks which side is up.
+    var landscape by rememberSaveable { mutableStateOf(true) }
+    DisposableEffect(activity, landscape) {
+        val original = activity?.requestedOrientation
+        activity?.requestedOrientation = if (landscape) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        else ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+        onDispose { if (original != null) activity.requestedOrientation = original }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -398,6 +415,10 @@ fun AnimePlayerScreen(
                                 )
                             }
                         }
+                    }
+
+                    IconButton(onClick = { landscape = !landscape }) {
+                        Icon(Icons.Default.ScreenRotation, if (landscape) "Ver en vertical" else "Ver en horizontal", tint = Color.White)
                     }
 
                     if (activity != null) {
@@ -566,31 +587,6 @@ fun AnimePlayerScreen(
     }
 }
 
-/** Current time, "21:47", in small faint text; it updates every few seconds. */
-@Composable
-private fun MiniClock(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val format = remember(context) { android.text.format.DateFormat.getTimeFormat(context) }
-    var now by remember { mutableStateOf(format.format(java.util.Date())) }
-    LaunchedEffect(format) {
-        while (true) {
-            now = format.format(java.util.Date())
-            delay(CLOCK_TICK_MS)
-        }
-    }
-    Text(
-        now,
-        color = Color.White.copy(alpha = 0.6f),
-        fontSize = 13.sp,
-        fontWeight = FontWeight.Medium,
-        style = MaterialTheme.typography.labelMedium.copy(
-            shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.6f), blurRadius = 6f)
-        ),
-        modifier = modifier
-    )
-}
-
-private const val CLOCK_TICK_MS = 10_000L
 
 private fun speedLabel(speed: Float) = if (speed % 1f == 0f) "${speed.toInt()}x" else "${speed}x"
 

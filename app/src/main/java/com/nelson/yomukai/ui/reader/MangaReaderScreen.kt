@@ -243,6 +243,17 @@ fun MangaReaderScreen(
             }
         }
 
+        // With the menus hidden only a small clock stays, in the top corner.
+        if (!overlayVisible) {
+            com.nelson.yomukai.ui.components.MiniClock(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                pill = true
+            )
+        }
+
         if (!overlayVisible && settings.showPageNumber && totalPages > 0) {
             Text(
                 "${currentPage + 1} / $totalPages",

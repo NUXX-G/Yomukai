@@ -2,6 +2,6 @@
 <resources>
 
     <style name="Theme.Yomukai" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">#FF111118</item>
+        <item name="android:windowBackground">#FF000000</item>
     </style>
 </resources>

@@ -53,7 +53,24 @@ object GenreTaxonomy {
         listOf("Cocina", "cooking", "gourmet", "comida", "food"),
         listOf("Medicina", "medical", "medico"),
         listOf("Gender bender", "genderswap", "cambio de genero"),
-        listOf("Adulto", "adult", "mature", "maduro", "+18", "smut", "hentai")
+        listOf("Adulto", "adult", "mature", "maduro", "+18", "smut", "hentai"),
+        listOf("Violencia sexual", "sexual violence"),
+        listOf("Monstruos", "monsters", "monster girls", "monstruo"),
+        listOf("Viajes en el tiempo", "time travel", "viaje en el tiempo"),
+        listOf("Villana", "villainess"),
+        listOf("Regresión", "regression", "regresion"),
+        listOf("Travestismo", "crossdressing", "cross dressing"),
+        listOf("Delincuencia", "delinquents", "delincuentes"),
+        listOf("Oficina", "office workers", "office"),
+        listOf("Policial", "police", "policia"),
+        listOf("Ninja", "ninjas"),
+        listOf("Samuráis", "samurai", "samurais"),
+        listOf("Reyes y nobles", "royalty", "nobility", "nobleza", "realeza"),
+        listOf("Animales", "animals"),
+        listOf("Elenco adulto", "adult cast"),
+        listOf("Protagonista femenina", "female protagonist"),
+        listOf("Protagonista masculino", "male protagonist"),
+        listOf("Mafia", "yakuza", "gangsters")
     )
 
     private val canonicalOf: Map<String, String> = buildMap {
