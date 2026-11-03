@@ -14,6 +14,10 @@ import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import android.view.WindowManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -73,6 +77,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -124,7 +130,8 @@ fun AnimePlayerScreen(
     var isLoading by remember { mutableStateOf(true) }
     var currentPosition by remember(playing.videoUrl) { mutableLongStateOf(playing.startPositionMs) }
     var totalDuration by remember(playing.videoUrl) { mutableLongStateOf(0L) }
-    var showControls by remember { mutableStateOf(true) }
+    // The video starts clean: only a small clock until the screen is tapped.
+    var showControls by remember { mutableStateOf(false) }
     var sliderPosition by remember(playing.videoUrl) { mutableFloatStateOf(0f) }
     var isUserSeeking by remember { mutableStateOf(false) }
     var showIndex by remember { mutableStateOf(false) }
@@ -151,7 +158,15 @@ fun AnimePlayerScreen(
             ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem)
         }
 
-        ExoPlayer.Builder(context).build().apply {
+        ExoPlayer.Builder(context)
+            // Taking audio focus pauses music from other apps while an episode plays; readers never ask for it.
+            .setAudioAttributes(
+                AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(),
+                /* handleAudioFocus = */ true
+            )
+            .setHandleAudioBecomingNoisy(true)
+            .setWakeMode(C.WAKE_MODE_NETWORK)
+            .build().apply {
             setMediaSource(mediaSource)
             prepare()
             playWhenReady = true
@@ -247,6 +262,14 @@ fun AnimePlayerScreen(
         activity?.enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(Rational(16, 9)).build())
     }
 
+    // The screen stays on while the episode plays or loads, and may sleep again once it is paused.
+    DisposableEffect(activity, isPlaying, isLoading) {
+        val window = activity?.window
+        if (isPlaying || isLoading) window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        else window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -303,21 +326,35 @@ fun AnimePlayerScreen(
             }
         }
 
+        // With the controls hidden, only a discreet clock remains.
+        AnimatedVisibility(
+            visible = !showControls && !inPip && ui.error == null,
+            enter = fadeIn(tween(400)),
+            exit = fadeOut(tween(200)),
+            modifier = Modifier.align(Alignment.TopEnd)
+        ) {
+            MiniClock(Modifier.padding(horizontal = 20.dp, vertical = 14.dp))
+        }
+
         AnimatedVisibility(
             visible = showControls && !inPip,
-            enter = fadeIn(),
-            exit = fadeOut(),
+            enter = fadeIn(tween(220)),
+            exit = fadeOut(tween(260)),
             modifier = Modifier.fillMaxSize()
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f))
+                    .background(Color.Black.copy(alpha = 0.45f))
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.TopCenter)
+                        .animateEnterExit(
+                            enter = slideInVertically(tween(260)) { -it / 2 },
+                            exit = slideOutVertically(tween(260)) { -it / 2 }
+                        )
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -440,6 +477,10 @@ fun AnimePlayerScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
+                        .animateEnterExit(
+                            enter = slideInVertically(tween(260)) { it / 2 },
+                            exit = slideOutVertically(tween(260)) { it / 2 }
+                        )
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
                     Row(
@@ -524,6 +565,32 @@ fun AnimePlayerScreen(
         )
     }
 }
+
+/** Current time, "21:47", in small faint text; it updates every few seconds. */
+@Composable
+private fun MiniClock(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val format = remember(context) { android.text.format.DateFormat.getTimeFormat(context) }
+    var now by remember { mutableStateOf(format.format(java.util.Date())) }
+    LaunchedEffect(format) {
+        while (true) {
+            now = format.format(java.util.Date())
+            delay(CLOCK_TICK_MS)
+        }
+    }
+    Text(
+        now,
+        color = Color.White.copy(alpha = 0.6f),
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Medium,
+        style = MaterialTheme.typography.labelMedium.copy(
+            shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.6f), blurRadius = 6f)
+        ),
+        modifier = modifier
+    )
+}
+
+private const val CLOCK_TICK_MS = 10_000L
 
 private fun speedLabel(speed: Float) = if (speed % 1f == 0f) "${speed.toInt()}x" else "${speed}x"
 

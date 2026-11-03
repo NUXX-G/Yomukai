@@ -17,6 +17,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -154,7 +156,12 @@ fun AlternativesSheet(
 /** Sources holding a recommended title; [state] has more than one or is still searching. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LocateSheet(state: LocateState, onOpen: (MediaItem) -> Unit, onDismiss: () -> Unit) {
+fun LocateSheet(
+    state: LocateState,
+    onOpen: (MediaItem) -> Unit,
+    onDismiss: () -> Unit,
+    onSearch: ((String) -> Unit)? = null
+) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
             Text(state.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp))
@@ -167,16 +174,34 @@ fun LocateSheet(state: LocateState, onOpen: (MediaItem) -> Unit, onDismiss: () -
                     AppSpinner(Modifier.size(20.dp), strokeWidth = 2.dp)
                     Text("Buscando en tus fuentes...", style = MaterialTheme.typography.bodyMedium)
                 }
-                state.options.isEmpty() -> Text(
-                    "No está en tus fuentes activas.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
-                )
+                state.options.isEmpty() -> Column(Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) {
+                    Text(
+                        "Ninguna de tus fuentes activas la tiene con este nombre.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    if (onSearch != null) {
+                        TextButton(onClick = { onSearch(state.title) }, modifier = Modifier.padding(top = 4.dp)) {
+                            Icon(Icons.Default.Search, null, Modifier.size(18.dp))
+                            Text("Buscar «${state.title}» en todas", modifier = Modifier.padding(start = 6.dp), maxLines = 1)
+                        }
+                    }
+                }
                 else -> LazyColumn(Modifier.heightIn(max = 460.dp)) {
                     items(state.options, key = { it.item.sourceId + it.item.id }) { option ->
                         ListItem(
                             headlineContent = { Text(option.sourceName) },
-                            supportingContent = { Text(option.item.title, maxLines = 1) },
+                            supportingContent = {
+                                Column {
+                                    Text(option.item.title, maxLines = 1)
+                                    if (option.approximate) {
+                                        Text(
+                                            "Nombre parecido: comprueba que es la misma obra",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            },
                             trailingContent = { LanguageTag(option.language) },
                             modifier = Modifier.clickable { onOpen(option.item) }
                         )

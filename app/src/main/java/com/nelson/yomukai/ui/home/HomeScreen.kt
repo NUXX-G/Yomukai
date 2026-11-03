@@ -40,6 +40,14 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.Shuffle
+import com.nelson.yomukai.ui.discover.DiscoverViewModel
+import com.nelson.yomukai.ui.discover.ForYouSection
+import com.nelson.yomukai.ui.discover.LocateHandler
+import com.nelson.yomukai.ui.discover.ShuffleSheet
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,10 +73,16 @@ fun HomeScreen(
     onBrowseSource: (String) -> Unit,
     onSearchClick: () -> Unit,
     onOpenWeb: () -> Unit,
+    onSearchTitle: (String) -> Unit = {},
     modifier: Modifier = Modifier,
-    viewModel: HomeViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    viewModel: HomeViewModel = viewModel(factory = AppViewModelProvider.Factory),
+    discoverViewModel: DiscoverViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var shuffle by rememberSaveable { mutableStateOf(false) }
+
+    LocateHandler(discoverViewModel, onOpenMedia = onMediaClick, onSearch = onSearchTitle)
+    if (shuffle) ShuffleSheet(discoverViewModel, onDismiss = { shuffle = false })
 
     Scaffold(
         modifier = modifier,
@@ -81,6 +95,7 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { shuffle = true }) { Icon(Icons.Default.Shuffle, contentDescription = "Descubrir al azar") }
                     IconButton(onClick = onOpenWeb) { Icon(Icons.Default.Public, contentDescription = "Abrir enlace en el navegador integrado") }
                     IconButton(onClick = onSearchClick) { Icon(Icons.Default.Search, contentDescription = "Buscar") }
                 }
@@ -138,6 +153,8 @@ fun HomeScreen(
                         }
                     }
                 }
+
+                item(key = "for_you") { ForYouSection(discoverViewModel) }
 
                 if (state.sections.isEmpty() && !state.isRefreshing) {
                     item {

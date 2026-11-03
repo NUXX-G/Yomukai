@@ -1,131 +1,182 @@
 package com.nelson.yomukai.ui.discover
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Casino
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.nelson.yomukai.data.discovery.RandomKind
 import com.nelson.yomukai.data.discovery.RelatedTitle
 import com.nelson.yomukai.domain.model.MediaItem
-import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.components.AppSpinner
+import com.nelson.yomukai.ui.components.CoverImage
 import com.nelson.yomukai.ui.components.MediaCard
 import com.nelson.yomukai.ui.components.SectionHeader
+import com.nelson.yomukai.ui.components.TypeBadge
 import com.nelson.yomukai.ui.details.LocateSheet
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
 
 @Composable
-private fun RelatedCard(related: RelatedTitle, onOpen: (RelatedTitle) -> Unit, modifier: Modifier = Modifier) {
+fun RelatedCard(related: RelatedTitle, onOpen: (RelatedTitle) -> Unit, modifier: Modifier = Modifier, subtitle: String? = null) {
     MediaCard(
         item = MediaItem(related.title, related.title, related.coverUrl, related.type, "", "", related.item?.sourceId.orEmpty()),
         onClick = { onOpen(related) },
-        modifier = modifier
+        modifier = modifier,
+        subtitle = subtitle ?: related.format.ifBlank { null },
+        showType = true
     )
 }
 
-/** Recommendations from what the user has read and watched, plus a random pick with optional filters. */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Opens what [DiscoverViewModel.open] located: one place opens at once, several or none ask. With
+ * none, the global search is offered with the title's name.
+ */
 @Composable
-fun DiscoverScreen(
-    onOpenMedia: (MediaItem) -> Unit,
-    modifier: Modifier = Modifier,
-    viewModel: DiscoverViewModel = viewModel(factory = AppViewModelProvider.Factory)
-) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+fun LocateHandler(viewModel: DiscoverViewModel, onOpenMedia: (MediaItem) -> Unit, onSearch: (String) -> Unit) {
     val locate by viewModel.locate.collectAsStateWithLifecycle()
-
-    LaunchedEffect(Unit) { viewModel.loadForYou() }
-
     locate?.let { found ->
-        val only = found.options.singleOrNull()
+        val only = found.options.singleOrNull()?.takeIf { !it.approximate }
         if (!found.searching && only != null) {
             LaunchedEffect(only) { viewModel.closeLocate(); onOpenMedia(only.item) }
         } else {
-            LocateSheet(found, onOpen = { viewModel.closeLocate(); onOpenMedia(it) }, onDismiss = viewModel::closeLocate)
+            LocateSheet(
+                found,
+                onOpen = { viewModel.closeLocate(); onOpenMedia(it) },
+                onDismiss = viewModel::closeLocate,
+                onSearch = { viewModel.closeLocate(); onSearch(it) }
+            )
         }
     }
+}
 
-    Scaffold(
-        modifier = modifier,
-        contentWindowInsets = WindowInsets(0),
-        topBar = { TopAppBar(title = { Text("Descubrir") }) }
-    ) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 24.dp)) {
-            item { SectionHeader("Aleatorio") }
-            item {
-                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(RandomKind.entries) { kind ->
-                        FilterChip(selected = state.kind == kind, onClick = { viewModel.setKind(kind) }, label = { Text(kind.label) })
-                    }
-                }
-                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    item { FilterChip(selected = state.genre == null, onClick = { viewModel.setGenre(null) }, label = { Text("Cualquier género") }) }
-                    items(RANDOM_GENRES) { (value, label) ->
-                        FilterChip(selected = state.genre == value, onClick = { viewModel.setGenre(value) }, label = { Text(label) })
-                    }
-                }
-                Button(onClick = viewModel::rollRandom, enabled = !state.rolling, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Icon(Icons.Default.Casino, contentDescription = null)
-                    Text("Recomiéndame uno", modifier = Modifier.padding(start = 8.dp))
+/** "Para ti" row of the home screen: recommendations from what the user read, watched and kept. */
+@Composable
+fun ForYouSection(viewModel: DiscoverViewModel) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { viewModel.loadForYou() }
+    if (!state.loading && state.forYou.isEmpty()) return
+    Column {
+        SectionHeader("Para ti")
+        if (state.loading) {
+            AppSpinner(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).size(28.dp), strokeWidth = 3.dp)
+        } else {
+            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Different works can share a name, so the position is what identifies each card.
+                itemsIndexed(state.forYou, key = { index, _ -> index }) { _, related ->
+                    RelatedCard(related, viewModel::open, Modifier.width(120.dp))
                 }
             }
-            item {
-                when {
-                    state.rolling -> AppSpinner(Modifier.padding(16.dp).size(32.dp), strokeWidth = 3.dp)
-                    state.random != null -> Row(Modifier.padding(horizontal = 16.dp)) { RelatedCard(state.random!!, viewModel::open, Modifier.width(160.dp)) }
-                    state.randomError != null -> Text(
-                        state.randomError!!,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
+        }
+    }
+}
+
+/** Random pick with optional type and genre, opened from the shuffle button of the home screen. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ShuffleSheet(viewModel: DiscoverViewModel, onDismiss: () -> Unit) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { if (state.random == null && !state.rolling) viewModel.rollRandom() }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
+            Text(
+                "Descubrir al azar",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 24.dp)
+            )
+            Spacer(Modifier.height(8.dp))
+            LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(RandomKind.entries) { kind ->
+                    FilterChip(selected = state.kind == kind, onClick = { viewModel.setKind(kind) }, label = { Text(kind.label) })
                 }
             }
-            item { SectionHeader("Para ti") }
-            when {
-                state.loading -> item { AppSpinner(Modifier.padding(16.dp).size(32.dp), strokeWidth = 3.dp) }
-                state.forYou.isEmpty() -> item {
-                    Text(
-                        "Lee o mira algo, o añádelo a tu biblioteca, y aquí verás recomendaciones según tus gustos.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(16.dp)
-                    )
+            LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item { FilterChip(selected = state.genre == null, onClick = { viewModel.setGenre(null) }, label = { Text("Cualquier género") }) }
+                items(RANDOM_GENRES) { (value, label) ->
+                    FilterChip(selected = state.genre == value, onClick = { viewModel.setGenre(value) }, label = { Text(label) })
                 }
-                else -> itemsIndexed(state.forYou.chunked(3)) { _, row ->
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Equal shares, so the cards span the screen and an incomplete last row keeps the grid.
-                        row.forEach { RelatedCard(it, viewModel::open, Modifier.weight(1f)) }
-                        repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+            Box(Modifier.fillMaxWidth().height(196.dp).padding(horizontal = 24.dp, vertical = 12.dp), contentAlignment = Alignment.CenterStart) {
+                AnimatedContent(
+                    targetState = Triple(state.rolling, state.random, state.randomError),
+                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    label = "shuffle"
+                ) { (rolling, pick, error) ->
+                    when {
+                        rolling -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { AppSpinner(Modifier.size(36.dp), strokeWidth = 3.dp) }
+                        pick != null -> RandomPick(pick, onOpen = { viewModel.open(pick); onDismiss() })
+                        error != null -> Text(error, color = MaterialTheme.colorScheme.error)
                     }
                 }
+            }
+            Row(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = viewModel::rollRandom, enabled = !state.rolling) {
+                    Icon(Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text("Otro", modifier = Modifier.padding(start = 8.dp))
+                }
+                state.random?.let { pick ->
+                    OutlinedButton(onClick = { viewModel.open(pick); onDismiss() }, enabled = !state.rolling) { Text("Abrir") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RandomPick(pick: RelatedTitle, onOpen: () -> Unit) {
+    Row(Modifier.clickable(onClick = onOpen), verticalAlignment = Alignment.CenterVertically) {
+        CoverImage(
+            pick.coverUrl, pick.item?.sourceId.orEmpty(), pick.title,
+            Modifier.width(118.dp).height(168.dp).clip(RoundedCornerShape(12.dp))
+        )
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            Text(pick.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(6.dp))
+            TypeBadge(pick.type, label = pick.format.ifBlank { pick.type.displayName })
+            if (pick.genres.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    pick.genres.take(3).joinToString(" · ") { com.nelson.yomukai.data.metadata.GenreTaxonomy.canonical(it) },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2
+                )
             }
         }
     }

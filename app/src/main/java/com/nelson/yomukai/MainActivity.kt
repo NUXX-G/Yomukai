@@ -19,9 +19,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.CollectionsBookmark
-import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -122,9 +121,8 @@ class MainActivity : ComponentActivity() {
 private data class TopLevelTab(val route: String, val label: String, val icon: ImageVector)
 
 private val tabs = listOf(
-    TopLevelTab(Routes.HOME, "Explorar", Icons.Default.Explore),
+    TopLevelTab(Routes.HOME, "Inicio", Icons.Default.Home),
     TopLevelTab(Routes.SEARCH, "Buscar", Icons.Default.Search),
-    TopLevelTab(Routes.DISCOVER, "Descubrir", Icons.Default.AutoAwesome),
     TopLevelTab(Routes.LIBRARY, "Biblioteca", Icons.Default.CollectionsBookmark),
     TopLevelTab(Routes.SETTINGS, "Ajustes", Icons.Default.Settings)
 )
@@ -253,6 +251,7 @@ fun YomukaiApp(
                     onBrowseSource = { navController.navigate(Routes.browse(it)) },
                     onSearchClick = { navController.navigateToTab(Routes.SEARCH) },
                     onOpenWeb = { navController.navigate(Routes.webCapture()) },
+                    onSearchTitle = { navController.searchFor(it) },
                     modifier = tabModifier,
                     viewModel = homeViewModel
                 )
@@ -266,9 +265,6 @@ fun YomukaiApp(
                     onOpenUrl = { navController.navigate(Routes.webCapture(it)) },
                     modifier = tabModifier
                 )
-            }
-            composable(Routes.DISCOVER) {
-                com.nelson.yomukai.ui.discover.DiscoverScreen(onOpenMedia = ::openMedia, modifier = tabModifier)
             }
             composable(Routes.LIBRARY) {
                 LibraryScreen(
@@ -298,7 +294,8 @@ fun YomukaiApp(
                 DetailsScreen(
                     onBack = { navController.popBackStack() },
                     onOpenChapter = { openReader(it.sourceId, it.mediaId, it.chapterId) },
-                    onOpenMedia = ::openMedia
+                    onOpenMedia = ::openMedia,
+                    onSearchTitle = { navController.searchFor(it) }
                 )
             }
             val readerArgs = listOf(
@@ -405,6 +402,14 @@ private fun EpisodeServerDialog(
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } }
     )
+}
+
+/** Opens the search tab already searching [title], replacing whatever search was there. */
+private fun NavHostController.searchFor(title: String) {
+    navigate(Routes.search(title)) {
+        popUpTo(graph.findStartDestination().id) { saveState = true }
+        launchSingleTop = false
+    }
 }
 
 private fun NavHostController.navigateToTab(route: String) {

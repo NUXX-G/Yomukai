@@ -170,22 +170,39 @@ fun CoverImage(url: String, sourceId: String, contentDescription: String?, modif
     }
 }
 
+/** Flat, quiet type marker: a small dot in the type's color and its name in the secondary text color. */
 @Composable
-fun TypeBadge(type: MediaType, modifier: Modifier = Modifier) {
-    Text(
-        text = type.displayName.uppercase(),
-        color = Color.White,
-        fontSize = 9.sp,
-        fontWeight = FontWeight.Bold,
-        modifier = modifier
-            .background(type.badgeColor().copy(alpha = 0.92f), RoundedCornerShape(6.dp))
-            .padding(horizontal = 7.dp, vertical = 3.dp)
-    )
+fun TypeBadge(type: MediaType, modifier: Modifier = Modifier, label: String = type.displayName) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier
+                .size(6.dp)
+                .background(type.badgeColor().copy(alpha = 0.85f), CircleShape)
+        )
+        Spacer(Modifier.width(5.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
 }
 
-/** Poster-style card used in rows and grids. */
+/**
+ * Poster-style card used in rows and grids: the cover and at most two lines of title. Nothing is
+ * painted over the cover. [subtitle] adds one quiet line under the title; [showType] a flat type
+ * marker, for lists that mix types.
+ */
 @Composable
-fun MediaCard(item: MediaItem, onClick: () -> Unit, modifier: Modifier = Modifier, subtitle: String? = null) {
+fun MediaCard(
+    item: MediaItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    showType: Boolean = false
+) {
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
@@ -198,20 +215,20 @@ fun MediaCard(item: MediaItem, onClick: () -> Unit, modifier: Modifier = Modifie
                 .clip(RoundedCornerShape(14.dp))
         ) {
             CoverImage(item.coverUrl, item.sourceId, item.title, Modifier.fillMaxSize())
-            TypeBadge(item.type, Modifier.align(Alignment.TopStart).padding(6.dp))
         }
         Text(
-            text = item.title,
+            text = item.title.trim(),
             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
             maxLines = 2,
             minLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 6.dp, start = 2.dp, end = 2.dp)
         )
-        val secondary = subtitle ?: item.status
-        if (secondary.isNotBlank()) {
+        if (showType) {
+            TypeBadge(item.type, Modifier.padding(horizontal = 2.dp), label = subtitle ?: item.type.displayName)
+        } else if (!subtitle.isNullOrBlank()) {
             Text(
-                text = secondary,
+                text = subtitle,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,

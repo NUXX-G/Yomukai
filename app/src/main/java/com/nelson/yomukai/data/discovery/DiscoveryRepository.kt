@@ -26,7 +26,9 @@ data class Alternative(
     val confidence: MatchConfidence,
     /** Null when the list could not be read. */
     val chapterCount: Int? = null,
-    val lastChapter: Float? = null
+    val lastChapter: Float? = null,
+    /** Found by a similar name rather than the same one: the user should confirm it. */
+    val approximate: Boolean = false
 )
 
 /** Finds what is similar to a title and where else the same title is available. */
@@ -171,7 +173,7 @@ class DiscoveryRepository(
             .maxByOrNull { it.second }
             ?.takeIf { it.second >= CLOSE_SCORE }
             ?: return null
-        return Alternative(best.first, source.name, source.language, MatchConfidence.UNCONFIRMED)
+        return Alternative(best.first, source.name, source.language, MatchConfidence.UNCONFIRMED, approximate = true)
     }
 
     private suspend fun forEachSource(type: MediaType, exclude: String?, block: suspend (CatalogueSource) -> Unit) = coroutineScope {

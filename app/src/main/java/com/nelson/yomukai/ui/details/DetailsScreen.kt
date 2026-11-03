@@ -1,13 +1,13 @@
 package com.nelson.yomukai.ui.details
 
-import com.nelson.yomukai.ui.components.AppSpinner
-import com.nelson.yomukai.domain.model.VideoSource
-import com.nelson.yomukai.data.download.EpisodeServers
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,15 +18,24 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Label
@@ -40,12 +49,14 @@ import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.RadioButtonUnchecked
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
@@ -54,70 +65,108 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.background
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
-import coil3.compose.AsyncImage
-import com.nelson.yomukai.ui.LocalAppContainer
-import com.nelson.yomukai.ui.components.rememberImageRequest
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil3.compose.AsyncImage
+import com.nelson.yomukai.data.discovery.RelatedTitle
+import com.nelson.yomukai.data.download.EpisodeServers
 import com.nelson.yomukai.data.local.CategoryEntity
 import com.nelson.yomukai.data.local.ChapterEntity
 import com.nelson.yomukai.data.local.DownloadEntity
 import com.nelson.yomukai.data.local.DownloadStatus
 import com.nelson.yomukai.data.local.ReadingStatus
+import com.nelson.yomukai.data.metadata.Abandonment
+import com.nelson.yomukai.data.metadata.ChapterIntegrity
+import com.nelson.yomukai.data.metadata.ChapterIssue
+import com.nelson.yomukai.data.metadata.TitleMetadata
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
 import com.nelson.yomukai.domain.model.PublicationStatus
+import com.nelson.yomukai.domain.model.VideoSource
 import com.nelson.yomukai.ui.AppViewModelProvider
+import com.nelson.yomukai.ui.LocalAppContainer
+import com.nelson.yomukai.ui.components.AppSpinner
 import com.nelson.yomukai.ui.components.CoverImage
 import com.nelson.yomukai.ui.components.LoadingState
 import com.nelson.yomukai.ui.components.MessageState
 import com.nelson.yomukai.ui.components.RefreshSpinner
+import com.nelson.yomukai.ui.components.SectionHeader
 import com.nelson.yomukai.ui.components.TypeBadge
+import com.nelson.yomukai.ui.components.rememberImageRequest
+import com.nelson.yomukai.ui.discover.RelatedCard
+import com.nelson.yomukai.ui.theme.CoverTheme
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Room left under the list so the floating button never covers the last chapters. */
+private val FAB_CLEARANCE = 112.dp
+
 @Composable
 fun DetailsScreen(
     onBack: () -> Unit,
     onOpenChapter: (ChapterEntity) -> Unit,
     onOpenMedia: (MediaItem) -> Unit,
+    onSearchTitle: (String) -> Unit = {},
     viewModel: DetailsViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val snackbar = remember { SnackbarHostState() }
+    val coverUrl = state.media?.coverUrl.orEmpty()
+    val headers = LocalAppContainer.current.sourceManager.get(viewModel.sourceId)?.imageHeaders.orEmpty()
+    // The whole page takes its accent from the cover.
+    CoverTheme(coverUrl, headers) {
+        DetailsContent(state, viewModel, onBack, onOpenChapter, onOpenMedia, onSearchTitle)
+    }
+}
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DetailsContent(
+    state: DetailsUiState,
+    viewModel: DetailsViewModel,
+    onBack: () -> Unit,
+    onOpenChapter: (ChapterEntity) -> Unit,
+    onOpenMedia: (MediaItem) -> Unit,
+    onSearchTitle: (String) -> Unit
+) {
+    val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(state.error) { state.error?.let { snackbar.showSnackbar(it) } }
 
     var failed by remember { mutableStateOf<ChapterEntity?>(null) }
@@ -136,6 +185,9 @@ fun DetailsScreen(
     val similar by viewModel.similar.collectAsStateWithLifecycle()
     val alternatives by viewModel.alternatives.collectAsStateWithLifecycle()
     val locate by viewModel.locate.collectAsStateWithLifecycle()
+    val metadata by viewModel.metadata.collectAsStateWithLifecycle()
+    val metadataLoading by viewModel.metadataLoading.collectAsStateWithLifecycle()
+    val insights by viewModel.insights.collectAsStateWithLifecycle()
 
     if (alternatives.open) {
         AlternativesSheet(
@@ -149,14 +201,15 @@ fun DetailsScreen(
     }
     locate?.let { found ->
         // A single place to read it needs no question.
-        val only = found.options.singleOrNull()
+        val only = found.options.singleOrNull()?.takeIf { !it.approximate }
         if (!found.searching && only != null) {
             LaunchedEffect(only) { viewModel.closeLocate(); onOpenMedia(only.item) }
         } else {
             LocateSheet(
                 state = found,
                 onOpen = { viewModel.closeLocate(); onOpenMedia(it) },
-                onDismiss = viewModel::closeLocate
+                onDismiss = viewModel::closeLocate,
+                onSearch = { viewModel.closeLocate(); onSearchTitle(it) }
             )
         }
     }
@@ -169,18 +222,29 @@ fun DetailsScreen(
         )
     }
 
+    val listState = rememberLazyListState()
+    // The button shrinks to its icon while the list moves away from the top, so it covers less.
+    val fabExpanded by remember { derivedStateOf { listState.firstVisibleItemIndex < 3 || !listState.isScrollInProgress } }
+    var tab by rememberSaveable { mutableIntStateOf(0) }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
+            val collapsed by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
             TopAppBar(
-                title = { Text(state.media?.title.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = {
+                    AnimatedVisibility(collapsed, enter = fadeIn(), exit = fadeOut()) {
+                        Text(state.media?.title.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = if (collapsed) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.background.copy(alpha = 0f)
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver") }
                 },
                 actions = {
-                    IconButton(onClick = viewModel::toggleSort) {
-                        Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Invertir orden")
-                    }
                     var menu by remember { mutableStateOf(false) }
                     IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "Más") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -200,19 +264,34 @@ fun DetailsScreen(
                             onClick = { menu = false; showRange = true }
                         )
                         DropdownMenuItem(
-                            text = { Text("Actualizar") },
-                            onClick = { menu = false; viewModel.refresh() }
+                            text = { Text("Buscar en otras fuentes") },
+                            leadingIcon = { Icon(Icons.Default.Search, null) },
+                            onClick = { menu = false; viewModel.openAlternatives() }
                         )
+                        DropdownMenuItem(text = { Text("Actualizar") }, onClick = { menu = false; viewModel.refresh() })
                     }
                 }
             )
         },
         floatingActionButton = {
             state.continueTarget?.let { (chapter, started) ->
+                val label = ChapterLabels.of(chapter.title, chapter.number, state.isAnime, state.media?.title.orEmpty()).short
                 ExtendedFloatingActionButton(
                     onClick = { onOpenChapter(chapter) },
+                    expanded = fabExpanded,
                     icon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
-                    text = { Text(if (started) "Continuar" else if (state.isAnime) "Ver episodio 1" else "Empezar a leer") }
+                    text = {
+                        Text(
+                            when {
+                                started -> "Continuar · $label"
+                                state.isAnime -> "Empezar a ver · $label"
+                                else -> "Empezar a leer · $label"
+                            },
+                            maxLines = 1
+                        )
+                    },
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
         }
@@ -225,7 +304,7 @@ fun DetailsScreen(
             indicator = { RefreshSpinner(refreshState, state.isRefreshing) },
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(top = padding.calculateTopPadding())
         ) {
             val media = state.media
             if (media == null) {
@@ -234,9 +313,9 @@ fun DetailsScreen(
                 return@PullToRefreshBox
             }
 
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 96.dp)) {
-                item {
-                    Header(state, onToggleLibrary = viewModel::toggleLibrary)
+            LazyColumn(Modifier.fillMaxSize(), state = listState) {
+                item(key = "header") {
+                    Header(state, metadata, insights, onToggleLibrary = viewModel::toggleLibrary)
                     if (media.inLibrary) {
                         LibraryControls(
                             state = state,
@@ -247,79 +326,87 @@ fun DetailsScreen(
                         )
                     }
                 }
-                item(key = "alternatives") {
-                    AssistChip(
-                        onClick = viewModel::openAlternatives,
-                        label = { Text("Buscar en otras fuentes") },
-                        leadingIcon = { Icon(Icons.Default.Search, null, Modifier.size(18.dp)) },
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
-                item(key = "similar") {
-                    SimilarSection(
-                        state = similar,
-                        onLoad = viewModel::loadSimilar,
-                        onOpen = { related -> related.item?.let(onOpenMedia) ?: viewModel.locate(related) }
-                    )
-                }
-                item {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                item(key = "tabs") {
+                    val count = state.chapters.size
+                    PrimaryTabRow(
+                        selectedTabIndex = tab,
+                        containerColor = MaterialTheme.colorScheme.background,
+                        modifier = Modifier.padding(top = 8.dp)
                     ) {
-                        Text(
-                            "${state.chapters.size} ${chapterNoun(state.chapters.size, state.isAnime)}",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.weight(1f)
-                        )
-                        val readCount = state.chapters.count { it.read }
-                        if (readCount > 0) {
-                            Text(if (state.isAnime) "$readCount vistos" else "$readCount leídos", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("${if (state.isAnime) "Episodios" else "Capítulos"} · $count") })
+                        Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Relacionadas") })
+                    }
+                }
+                if (tab == 0) {
+                    item(key = "chapters_bar") {
+                        ChaptersBar(state, onToggleSort = viewModel::toggleSort)
+                        IntegrityNotice(insights.issues, state.isAnime)
+                    }
+                    if (state.chapters.isEmpty() && !state.isRefreshing) {
+                        item(key = "empty") {
+                            Text(
+                                "No se encontraron capítulos.",
+                                modifier = Modifier.padding(24.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
-                    HorizontalDivider()
-                }
-                if (state.chapters.isEmpty() && !state.isRefreshing) {
-                    item {
-                        Text(
-                            "No se encontraron capítulos.",
-                            modifier = Modifier.padding(24.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                    state.displayedChapters.forEach { chapter ->
+                        val gap = insights.gapAfter[chapter.chapterId]
+                        // The gap sits between this chapter and the next one in reading order.
+                        if (gap != null && state.sortDescending) item(key = "gap_" + chapter.chapterId) { GapMarker(gap, state.isAnime) }
+                        item(key = chapter.chapterId) {
+                            ChapterRow(
+                                chapter = chapter,
+                                mediaTitle = media.title,
+                                download = state.downloads[chapter.chapterId],
+                                isNovel = state.isNovel,
+                                isAnime = state.isAnime,
+                                onClick = { onOpenChapter(chapter) },
+                                onToggleRead = { viewModel.setRead(chapter, !chapter.read) },
+                                onMarkPrevious = { viewModel.markPreviousRead(chapter) },
+                                onUnmarkPrevious = { viewModel.unmarkPrevious(chapter) },
+                                onDownload = {
+                                    if (state.downloads[chapter.chapterId]?.status == DownloadStatus.FAILED) {
+                                        failed = chapter
+                                        viewModel.loadRetryServers(chapter)
+                                    } else {
+                                        viewModel.download(listOf(chapter))
+                                    }
+                                },
+                                onDeleteDownload = { viewModel.deleteDownload(chapter) }
+                            )
+                        }
+                        if (gap != null && !state.sortDescending) item(key = "gap_" + chapter.chapterId) { GapMarker(gap, state.isAnime) }
+                    }
+                } else {
+                    item(key = "related") {
+                        RelatedTab(
+                            metadata = metadata,
+                            loading = metadataLoading,
+                            similar = similar,
+                            onLoadSimilar = viewModel::loadSimilar,
+                            onOpenRelated = { related -> related.item?.let(onOpenMedia) ?: viewModel.locate(related) },
+                            onOtherSources = viewModel::openAlternatives
                         )
                     }
                 }
-                items(state.displayedChapters, key = { it.chapterId }) { chapter ->
-                    ChapterRow(
-                        chapter = chapter,
-                        download = state.downloads[chapter.chapterId],
-                        isNovel = state.isNovel,
-                        isAnime = state.isAnime,
-                        onClick = { onOpenChapter(chapter) },
-                        onToggleRead = { viewModel.setRead(chapter, !chapter.read) },
-                        onMarkPrevious = { viewModel.markPreviousRead(chapter) },
-                        onUnmarkPrevious = { viewModel.unmarkPrevious(chapter) },
-                        onDownload = {
-                            if (state.downloads[chapter.chapterId]?.status == DownloadStatus.FAILED) {
-                                failed = chapter
-                                viewModel.loadRetryServers(chapter)
-                            } else {
-                                viewModel.download(listOf(chapter))
-                            }
-                        },
-                        onDeleteDownload = { viewModel.deleteDownload(chapter) }
-                    )
+                item(key = "fab_space") {
+                    Spacer(Modifier.height(FAB_CLEARANCE))
+                    Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
                 }
             }
         }
     }
 }
 
+/** "2023" style date of the newest chapter, for the abandonment note. */
+private fun formatMonthYear(epochMs: Long): String =
+    SimpleDateFormat("MMMM 'de' yyyy", Locale.forLanguageTag("es")).format(Date(epochMs))
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Header(state: DetailsUiState, onToggleLibrary: () -> Unit) {
+private fun Header(state: DetailsUiState, metadata: TitleMetadata?, insights: ChapterInsights, onToggleLibrary: () -> Unit) {
     val media = state.media ?: return
     val type = MediaType.fromName(media.type)
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -332,89 +419,300 @@ private fun Header(state: DetailsUiState, onToggleLibrary: () -> Unit) {
                 model = rememberImageRequest(media.coverUrl, imageHeaders),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                alpha = 0.45f,
+                alpha = 0.5f,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(260.dp)
-                    .blur(28.dp)
+                    .height(250.dp)
+                    .blur(32.dp)
             )
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .height(260.dp)
-                    .background(Brush.verticalGradient(0f to background.copy(alpha = 0.2f), 1f to background))
+                    .height(250.dp)
+                    .background(Brush.verticalGradient(0f to background.copy(alpha = 0.15f), 1f to background))
             )
         }
-    Column(Modifier.padding(16.dp)) {
-        Row {
-            CoverImage(
-                media.coverUrl, media.sourceId, media.title,
-                Modifier
-                    .width(124.dp)
-                    .height(178.dp)
-                    .shadow(10.dp, RoundedCornerShape(14.dp))
-                    .clip(RoundedCornerShape(14.dp))
-            )
-            Spacer(Modifier.width(16.dp))
-            Column(Modifier.weight(1f)) {
-                Text(media.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                if (media.author.isNotBlank()) {
-                    Text(media.author, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TypeBadge(type)
-                    val status = PublicationStatus.parse(media.status)
+        Column(Modifier.padding(horizontal = 16.dp).padding(top = 8.dp)) {
+            Row(verticalAlignment = Alignment.Bottom) {
+                CoverImage(
+                    media.coverUrl, media.sourceId, media.title,
+                    Modifier
+                        .width(116.dp)
+                        .height(166.dp)
+                        .shadow(12.dp, RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(14.dp))
+                )
+                Spacer(Modifier.width(16.dp))
+                Column(Modifier.weight(1f)) {
                     Text(
-                        if (status == PublicationStatus.UNKNOWN) media.status.ifBlank { status.displayName } else status.displayName,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.secondary
+                        media.title,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 4,
+                        overflow = TextOverflow.Ellipsis
                     )
-                }
-                Spacer(Modifier.height(4.dp))
-                Text(state.sourceName, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(12.dp))
-                FilledTonalButton(onClick = onToggleLibrary) {
-                    Icon(
-                        if (media.inLibrary) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = null,
-                        tint = if (media.inLibrary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(if (media.inLibrary) "En biblioteca" else "Añadir a biblioteca")
+                    if (media.author.isNotBlank()) {
+                        Text(
+                            media.author,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    val sourceStatus = PublicationStatus.parse(media.status)
+                    val status = if (sourceStatus == PublicationStatus.UNKNOWN) metadata?.officialStatus ?: sourceStatus else sourceStatus
+                    val statusText = if (status == PublicationStatus.UNKNOWN) media.status.ifBlank { null } else status.displayName
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TypeBadge(type)
+                        statusText?.let {
+                            MetaDot()
+                            Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        }
+                    }
+                    Spacer(Modifier.height(2.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(state.sourceName, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        metadata?.score?.let { score ->
+                            MetaDot()
+                            ScoreLabel(score, metadata.scoreSource)
+                        }
+                    }
                 }
             }
-        }
 
-        if (media.description.isNotBlank()) {
-            Spacer(Modifier.height(16.dp))
-            Text(
-                media.description,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = if (expanded) Int.MAX_VALUE else 4,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .animateContentSize()
-                    .clickable { expanded = !expanded }
-            )
-            Text(
-                if (expanded) "Mostrar menos" else "Mostrar más",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .padding(top = 4.dp)
-                    .clickable { expanded = !expanded }
-            )
-        }
+            if (insights.abandoned) {
+                Spacer(Modifier.height(12.dp))
+                Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)) {
+                    Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.HourglassEmpty, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "Posible abandono o hiato prolongado" +
+                                (insights.lastUpdate?.let { " · último capítulo en ${formatMonthYear(it)}" } ?: ""),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                    }
+                }
+            }
 
-        val genres = media.genres.split('|').filter { it.isNotBlank() }
-        if (genres.isNotEmpty()) {
-            Spacer(Modifier.height(12.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                genres.forEach { AssistChip(onClick = {}, label = { Text(it, style = MaterialTheme.typography.labelSmall) }) }
+            Spacer(Modifier.height(14.dp))
+            FilledTonalButton(onClick = onToggleLibrary, modifier = Modifier.fillMaxWidth()) {
+                Icon(
+                    if (media.inLibrary) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(if (media.inLibrary) "En tu biblioteca" else "Añadir a la biblioteca")
+            }
+
+            // The source's synopsis is in the user's language; the official one fills in when it has none.
+            val synopsis = media.description.ifBlank { metadata?.synopsis.orEmpty() }
+            if (synopsis.isNotBlank()) {
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    synopsis,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.88f),
+                    maxLines = if (expanded) Int.MAX_VALUE else 4,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .animateContentSize()
+                        .clickable { expanded = !expanded }
+                )
+                Text(
+                    if (expanded) "Mostrar menos" else "Mostrar más",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .padding(top = 4.dp)
+                        .clickable { expanded = !expanded }
+                )
+                if (media.description.isBlank() && metadata?.scoreSource == "AniList") {
+                    Text("Sinopsis de AniList", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            val genres = metadata?.genres?.takeIf { it.isNotEmpty() } ?: media.genres.split('|').filter { it.isNotBlank() }
+            if (genres.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    genres.forEach { GenrePill(it) }
+                }
+                if (metadata?.inferredGenres == true) {
+                    Text(
+                        "Etiquetas deducidas de la sinopsis",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun MetaDot() {
+    Text(" · ", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** "★ 8,4 AniList", small and quiet. */
+@Composable
+private fun ScoreLabel(score: Float, source: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.width(3.dp))
+        Text(
+            String.format(Locale.forLanguageTag("es"), "%.1f", score),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        if (source.isNotBlank()) {
+            Text(" $source", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun GenrePill(genre: String) {
+    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)) {
+        Text(
+            genre,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+        )
+    }
+}
+
+/** Count of read chapters and the order switch, right above the list. */
+@Composable
+private fun ChaptersBar(state: DetailsUiState, onToggleSort: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 4.dp, top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val readCount = state.chapters.count { it.read }
+        Text(
+            if (readCount > 0) (if (state.isAnime) "$readCount vistos" else "$readCount leídos") + " de ${state.chapters.size}" else "",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        TextButton(onClick = onToggleSort) {
+            Icon(Icons.AutoMirrored.Filled.Sort, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(if (state.sortDescending) "Más recientes" else "Desde el principio", style = MaterialTheme.typography.labelLarge)
+        }
+    }
+}
+
+/** Discreet warning above the list when the numbering looks broken; tap to see each problem. */
+@Composable
+private fun IntegrityNotice(issues: List<ChapterIssue>, isAnime: Boolean) {
+    if (issues.isEmpty()) return
+    var open by rememberSaveable { mutableStateOf(false) }
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .clickable { open = !open }
+    ) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp).animateContentSize()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.WarningAmber, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.tertiary)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (issues.size == 1) ChapterIntegrity.describe(issues.first(), isAnime)
+                    else "La lista de la fuente tiene ${issues.size} irregularidades",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            if (open) {
+                if (issues.size > 1) {
+                    issues.forEach {
+                        Text("• " + ChapterIntegrity.describe(it, isAnime), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Text(
+                    "Viene de la fuente, no de la app. Prueba «Buscar en otras fuentes» si falta algo.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
             }
         }
     }
+}
+
+/** Thin line between two chapters whose numbers jump. */
+@Composable
+private fun GapMarker(gap: ChapterIssue.Gap, isAnime: Boolean) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f).height(1.dp).background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.35f)))
+        Text(
+            "  ${ChapterIntegrity.describe(gap, isAnime)}  ",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.tertiary
+        )
+        Box(Modifier.weight(1f).height(1.dp).background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.35f)))
+    }
+}
+
+/** Related works in every format, then similar titles, then the same title in other sources. */
+@Composable
+private fun RelatedTab(
+    metadata: TitleMetadata?,
+    loading: Boolean,
+    similar: SimilarState,
+    onLoadSimilar: () -> Unit,
+    onOpenRelated: (RelatedTitle) -> Unit,
+    onOtherSources: () -> Unit
+) {
+    Column(Modifier.padding(bottom = 8.dp)) {
+        val relations = metadata?.relations.orEmpty()
+        when {
+            loading -> AppSpinner(Modifier.padding(16.dp).size(24.dp), strokeWidth = 2.5.dp)
+            relations.isNotEmpty() -> {
+                SectionHeader("Universo de la obra")
+                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    itemsIndexed(relations, key = { index, _ -> index }) { _, related ->
+                        RelatedCard(
+                            related, onOpenRelated, Modifier.width(110.dp),
+                            subtitle = listOfNotNull(related.relation, related.format.ifBlank { null }).joinToString(" · ")
+                        )
+                    }
+                }
+            }
+        }
+        SimilarSection(state = similar, onLoad = onLoadSimilar, onOpen = onOpenRelated)
+        AssistChip(
+            onClick = onOtherSources,
+            label = { Text("Buscar en otras fuentes") },
+            leadingIcon = { Icon(Icons.Default.Search, null, Modifier.size(18.dp)) },
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+        )
+        if (!loading && relations.isEmpty() && !similar.loading && similar.items.isEmpty()) {
+            Text(
+                "No se conocen obras relacionadas.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+        }
     }
 }
 
@@ -422,6 +720,7 @@ private fun Header(state: DetailsUiState, onToggleLibrary: () -> Unit) {
 @Composable
 private fun ChapterRow(
     chapter: ChapterEntity,
+    mediaTitle: String,
     download: DownloadEntity?,
     isNovel: Boolean,
     isAnime: Boolean,
@@ -433,26 +732,38 @@ private fun ChapterRow(
     onDeleteDownload: () -> Unit
 ) {
     var menu by remember { mutableStateOf(false) }
-    val contentAlpha = if (chapter.read) 0.45f else 1f
+    val contentAlpha = if (chapter.read) 0.5f else 1f
+    val label = remember(chapter.title, chapter.number, mediaTitle) { ChapterLabels.of(chapter.title, chapter.number, isAnime, mediaTitle) }
 
     Box {
         Row(
             Modifier
                 .fillMaxWidth()
                 .combinedClickable(onClick = onClick, onLongClick = { menu = true })
-                .padding(start = 16.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
+                .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
-                Text(
-                    chapter.title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        label.short,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
+                        maxLines = 1
+                    )
+                    label.name?.let { name ->
+                        Text(
+                            "  $name",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha * 0.9f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
                 val progressText = when {
-                    chapter.read -> if (isAnime) "Visto" else "Leído"
+                    chapter.read -> null
                     // Episodes store seconds in lastPageRead/totalPages, not pages.
                     isAnime -> if (chapter.lastPageRead > 0 && chapter.totalPages > 0) {
                         "Vas por ${formatEpisodeTime(chapter.lastPageRead)} de ${formatEpisodeTime(chapter.totalPages)}"
@@ -461,23 +772,26 @@ private fun ChapterRow(
                     isNovel && chapter.progress > 0.01f -> "${(chapter.progress * 100).toInt()}% leído"
                     else -> null
                 }
-                val meta = listOfNotNull(chapter.dateUploaded.ifBlank { null }, progressText).joinToString(" • ")
-                if (meta.isNotEmpty()) {
-                    Text(
-                        meta,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (progressText != null && !chapter.read) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha)
-                    )
+                if (chapter.dateUploaded.isNotBlank() || progressText != null) {
+                    Row {
+                        if (chapter.dateUploaded.isNotBlank()) {
+                            Text(
+                                chapter.dateUploaded,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f * contentAlpha)
+                            )
+                        }
+                        progressText?.let {
+                            Text(
+                                (if (chapter.dateUploaded.isNotBlank()) "  ·  " else "") + it,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 }
             }
-            IconButton(onClick = onToggleRead) {
-                Icon(
-                    if (chapter.read) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
-                    contentDescription = if (chapter.read) "Marcar como no leído" else "Marcar como leído",
-                    tint = if (chapter.read) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            ReadToggle(chapter.read, isAnime, onToggleRead)
             DownloadIndicator(download, onDownload = onDownload, onDelete = onDeleteDownload)
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -488,6 +802,28 @@ private fun ChapterRow(
             )
             DropdownMenuItem(text = { Text("Marcar anteriores como leídos") }, onClick = { menu = false; onMarkPrevious() })
             DropdownMenuItem(text = { Text("Quitar la marca a los anteriores") }, onClick = { menu = false; onUnmarkPrevious() })
+        }
+    }
+}
+
+/** Small check: filled when read, a faint ring when not. */
+@Composable
+private fun ReadToggle(read: Boolean, isAnime: Boolean, onToggle: () -> Unit) {
+    IconButton(onClick = onToggle) {
+        if (read) {
+            Icon(
+                Icons.Default.CheckCircle,
+                contentDescription = if (isAnime) "Marcar como no visto" else "Marcar como no leído",
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+            )
+        } else {
+            Box(
+                Modifier
+                    .size(18.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f))
+            )
         }
     }
 }
@@ -503,10 +839,10 @@ internal fun formatEpisodeTime(seconds: Int): String {
 private fun DownloadIndicator(download: DownloadEntity?, onDownload: () -> Unit, onDelete: () -> Unit) {
     when (download?.status) {
         null -> IconButton(onClick = onDownload) {
-            Icon(Icons.Default.Download, contentDescription = "Descargar", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(Icons.Default.Download, contentDescription = "Descargar", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f))
         }
         DownloadStatus.COMPLETED -> IconButton(onClick = onDelete) {
-            Icon(Icons.Default.DownloadDone, contentDescription = "Borrar descarga", tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Default.DownloadDone, contentDescription = "Borrar descarga", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f))
         }
         DownloadStatus.FAILED -> IconButton(onClick = onDownload) {
             Icon(Icons.Default.ErrorOutline, contentDescription = "Reintentar descarga", tint = MaterialTheme.colorScheme.error)

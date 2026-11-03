@@ -275,7 +275,7 @@ private fun FavoritesTab(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(visible, key = { it.sourceId + it.id }) { item -> MediaCard(item, onClick = { openItem(item) }) }
+                items(visible, key = { it.sourceId + it.id }) { item -> MediaCard(item, onClick = { openItem(item) }, showType = true) }
             }
 
             else -> LazyColumn(Modifier.fillMaxSize()) {

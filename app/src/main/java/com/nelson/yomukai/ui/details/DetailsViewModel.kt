@@ -26,6 +26,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
+import com.nelson.yomukai.data.metadata.Abandonment
+import com.nelson.yomukai.data.metadata.ChapterIntegrity
+import com.nelson.yomukai.data.metadata.ChapterIssue
+import com.nelson.yomukai.data.metadata.TitleMetadata
+import com.nelson.yomukai.domain.model.PublicationStatus
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -57,6 +63,17 @@ data class DetailsUiState(
         return (next ?: last) to true
     }
 }
+
+/** What the chapter list reveals: numbering problems and whether an ongoing title went quiet. */
+@Immutable
+data class ChapterInsights(
+    val issues: List<ChapterIssue> = emptyList(),
+    /** Gaps by the id of the chapter right before them. */
+    val gapAfter: Map<String, ChapterIssue.Gap> = emptyMap(),
+    val abandoned: Boolean = false,
+    /** Date of the newest chapter, when a date could be read. */
+    val lastUpdate: Long? = null
+)
 
 @Immutable
 data class SimilarState(val requested: Boolean = false, val loading: Boolean = false, val items: List<RelatedTitle> = emptyList())
@@ -106,8 +123,53 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DetailsUiState(sourceName = source?.name.orEmpty()))
 
+    private val _metadata = MutableStateFlow<TitleMetadata?>(null)
+
+    /** Score, official synopsis, normalized genres and related works; null while loading. */
+    val metadata: StateFlow<TitleMetadata?> = _metadata
+
+    private val _metadataLoading = MutableStateFlow(true)
+    val metadataLoading: StateFlow<Boolean> = _metadataLoading
+
+    /** Worked out off the main thread whenever the chapters, the title or its metadata change. */
+    val insights: StateFlow<ChapterInsights> = combine(
+        repo.observeChapters(sourceId, mediaId),
+        repo.observeMedia(sourceId, mediaId),
+        _metadata
+    ) { chapters, media, metadata ->
+        val issues = ChapterIntegrity.check(chapters.map { it.number })
+        val gaps = issues.filterIsInstance<ChapterIssue.Gap>()
+            .mapNotNull { gap -> chapters.getOrNull(gap.afterIndex)?.let { it.chapterId to gap } }
+            .toMap()
+        val sourceStatus = PublicationStatus.parse(media?.status.orEmpty())
+        // The database's status wins: a source often keeps "ongoing" on finished works.
+        val status = metadata?.officialStatus ?: sourceStatus
+        val dates = chapters.map { it.dateUploaded }
+        ChapterInsights(
+            issues = issues,
+            gapAfter = gaps,
+            abandoned = Abandonment.isLikelyAbandoned(status == PublicationStatus.ONGOING, dates),
+            lastUpdate = Abandonment.latest(dates)
+        )
+    }.flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ChapterInsights())
+
     init {
         refresh()
+        loadMetadata()
+    }
+
+    private fun loadMetadata() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val media = mediaItem()
+            _metadata.value = media?.let {
+                runCatching { container.metadata.load(it) }.getOrElse { e ->
+                    if (e is CancellationException) throw e
+                    null
+                }
+            }
+            _metadataLoading.value = false
+        }
     }
 
     fun refresh() {
