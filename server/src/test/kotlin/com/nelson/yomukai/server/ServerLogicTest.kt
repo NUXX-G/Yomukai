@@ -140,6 +140,7 @@ class ServerLogicTest {
         assertEquals("1.2.3.4", LoginThrottle.addressKey("::ffff:1.2.3.4"))
         assertEquals(LoginThrottle.addressKey("2001:db8:1:2::1"), LoginThrottle.addressKey("2001:db8:1:2:ffff::9"))
         assertEquals("1.2.3.4", LoginThrottle.addressKey("1.2.3.4"))
+        assertEquals("names are never looked up", "other:example.com", LoginThrottle.addressKey("example.com"))
     }
 
     @Test

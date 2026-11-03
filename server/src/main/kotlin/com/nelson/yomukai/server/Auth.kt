@@ -144,6 +144,8 @@ class LoginThrottle {
         const val MAX_FAILURES = 5
         const val WINDOW_MS = 15 * 60_000L
         const val LOCK_MS = 15 * 60_000L
+        private val IPV4 = Regex("""^\d{1,3}(\.\d{1,3}){3}$""")
+        private val IPV6_CHARS = Regex("""^[0-9A-Fa-f:.]{2,45}$""")
         const val SLOW_AFTER = 10
         private const val STEP_MS = 250L
         const val MAX_DELAY_MS = 5_000L
@@ -152,7 +154,10 @@ class LoginThrottle {
         /** The key for an address: IPv6 by its /64, which is what one connection usually owns. */
         fun addressKey(address: String): String {
             // Parsed, never split as text: "2001:db8::1" and its long form are the same address.
-            val parsed = runCatching { java.net.InetAddress.getByName(address.substringBefore('%').trim()) }.getOrNull() ?: return address
+            // Only IP literals are parsed; a name is never looked up (it may come from a header).
+            val text = address.substringBefore('%').trim()
+            if (!IPV4.matches(text) && !(':' in text && IPV6_CHARS.matches(text))) return "other:" + text.take(64)
+            val parsed = runCatching { java.net.InetAddress.getByName(text) }.getOrNull() ?: return address
             return when (parsed) {
                 // IPv4 and IPv4-mapped IPv6 (Java gives an Inet4Address for both).
                 is java.net.Inet4Address -> parsed.hostAddress
