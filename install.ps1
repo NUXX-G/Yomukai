@@ -41,7 +41,7 @@ docker compose pull --quiet yomukai 2>$null
 if ($LASTEXITCODE -ne 0) {
   Say 'Compilando la imagen (la primera vez tarda unos minutos)...'
   if (Test-Path src) { Remove-Item -Recurse -Force src }
-  git clone --depth 1 $Repo src
+  git clone --depth 1 -c core.autocrlf=false $Repo src
   docker build -t ghcr.io/nuxx-g/yomukai:latest src
   Remove-Item -Recurse -Force src
 }
