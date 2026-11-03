@@ -29,6 +29,46 @@ class SourceBlockedException(host: String, protection: String) : IOException(
     "$host bloqueó al servidor ($protection). Si usas Docker, activa FlareSolverr."
 )
 
+/** A site or a proxied link pointed at the server's own network. */
+class BlockedAddressException(host: String) : IOException("Dirección no permitida: $host")
+
+/**
+ * Only public internet addresses may be reached. Anyone can make the server fetch a link (a
+ * guest opening a chapter, a playlist naming its segments), so loopback, private, link-local and
+ * multicast ranges are refused: the VPS, its Docker network and its cloud metadata stay out of reach.
+ */
+object PublicAddresses {
+    fun isPublic(address: java.net.InetAddress): Boolean = !(
+        address.isAnyLocalAddress || address.isLoopbackAddress || address.isLinkLocalAddress ||
+            address.isSiteLocalAddress || address.isMulticastAddress ||
+            // IPv6 unique local (fc00::/7) and IPv4 carrier-grade NAT (100.64.0.0/10).
+            (address is java.net.Inet6Address && (address.address[0].toInt() and 0xfe) == 0xfc) ||
+            (address is java.net.Inet4Address && address.address[0].toInt() == 100 && (address.address[1].toInt() and 0xc0) == 64)
+        )
+
+    /** DNS that drops non-public answers. */
+    val dns: okhttp3.Dns = object : okhttp3.Dns {
+        override fun lookup(hostname: String): List<java.net.InetAddress> =
+            okhttp3.Dns.SYSTEM.lookup(hostname).filter(::isPublic).ifEmpty { throw BlockedAddressException(hostname) }
+    }
+
+    private val ipLiteral = Regex("""^[0-9.]+$|:""")
+
+    /** Refuses an address written as an IP before any connection is even tried. */
+    val literalGuard = okhttp3.Interceptor { chain ->
+        val host = chain.request().url.host
+        if (ipLiteral.containsMatchIn(host) && !isPublic(java.net.InetAddress.getByName(host))) throw BlockedAddressException(host)
+        chain.proceed(chain.request())
+    }
+
+    /** Checks the address actually connected to, on every hop: IP literals and redirects never go through DNS. */
+    val guard = okhttp3.Interceptor { chain ->
+        val connected = chain.connection()?.socket()?.inetAddress
+        if (connected != null && !isPublic(connected)) throw BlockedAddressException(chain.request().url.host)
+        chain.proceed(chain.request())
+    }
+}
+
 /** Keeps cookies per host in memory, so sessions earned once (Cloudflare clearance) are reused. */
 private class MemoryCookieJar : CookieJar {
     private val byHost = ConcurrentHashMap<String, MutableList<Cookie>>()
@@ -71,6 +111,9 @@ class ServerHttp(private val flareSolverrUrl: String?) : HttpFetcher {
         .connectionPool(pool)
         .dispatcher(dispatcher)
         .cookieJar(cookies)
+        .dns(PublicAddresses.dns)
+        .addInterceptor(PublicAddresses.literalGuard)
+        .addNetworkInterceptor(PublicAddresses.guard)
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .callTimeout(40, TimeUnit.SECONDS)
@@ -84,7 +127,8 @@ class ServerHttp(private val flareSolverrUrl: String?) : HttpFetcher {
         .callTimeout(0, TimeUnit.SECONDS)
         .build()
 
-    private val solverClient: OkHttpClient = client.newBuilder()
+    /** FlareSolverr lives in the server's own Docker network: the only client allowed to reach it. */
+    private val solverClient: OkHttpClient = OkHttpClient.Builder()
         .readTimeout(90, TimeUnit.SECONDS)
         .callTimeout(100, TimeUnit.SECONDS)
         .build()

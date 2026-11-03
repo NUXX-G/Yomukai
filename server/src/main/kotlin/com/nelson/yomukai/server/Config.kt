@@ -24,6 +24,8 @@ data class Config(
     val guestRatePerMinute: Int,
     /** Video streams a guest may have open at once. */
     val guestStreams: Int,
+    /** Read the visitor address from X-Forwarded-For / X-Real-IP (true behind nginx, Caddy or Traefik). */
+    val trustProxy: Boolean,
     /** Public address, for links in the export file; optional. */
     val publicUrl: String?
 ) {
@@ -45,6 +47,7 @@ data class Config(
                 malClientId = env["MAL_CLIENT_ID"].orEmpty().trim(),
                 guestRatePerMinute = env["GUEST_RATE"]?.toIntOrNull() ?: 240,
                 guestStreams = env["GUEST_STREAMS"]?.toIntOrNull() ?: 2,
+                trustProxy = env["TRUST_PROXY"]?.lowercase() != "false",
                 publicUrl = env["PUBLIC_URL"]?.trimEnd('/')?.ifBlank { null }
             )
         }

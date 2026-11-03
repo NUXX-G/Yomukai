@@ -74,6 +74,35 @@ class ServerLogicTest {
     }
 
     @Test
+    fun internalAddressesAreNeverReached() {
+        fun ip(text: String) = java.net.InetAddress.getByName(text)
+        listOf("127.0.0.1", "10.0.0.5", "192.168.1.1", "172.16.0.1", "169.254.169.254", "100.64.0.1", "::1", "fd00::1", "0.0.0.0")
+            .forEach { assertFalse(it, PublicAddresses.isPublic(ip(it))) }
+        listOf("1.1.1.1", "8.8.8.8", "2606:4700:4700::1111").forEach { assertTrue(it, PublicAddresses.isPublic(ip(it))) }
+    }
+
+    @Test
+    fun proxyNeverServesPagesAsImages() {
+        assertEquals("image/png", MediaProxy.safeImageType("image/png"))
+        assertEquals("image/webp", MediaProxy.safeImageType("IMAGE/WEBP; charset=x"))
+        assertEquals("image/jpeg", MediaProxy.safeImageType("text/html"))
+        assertEquals("image/jpeg", MediaProxy.safeImageType("image/svg+xml"))
+        assertEquals("image/jpeg", MediaProxy.safeImageType(""))
+    }
+
+    @Test
+    fun repeatedWrongPasswordsLockTheKey() {
+        val throttle = LoginThrottle()
+        val keys = listOf("ip:1.2.3.4", "user:amigo")
+        repeat(LoginThrottle.MAX_FAILURES - 1) { throttle.failed(keys, 0) }
+        assertEquals(0L, throttle.waitFor(keys, 0))
+        throttle.failed(keys, 0)
+        assertTrue(throttle.waitFor(keys, 0) > 0)
+        assertEquals("unlocked after the lock time", 0L, throttle.waitFor(keys, LoginThrottle.LOCK_MS + 1))
+        assertTrue("another address against the same account stays locked", throttle.waitFor(listOf("ip:9.9.9.9", "user:amigo"), 0) > 0)
+    }
+
+    @Test
     fun proxyLinksAreSignedAndPlaylistsRewritten() {
         val proxy = MediaProxy(ServerHttp(null), ByteArray(32) { 7 }, Files.createTempDirectory("yk").toFile(), 2)
         val link = proxy.image("https://cdn.example.com/a.jpg", mapOf("Referer" to "https://example.com/"))

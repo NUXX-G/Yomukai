@@ -94,7 +94,10 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
         }?.also { if (cached == null) imageCache.put(url, it.first, it.second) } ?: return call.respond(HttpStatusCode.BadGateway)
         // Proxied links never change for the same address: the browser may keep the image for a month.
         call.response.header(HttpHeaders.CacheControl, "public, max-age=2592000, immutable")
-        call.respondBytes(bytes, ContentType.parse(type))
+        // Whatever the site claims, only a raster image type goes out: a page or an SVG served from
+        // this origin could run scripts in it. Browsers decode images by their bytes anyway.
+        call.response.header("Content-Security-Policy", "sandbox; default-src 'none'")
+        call.respondBytes(bytes, ContentType.parse(safeImageType(type)))
     }
 
     /**
@@ -128,11 +131,13 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
             open.incrementAndGet()
             try {
                 // Safari plays a video only with a real video type and an exact length on every range.
-                val videoType = type.takeUnless { it.isBlank() || it.startsWith("application/octet-stream") || it.startsWith("text/") }
+                // Only video and audio types leave the server; anything else is labelled as video.
+                val videoType = type.takeIf { it.startsWith("video/") || it.startsWith("audio/") }
                     ?: if (url.substringBefore('?').endsWith(".ts")) "video/mp2t" else "video/mp4"
                 val length = response.header(HttpHeaders.ContentLength)?.toLongOrNull()
                 val body = response.body ?: return call.respond(HttpStatusCode.BadGateway)
                 val extra = io.ktor.http.Headers.build {
+                    append("Content-Security-Policy", "sandbox; default-src 'none'")
                     response.header(HttpHeaders.ContentRange)?.let { append(HttpHeaders.ContentRange, it) }
                     append(HttpHeaders.AcceptRanges, "bytes")
                     append(HttpHeaders.CacheControl, "private, max-age=3600")
@@ -175,10 +180,15 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
         }
     }
 
-    private companion object {
-        const val MAX_IMAGE_BYTES = 20 * 1024 * 1024
-        const val BUFFER = 64 * 1024
-        val URI_ATTRIBUTE = Regex("""URI="([^"]+)"""")
+    companion object {
+        private val RASTER = setOf("image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "image/bmp")
+
+        /** The site's type when it is a raster image; JPEG otherwise (never HTML, SVG or text). */
+        fun safeImageType(type: String): String = type.substringBefore(';').trim().lowercase().takeIf { it in RASTER } ?: "image/jpeg"
+
+        private const val MAX_IMAGE_BYTES = 20 * 1024 * 1024
+        private const val BUFFER = 64 * 1024
+        private val URI_ATTRIBUTE = Regex("""URI="([^"]+)"""")
     }
 }
 

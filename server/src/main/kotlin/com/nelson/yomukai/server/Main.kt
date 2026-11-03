@@ -141,10 +141,22 @@ private fun Route.authRoutes(s: Services) {
 
     post("/auth/login") {
         val body = JsonParser.parseString(call.receiveText()).asJsonObject
-        val name = body.get("name")?.asString.orEmpty()
-        val password = body.get("password")?.asString.orEmpty()
+        val name = body.get("name")?.asString.orEmpty().take(64)
+        val password = body.get("password")?.asString.orEmpty().take(256)
+        val keys = listOf("ip:" + clientAddress(call, s.config), "user:" + name.trim().lowercase())
+        val wait = s.auth.throttle.waitFor(keys)
+        if (wait > 0) {
+            return@post call.respond(
+                HttpStatusCode.TooManyRequests,
+                mapOf("error" to "Demasiados intentos. Prueba otra vez en ${(wait / 60_000) + 1} min")
+            )
+        }
         val session = s.auth.login(name, password)
-            ?: return@post call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Usuario o contraseña incorrectos"))
+        if (session == null) {
+            s.auth.throttle.failed(keys)
+            return@post call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Usuario o contraseña incorrectos"))
+        }
+        s.auth.throttle.succeeded(keys[1])
         call.response.cookies.append(s.auth.sessionCookie(session.second, secure(call)))
         call.respond(session.first.dto())
     }
@@ -168,6 +180,15 @@ private fun Route.authRoutes(s: Services) {
 
 private fun User.dto() = UserDto(name, isAdmin, isGuest, expiresAt)
 
+/** The visitor's address; behind a reverse proxy (TRUST_PROXY, on by default) the one it forwards. */
+private fun clientAddress(call: ApplicationCall, config: Config): String {
+    if (config.trustProxy) {
+        call.request.headers["X-Real-IP"]?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+        call.request.headers["X-Forwarded-For"]?.substringBefore(',')?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+    }
+    return call.request.local.remoteAddress
+}
+
 private fun Route.adminRoutes(s: Services) {
     get("/users") {
         call.respond(mapOf("users" to s.db.users().map { it.dto() + ("id" to it.id) }, "guests" to s.db.guestCount()))
@@ -177,7 +198,7 @@ private fun Route.adminRoutes(s: Services) {
         val name = body.get("name")?.asString?.trim().orEmpty()
         require(name.matches(Regex("[\\p{L}\\p{N}_.-]{2,32}"))) { "Nombre de 2 a 32 letras, números, punto, guion o guion bajo" }
         require(s.db.userByName(name) == null) { "Ya existe un usuario '$name'" }
-        val password = body.get("password")?.asString?.takeIf { it.length >= 6 } ?: Passwords.generate()
+        val password = body.get("password")?.asString?.takeIf { it.length >= MIN_PASSWORD } ?: Passwords.generate()
         s.db.createUser(name, Passwords.hash(password), admin = body.get("admin")?.asBoolean == true, guest = false, expiresAt = null)
         call.respond(mapOf("name" to name, "password" to password))
     }
@@ -363,5 +384,6 @@ private fun Route.webApp(dir: File) {
 }
 
 private const val MAX_PROGRESS_ROWS = 5_000
+private const val MIN_PASSWORD = 8
 private const val MAX_SETTINGS_CHARS = 256 * 1024
 private const val MAX_IMPORT_CHARS = 32 * 1024 * 1024

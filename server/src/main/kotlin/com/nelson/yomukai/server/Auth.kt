@@ -67,7 +67,46 @@ class RateLimiter {
     }
 }
 
+/**
+ * Slows down password guessing: after [MAX_FAILURES] wrong attempts from one address, or against one
+ * account, within [WINDOW_MS], that key is locked for [LOCK_MS]. A right password clears the account.
+ */
+class LoginThrottle {
+    private class Record(var failures: Int, var since: Long, var lockedUntil: Long)
+
+    private val records = ConcurrentHashMap<String, Record>()
+
+    /** Milliseconds until [keys] may try again; 0 when none is locked. */
+    fun waitFor(keys: List<String>, now: Long = System.currentTimeMillis()): Long =
+        keys.maxOf { key -> records[key]?.lockedUntil?.minus(now)?.coerceAtLeast(0) ?: 0 }
+
+    fun failed(keys: List<String>, now: Long = System.currentTimeMillis()) {
+        keys.forEach { key ->
+            val record = records.getOrPut(key) { Record(0, now, 0) }
+            synchronized(record) {
+                if (now - record.since > WINDOW_MS) { record.failures = 0; record.since = now }
+                record.failures++
+                if (record.failures >= MAX_FAILURES) record.lockedUntil = now + LOCK_MS
+            }
+        }
+        if (records.size > MAX_RECORDS) records.entries.removeIf { now - it.value.since > WINDOW_MS && it.value.lockedUntil < now }
+    }
+
+    fun succeeded(key: String) {
+        records.remove(key)
+    }
+
+    companion object {
+        const val MAX_FAILURES = 5
+        const val WINDOW_MS = 15 * 60_000L
+        const val LOCK_MS = 15 * 60_000L
+        private const val MAX_RECORDS = 100_000
+    }
+}
+
 class Auth(private val db: Database, private val config: Config) {
+    val throttle = LoginThrottle()
+
     private val log = LoggerFactory.getLogger("YomukaiAuth")
     private val limiter = RateLimiter()
 
