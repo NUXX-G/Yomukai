@@ -46,7 +46,28 @@ object ChapterLabels {
             else -> null
         }
         if (shown == null) return ChapterLabel(title.trim().ifBlank { prefix }, null)
-        val name = rest.takeIf { it.isNotBlank() && SmartSearch.normalize(it) != SmartSearch.normalize(shown) }
+        // The number said again anywhere in the rest ("SL - Capítulo 11") adds nothing.
+        val digits = (numberText ?: shown).replace(',', '.')
+        Regex("""(?i)(?:cap[ií]tulo|capitulo|chapter|chap|cap|ch|episodio|episode|ep)\.?\s*#?\s*${Regex.escape(digits)}(?![\d.,])""")
+            .find(rest)?.let { repeated ->
+                val before = rest.substring(0, repeated.range.first).replace(SEPARATORS, "")
+                val after = rest.substring(repeated.range.last + 1).replace(SEPARATORS, "")
+                // What comes before the repeated number is usually the work's initials ("SL").
+                rest = listOf(before.takeUnless { it.isBlank() || isAbbreviationOf(it, mediaTitle) }, after.ifBlank { null })
+                    .filterNotNull().joinToString(" ")
+            }
+        rest = rest.replace(SEPARATORS, "").trim()
+        val name = rest.takeIf {
+            it.isNotBlank() && SmartSearch.normalize(it) != SmartSearch.normalize(shown) && !isAbbreviationOf(it, mediaTitle)
+        }
         return ChapterLabel("$prefix $shown", name)
+    }
+
+    /** "SL" for "Solo Leveling", or a leftover too short to be a name. */
+    private fun isAbbreviationOf(text: String, mediaTitle: String): Boolean {
+        val key = SmartSearch.normalize(text).replace(" ", "")
+        if (key.length <= 2) return true
+        val initials = SmartSearch.tokens(mediaTitle).joinToString("") { it.take(1) }
+        return initials.length >= 2 && key == initials
     }
 }

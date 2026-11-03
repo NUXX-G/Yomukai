@@ -65,21 +65,25 @@ class DiscoveryRepository(
      * the user already has is left out.
      */
     suspend fun forYou(seen: List<MediaItem>): List<RelatedTitle> {
-        val seeds = seen.distinctBy { SmartSearch.duplicateKey(it.title) }.take(MAX_SEEDS)
-        lastForYou?.takeIf { it.first == seeds.map(MediaItem::title) }?.let { return it.second }
-        val known = seen.map { it.title }
+        // A manhwa and its novel share a name but are two works: the type family is part of every key.
+        val seeds = seen.distinctBy { TitleMatcher.familyKey(it.type, it.title) }.take(MAX_SEEDS)
+        val seedKey = seeds.map { TitleMatcher.familyKey(it.type, it.title) }
+        lastForYou?.takeIf { it.first == seedKey }?.let { return it.second }
         val votes = LinkedHashMap<String, Pair<RelatedTitle, Int>>()
         seeds.forEach { seed ->
             val entry = runCatching { aniList.lookup(listOf(seed.title) + seed.altTitles, seed.type) }.getOrNull() ?: return@forEach
             entry.related.forEach { related ->
-                votes[related.title] = related to (votes[related.title]?.second ?: 0) + 1
+                val key = TitleMatcher.familyKey(related.type, related.title)
+                votes[key] = related to (votes[key]?.second ?: 0) + 1
             }
         }
         val found = votes.values.sortedByDescending { it.second }.map { it.first }
-            .filterNot { TitleMatcher.shareName(it.names, known) }
+            // What the user already has is left out, but only in the same format: reading the manhwa
+            // still lets its novel or anime be recommended.
+            .filterNot { related -> seen.any { TitleMatcher.sameFamily(it.type, related.type) && TitleMatcher.shareName(related.names, listOf(it.title) + it.altTitles) } }
             .filter(filter()::allows)
             .take(MAX_FOR_YOU)
-        if (found.isNotEmpty()) lastForYou = seeds.map(MediaItem::title) to found
+        if (found.isNotEmpty()) lastForYou = seedKey to found
         return found
     }
 

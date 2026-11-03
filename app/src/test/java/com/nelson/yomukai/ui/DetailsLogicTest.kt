@@ -23,6 +23,21 @@ class DetailsLogicTest {
     }
 
     @Test
+    fun theNumberSaidTwiceOrTheInitialsAreNotAName() {
+        assertEquals(ChapterLabel("Cap. 11", null), ChapterLabels.of("SL - Capítulo 11", 11f, false, "Solo leveling"))
+        assertEquals(ChapterLabel("Cap. 11", "El regreso"), ChapterLabels.of("SL - Capítulo 11: El regreso", 11f, false, "Solo leveling"))
+        assertEquals("another number stays", ChapterLabel("Cap. 11", "SL - Capítulo 110"), ChapterLabels.of("SL - Capítulo 110", 11f, false, "Solo leveling"))
+    }
+
+    @Test
+    fun monstersAloneAreNotHorror() {
+        val tags = com.nelson.yomukai.data.metadata.KeywordTagger.infer(
+            "Hace 10 años una puerta conectó el mundo real con un mundo lleno de monstruos y algunas personas recibieron el poder para pelear contra ellos."
+        )
+        assertTrue("Terror" !in tags)
+    }
+
+    @Test
     fun chaptersWithoutNumberKeepTheirTitle() {
         assertEquals(ChapterLabel("Epílogo", null), ChapterLabels.of("Epílogo", 0f, false))
     }

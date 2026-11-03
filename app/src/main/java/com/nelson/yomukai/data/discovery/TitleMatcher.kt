@@ -23,6 +23,13 @@ object TitleMatcher {
     fun sameFamily(a: MediaType, b: MediaType): Boolean =
         (a.isReadableAsImages && b.isReadableAsImages) || a == b
 
+    /**
+     * Key of a work by name and format family: "Solo Leveling" the manhwa and "Solo Leveling" the
+     * novel get different keys, the manhwa and a manga edition of it the same one.
+     */
+    fun familyKey(type: MediaType, title: String): String =
+        (if (type.isReadableAsImages) "images" else type.name) + "|" + SmartSearch.duplicateKey(title)
+
     private fun keys(names: Collection<String>): Set<String> =
         names.map(SmartSearch::duplicateKey).filter { it.length >= MIN_KEY_LENGTH }.toSet()
 

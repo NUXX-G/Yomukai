@@ -16,7 +16,7 @@ object KeywordTagger {
         Rule("Juegos", listOf("videojuego", "video game", "vrmmo", "mmorpg", "level up", "mazmorra", "dungeon", "status window"), listOf("jugador", "player", "nivel", "sistema", "system", "quest", "mision")),
         Rule("Romance", listOf("enamor", "fall in love", "falls in love", "romance", "amor", "love story", "prometid", "fiance", "boda", "wedding"), listOf("corazon", "heart", "beso", "kiss", "novio", "novia", "boyfriend", "girlfriend")),
         Rule("Comedia", listOf("comedia", "comedy", "hilarant", "hilarious", "divertid"), listOf("humor", "funny", "risas")),
-        Rule("Terror", listOf("terror", "horror", "pesadilla", "nightmare", "monstruo", "monster"), listOf("miedo", "fear", "sangre", "blood")),
+        Rule("Terror", listOf("terror", "horror", "pesadilla", "nightmare", "aterrador", "terrifying"), listOf("miedo", "fear", "sangre", "blood", "monstruo", "monster")),
         Rule("Misterio", listOf("misterio", "mystery", "detective", "asesinato", "murder", "crimen", "crime"), listOf("pista", "clue", "investig")),
         Rule("Venganza", listOf("venganza", "revenge", "vengar", "avenge", "traicion", "betray"), listOf("odio", "hatred")),
         Rule("Fantasía", listOf("magia", "magic", "dragon", "hechicer", "sorcer", "reino", "kingdom", "elfo", "elf"), listOf("espada", "sword", "caballero", "knight", "mago", "mage", "wizard")),

@@ -12,6 +12,7 @@ import com.nelson.yomukai.data.source.obj
 import com.nelson.yomukai.data.source.objects
 import com.nelson.yomukai.data.source.parseJson
 import com.nelson.yomukai.data.source.str
+import com.nelson.yomukai.data.source.strings
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
 import com.nelson.yomukai.domain.model.PublicationStatus
@@ -51,20 +52,24 @@ data class TitleMetadata(
 /** Kitsu's public API: only a score, used when AniList does not know the title or is out of reach. */
 class KitsuClient(private val network: NetworkHelper) {
     suspend fun score(names: List<String>, type: MediaType): Float? {
-        val title = names.firstOrNull { name -> name.none { it.code > 0x24F } } ?: return null
+        val title = MalClient.searchName(names) ?: return null
         val kind = if (type == MediaType.ANIME) "anime" else "manga"
         val url = "https://kitsu.io/api/edge/$kind?filter%5Btext%5D=${URLEncoder.encode(title, "UTF-8")}" +
-            "&page%5Blimit%5D=3&fields%5B$kind%5D=canonicalTitle,averageRating,titles,abbreviatedTitles"
-        return parseScore(network.getString(url, mapOf("Accept" to "application/vnd.api+json"), cloudflareFallback = false), names)
+            "&page%5Blimit%5D=5&fields%5B$kind%5D=canonicalTitle,averageRating,titles,abbreviatedTitles,subtype"
+        return parseScore(network.getString(url, mapOf("Accept" to "application/vnd.api+json"), cloudflareFallback = false), names, type)
     }
 
     companion object {
-        /** The score of the first result that shares a name with [names], out of 10. */
-        fun parseScore(json: String, names: List<String>): Float? =
+        /**
+         * The score of the first result of the same kind sharing a name with [names], out of 10.
+         * Kitsu lists novels with manga ("Solo Leveling" is both), so its subtype must agree.
+         */
+        fun parseScore(json: String, names: List<String>, type: MediaType = MediaType.MANGA): Float? =
             parseJson(json).asJsonObject.arr("data").objects().firstNotNullOfOrNull { entry ->
                 val attributes = entry.obj("attributes") ?: return@firstNotNullOfOrNull null
+                if (!MalClient.sameKind(attributes.str("subtype"), type)) return@firstNotNullOfOrNull null
                 val titles = attributes.obj("titles")?.entrySet()?.mapNotNull { (_, v) -> v.takeIf { it.isJsonPrimitive }?.asString }.orEmpty() +
-                    listOfNotNull(attributes.str("canonicalTitle"))
+                    listOfNotNull(attributes.str("canonicalTitle")) + attributes.arr("abbreviatedTitles").strings()
                 if (!TitleMatcher.shareName(names, titles)) return@firstNotNullOfOrNull null
                 attributes.str("averageRating")?.toFloatOrNull()?.div(10f)
             }

@@ -149,8 +149,24 @@ class MetadataTest {
     @Test
     fun kitsuScoreNeedsTheSameName() {
         val json = fixture("kitsu_manga.json")
-        assertEquals(8.449f, KitsuClient.parseScore(json, listOf("Solo Leveling"))!!, 0.01f)
+        assertEquals(8.449f, KitsuClient.parseScore(json, listOf("Solo Leveling"), MediaType.MANHWA)!!, 0.01f)
         assertNull(KitsuClient.parseScore(json, listOf("Berserk")))
+    }
+
+    @Test
+    fun theNovelNeverTakesTheManhwaScore() {
+        val json = fixture("kitsu_manga.json")
+        // Kitsu lists the novel as "Only I Level Up"; as "Solo Leveling" only the manhwa exists there.
+        assertEquals(8.236f, KitsuClient.parseScore(json, listOf("Solo Leveling", "Only I Level Up"), MediaType.NOVEL)!!, 0.01f)
+        assertNull(KitsuClient.parseScore(json, listOf("Solo Leveling Ragnarok Hunter"), MediaType.NOVEL))
+    }
+
+    @Test
+    fun manhwaAndNovelOfTheSameNameAreTwoWorks() {
+        assertTrue(TitleMatcher.familyKey(MediaType.MANHWA, "Solo Leveling") != TitleMatcher.familyKey(MediaType.NOVEL, "Solo Leveling"))
+        assertEquals(TitleMatcher.familyKey(MediaType.MANHWA, "Solo Leveling"), TitleMatcher.familyKey(MediaType.MANGA, "SOLO LEVELING"))
+        val novel = MediaItem("1", "Solo Leveling", "", MediaType.NOVEL, "", "", "s")
+        assertEquals(com.nelson.yomukai.data.discovery.MatchConfidence.NONE, TitleMatcher.compare(listOf("Solo Leveling"), "Chugong", MediaType.MANHWA, novel))
     }
 
     @Test
