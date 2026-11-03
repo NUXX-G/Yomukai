@@ -25,7 +25,10 @@ import java.io.File
  * [MAX_ENTRIES] titles are kept.
  */
 class MetadataStore(context: Context) {
-    private val file = File(context.filesDir, "metadata_cache.json")
+    private val file = File(context.filesDir, "metadata_cache_v2.json").also {
+        // v1.7.0 saved entries without the MAL score: they are dropped so it gets asked for.
+        File(context.filesDir, "metadata_cache.json").delete()
+    }
     private val lock = Mutex()
     private var entries: LinkedHashMap<String, Pair<Long, TitleMetadata>>? = null
 

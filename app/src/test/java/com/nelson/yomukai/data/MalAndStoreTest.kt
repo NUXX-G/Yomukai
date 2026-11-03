@@ -33,6 +33,21 @@ class MalAndStoreTest {
     }
 
     @Test
+    fun realMalAnswerTellsTheManhwaFromTheNovel() {
+        val json = checkNotNull(javaClass.classLoader?.getResource("mal_manga.json")).readText()
+        assertEquals(8.54f, MalClient.parseOfficial(json, listOf("Solo Leveling"), MediaType.MANHWA)!!, 0.001f)
+        assertEquals(8.22f, MalClient.parseOfficial(json, listOf("Solo Leveling"), MediaType.NOVEL)!!, 0.001f)
+        assertNull(MalClient.parseOfficial(json, listOf("Omniscient Reader"), MediaType.MANHWA))
+    }
+
+    @Test
+    fun searchNameKeepsLatinNamesAndDropsSymbols() {
+        assertEquals("Magia Record: Mahou Shoujo Madoka Magica Gaiden", MalClient.searchName(listOf("Magia Record: Mahou Shoujo Madoka☆Magica Gaiden")))
+        assertEquals("Solo Leveling", MalClient.searchName(listOf("나 혼자만 레벨업", "Solo Leveling")))
+        assertNull(MalClient.searchName(listOf("俺だけレベルアップな件")))
+    }
+
+    @Test
     fun jikanScoreOfTheSameWork() {
         assertEquals(8.63f, MalClient.parseJikan(jikan, listOf("Only I Level Up"))!!, 0.001f)
         assertNull(MalClient.parseJikan(jikan, listOf("Tower of God")))

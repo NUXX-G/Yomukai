@@ -95,7 +95,10 @@ class MetadataRepository(
         val names = (listOf(media.title) + media.altTitles).filter { it.isNotBlank() }.distinct()
         val malScore = async { mal?.let { client -> safely { withTimeoutOrNull(MAL_TIMEOUT_MS) { client.score(names, media.type) } } } }
         val entry = safely { withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { aniList.lookup(names, media.type) } }
-        val malValue = malScore.await()
+        // MAL may only know the title by the English or romaji name AniList gives.
+        val malValue = malScore.await() ?: entry?.names?.minus(names.toSet())?.takeIf { it.isNotEmpty() }?.let { other ->
+            mal?.let { client -> safely { withTimeoutOrNull(MAL_TIMEOUT_MS) { client.score(other + names, media.type) } } }
+        }
         val kitsuScore = if (entry?.score == null && malValue == null) {
             safely { withTimeoutOrNull(KITSU_TIMEOUT_MS) { kitsu.score(names + entry?.names.orEmpty(), media.type) } }
         } else null
