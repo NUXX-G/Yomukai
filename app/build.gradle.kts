@@ -65,6 +65,9 @@ ksp {
 }
 
 dependencies {
+    // Sources, search, discovery and metadata shared with the web server
+    implementation(project(":shared"))
+
     // Jetpack Compose (Material 3)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
@@ -123,4 +126,9 @@ dependencies {
     androidTestImplementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
+// Classes from :shared are plain Kotlin: their data classes are immutable, so Compose may skip them.
+composeCompiler {
+    stabilityConfigurationFiles.add(rootProject.layout.projectDirectory.file("app/compose-stability.conf"))
 }

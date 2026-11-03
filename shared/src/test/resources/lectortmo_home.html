@@ -1,0 +1,1829 @@
+<html><body>  
+<style>
+.manga-card-wrapper {
+    position: relative;
+    display: block;
+}
+
+.manga-card {
+    position: relative;
+    border-radius: 1rem;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+    padding: 0.75rem;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.manga-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--manga-bg);
+    background-size: cover;
+    background-position: center top;
+    filter: blur(18px) brightness(0.35) saturate(1.4);
+    transform: scale(1.1);
+    z-index: -2;
+}
+
+.manga-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        135deg,
+        rgba(10, 20, 50, 0.82) 0%,
+        rgba(15, 30, 70, 0.70) 50%,
+        rgba(10, 20, 50, 0.88) 100%
+    );
+    z-index: -1;
+}
+
+.manga-card .manga-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 0.65rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+}
+
+.manga-cover-wrap {
+    position: relative;
+    width: 100px;
+    height: 140px;
+    flex-shrink: 0;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+}
+
+.manga-cover-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.score-badge {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(250,204,21,0.35);
+    border-radius: 20px;
+    padding: 2px 7px 2px 5px;
+    white-space: nowrap;
+}
+
+.score-badge .star-icon {
+    font-size: 13px;
+    color: #facc15;
+    font-variation-settings: 'FILL' 1;
+}
+
+.score-badge .score-value {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #fde68a;
+    line-height: 1;
+}
+
+.manga-tooltip {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.85);
+    padding: 0.75rem;
+    pointer-events: none;
+    text-decoration: none;
+    isolation: isolate;
+}
+
+.manga-tooltip::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--manga-bg);
+    background-size: cover;
+    background-position: center top;
+    filter: blur(22px) brightness(0.3) saturate(1.5);
+    transform: scale(1.12);
+    z-index: -2;
+}
+
+.manga-tooltip::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        135deg,
+        rgba(8, 18, 48, 0.88) 0%,
+        rgba(12, 28, 68, 0.78) 50%,
+        rgba(8, 18, 48, 0.92) 100%
+    );
+    z-index: -1;
+}
+
+.manga-card-wrapper:hover .manga-tooltip {
+    display: block;
+}
+
+.manga-tooltip .manga-title-full {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+    white-space: normal;
+    word-break: break-word;
+    margin-bottom: 0.65rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+    line-height: 1.4;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+}
+
+.manga-tooltip .manga-body {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+}
+
+.manga-tooltip .manga-cover-wrap {
+    width: 100px;
+    height: 140px;
+    flex-shrink: 0;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+    position: relative;
+}
+
+.manga-tooltip .manga-meta {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    font-size: 0.8rem;
+}
+
+.manga-tooltip .meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.manga-tooltip .meta-label {
+    color: #93c5fd;
+    flex-shrink: 0;
+}
+
+.badge-status { color:#fff; font-size:0.7rem; padding:2px 8px; border-radius:6px; white-space:nowrap; font-weight:600; }
+.badge-blue   { background:rgba(37,99,235,0.85);  color:#fff; font-size:0.7rem; padding:2px 8px; border-radius:6px; white-space:nowrap; }
+.badge-pink   { background:rgba(219,39,119,0.85); color:#fff; font-size:0.7rem; padding:3px 10px; border-radius:8px; font-weight:600; white-space:nowrap; }
+.badge-slate  { background:rgba(51,65,85,0.85);   color:#cbd5e1; font-size:0.7rem; padding:2px 6px; border-radius:6px; white-space:nowrap; flex-shrink:0; }
+.badge-demo   { color:#fff; font-size:0.7rem; padding:3px 10px; border-radius:8px; font-weight:600; white-space:nowrap; opacity:0.9; }
+
+.tags { display:flex; gap:0.35rem; flex-wrap:wrap; margin-top:2px; }
+
+.genre-tag {
+    background: rgba(30,58,95,0.75);
+    color: #93c5fd;
+    font-size: 0.65rem;
+    padding: 2px 7px;
+    border-radius: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80px;
+    display: inline-block;
+    border: 1px solid rgba(147,197,253,0.15);
+}
+
+.genre-tag-full {
+    background: rgba(30,58,95,0.75);
+    color: #93c5fd;
+    font-size: 0.65rem;
+    padding: 2px 7px;
+    border-radius: 5px;
+    white-space: nowrap;
+    border: 1px solid rgba(147,197,253,0.15);
+}
+
+.genre-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+}
+
+.genre-row-tags {
+    display: flex;
+    gap: 4px;
+    overflow: hidden;
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.meta-divider {
+    border: none;
+    border-top: 1px solid rgba(148,163,184,0.12);
+    margin: 1px 0;
+}
+</style>
+
+<div class="manga-card-wrapper">
+
+    <!-- Card normal -->
+    <a href="https://lectortmo.vip/manga/onahole-inalambrica/" class="block">
+        <div class="manga-card" style="--manga-bg: url('https://zonatmo.to/wp-content/uploads/2026/02/67dd54208c710.webp');">
+
+            <h3 class="manga-title">
+                <svg xmlns="http://www.w3.org/2000/svg" style="width:15px;height:15px;color:#93c5fd;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.75 19 7.5 19s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                </svg>
+                Onahole inalámbrica            </h3>
+
+            <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+
+                <div class="manga-cover-wrap">
+                    <img src="https://zonatmo.to/wp-content/uploads/2026/02/67dd54208c710.webp" alt="Onahole inalámbrica" loading="lazy">
+                                        <div class="score-badge">
+                        <span class="material-symbols-outlined star-icon">star</span>
+                        <span class="score-value">10</span>
+                    </div>
+                                    </div>
+
+                <div style="flex:1;display:flex;flex-direction:column;gap:0.45rem;font-size:0.8rem;min-width:0;">
+
+                                        <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                        <span style="color:#93c5fd;flex-shrink:0;">Estado</span>
+                        <span class="badge-status" style="background:rgba(22,163,74,0.85);">
+                            En Emisión                        </span>
+                    </div>
+                    <hr class="meta-divider">
+                    
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                        <span style="color:#93c5fd;flex-shrink:0;">Capítulos</span>
+                        <span class="badge-blue">213</span>
+                    </div>
+
+                                        <hr class="meta-divider">
+                    <div class="genre-row">
+                        <span style="color:#93c5fd;flex-shrink:0;">Género</span>
+                        <div class="genre-row-tags">
+                                                            <span class="genre-tag" title="Accion">
+                                    Accion                                </span>
+                                                            <span class="genre-tag" title="Aventura">
+                                    Aventura                                </span>
+                                                                                        <span class="badge-slate">+4</span>
+                                                    </div>
+                    </div>
+                    
+                    <div class="tags" style="margin-top:4px;">
+                                                <span class="badge-demo" style="background:#7c3aed;">
+                            Seinen                        </span>
+                                                <span class="badge-pink">Manhwa</span>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </a>
+
+    <!-- Tooltip hover -->
+    <a href="https://lectortmo.vip/manga/onahole-inalambrica/" class="manga-tooltip" style="--manga-bg: url('https://zonatmo.to/wp-content/uploads/2026/02/67dd54208c710.webp');">
+
+        <div class="manga-title-full">
+            <svg xmlns="http://www.w3.org/2000/svg" style="width:15px;height:15px;color:#93c5fd;flex-shrink:0;margin-top:2px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.75 19 7.5 19s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+            </svg>
+            Onahole inalámbrica        </div>
+
+        <div class="manga-body">
+
+            <div class="manga-cover-wrap">
+                <img src="https://zonatmo.to/wp-content/uploads/2026/02/67dd54208c710.webp" alt="Onahole inalámbrica" loading="lazy">
+                                <div class="score-badge">
+                    <span class="material-symbols-outlined star-icon">star</span>
+                    <span class="score-value">10</span>
+                </div>
+                            </div>
+
+            <div class="manga-meta">
+
+                                <div class="meta-row">
+                    <span class="meta-label">Estado</span>
+                    <span class="badge-status" style="background:rgba(22,163,74,0.85);">
+                        En Emisión                    </span>
+                </div>
+                <hr class="meta-divider">
+                
+                <div class="meta-row">
+                    <span class="meta-label">Capítulos</span>
+                    <span class="badge-blue">213</span>
+                </div>
+
+                                <hr class="meta-divider">
+                <div class="meta-row">
+                    <span class="meta-label">Score</span>
+                    <span style="display:flex;align-items:center;gap:3px;color:#fde68a;font-weight:700;font-size:0.75rem;">
+                        <span class="material-symbols-outlined" style="font-size:14px;color:#facc15;font-variation-settings:'FILL' 1;">star</span>
+                        10                    </span>
+                </div>
+                
+                                <hr class="meta-divider">
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                    <span class="meta-label">Géneros</span>
+                    <div class="tags">
+                                                    <span class="genre-tag-full">Accion</span>
+                                                    <span class="genre-tag-full">Aventura</span>
+                                                    <span class="genre-tag-full">Comedia</span>
+                                                    <span class="genre-tag-full">Ecchi</span>
+                                                    <span class="genre-tag-full">Recuentos de la vida</span>
+                                                    <span class="genre-tag-full">Seinen</span>
+                                            </div>
+                </div>
+                
+                <div class="tags" style="margin-top:4px;">
+                                        <span class="badge-demo" style="background:#7c3aed;">
+                        Seinen                    </span>
+                                        <span class="badge-pink">Manhwa</span>
+                </div>
+
+            </div>
+        </div>
+
+    </a>
+
+</div>                                            
+<style>
+.manga-card-wrapper {
+    position: relative;
+    display: block;
+}
+
+.manga-card {
+    position: relative;
+    border-radius: 1rem;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+    padding: 0.75rem;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.manga-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--manga-bg);
+    background-size: cover;
+    background-position: center top;
+    filter: blur(18px) brightness(0.35) saturate(1.4);
+    transform: scale(1.1);
+    z-index: -2;
+}
+
+.manga-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        135deg,
+        rgba(10, 20, 50, 0.82) 0%,
+        rgba(15, 30, 70, 0.70) 50%,
+        rgba(10, 20, 50, 0.88) 100%
+    );
+    z-index: -1;
+}
+
+.manga-card .manga-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 0.65rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+}
+
+.manga-cover-wrap {
+    position: relative;
+    width: 100px;
+    height: 140px;
+    flex-shrink: 0;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+}
+
+.manga-cover-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.score-badge {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(250,204,21,0.35);
+    border-radius: 20px;
+    padding: 2px 7px 2px 5px;
+    white-space: nowrap;
+}
+
+.score-badge .star-icon {
+    font-size: 13px;
+    color: #facc15;
+    font-variation-settings: 'FILL' 1;
+}
+
+.score-badge .score-value {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #fde68a;
+    line-height: 1;
+}
+
+.manga-tooltip {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.85);
+    padding: 0.75rem;
+    pointer-events: none;
+    text-decoration: none;
+    isolation: isolate;
+}
+
+.manga-tooltip::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--manga-bg);
+    background-size: cover;
+    background-position: center top;
+    filter: blur(22px) brightness(0.3) saturate(1.5);
+    transform: scale(1.12);
+    z-index: -2;
+}
+
+.manga-tooltip::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        135deg,
+        rgba(8, 18, 48, 0.88) 0%,
+        rgba(12, 28, 68, 0.78) 50%,
+        rgba(8, 18, 48, 0.92) 100%
+    );
+    z-index: -1;
+}
+
+.manga-card-wrapper:hover .manga-tooltip {
+    display: block;
+}
+
+.manga-tooltip .manga-title-full {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+    white-space: normal;
+    word-break: break-word;
+    margin-bottom: 0.65rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+    line-height: 1.4;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+}
+
+.manga-tooltip .manga-body {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+}
+
+.manga-tooltip .manga-cover-wrap {
+    width: 100px;
+    height: 140px;
+    flex-shrink: 0;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+    position: relative;
+}
+
+.manga-tooltip .manga-meta {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    font-size: 0.8rem;
+}
+
+.manga-tooltip .meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.manga-tooltip .meta-label {
+    color: #93c5fd;
+    flex-shrink: 0;
+}
+
+.badge-status { color:#fff; font-size:0.7rem; padding:2px 8px; border-radius:6px; white-space:nowrap; font-weight:600; }
+.badge-blue   { background:rgba(37,99,235,0.85);  color:#fff; font-size:0.7rem; padding:2px 8px; border-radius:6px; white-space:nowrap; }
+.badge-pink   { background:rgba(219,39,119,0.85); color:#fff; font-size:0.7rem; padding:3px 10px; border-radius:8px; font-weight:600; white-space:nowrap; }
+.badge-slate  { background:rgba(51,65,85,0.85);   color:#cbd5e1; font-size:0.7rem; padding:2px 6px; border-radius:6px; white-space:nowrap; flex-shrink:0; }
+.badge-demo   { color:#fff; font-size:0.7rem; padding:3px 10px; border-radius:8px; font-weight:600; white-space:nowrap; opacity:0.9; }
+
+.tags { display:flex; gap:0.35rem; flex-wrap:wrap; margin-top:2px; }
+
+.genre-tag {
+    background: rgba(30,58,95,0.75);
+    color: #93c5fd;
+    font-size: 0.65rem;
+    padding: 2px 7px;
+    border-radius: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80px;
+    display: inline-block;
+    border: 1px solid rgba(147,197,253,0.15);
+}
+
+.genre-tag-full {
+    background: rgba(30,58,95,0.75);
+    color: #93c5fd;
+    font-size: 0.65rem;
+    padding: 2px 7px;
+    border-radius: 5px;
+    white-space: nowrap;
+    border: 1px solid rgba(147,197,253,0.15);
+}
+
+.genre-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+}
+
+.genre-row-tags {
+    display: flex;
+    gap: 4px;
+    overflow: hidden;
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.meta-divider {
+    border: none;
+    border-top: 1px solid rgba(148,163,184,0.12);
+    margin: 1px 0;
+}
+</style>
+
+<div class="manga-card-wrapper">
+
+    <!-- Card normal -->
+    <a href="https://lectortmo.vip/manga/la-sombra-de-la-corona/" class="block">
+        <div class="manga-card" style="--manga-bg: url('https://myanimelist.net/images/manga/3/331732l.jpg');">
+
+            <h3 class="manga-title">
+                <svg xmlns="http://www.w3.org/2000/svg" style="width:15px;height:15px;color:#93c5fd;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.75 19 7.5 19s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                </svg>
+                La Sombra de la Corona            </h3>
+
+            <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+
+                <div class="manga-cover-wrap">
+                    <img src="https://myanimelist.net/images/manga/3/331732l.jpg" alt="La Sombra de la Corona" loading="lazy">
+                                    </div>
+
+                <div style="flex:1;display:flex;flex-direction:column;gap:0.45rem;font-size:0.8rem;min-width:0;">
+
+                                        <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                        <span style="color:#93c5fd;flex-shrink:0;">Estado</span>
+                        <span class="badge-status" style="background:rgba(185,28,28,0.85);">
+                            Finalizado                        </span>
+                    </div>
+                    <hr class="meta-divider">
+                    
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                        <span style="color:#93c5fd;flex-shrink:0;">Capítulos</span>
+                        <span class="badge-blue">50</span>
+                    </div>
+
+                                        <hr class="meta-divider">
+                    <div class="genre-row">
+                        <span style="color:#93c5fd;flex-shrink:0;">Género</span>
+                        <div class="genre-row-tags">
+                                                            <span class="genre-tag" title="Aventura">
+                                    Aventura                                </span>
+                                                            <span class="genre-tag" title="Boys Love">
+                                    Boys Love                                </span>
+                                                                                        <span class="badge-slate">+2</span>
+                                                    </div>
+                    </div>
+                    
+                    <div class="tags" style="margin-top:4px;">
+                                                <span class="badge-demo" style="background:#db2777;">
+                            Shoujo                        </span>
+                                                <span class="badge-pink">Manhwa</span>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </a>
+
+    <!-- Tooltip hover -->
+    <a href="https://lectortmo.vip/manga/la-sombra-de-la-corona/" class="manga-tooltip" style="--manga-bg: url('https://myanimelist.net/images/manga/3/331732l.jpg');">
+
+        <div class="manga-title-full">
+            <svg xmlns="http://www.w3.org/2000/svg" style="width:15px;height:15px;color:#93c5fd;flex-shrink:0;margin-top:2px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.75 19 7.5 19s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+            </svg>
+            La Sombra de la Corona        </div>
+
+        <div class="manga-body">
+
+            <div class="manga-cover-wrap">
+                <img src="https://myanimelist.net/images/manga/3/331732l.jpg" alt="La Sombra de la Corona" loading="lazy">
+                            </div>
+
+            <div class="manga-meta">
+
+                                <div class="meta-row">
+                    <span class="meta-label">Estado</span>
+                    <span class="badge-status" style="background:rgba(185,28,28,0.85);">
+                        Finalizado                    </span>
+                </div>
+                <hr class="meta-divider">
+                
+                <div class="meta-row">
+                    <span class="meta-label">Capítulos</span>
+                    <span class="badge-blue">50</span>
+                </div>
+
+                
+                                <hr class="meta-divider">
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                    <span class="meta-label">Géneros</span>
+                    <div class="tags">
+                                                    <span class="genre-tag-full">Aventura</span>
+                                                    <span class="genre-tag-full">Boys Love</span>
+                                                    <span class="genre-tag-full">Fantasia</span>
+                                                    <span class="genre-tag-full">Romance</span>
+                                            </div>
+                </div>
+                
+                <div class="tags" style="margin-top:4px;">
+                                        <span class="badge-demo" style="background:#db2777;">
+                        Shoujo                    </span>
+                                        <span class="badge-pink">Manhwa</span>
+                </div>
+
+            </div>
+        </div>
+
+    </a>
+
+</div>                                            
+<style>
+.manga-card-wrapper {
+    position: relative;
+    display: block;
+}
+
+.manga-card {
+    position: relative;
+    border-radius: 1rem;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+    padding: 0.75rem;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.manga-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--manga-bg);
+    background-size: cover;
+    background-position: center top;
+    filter: blur(18px) brightness(0.35) saturate(1.4);
+    transform: scale(1.1);
+    z-index: -2;
+}
+
+.manga-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        135deg,
+        rgba(10, 20, 50, 0.82) 0%,
+        rgba(15, 30, 70, 0.70) 50%,
+        rgba(10, 20, 50, 0.88) 100%
+    );
+    z-index: -1;
+}
+
+.manga-card .manga-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 0.65rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+}
+
+.manga-cover-wrap {
+    position: relative;
+    width: 100px;
+    height: 140px;
+    flex-shrink: 0;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+}
+
+.manga-cover-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.score-badge {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(250,204,21,0.35);
+    border-radius: 20px;
+    padding: 2px 7px 2px 5px;
+    white-space: nowrap;
+}
+
+.score-badge .star-icon {
+    font-size: 13px;
+    color: #facc15;
+    font-variation-settings: 'FILL' 1;
+}
+
+.score-badge .score-value {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #fde68a;
+    line-height: 1;
+}
+
+.manga-tooltip {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.85);
+    padding: 0.75rem;
+    pointer-events: none;
+    text-decoration: none;
+    isolation: isolate;
+}
+
+.manga-tooltip::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--manga-bg);
+    background-size: cover;
+    background-position: center top;
+    filter: blur(22px) brightness(0.3) saturate(1.5);
+    transform: scale(1.12);
+    z-index: -2;
+}
+
+.manga-tooltip::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        135deg,
+        rgba(8, 18, 48, 0.88) 0%,
+        rgba(12, 28, 68, 0.78) 50%,
+        rgba(8, 18, 48, 0.92) 100%
+    );
+    z-index: -1;
+}
+
+.manga-card-wrapper:hover .manga-tooltip {
+    display: block;
+}
+
+.manga-tooltip .manga-title-full {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+    white-space: normal;
+    word-break: break-word;
+    margin-bottom: 0.65rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+    line-height: 1.4;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+}
+
+.manga-tooltip .manga-body {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+}
+
+.manga-tooltip .manga-cover-wrap {
+    width: 100px;
+    height: 140px;
+    flex-shrink: 0;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+    position: relative;
+}
+
+.manga-tooltip .manga-meta {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    font-size: 0.8rem;
+}
+
+.manga-tooltip .meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.manga-tooltip .meta-label {
+    color: #93c5fd;
+    flex-shrink: 0;
+}
+
+.badge-status { color:#fff; font-size:0.7rem; padding:2px 8px; border-radius:6px; white-space:nowrap; font-weight:600; }
+.badge-blue   { background:rgba(37,99,235,0.85);  color:#fff; font-size:0.7rem; padding:2px 8px; border-radius:6px; white-space:nowrap; }
+.badge-pink   { background:rgba(219,39,119,0.85); color:#fff; font-size:0.7rem; padding:3px 10px; border-radius:8px; font-weight:600; white-space:nowrap; }
+.badge-slate  { background:rgba(51,65,85,0.85);   color:#cbd5e1; font-size:0.7rem; padding:2px 6px; border-radius:6px; white-space:nowrap; flex-shrink:0; }
+.badge-demo   { color:#fff; font-size:0.7rem; padding:3px 10px; border-radius:8px; font-weight:600; white-space:nowrap; opacity:0.9; }
+
+.tags { display:flex; gap:0.35rem; flex-wrap:wrap; margin-top:2px; }
+
+.genre-tag {
+    background: rgba(30,58,95,0.75);
+    color: #93c5fd;
+    font-size: 0.65rem;
+    padding: 2px 7px;
+    border-radius: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80px;
+    display: inline-block;
+    border: 1px solid rgba(147,197,253,0.15);
+}
+
+.genre-tag-full {
+    background: rgba(30,58,95,0.75);
+    color: #93c5fd;
+    font-size: 0.65rem;
+    padding: 2px 7px;
+    border-radius: 5px;
+    white-space: nowrap;
+    border: 1px solid rgba(147,197,253,0.15);
+}
+
+.genre-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+}
+
+.genre-row-tags {
+    display: flex;
+    gap: 4px;
+    overflow: hidden;
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.meta-divider {
+    border: none;
+    border-top: 1px solid rgba(148,163,184,0.12);
+    margin: 1px 0;
+}
+</style>
+
+<div class="manga-card-wrapper">
+
+    <!-- Card normal -->
+    <a href="https://lectortmo.vip/manga/jinx-s1/" class="block">
+        <div class="manga-card" style="--manga-bg: url('https://myanimelist.net/images/manga/3/272696l.webp');">
+
+            <h3 class="manga-title">
+                <svg xmlns="http://www.w3.org/2000/svg" style="width:15px;height:15px;color:#93c5fd;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.75 19 7.5 19s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                </svg>
+                Jinx            </h3>
+
+            <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+
+                <div class="manga-cover-wrap">
+                    <img src="https://myanimelist.net/images/manga/3/272696l.webp" alt="Jinx" loading="lazy">
+                                        <div class="score-badge">
+                        <span class="material-symbols-outlined star-icon">star</span>
+                        <span class="score-value">9.00</span>
+                    </div>
+                                    </div>
+
+                <div style="flex:1;display:flex;flex-direction:column;gap:0.45rem;font-size:0.8rem;min-width:0;">
+
+                                        <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                        <span style="color:#93c5fd;flex-shrink:0;">Estado</span>
+                        <span class="badge-status" style="background:rgba(22,163,74,0.85);">
+                            En Emisión                        </span>
+                    </div>
+                    <hr class="meta-divider">
+                    
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                        <span style="color:#93c5fd;flex-shrink:0;">Capítulos</span>
+                        <span class="badge-blue">102</span>
+                    </div>
+
+                                        <hr class="meta-divider">
+                    <div class="genre-row">
+                        <span style="color:#93c5fd;flex-shrink:0;">Género</span>
+                        <div class="genre-row-tags">
+                                                            <span class="genre-tag" title="Boys Love">
+                                    Boys Love                                </span>
+                                                            <span class="genre-tag" title="Erotica">
+                                    Erotica                                </span>
+                                                                                        <span class="badge-slate">+1</span>
+                                                    </div>
+                    </div>
+                    
+                    <div class="tags" style="margin-top:4px;">
+                                                <span class="badge-demo" style="background:#dc2626;">
+                            Yaoi                        </span>
+                                                <span class="badge-pink">Manhwa</span>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </a>
+
+    <!-- Tooltip hover -->
+    <a href="https://lectortmo.vip/manga/jinx-s1/" class="manga-tooltip" style="--manga-bg: url('https://myanimelist.net/images/manga/3/272696l.webp');">
+
+        <div class="manga-title-full">
+            <svg xmlns="http://www.w3.org/2000/svg" style="width:15px;height:15px;color:#93c5fd;flex-shrink:0;margin-top:2px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.75 19 7.5 19s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+            </svg>
+            Jinx        </div>
+
+        <div class="manga-body">
+
+            <div class="manga-cover-wrap">
+                <img src="https://myanimelist.net/images/manga/3/272696l.webp" alt="Jinx" loading="lazy">
+                                <div class="score-badge">
+                    <span class="material-symbols-outlined star-icon">star</span>
+                    <span class="score-value">9.00</span>
+                </div>
+                            </div>
+
+            <div class="manga-meta">
+
+                                <div class="meta-row">
+                    <span class="meta-label">Estado</span>
+                    <span class="badge-status" style="background:rgba(22,163,74,0.85);">
+                        En Emisión                    </span>
+                </div>
+                <hr class="meta-divider">
+                
+                <div class="meta-row">
+                    <span class="meta-label">Capítulos</span>
+                    <span class="badge-blue">102</span>
+                </div>
+
+                                <hr class="meta-divider">
+                <div class="meta-row">
+                    <span class="meta-label">Score</span>
+                    <span style="display:flex;align-items:center;gap:3px;color:#fde68a;font-weight:700;font-size:0.75rem;">
+                        <span class="material-symbols-outlined" style="font-size:14px;color:#facc15;font-variation-settings:'FILL' 1;">star</span>
+                        9.00                    </span>
+                </div>
+                
+                                <hr class="meta-divider">
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                    <span class="meta-label">Géneros</span>
+                    <div class="tags">
+                                                    <span class="genre-tag-full">Boys Love</span>
+                                                    <span class="genre-tag-full">Erotica</span>
+                                                    <span class="genre-tag-full">Romance</span>
+                                            </div>
+                </div>
+                
+                <div class="tags" style="margin-top:4px;">
+                                        <span class="badge-demo" style="background:#dc2626;">
+                        Yaoi                    </span>
+                                        <span class="badge-pink">Manhwa</span>
+                </div>
+
+            </div>
+        </div>
+
+    </a>
+
+</div>                                            
+<style>
+.manga-card-wrapper {
+    position: relative;
+    display: block;
+}
+
+.manga-card {
+    position: relative;
+    border-radius: 1rem;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+    padding: 0.75rem;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.manga-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--manga-bg);
+    background-size: cover;
+    background-position: center top;
+    filter: blur(18px) brightness(0.35) saturate(1.4);
+    transform: scale(1.1);
+    z-index: -2;
+}
+
+.manga-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        135deg,
+        rgba(10, 20, 50, 0.82) 0%,
+        rgba(15, 30, 70, 0.70) 50%,
+        rgba(10, 20, 50, 0.88) 100%
+    );
+    z-index: -1;
+}
+
+.manga-card .manga-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 0.65rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+}
+
+.manga-cover-wrap {
+    position: relative;
+    width: 100px;
+    height: 140px;
+    flex-shrink: 0;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+}
+
+.manga-cover-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.score-badge {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(250,204,21,0.35);
+    border-radius: 20px;
+    padding: 2px 7px 2px 5px;
+    white-space: nowrap;
+}
+
+.score-badge .star-icon {
+    font-size: 13px;
+    color: #facc15;
+    font-variation-settings: 'FILL' 1;
+}
+
+.score-badge .score-value {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #fde68a;
+    line-height: 1;
+}
+
+.manga-tooltip {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.85);
+    padding: 0.75rem;
+    pointer-events: none;
+    text-decoration: none;
+    isolation: isolate;
+}
+
+.manga-tooltip::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--manga-bg);
+    background-size: cover;
+    background-position: center top;
+    filter: blur(22px) brightness(0.3) saturate(1.5);
+    transform: scale(1.12);
+    z-index: -2;
+}
+
+.manga-tooltip::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        135deg,
+        rgba(8, 18, 48, 0.88) 0%,
+        rgba(12, 28, 68, 0.78) 50%,
+        rgba(8, 18, 48, 0.92) 100%
+    );
+    z-index: -1;
+}
+
+.manga-card-wrapper:hover .manga-tooltip {
+    display: block;
+}
+
+.manga-tooltip .manga-title-full {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+    white-space: normal;
+    word-break: break-word;
+    margin-bottom: 0.65rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+    line-height: 1.4;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+}
+
+.manga-tooltip .manga-body {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+}
+
+.manga-tooltip .manga-cover-wrap {
+    width: 100px;
+    height: 140px;
+    flex-shrink: 0;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+    position: relative;
+}
+
+.manga-tooltip .manga-meta {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    font-size: 0.8rem;
+}
+
+.manga-tooltip .meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.manga-tooltip .meta-label {
+    color: #93c5fd;
+    flex-shrink: 0;
+}
+
+.badge-status { color:#fff; font-size:0.7rem; padding:2px 8px; border-radius:6px; white-space:nowrap; font-weight:600; }
+.badge-blue   { background:rgba(37,99,235,0.85);  color:#fff; font-size:0.7rem; padding:2px 8px; border-radius:6px; white-space:nowrap; }
+.badge-pink   { background:rgba(219,39,119,0.85); color:#fff; font-size:0.7rem; padding:3px 10px; border-radius:8px; font-weight:600; white-space:nowrap; }
+.badge-slate  { background:rgba(51,65,85,0.85);   color:#cbd5e1; font-size:0.7rem; padding:2px 6px; border-radius:6px; white-space:nowrap; flex-shrink:0; }
+.badge-demo   { color:#fff; font-size:0.7rem; padding:3px 10px; border-radius:8px; font-weight:600; white-space:nowrap; opacity:0.9; }
+
+.tags { display:flex; gap:0.35rem; flex-wrap:wrap; margin-top:2px; }
+
+.genre-tag {
+    background: rgba(30,58,95,0.75);
+    color: #93c5fd;
+    font-size: 0.65rem;
+    padding: 2px 7px;
+    border-radius: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80px;
+    display: inline-block;
+    border: 1px solid rgba(147,197,253,0.15);
+}
+
+.genre-tag-full {
+    background: rgba(30,58,95,0.75);
+    color: #93c5fd;
+    font-size: 0.65rem;
+    padding: 2px 7px;
+    border-radius: 5px;
+    white-space: nowrap;
+    border: 1px solid rgba(147,197,253,0.15);
+}
+
+.genre-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+}
+
+.genre-row-tags {
+    display: flex;
+    gap: 4px;
+    overflow: hidden;
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.meta-divider {
+    border: none;
+    border-top: 1px solid rgba(148,163,184,0.12);
+    margin: 1px 0;
+}
+</style>
+
+<div class="manga-card-wrapper">
+
+    <!-- Card normal -->
+    <a href="https://lectortmo.vip/manga/chainsaw-man-s3/" class="block">
+        <div class="manga-card" style="--manga-bg: url('https://myanimelist.net/images/manga/3/216464l.jpg');">
+
+            <h3 class="manga-title">
+                <svg xmlns="http://www.w3.org/2000/svg" style="width:15px;height:15px;color:#93c5fd;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.75 19 7.5 19s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                </svg>
+                Chainsaw Man            </h3>
+
+            <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+
+                <div class="manga-cover-wrap">
+                    <img src="https://myanimelist.net/images/manga/3/216464l.jpg" alt="Chainsaw Man" loading="lazy">
+                                        <div class="score-badge">
+                        <span class="material-symbols-outlined star-icon">star</span>
+                        <span class="score-value">8.65</span>
+                    </div>
+                                    </div>
+
+                <div style="flex:1;display:flex;flex-direction:column;gap:0.45rem;font-size:0.8rem;min-width:0;">
+
+                                        <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                        <span style="color:#93c5fd;flex-shrink:0;">Estado</span>
+                        <span class="badge-status" style="background:rgba(185,28,28,0.85);">
+                            Finalizado                        </span>
+                    </div>
+                    <hr class="meta-divider">
+                    
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                        <span style="color:#93c5fd;flex-shrink:0;">Capítulos</span>
+                        <span class="badge-blue">243</span>
+                    </div>
+
+                                        <hr class="meta-divider">
+                    <div class="genre-row">
+                        <span style="color:#93c5fd;flex-shrink:0;">Género</span>
+                        <div class="genre-row-tags">
+                                                            <span class="genre-tag" title="Acción">
+                                    Acción                                </span>
+                                                            <span class="genre-tag" title="Comedia">
+                                    Comedia                                </span>
+                                                                                        <span class="badge-slate">+2</span>
+                                                    </div>
+                    </div>
+                    
+                    <div class="tags" style="margin-top:4px;">
+                                                <span class="badge-demo" style="background:#2563eb;">
+                            Shounen                        </span>
+                                                <span class="badge-pink">Manga</span>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </a>
+
+    <!-- Tooltip hover -->
+    <a href="https://lectortmo.vip/manga/chainsaw-man-s3/" class="manga-tooltip" style="--manga-bg: url('https://myanimelist.net/images/manga/3/216464l.jpg');">
+
+        <div class="manga-title-full">
+            <svg xmlns="http://www.w3.org/2000/svg" style="width:15px;height:15px;color:#93c5fd;flex-shrink:0;margin-top:2px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.75 19 7.5 19s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+            </svg>
+            Chainsaw Man        </div>
+
+        <div class="manga-body">
+
+            <div class="manga-cover-wrap">
+                <img src="https://myanimelist.net/images/manga/3/216464l.jpg" alt="Chainsaw Man" loading="lazy">
+                                <div class="score-badge">
+                    <span class="material-symbols-outlined star-icon">star</span>
+                    <span class="score-value">8.65</span>
+                </div>
+                            </div>
+
+            <div class="manga-meta">
+
+                                <div class="meta-row">
+                    <span class="meta-label">Estado</span>
+                    <span class="badge-status" style="background:rgba(185,28,28,0.85);">
+                        Finalizado                    </span>
+                </div>
+                <hr class="meta-divider">
+                
+                <div class="meta-row">
+                    <span class="meta-label">Capítulos</span>
+                    <span class="badge-blue">243</span>
+                </div>
+
+                                <hr class="meta-divider">
+                <div class="meta-row">
+                    <span class="meta-label">Score</span>
+                    <span style="display:flex;align-items:center;gap:3px;color:#fde68a;font-weight:700;font-size:0.75rem;">
+                        <span class="material-symbols-outlined" style="font-size:14px;color:#facc15;font-variation-settings:'FILL' 1;">star</span>
+                        8.65                    </span>
+                </div>
+                
+                                <hr class="meta-divider">
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                    <span class="meta-label">Géneros</span>
+                    <div class="tags">
+                                                    <span class="genre-tag-full">Acción</span>
+                                                    <span class="genre-tag-full">Comedia</span>
+                                                    <span class="genre-tag-full">Demonios</span>
+                                                    <span class="genre-tag-full">Fantasia</span>
+                                            </div>
+                </div>
+                
+                <div class="tags" style="margin-top:4px;">
+                                        <span class="badge-demo" style="background:#2563eb;">
+                        Shounen                    </span>
+                                        <span class="badge-pink">Manga</span>
+                </div>
+
+            </div>
+        </div>
+
+    </a>
+
+</div>                                            
+<style>
+.manga-card-wrapper {
+    position: relative;
+    display: block;
+}
+
+.manga-card {
+    position: relative;
+    border-radius: 1rem;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+    padding: 0.75rem;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.manga-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--manga-bg);
+    background-size: cover;
+    background-position: center top;
+    filter: blur(18px) brightness(0.35) saturate(1.4);
+    transform: scale(1.1);
+    z-index: -2;
+}
+
+.manga-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        135deg,
+        rgba(10, 20, 50, 0.82) 0%,
+        rgba(15, 30, 70, 0.70) 50%,
+        rgba(10, 20, 50, 0.88) 100%
+    );
+    z-index: -1;
+}
+
+.manga-card .manga-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 0.65rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+}
+
+.manga-cover-wrap {
+    position: relative;
+    width: 100px;
+    height: 140px;
+    flex-shrink: 0;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+}
+
+.manga-cover-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.score-badge {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(250,204,21,0.35);
+    border-radius: 20px;
+    padding: 2px 7px 2px 5px;
+    white-space: nowrap;
+}
+
+.score-badge .star-icon {
+    font-size: 13px;
+    color: #facc15;
+    font-variation-settings: 'FILL' 1;
+}
+
+.score-badge .score-value {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #fde68a;
+    line-height: 1;
+}
+
+.manga-tooltip {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.85);
+    padding: 0.75rem;
+    pointer-events: none;
+    text-decoration: none;
+    isolation: isolate;
+}
+
+.manga-tooltip::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--manga-bg);
+    background-size: cover;
+    background-position: center top;
+    filter: blur(22px) brightness(0.3) saturate(1.5);
+    transform: scale(1.12);
+    z-index: -2;
+}
+
+.manga-tooltip::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        135deg,
+        rgba(8, 18, 48, 0.88) 0%,
+        rgba(12, 28, 68, 0.78) 50%,
+        rgba(8, 18, 48, 0.92) 100%
+    );
+    z-index: -1;
+}
+
+.manga-card-wrapper:hover .manga-tooltip {
+    display: block;
+}
+
+.manga-tooltip .manga-title-full {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+    white-space: normal;
+    word-break: break-word;
+    margin-bottom: 0.65rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+    line-height: 1.4;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+}
+
+.manga-tooltip .manga-body {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+}
+
+.manga-tooltip .manga-cover-wrap {
+    width: 100px;
+    height: 140px;
+    flex-shrink: 0;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+    position: relative;
+}
+
+.manga-tooltip .manga-meta {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    font-size: 0.8rem;
+}
+
+.manga-tooltip .meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.manga-tooltip .meta-label {
+    color: #93c5fd;
+    flex-shrink: 0;
+}
+
+.badge-status { color:#fff; font-size:0.7rem; padding:2px 8px; border-radius:6px; white-space:nowrap; font-weight:600; }
+.badge-blue   { background:rgba(37,99,235,0.85);  color:#fff; font-size:0.7rem; padding:2px 8px; border-radius:6px; white-space:nowrap; }
+.badge-pink   { background:rgba(219,39,119,0.85); color:#fff; font-size:0.7rem; padding:3px 10px; border-radius:8px; font-weight:600; white-space:nowrap; }
+.badge-slate  { background:rgba(51,65,85,0.85);   color:#cbd5e1; font-size:0.7rem; padding:2px 6px; border-radius:6px; white-space:nowrap; flex-shrink:0; }
+.badge-demo   { color:#fff; font-size:0.7rem; padding:3px 10px; border-radius:8px; font-weight:600; white-space:nowrap; opacity:0.9; }
+
+.tags { display:flex; gap:0.35rem; flex-wrap:wrap; margin-top:2px; }
+
+.genre-tag {
+    background: rgba(30,58,95,0.75);
+    color: #93c5fd;
+    font-size: 0.65rem;
+    padding: 2px 7px;
+    border-radius: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80px;
+    display: inline-block;
+    border: 1px solid rgba(147,197,253,0.15);
+}
+
+.genre-tag-full {
+    background: rgba(30,58,95,0.75);
+    color: #93c5fd;
+    font-size: 0.65rem;
+    padding: 2px 7px;
+    border-radius: 5px;
+    white-space: nowrap;
+    border: 1px solid rgba(147,197,253,0.15);
+}
+
+.genre-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+}
+
+.genre-row-tags {
+    display: flex;
+    gap: 4px;
+    overflow: hidden;
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.meta-divider {
+    border: none;
+    border-top: 1px solid rgba(148,163,184,0.12);
+    margin: 1px 0;
+}
+</style>
+
+<div class="manga-card-wrapper">
+
+    <!-- Card normal -->
+    <a href="https://lectortmo.vip/manga/bad-contact/" class="block">
+        <div class="manga-card" style="--manga-bg: url('https://zonatmo.to/wp-content/uploads/2025/12/62b680263f659.webp');">
+
+            <h3 class="manga-title">
+                <svg xmlns="http://www.w3.org/2000/svg" style="width:15px;height:15px;color:#93c5fd;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.75 19 7.5 19s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                </svg>
+                Bad Contact            </h3>
+
+            <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+
+                <div class="manga-cover-wrap">
+                    <img src="https://zonatmo.to/wp-content/uploads/2025/12/62b680263f659.webp" alt="Bad Contact" loading="lazy">
+                                    </div>
+
+                <div style="flex:1;display:flex;flex-direction:column;gap:0.45rem;font-size:0.8rem;min-width:0;">
+
+                                        <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                        <span style="color:#93c5fd;flex-shrink:0;">Estado</span>
+                        <span class="badge-status" style="background:rgba(185,28,28,0.85);">
+                            Finalizado                        </span>
+                    </div>
+                    <hr class="meta-divider">
+                    
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                        <span style="color:#93c5fd;flex-shrink:0;">Capítulos</span>
+                        <span class="badge-blue">14</span>
+                    </div>
+
+                                        <hr class="meta-divider">
+                    <div class="genre-row">
+                        <span style="color:#93c5fd;flex-shrink:0;">Género</span>
+                        <div class="genre-row-tags">
+                                                            <span class="genre-tag" title="Boys Love">
+                                    Boys Love                                </span>
+                                                            <span class="genre-tag" title="Comedia">
+                                    Comedia                                </span>
+                                                                                        <span class="badge-slate">+3</span>
+                                                    </div>
+                    </div>
+                    
+                    <div class="tags" style="margin-top:4px;">
+                                                <span class="badge-demo" style="background:#d97706;">
+                            Josei                        </span>
+                                                <span class="badge-pink">Manhwa</span>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </a>
+
+    <!-- Tooltip hover -->
+    <a href="https://lectortmo.vip/manga/bad-contact/" class="manga-tooltip" style="--manga-bg: url('https://zonatmo.to/wp-content/uploads/2025/12/62b680263f659.webp');">
+
+        <div class="manga-title-full">
+            <svg xmlns="http://www.w3.org/2000/svg" style="width:15px;height:15px;color:#93c5fd;flex-shrink:0;margin-top:2px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.75 19 7.5 19s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+            </svg>
+            Bad Contact        </div>
+
+        <div class="manga-body">
+
+            <div class="manga-cover-wrap">
+                <img src="https://zonatmo.to/wp-content/uploads/2025/12/62b680263f659.webp" alt="Bad Contact" loading="lazy">
+                            </div>
+
+            <div class="manga-meta">
+
+                                <div class="meta-row">
+                    <span class="meta-label">Estado</span>
+                    <span class="badge-status" style="background:rgba(185,28,28,0.85);">
+                        Finalizado                    </span>
+                </div>
+                <hr class="meta-divider">
+                
+                <div class="meta-row">
+                    <span class="meta-label">Capítulos</span>
+                    <span class="badge-blue">14</span>
+                </div>
+
+                
+                                <hr class="meta-divider">
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                    <span class="meta-label">Géneros</span>
+                    <div class="tags">
+       </body></html>

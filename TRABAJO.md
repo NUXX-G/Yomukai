@@ -2,6 +2,26 @@
 
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
+## Versión web (en curso, pedida por el usuario el 2026-11-03)
+Objetivo: lo mismo que la app Android (anime, manga, manhwa, novela) en el VPS del usuario, instalable con una línea de Docker, y en GitHub para que cualquiera lo monte.
+- Cuentas con usuario y contraseña (sesión que no caduca) para amigos; el admin las crea.
+- Invitados sin contraseña: pueden hacer de todo y sus datos se borran a los 7 días.
+- Exportar e importar los datos (también de invitado a cuenta).
+- Límites para invitados (peticiones/minuto, vídeos simultáneos) para no saturar el VPS.
+
+Estructura:
+- `shared/`: fuentes, búsqueda, descubrimiento y metadatos, Kotlin/JVM puro. La app y el servidor usan la misma copia. La red es la interfaz `HttpFetcher`.
+- `server/`: Ktor + SQLite. API, usuarios, invitados, export/import, proxy de imágenes y vídeo (Range y HLS), FlareSolverr para Cloudflare.
+- `web/`: SPA instalable (PWA) con el diseño de la app.
+- Docker multi-stage + `docker-compose.yml` + `install.sh` (una línea).
+
+Fases:
+- [x] 1. Sacar la lógica a `shared/` sin romper Android (131 pruebas en verde, release probada)
+- [ ] 2. Servidor: API de fuentes, cuentas, invitados, export/import, proxy
+- [ ] 3. Web: Inicio, Buscar, Biblioteca, ficha, lectores de manga y novela
+- [ ] 4. Reproductor de anime en la web
+- [ ] 5. Docker, instalación en una línea y README
+
 ## Tanda v1.8.0 (release completa, autorizada por el usuario)
 - [x] Aleatorio siempre con fuente: solo obras que están en tus fuentes, «Disponible en» y abrir directo; cambiar tipo/género tira otra vez
 - [x] Reloj minimalista también en el lector de manga/manhwa y de novela

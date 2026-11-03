@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.nelson.yomukai.data.source.NewSourcesParsingTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-03T14:24:50.512Z" hostname="NUXX" time="0.056">
+  <properties/>
+  <testcase name="lectorTmoHomeCards" classname="com.nelson.yomukai.data.source.NewSourcesParsingTest" time="0.008"/>
+  <testcase name="lectorTmoChapterCardsAndPages" classname="com.nelson.yomukai.data.source.NewSourcesParsingTest" time="0.005"/>
+  <testcase name="asuraPagesFromIslandProps" classname="com.nelson.yomukai.data.source.NewSourcesParsingTest" time="0.012"/>
+  <testcase name="detectsFirewallBlockPages" classname="com.nelson.yomukai.data.source.NewSourcesParsingTest" time="0.002"/>
+  <testcase name="olympusChapterPagesInOrder" classname="com.nelson.yomukai.data.source.NewSourcesParsingTest" time="0.007"/>
+  <testcase name="olympusHomeCards" classname="com.nelson.yomukai.data.source.NewSourcesParsingTest" time="0.007"/>
+  <testcase name="animeAv1CatalogDetailsEpisodesAndServers" classname="com.nelson.yomukai.data.source.NewSourcesParsingTest" time="0.014"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

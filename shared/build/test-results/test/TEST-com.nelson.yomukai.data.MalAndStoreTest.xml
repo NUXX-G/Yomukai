@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.nelson.yomukai.data.MalAndStoreTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-03T14:24:50.214Z" hostname="NUXX" time="0.019">
+  <properties/>
+  <testcase name="realMalAnswerTellsTheManhwaFromTheNovel" classname="com.nelson.yomukai.data.MalAndStoreTest" time="0.003"/>
+  <testcase name="storedMetadataComesBackTheSame" classname="com.nelson.yomukai.data.MalAndStoreTest" time="0.007"/>
+  <testcase name="searchNameKeepsLatinNamesAndDropsSymbols" classname="com.nelson.yomukai.data.MalAndStoreTest" time="0.001"/>
+  <testcase name="jikanScoreOfTheSameWork" classname="com.nelson.yomukai.data.MalAndStoreTest" time="0.0"/>
+  <testcase name="mangaUpdatesTellsTheManhwaFromTheNovel" classname="com.nelson.yomukai.data.MalAndStoreTest" time="0.004"/>
+  <testcase name="openLibraryNeedsEnoughRatingsAndTheSameAuthor" classname="com.nelson.yomukai.data.MalAndStoreTest" time="0.003"/>
+  <testcase name="officialApiScoreOfTheSameWork" classname="com.nelson.yomukai.data.MalAndStoreTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

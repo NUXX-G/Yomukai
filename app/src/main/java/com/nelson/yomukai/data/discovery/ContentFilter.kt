@@ -1,6 +1,5 @@
 package com.nelson.yomukai.data.discovery
 
-import com.nelson.yomukai.data.metadata.GenreTaxonomy
 import com.nelson.yomukai.data.prefs.AppPreferences
 import com.nelson.yomukai.data.repository.LibraryRepository
 import com.nelson.yomukai.data.search.SmartSearch
@@ -14,22 +13,13 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
 
-/** Which genres hide a title. Pure, so it is unit tested. */
-object GenreRules {
-    /** True when any of [genres] is one of [excluded], in any language or spelling the taxonomy knows. */
-    fun isExcluded(genres: Collection<String>, excluded: Set<String>): Boolean {
-        if (excluded.isEmpty()) return false
-        val banned = excluded.flatMap(GenreTaxonomy::variants).toSet()
-        return genres.any { SmartSearch.normalize(it) in banned }
-    }
-}
 
 /**
  * Hides titles of excluded genres in two steps, so lists never wait for it. [known] answers at once
  * with what is already known; [check] then reads the pages of titles whose genres nobody listed,
  * a few at a time and in the background, and each answer is remembered.
  */
-class ContentFilter(private val preferences: AppPreferences, private val library: LibraryRepository) {
+class ContentFilter(private val preferences: AppPreferences, private val library: LibraryRepository) : TitleFilter {
     /** Genres by source|id; an empty list means the title's page was read and lists none. */
     private val genres = ConcurrentHashMap<String, List<String>>()
 
@@ -45,7 +35,7 @@ class ContentFilter(private val preferences: AppPreferences, private val library
     }
 
     /** Removes what is already known to be excluded. Does no network work. */
-    suspend fun known(source: CatalogueSource, items: List<MediaItem>): List<MediaItem> {
+    override suspend fun known(source: CatalogueSource, items: List<MediaItem>): List<MediaItem> {
         val excluded = preferences.exclusions.value.forSource(source.id)
         if (excluded.isEmpty()) return items
         return items.filterNot { GenreRules.isExcluded(knownGenres(it).orEmpty() + it.type.displayName, excluded) }
@@ -91,7 +81,7 @@ class ContentFilter(private val preferences: AppPreferences, private val library
      * type counts too, as it does for source lists, so excluding "Manhwa" hides recommended manhwa
      * instead of showing cards that then lead nowhere.
      */
-    fun allows(related: RelatedTitle): Boolean =
+    override fun allows(related: RelatedTitle): Boolean =
         !GenreRules.isExcluded(related.genres + related.tags + related.type.displayName, preferences.exclusions.value.global)
 
     private companion object {

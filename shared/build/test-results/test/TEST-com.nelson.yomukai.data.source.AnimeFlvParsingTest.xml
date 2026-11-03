@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.nelson.yomukai.data.source.AnimeFlvParsingTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-03T14:24:50.295Z" hostname="NUXX" time="0.147">
+  <properties/>
+  <testcase name="catalogueAndSearch" classname="com.nelson.yomukai.data.source.AnimeFlvParsingTest" time="0.082"/>
+  <testcase name="blockedHlsIsTriedLast" classname="com.nelson.yomukai.data.source.AnimeFlvParsingTest" time="0.007"/>
+  <testcase name="latestEpisodesPointAtTheirTitle" classname="com.nelson.yomukai.data.source.AnimeFlvParsingTest" time="0.025"/>
+  <testcase name="voeRevealsItsStream" classname="com.nelson.yomukai.data.source.AnimeFlvParsingTest" time="0.008"/>
+  <testcase name="detailsAndEpisodes" classname="com.nelson.yomukai.data.source.AnimeFlvParsingTest" time="0.014"/>
+  <testcase name="episodeServers" classname="com.nelson.yomukai.data.source.AnimeFlvParsingTest" time="0.009"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

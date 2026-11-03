@@ -50,7 +50,6 @@ import javax.net.ssl.SSLException
 
 private const val NO_RETRY_HEADER = "X-Yomukai-No-Retry"
 
-class HttpException(val code: Int, url: String) : IOException("HTTP $code en $url")
 
 /** The site answered with a firewall/anti-bot page instead of content. */
 class SourceBlockedException(host: String, protection: String) : IOException(
@@ -82,7 +81,7 @@ class NetworkHelper(
     private val settings: StateFlow<NetworkSettings>,
     private val tor: StateFlow<TorState>,
     scope: CoroutineScope
-) {
+) : HttpFetcher {
     private val cache = Cache(File(context.cacheDir, "http_cache"), 25L * 1024 * 1024)
     private val cookieJar = WebViewCookieJar()
     private val connectionPool = ConnectionPool(16, 2, TimeUnit.MINUTES)
@@ -221,10 +220,10 @@ class NetworkHelper(
      *
      * Identical requests made at the same time, or a moment apart, share one response.
      */
-    suspend fun getString(
+    override suspend fun getString(
         url: String,
-        headers: Map<String, String> = emptyMap(),
-        cloudflareFallback: Boolean = true
+        headers: Map<String, String>,
+        cloudflareFallback: Boolean
     ): String = withContext(Dispatchers.IO) {
         val key = url + "|" + headers.hashCode()
         sameRequestLocks[(key.hashCode() and Int.MAX_VALUE) % LOCK_STRIPES].withLock {
@@ -277,7 +276,7 @@ class NetworkHelper(
         }
 
     /** Fetches [url] the way the image loader does; returns a short description or throws when it is not an image. */
-    suspend fun checkImage(url: String, headers: Map<String, String>): String = withContext(Dispatchers.IO) {
+    override suspend fun checkImage(url: String, headers: Map<String, String>): String = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url).apply { headers.forEach { (k, v) -> header(k, v) } }.build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw HttpException(response.code, url)
@@ -288,7 +287,7 @@ class NetworkHelper(
     }
 
     /** POSTs a JSON [body] and returns the answer as text. Never waits to retry: the caller has a fallback. */
-    suspend fun postJson(url: String, body: String): String = withContext(Dispatchers.IO) {
+    override suspend fun postJson(url: String, body: String): String = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url)
             .post(body.toRequestBody("application/json".toMediaType()))
             .header("Accept", "application/json")
@@ -300,7 +299,7 @@ class NetworkHelper(
         }
     }
 
-    suspend fun postString(url: String, headers: Map<String, String> = emptyMap()): String = withContext(Dispatchers.IO) {
+    override suspend fun postString(url: String, headers: Map<String, String>): String = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url)
             .post(ByteArray(0).toRequestBody(null))
             .apply { headers.forEach { (k, v) -> header(k, v) } }
@@ -315,8 +314,7 @@ class NetworkHelper(
 
     companion object {
         const val TAG = "YomukaiNetwork"
-        const val USER_AGENT =
-            "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36"
+        const val USER_AGENT = WebProtection.USER_AGENT
 
         private const val CONNECT_TIMEOUT_S = 10L
         private const val READ_TIMEOUT_S = 20L
@@ -333,33 +331,14 @@ class NetworkHelper(
 
         private class Recent(val body: String, val at: Long)
 
-        /** A challenge in progress. The `challenge-platform` script alone proves nothing: Cloudflare adds it to normal pages too. */
-        fun isCloudflareChallenge(html: String): Boolean {
-            val head = html.take(6000)
-            return "cf-browser-verification" in head || "_cf_chl_opt" in head ||
-                "<title>Just a moment" in head || "<title>Un momento" in head
-        }
+        // The rules live in :shared, which the web server uses too.
+        fun isCloudflareChallenge(html: String): Boolean = WebProtection.isCloudflareChallenge(html)
 
-        /** A WebView shows JSON or plain text wrapped in `<pre>`; the callers want the original text. */
-        fun unwrapPlainText(html: String): String {
-            val body = Jsoup.parse(html).body()
-            val only = body.children().singleOrNull()
-            return if (only?.tagName() == "pre" && body.ownText().isBlank()) only.wholeText() else html
-        }
+        fun unwrapPlainText(html: String): String = WebProtection.unwrapPlainText(html)
 
         /** Recognizes the block pages of common anti-bot/firewall products; null when the page looks real. */
-        fun detectProtection(code: Int, body: String, cfMitigated: String? = null): String? {
-            val head = body.take(6000)
-            return when {
-                cfMitigated != null || isCloudflareChallenge(body) -> "Cloudflare"
-                "Attention Required! | Cloudflare" in head || "Sorry, you have been blocked" in head -> "Cloudflare"
-                "Tu acceso a este sitio ha sido limitado" in head ||
-                    "Your access to this site has been limited" in head -> "Wordfence"
-                "DDoS-Guard" in head && code in setOf(403, 503) -> "DDoS-Guard"
-                code == 403 && body.length < 2000 && "<html" in body.lowercase() -> "acceso denegado"
-                else -> null
-            }
-        }
+        fun detectProtection(code: Int, body: String, cfMitigated: String? = null): String? =
+            WebProtection.detectProtection(code, body, cfMitigated)
     }
 }
 
