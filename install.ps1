@@ -1,6 +1,7 @@
 # Yomukai web on Windows (Docker Desktop): install or update with one line.
 #   irm https://raw.githubusercontent.com/NUXX-G/Yomukai/main/install.ps1 | iex
-$ErrorActionPreference = 'Stop'
+# Native tools write progress to stderr; failures are checked by exit code instead.
+$ErrorActionPreference = 'Continue'
 $Repo = 'https://github.com/NUXX-G/Yomukai'
 $Raw = 'https://raw.githubusercontent.com/NUXX-G/Yomukai/main'
 $Dir = if ($env:YOMUKAI_DIR) { $env:YOMUKAI_DIR } else { Join-Path $HOME 'yomukai' }
@@ -41,12 +42,15 @@ docker compose pull --quiet yomukai 2>$null
 if ($LASTEXITCODE -ne 0) {
   Say 'Compilando la imagen (la primera vez tarda unos minutos)...'
   if (Test-Path src) { Remove-Item -Recurse -Force src }
-  git clone --depth 1 -c core.autocrlf=false $Repo src
+  git clone --depth 1 -c core.autocrlf=false $Repo src 2>&1 | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw "No se pudo descargar el código de $Repo" }
   docker build -t ghcr.io/nuxx-g/yomukai:latest src
+  if ($LASTEXITCODE -ne 0) { throw 'No se pudo compilar la imagen' }
   Remove-Item -Recurse -Force src
 }
 docker compose pull --quiet flaresolverr
 docker compose up -d
+if ($LASTEXITCODE -ne 0) { throw 'No se pudo arrancar Yomukai' }
 
 $UsedPort = ((Get-Content .env | Where-Object { $_ -like 'PORT=*' }) -split '=')[1]
 Say ''
