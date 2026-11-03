@@ -138,6 +138,17 @@ class ServerHttp(private val flareSolverrUrl: String?) : HttpFetcher {
     private val recent = ConcurrentHashMap<String, Recent>()
     private val locks = Array(LOCK_STRIPES) { Mutex() }
 
+    /**
+     * Hosts FlareSolverr may open: the sources' own sites. Its browser follows redirects and resolves
+     * names on its own, out of reach of [PublicAddresses], so it is never pointed at anything else.
+     */
+    @Volatile var solverHosts: Set<String> = emptySet()
+
+    private fun solverAllows(host: String): Boolean {
+        val h = host.lowercase()
+        return solverHosts.any { h == it || h.endsWith(".$it") }
+    }
+
     fun userAgentFor(host: String): String = agentByHost[host] ?: WebProtection.USER_AGENT
 
     private fun Request.Builder.browserHeaders(url: String, headers: Map<String, String>): Request.Builder {
@@ -173,7 +184,9 @@ class ServerHttp(private val flareSolverrUrl: String?) : HttpFetcher {
         }
         val protection = WebProtection.detectProtection(code, body, mitigated)
         if (protection != null) {
-            if (cloudflareFallback && protection == "Cloudflare" && flareSolverrUrl != null) return solve(url)
+            if (cloudflareFallback && protection == "Cloudflare" && flareSolverrUrl != null && solverAllows(request.url.host)) {
+                return solve(url)
+            }
             throw SourceBlockedException(request.url.host, protection)
         }
         if (code !in 200..299) throw HttpException(code, url)
@@ -183,6 +196,10 @@ class ServerHttp(private val flareSolverrUrl: String?) : HttpFetcher {
     /** Lets FlareSolverr's real browser pass the challenge, then keeps its cookies for the next requests. */
     private suspend fun solve(url: String): String {
         val endpoint = flareSolverrUrl ?: throw IOException("FlareSolverr no configurado")
+        val host = url.toHttpUrlOrNull()?.host.orEmpty()
+        if (!solverAllows(host)) throw SourceBlockedException(host, "Cloudflare")
+        // The name must still point at the internet right now (no rebinding to the server's network).
+        PublicAddresses.dns.lookup(host)
         val payload = JsonObject().apply {
             addProperty("cmd", "request.get")
             addProperty("url", url)
@@ -194,7 +211,9 @@ class ServerHttp(private val flareSolverrUrl: String?) : HttpFetcher {
         val answer = solverClient.newCall(request).execute().use { it.body?.string().orEmpty() }
         val solution = runCatching { JsonParser.parseString(answer).asJsonObject.getAsJsonObject("solution") }.getOrNull()
             ?: throw IOException("FlareSolverr no pudo abrir $url")
-        val host = url.toHttpUrlOrNull()?.host.orEmpty()
+        // A redirect may have taken the browser elsewhere: only an answer from an allowed site counts.
+        val finalHost = solution.get("url")?.asString?.toHttpUrlOrNull()?.host ?: host
+        if (!solverAllows(finalHost)) throw BlockedAddressException(finalHost)
         solution.get("userAgent")?.asString?.let { agentByHost[host] = it }
         val solved = solution.getAsJsonArray("cookies")?.mapNotNull { element ->
             val o = element.asJsonObject

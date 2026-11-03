@@ -1,5 +1,6 @@
 package com.nelson.yomukai.server
 
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
@@ -66,7 +67,9 @@ class Services(val config: Config) {
     val http = ServerHttp(config.flareSolverrUrl)
     val db = Database(File(config.dataDir, "yomukai.db"))
     val auth = Auth(db, config)
-    val sources = SourceManager(http)
+    val sources = SourceManager(http).also { manager ->
+        http.solverHosts = manager.all.mapNotNull { it.baseUrl.toHttpUrlOrNull()?.host?.lowercase()?.removePrefix("www.") }.toSet()
+    }
     val aniList = AniListClient(http)
     val metadata = MetadataRepository(
         aniList, KitsuClient(http), MalClient(http, config.malClientId), MetadataStore(config.dataDir),
