@@ -54,6 +54,8 @@ data class AniListEntry(
     val description: String = "",
     val genres: List<String> = emptyList(),
     val siteUrl: String = "",
+    /** AniList's biggest cover (about 460 px wide), sharper than what most anime sites give. */
+    val cover: String = "",
     /** Prequels, sequels, adaptations and spin-offs, in any format. */
     val relations: List<RelatedTitle> = emptyList()
 )
@@ -209,7 +211,7 @@ class AniListClient(private val network: HttpFetcher) {
         private const val FIELDS = "title{romaji english native} synonyms coverImage{large} type format countryOfOrigin genres tags{name rank}"
         private val LOOKUP = """
             query(${'$'}s:String,${'$'}t:MediaType,${'$'}f:MediaFormat,${'$'}n:MediaFormat){Page(perPage:5){media(search:${'$'}s,type:${'$'}t,format:${'$'}f,format_not:${'$'}n,sort:SEARCH_MATCH){
-            $FIELDS id averageScore meanScore status description(asHtml:false) siteUrl
+            $FIELDS id averageScore meanScore status description(asHtml:false) siteUrl poster:coverImage{extraLarge}
             relations{edges{relationType node{$FIELDS}}}
             recommendations(sort:RATING_DESC,perPage:24){nodes{rating mediaRecommendation{$FIELDS}}}}}}
         """.trimIndent()
@@ -318,6 +320,7 @@ class AniListClient(private val network: HttpFetcher) {
                     description = cleanDescription(media.str("description")),
                     genres = media.arr("genres").strings(),
                     siteUrl = media.str("siteUrl").orEmpty(),
+                    cover = media.obj("poster")?.str("extraLarge").orEmpty(),
                     relations = media.obj("relations")?.arr("edges").objects().mapNotNull { edge ->
                         val label = relationLabel(edge.str("relationType")) ?: return@mapNotNull null
                         edge.obj("node")?.let(::toRelated)?.copy(relation = label)

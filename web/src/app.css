@@ -22,6 +22,9 @@
   --outline-variant: #2a2a30;
   --radius: 14px;
   --nav-h: 64px;
+  /* Height of the computer's top bar (none on phones) and the widest a page gets. */
+  --top-h: 0px;
+  --page-max: 1280px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -37,7 +40,7 @@ input, select, textarea { font: inherit; color: var(--text); }
 img { display: block; }
 :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 6px; }
 
-.page { padding: calc(var(--safe-top) + 8px) 16px calc(var(--nav-h) + var(--safe-bottom) + 24px); max-width: 1280px; margin: 0 auto; }
+.page { padding: calc(var(--safe-top) + 8px) 16px calc(var(--nav-h) + var(--safe-bottom) + 24px); max-width: var(--page-max); margin: 0 auto; }
 .page.full { padding-left: 0; padding-right: 0; }
 .topbar { display: flex; align-items: center; gap: 8px; min-height: 56px; }
 .topbar h1 { font-size: 1.35rem; margin: 0; flex: 1; font-weight: 700; }
@@ -90,16 +93,29 @@ input[type='checkbox']::after { content: ''; position: absolute; top: 3px; left:
 input[type='checkbox']:checked { background: var(--primary); }
 input[type='checkbox']:checked::after { transform: translateX(18px); background: var(--on-primary); }
 
+@media (min-width: 1024px) {
+  :root { --top-h: 64px; --nav-h: 0px; }
+  .page { padding: 28px 32px 48px; }
+  .topbar h1 { font-size: 1.7rem; }
+  .section-title { margin: 32px 0 12px; }
+  .section-title h2 { font-size: 1.25rem; }
+  .toast { bottom: 28px; }
+  .icon-btn, .btn, .chip { transition: background 0.15s, color 0.15s, border-color 0.15s; }
+  .chip:hover:not(.on) { border-color: var(--text-dim); color: var(--text); }
+  .btn.primary:hover, .btn.tonal:hover { filter: brightness(1.08); }
+  .btn.outline:hover, .btn.text:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+  .list-item { transition: background 0.15s; }
+}
 /* Big monitors (27" and up): wider pages and slightly larger text, so nothing looks like a phone layout stretched out. */
 @media (min-width: 1600px) {
   html { font-size: 17px; }
-  .page { max-width: 1600px; }
+  :root { --page-max: 1600px; }
   .row > * { width: 176px; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); }
 }
 @media (min-width: 2200px) {
   html { font-size: 18px; }
-  .page { max-width: 2000px; }
+  :root { --page-max: 2000px; }
   .row > * { width: 200px; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
 }

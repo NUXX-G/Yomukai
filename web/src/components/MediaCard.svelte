@@ -24,6 +24,7 @@
   .cover { aspect-ratio: 0.7; border-radius: 14px; overflow: hidden; background: var(--surface-variant); }
   .cover img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.25s; }
   .card-link:hover .cover img { transform: scale(1.03); }
+  @media (hover: hover) { .title { transition: color 0.15s; } .card-link:hover .title { color: var(--primary); } }
   .title { margin: 6px 2px 0; font-size: 0.84rem; font-weight: 600; line-height: 1.25; min-height: 2.5em; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .meta { margin: 2px; font-size: 0.74rem; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 5px; }
   .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }

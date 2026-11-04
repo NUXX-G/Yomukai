@@ -47,8 +47,10 @@
     {#if query}<button type="button" class="icon-btn" onclick={clear} aria-label="Borrar"><Icon name="close" size={20} /></button>{/if}
   </form>
 
-  <div class="chips">{#each TYPE_FILTERS as f}<button class="chip" class:on={typeKey === f.key} onclick={() => setType(f.key)}>{f.label}</button>{/each}</div>
-  <div class="chips" style="margin-top:8px">{#each LANGUAGES as l}<button class="chip" class:on={lang === l.key} onclick={() => setLang(l.key)}>{l.label}</button>{/each}</div>
+  <div class="filters">
+    <div class="chips">{#each TYPE_FILTERS as f}<button class="chip" class:on={typeKey === f.key} onclick={() => setType(f.key)}>{f.label}</button>{/each}</div>
+    <div class="chips">{#each LANGUAGES as l}<button class="chip" class:on={lang === l.key} onclick={() => setLang(l.key)}>{l.label}</button>{/each}</div>
+  </div>
 
   {#if !searched}
     {#if settings.searchHistory.length}
@@ -67,6 +69,7 @@
     {#if !searching && !groups.length}
       <p class="muted" style="margin-top:24px">Sin resultados para «{query}».</p>
     {/if}
+    <div class="results">
     {#each groups as g, i (i)}
       <div class="result">
         <a href={media(g.primary.sourceId, g.primary.id)} class="hit">
@@ -84,6 +87,7 @@
         {/if}
       </div>
     {/each}
+    </div>
     {#if Object.keys(errors).length && !searching}
       <p class="small muted">Sin respuesta de: {Object.keys(errors).join(', ')}</p>
     {/if}
@@ -105,4 +109,17 @@
   .dot { width: 6px; height: 6px; border-radius: 50%; }
   .also { margin: 8px 0 4px 68px; }
   .result .chips { margin-left: 68px; }
+  .filters { display: flex; flex-direction: column; gap: 8px; }
+  @media (min-width: 1024px) {
+    .searchbar { max-width: 760px; height: 56px; margin: 4px 0 16px; }
+    .filters { flex-direction: row; align-items: center; gap: 12px; }
+    .filters .chips + .chips { padding-left: 12px; border-left: 1px solid var(--outline-variant); }
+    /* Results as cards in columns, not a phone list stretched across the screen. */
+    .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 12px; margin-top: 16px; }
+    .result { padding: 12px; border: 0; border-radius: 14px; background: var(--surface); transition: background 0.15s; }
+    .result:hover { background: var(--surface-high); }
+    .hit img { width: 72px; height: 102px; }
+    .also { margin-left: 84px; }
+    .result .chips { margin-left: 84px; flex-wrap: wrap; }
+  }
 </style>

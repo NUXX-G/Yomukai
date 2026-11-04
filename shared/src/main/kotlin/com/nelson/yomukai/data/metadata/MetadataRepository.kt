@@ -40,7 +40,9 @@ data class TitleMetadata(
     val inferredGenres: Boolean = false,
     /** Prequels, sequels and adaptations in every format. */
     val relations: List<RelatedTitle> = emptyList(),
-    val siteUrl: String = ""
+    val siteUrl: String = "",
+    /** The database's large cover, for title pages whose source only has a small one. */
+    val cover: String = ""
 ) {
     /** True when some database answered; false when only the local layers (taxonomy, keywords) did. */
     val fromNetwork: Boolean
@@ -98,7 +100,8 @@ class MetadataRepository(
     suspend fun load(media: MediaItem): TitleMetadata = coroutineScope {
         val key = SmartSearch.keyOf(media)
         cache[key]?.let { return@coroutineScope it }
-        store?.get(key)?.let { saved ->
+        // Copies saved before covers were kept are asked again once (every AniList answer has a cover).
+        store?.get(key)?.takeUnless { it.siteUrl.isNotBlank() && it.cover.isBlank() }?.let { saved ->
             // Guessed genres are worked out again: the rules may have changed since they were saved.
             val fresh = if (saved.inferredGenres) withLocalGenres(saved, media) else saved
             cache[key] = fresh
@@ -209,7 +212,8 @@ class MetadataRepository(
                 genres = genres,
                 inferredGenres = inferred,
                 relations = entry?.relations.orEmpty(),
-                siteUrl = entry?.siteUrl.orEmpty()
+                siteUrl = entry?.siteUrl.orEmpty(),
+                cover = entry?.cover.orEmpty()
             )
         }
 

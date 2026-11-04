@@ -75,6 +75,7 @@ class MetadataStore(private val dir: File) {
             add("genres", strings(m.genres))
             add("inferred", JsonPrimitive(m.inferredGenres))
             add("siteUrl", JsonPrimitive(m.siteUrl))
+            add("cover", JsonPrimitive(m.cover))
             add("relations", JsonArray().apply {
                 m.relations.forEach { r ->
                     add(JsonObject().apply {
@@ -100,6 +101,7 @@ class MetadataStore(private val dir: File) {
             genres = o.arr("genres").strings(),
             inferredGenres = o.str("inferred") == "true",
             siteUrl = o.str("siteUrl").orEmpty(),
+            cover = o.str("cover").orEmpty(),
             relations = o.arr("relations").objects().mapNotNull { r ->
                 RelatedTitle(
                     title = r.str("title") ?: return@mapNotNull null,

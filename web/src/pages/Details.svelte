@@ -34,6 +34,8 @@
   let altOpen = $state(false);
   let alternatives = $state(null);
   let issuesOpen = $state(false);
+  /** Once the page moves, the top bar turns solid: chapters must never show through it. */
+  let scrolled = $state(false);
 
   let chapterQuery = $state('');
   let catsOpen = $state(false);
@@ -99,6 +101,12 @@
   });
   const genres = $derived(meta?.genres?.length ? meta.genres : item?.genres || []);
   const synopsis = $derived(item?.description || meta?.synopsis || '');
+  /** Width of the source's own cover once loaded: anime sites give ~250 px ones, blurry at poster size. */
+  let sourceCoverWidth = $state(0);
+  const poster = $derived(meta?.cover && sourceCoverWidth && sourceCoverWidth < 400 ? meta.cover : item?.cover);
+  function posterLoaded(e) {
+    if (e.currentTarget.getAttribute('src') === item?.cover) sourceCoverWidth = e.currentTarget.naturalWidth;
+  }
 
   onMount(async () => {
     const early = item?.cover;
@@ -154,12 +162,14 @@
   }
 </script>
 
+<svelte:window onscroll={() => (scrolled = scrollY > 8)} />
+
 <div class="details" style={styleOf(theme)}>
   {#if item?.cover}<div class="backdrop" style:background-image="url('{item.cover}')"></div>{/if}
   <div class="wrap">
-  <header class="bar">
+  <header class="bar" class:solid={scrolled}>
     <button class="icon-btn" onclick={() => back('/')} aria-label="Volver"><Icon name="back" /></button>
-    <span class="grow"></span>
+    <span class="bar-title">{scrolled ? item?.title ?? '' : ''}</span>
     <button class="icon-btn" onclick={() => (menu = true)} aria-label="Más opciones"><Icon name="more" /></button>
   </header>
 
@@ -171,7 +181,7 @@
    <div class="layout">
     <section class="hero">
       <div class="hero-inner">
-        <img class="poster" src={item.cover} alt="" />
+        <img class="poster" src={poster} alt="" onload={posterLoaded} />
         <div class="facts">
           <h1>{item.title}</h1>
           {#if item.author}<div class="muted author">{item.author}</div>{/if}
@@ -191,6 +201,11 @@
         <div class="notice"><Icon name="hourglass" size={16} /> Posible abandono o hiato prolongado{#if list.lastUpdate} · último capítulo en {monthYear(list.lastUpdate)}{/if}</div>
       {/if}
 
+      {#if target}
+        <button class="btn primary block start" onclick={() => open(target.chapter)}>
+          <Icon name="play" size={20} /> {target.started ? 'Continuar' : anime ? 'Empezar a ver' : 'Empezar a leer'} · {target.chapter.label}
+        </button>
+      {/if}
       <button class="btn tonal block lib" onclick={library}>
         <Icon name={saved ? 'heart' : 'heartOutline'} size={18} /> {saved ? 'En tu biblioteca' : 'Añadir a la biblioteca'}
       </button>
@@ -419,7 +434,10 @@
 <style>
   .details { position: relative; background: var(--bg); min-height: 100vh; transition: background 0.45s; overflow-x: clip; }
   .wrap { position: relative; max-width: 1200px; margin: 0 auto; }
-  .bar { position: sticky; top: 0; z-index: 10; display: flex; padding: calc(var(--safe-top) + 4px) 4px 4px; background: linear-gradient(var(--bg), transparent); }
+  .bar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 4px; padding: calc(var(--safe-top) + 4px) 4px 4px; background: transparent; transition: background 0.2s, box-shadow 0.2s; }
+  .bar.solid { background: var(--bg); box-shadow: 0 1px 0 var(--outline-variant); }
+  .bar-title { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .start { display: none; }
   .grow { flex: 1; }
   .hero { position: relative; padding: 0 16px; }
   .backdrop { position: absolute; left: 0; right: 0; top: 0; height: 360px; background-size: cover; background-position: center 30%; filter: blur(36px); opacity: 0.45; transform: scale(1.1); }
@@ -445,7 +463,7 @@
   .synopsis.open { -webkit-line-clamp: unset; line-clamp: unset; }
   .more { color: var(--primary); font-size: 0.85rem; font-weight: 600; }
   .genres { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-  .tabs { display: flex; margin-top: 18px; border-bottom: 1px solid var(--outline-variant); position: sticky; top: calc(var(--safe-top) + 52px); background: var(--bg); z-index: 5; }
+  .tabs { display: flex; margin-top: 18px; border-bottom: 1px solid var(--outline-variant); position: sticky; top: calc(var(--safe-top) + 52px); background: var(--bg); z-index: 5; transition: background 0.45s; }
   .tabs button { flex: 1; padding: 14px 0; color: var(--text-dim); font-weight: 600; border-bottom: 3px solid transparent; }
   .tabs button.on { color: var(--primary); border-bottom-color: var(--primary); }
   .bar-actions { display: flex; align-items: center; }
@@ -483,20 +501,40 @@
   .searching { display: flex; gap: 12px; align-items: center; padding: 12px 0; }
   /* Computers: the title's card stays on the left while the chapter list scrolls on the right.
      Last in the file, so these win over the phone styles above. */
-  @media (min-width: 1000px) {
-    .layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 36px; padding: 0 24px; align-items: start; }
-    .hero { position: sticky; top: calc(var(--safe-top) + 56px); padding: 0; max-height: calc(100vh - 72px); overflow-y: auto; scrollbar-width: thin; }
+  @media (min-width: 1024px) {
+    /* Under the site's top bar: no floating bar of its own, the browser's Back (or Esc) returns. */
+    .bar { position: static; background: none; box-shadow: none; padding: 16px 16px 8px; }
+    .bar-title { visibility: hidden; }
+    .layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 40px; padding: 0 32px; align-items: start; }
+    .hero { position: sticky; top: calc(var(--top-h) + 20px); padding: 0 0 24px; max-height: calc(100vh - var(--top-h) - 40px); overflow-y: auto; scrollbar-width: none; }
+    .hero::-webkit-scrollbar { display: none; }
     .hero-inner { flex-direction: column; align-items: flex-start; }
-    .poster { width: 100%; height: auto; aspect-ratio: 0.7; }
-    h1 { font-size: 1.6rem; }
-    .main .tabs { margin-top: 0; top: calc(var(--safe-top) + 52px); }
-    .fab { right: max(24px, calc((100vw - 1200px) / 2 + 24px)); }
+    /* Small enough that the whole card usually fits the screen beside the list. */
+    .poster { width: min(100%, calc(50vh * 0.7)); height: auto; aspect-ratio: 0.7; }
+    h1 { font-size: 1.7rem; }
+    .start { display: flex; margin-top: 16px; height: 48px; font-size: 1rem; }
+    .lib { margin-top: 10px; }
+    .fab { display: none; }
+    .main .tabs { margin-top: 0; top: var(--top-h); }
+    .tabs button { flex: none; padding: 16px 22px; }
+    .tabs button:hover:not(.on) { color: var(--text); }
+    .chapter-bar { padding: 10px 0 6px 4px; }
+    .ch-search { margin: 4px 0 10px; max-width: 420px; }
+    .integrity { margin: 4px 0; width: 100%; }
+    .chapters { padding-top: 4px; }
+    .chapter { border-radius: 12px; transition: background 0.15s; }
+    .chapter:hover { background: var(--surface); }
+    .ch-main { display: flex; align-items: center; gap: 16px; padding: 12px 8px 12px 14px; }
+    .ch-label { flex: 1; min-width: 0; }
+    .ch-meta { margin: 0; font-size: 0.82rem; white-space: nowrap; }
+    .related { padding: 0; }
+    .gap { padding: 4px 14px; }
+    .pad { padding: 16px 0; }
   }
   @media (min-width: 1600px) {
     .wrap { max-width: 1560px; }
-    .layout { grid-template-columns: 400px minmax(0, 1fr); gap: 48px; padding: 0 32px; }
+    .layout { grid-template-columns: 380px minmax(0, 1fr); gap: 56px; padding: 0 32px; }
     .backdrop { height: 460px; }
     h1 { font-size: 1.9rem; }
-    .fab { right: max(32px, calc((100vw - 1560px) / 2 + 32px)); }
   }
 </style>

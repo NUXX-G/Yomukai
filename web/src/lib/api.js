@@ -33,6 +33,24 @@ function safeJson(text) {
   try { return JSON.parse(text); } catch { return { error: text }; }
 }
 
+/**
+ * Answers that rarely change (a title, its chapter list, a chapter's pages...) are kept for a few
+ * minutes, and a request already on its way is shared: going from a title to its reader and back,
+ * or from one chapter to the next, then needs no round trip at all.
+ */
+const memo = new Map();
+const MEMO_MS = 5 * 60_000;
+const MEMO_MAX = 300;
+function cached(path) {
+  const hit = memo.get(path);
+  if (hit && Date.now() - hit.at < MEMO_MS) return hit.promise;
+  const promise = request('GET', path);
+  memo.set(path, { at: Date.now(), promise });
+  promise.catch(() => memo.delete(path));
+  if (memo.size > MEMO_MAX) memo.delete(memo.keys().next().value);
+  return promise;
+}
+
 const qs = (params) => new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')).toString();
 
 export const api = {
@@ -44,13 +62,13 @@ export const api = {
   sources: () => request('GET', '/api/sources'),
   latest: (id, page = 1, opts) => request('GET', `/api/sources/${encodeURIComponent(id)}/latest?${qs({ page })}`, undefined, opts),
   browse: (id, page, filters, opts) => request('GET', `/api/sources/${encodeURIComponent(id)}/browse?${qs({ page, f: filters ? JSON.stringify(filters) : '' })}`, undefined, opts),
-  media: (s, id) => request('GET', `/api/media?${qs({ s, id })}`),
-  chapters: (s, id, status) => request('GET', `/api/chapters?${qs({ s, id, status })}`),
-  pages: (s, c) => request('GET', `/api/pages?${qs({ s, c })}`),
-  text: (s, c) => request('GET', `/api/text?${qs({ s, c })}`),
+  media: (s, id) => cached(`/api/media?${qs({ s, id })}`),
+  chapters: (s, id, status) => cached(`/api/chapters?${qs({ s, id, status })}`),
+  pages: (s, c) => cached(`/api/pages?${qs({ s, c })}`),
+  text: (s, c) => cached(`/api/text?${qs({ s, c })}`),
   videos: (s, c) => request('GET', `/api/videos?${qs({ s, c })}`),
-  metadata: (s, id) => request('GET', `/api/metadata?${qs({ s, id })}`),
-  similar: (s, id) => request('GET', `/api/similar?${qs({ s, id })}`),
+  metadata: (s, id) => cached(`/api/metadata?${qs({ s, id })}`),
+  similar: (s, id) => cached(`/api/similar?${qs({ s, id })}`),
   alternatives: (s, id) => request('GET', `/api/alternatives?${qs({ s, id })}`),
   locate: (related) => request('POST', '/api/locate', related),
   random: (kind, genre) => request('GET', `/api/random?${qs({ kind, genre })}`),

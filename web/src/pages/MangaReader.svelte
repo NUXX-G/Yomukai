@@ -21,6 +21,18 @@
   let bookmarks = $state([]);
   /** src -> styles for pages with margins cut. */
   const crops = $state({});
+  /** src -> [width, height] of every page that loaded. */
+  const dims = $state({});
+  /** Pages at their own size, but all the same width: the chapter's usual page width (never above 1000 px). */
+  const column = $derived.by(() => {
+    const w = Object.values(dims).map((d) => d[0]).sort((a, b) => a - b);
+    return w.length ? Math.min(1000, Math.max(480, w[Math.floor(w.length / 2)])) : 0;
+  });
+  /** The usual shape of a chapter's pages: pages still on their way hold that space, so nothing jumps. */
+  function usualRatio(pages) {
+    const r = pages.map((p) => dims[p]).filter(Boolean).map((d) => d[0] / d[1]).sort((a, b) => a - b);
+    return r.length ? r[Math.floor(r.length / 2)] : null;
+  }
   let scrolling = $state(false);
   let scrollFrame = 0;
 
@@ -141,10 +153,13 @@
     page = index;
     if (item) track(item, chapter, { page: index, total, read: false });
     if (index >= total - 2) finished(chapter);
+    // Past the middle, the next chapter's page list is fetched ahead: "Siguiente" then opens at once.
+    if (index >= total / 2) { const next = nextOf(chapter); if (next) api.pages(sourceId, next.url).catch(() => {}); }
   }
 
   /** A page that arrives while already on screen counts as seen; the observer would not tell again. */
   function pageLoaded(e, chapter, index, total, src) {
+    dims[src] = [e.currentTarget.naturalWidth || 1, e.currentTarget.naturalHeight || 1];
     ready[src] = true;
     if (resumePage && chapter.id === startId) {
       // Back at the page where the user stopped, once the pages above it have their real height.
@@ -274,13 +289,14 @@
   {#if error}
     <div class="center"><p>{error}</p><button class="btn tonal" onclick={() => back(mediaHref(sourceId, mediaId))}>Volver</button></div>
   {:else if mode === 'vertical'}
-    <div class="strip w-{width}" onclick={() => { if (scrolling) { scrolling = false; return; } ui = !ui; }} role="presentation">
+    <div class="strip w-{width}" style:max-width={width === 'original' && column ? column + 'px' : null} onclick={() => { if (scrolling) { scrolling = false; return; } ui = !ui; }} role="presentation">
       {#each loaded as l, li (l.chapter.id)}
+        {@const usual = usualRatio(l.pages)}
         {#if li > 0}<div class="divider">{l.chapter.label}{l.chapter.name ? ' · ' + l.chapter.name : ''}</div>{/if}
         {#if l.error}<p class="center error-text">{l.error}</p>{/if}
         {#if !l.pages.length && !l.error}<div class="center"><div class="spinner"></div></div>{/if}
         {#each l.pages as src, i (src)}
-          <div class="pg" class:ready={ready[src]} class:cropped={crops[src]} style:aspect-ratio={crops[src]?.ratio} style:max-width={width === 'original' && crops[src] ? crops[src].natural : null} data-page data-chapter={l.chapter.id} data-index={i} data-total={l.pages.length}>
+          <div class="pg" class:ready={ready[src]} class:guess={!ready[src] && usual} class:cropped={crops[src]} style:aspect-ratio={crops[src]?.ratio ?? (!ready[src] && usual ? usual : null)} style:max-width={width === 'original' && crops[src] ? crops[src].natural : null} data-page data-chapter={l.chapter.id} data-index={i} data-total={l.pages.length}>
             <img {src} alt="Página {i + 1}" loading={i < 3 || (li === 0 && i <= resumePage + 2) ? 'eager' : 'lazy'} decoding="async" style:width={crops[src]?.width} style:left={crops[src]?.left} style:top={crops[src]?.top} onload={(e) => { cropFor(e, src); pageLoaded(e, l.chapter, i, l.pages.length, src); }} />
           </div>
         {/each}
@@ -404,10 +420,8 @@
   .strip .pg { position: relative; min-height: 80vh; background: #0a0a0a; }
   .strip .pg.ready { min-height: 0; background: none; }
   .pg img { display: block; width: 100%; height: auto; }
-  .strip.w-original { max-width: none; }
-  /* Own size, but a big comic scan never wider than a comfortable page; nothing is ever enlarged. */
-  .strip.w-original .pg { margin: 0 auto; max-width: min(100%, 1000px); }
-  .strip.w-original .pg:not(.cropped) img { width: auto; max-width: min(100%, 1000px); margin: 0 auto; }
+  .strip.w-original { max-width: 900px; }
+  .strip .pg.guess { min-height: 0; }
   .pg.cropped { overflow: hidden; }
   .pg.cropped img { position: absolute; max-width: none; max-height: none; }
   .single .pg.one { position: relative; }
@@ -421,7 +435,10 @@
   .divider { text-align: center; padding: 28px 12px; color: var(--text-dim); font-weight: 600; }
   .single { height: 100vh; height: 100dvh; display: grid; place-items: center; overflow: hidden; touch-action: pan-y pinch-zoom; }
   .single img { max-width: 100%; max-height: 100vh; max-height: 100dvh; object-fit: contain; user-select: none; -webkit-user-drag: none; }
-  .top, .bottom { position: fixed; left: 0; right: 0; z-index: 20; display: flex; align-items: center; gap: 8px; background: #000d; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); animation: in 0.2s; }
+  /* Solid bars: pages scrolling behind a see-through bar looked broken. */
+  .top, .bottom { position: fixed; left: 0; right: 0; z-index: 20; display: flex; align-items: center; gap: 8px; background: #0c0c0f; animation: in 0.18s ease-out; }
+  .top { border-bottom: 1px solid #ffffff14; }
+  .bottom { border-top: 1px solid #ffffff14; }
   .top { top: 0; padding: calc(var(--safe-top) + 4px) 8px 6px; }
   .bottom { bottom: 0; flex-direction: column; align-items: stretch; gap: 2px; padding: 6px 8px calc(var(--safe-bottom) + 6px); }
   .track { display: flex; align-items: center; gap: 10px; padding: 0 8px; min-height: 28px; }
@@ -439,4 +456,11 @@
   .wrap { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 16px; }
   .toggle { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
   @keyframes in { from { opacity: 0; } }
+  /* Computers: a slim title bar and a compact floating control panel instead of phone-wide strips. */
+  @media (min-width: 1024px) {
+    .top { padding: 8px max(16px, calc((100vw - 1400px) / 2)); }
+    .bottom { left: 50%; right: auto; bottom: 20px; width: min(760px, calc(100vw - 48px)); transform: translateX(-50%); border: 1px solid #ffffff1f; border-radius: 18px; padding: 8px 10px; box-shadow: 0 12px 40px #000c; }
+    .actions .btn { height: 38px; }
+    .t1 { font-size: 1.02rem; }
+  }
 </style>

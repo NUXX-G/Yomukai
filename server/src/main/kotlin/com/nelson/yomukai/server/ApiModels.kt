@@ -49,7 +49,9 @@ data class RelatedDto(
 data class MetadataDto(
     val score: Float?, val scoreSource: String, val malScore: Float?, val officialStatus: String?,
     val synopsis: String, val genres: List<String>, val inferredGenres: Boolean,
-    val relations: List<RelatedDto>, val siteUrl: String
+    val relations: List<RelatedDto>, val siteUrl: String,
+    /** AniList's large cover through the proxy; the title page uses it when the source's cover is small. */
+    val cover: String?
 )
 
 data class AlternativeDto(
@@ -94,7 +96,7 @@ class Dtos(private val proxy: MediaProxy, private val headersOf: (String) -> Map
 
     fun metadata(m: TitleMetadata) = MetadataDto(
         m.score, m.scoreSource, m.malScore, m.officialStatus?.name, m.synopsis, m.genres, m.inferredGenres,
-        m.relations.map(::related), m.siteUrl
+        m.relations.map(::related), m.siteUrl, m.cover.takeIf { it.startsWith("https://") }?.let { proxy.image(it, emptyMap()) }
     )
 
     fun alternative(a: Alternative) = AlternativeDto(

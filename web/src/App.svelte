@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { route, define, startRouter } from './lib/router.svelte.js';
+  import { route, define, startRouter, navigate } from './lib/router.svelte.js';
   import { session, toast, sources, loadSession, resetUserState } from './lib/store.svelte.js';
   import { api, setUnauthorizedHandler, setSuspendedHandler } from './lib/api.js';
   import Icon from './components/Icon.svelte';
@@ -34,6 +34,23 @@
   ];
 
   const showNav = $derived(tabs.some((t) => t.name === route.name));
+  /** Readers and the player take the whole screen; every other page gets the computer's top bar. */
+  const immersive = $derived(route.name === 'read' || route.name === 'watch');
+  let headerQuery = $state('');
+  function headerSearch(e) {
+    e.preventDefault();
+    const q = headerQuery.trim();
+    if (!q) return;
+    headerQuery = '';
+    e.currentTarget.querySelector('input')?.blur();
+    navigate('/buscar?q=' + encodeURIComponent(q));
+  }
+  /** "/" jumps to the search box, as on most sites. */
+  function slash(e) {
+    if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input, textarea, select, [contenteditable]')) return;
+    const input = document.querySelector('.find input');
+    if (input?.offsetParent) { e.preventDefault(); input.focus(); }
+  }
 
   /** The page for the current address; chapters of novel sources open the text reader. */
   const Page = $derived.by(() => {
@@ -56,6 +73,8 @@
   });
 </script>
 
+<svelte:window onkeydown={slash} />
+
 {#if !session.ready}
   <div class="center" style="min-height:100vh">
     <div class="spinner"></div>
@@ -70,10 +89,30 @@
 {:else if !session.user}
   <Login />
 {:else}
-  <div class="shell" class:nav={showNav}>
+  <div class="shell" class:nav={showNav} class:desk={!immersive}>
+    {#if !immersive}
+      <header class="topnav">
+        <div class="topnav-inner">
+          <a href="/" class="brand">Yomukai</a>
+          <nav class="links" aria-label="Secciones">
+            {#each tabs.filter((t) => t.name !== 'search') as tab}
+              <a href={tab.href} class="link" class:on={route.name === tab.name} aria-current={route.name === tab.name ? 'page' : undefined}>{tab.label}</a>
+            {/each}
+          </nav>
+          <span class="spacer"></span>
+          {#if route.name !== 'search'}
+            <form class="find" role="search" onsubmit={headerSearch}>
+              <Icon name="search" size={20} />
+              <input type="search" placeholder="Buscar manga, manhwa, novelas, anime..." bind:value={headerQuery} aria-label="Buscar en todas tus fuentes" />
+              <kbd>/</kbd>
+            </form>
+          {/if}
+          <span class="user" title={session.user.name}>{session.user.guest ? 'Invitado' : session.user.name}</span>
+        </div>
+      </header>
+    {/if}
     {#if showNav}
       <nav class="tabs" aria-label="Secciones">
-        <span class="brand side">Yomukai</span>
         {#each tabs as tab}
           <a href={tab.href} class="tab" class:on={route.name === tab.name} aria-current={route.name === tab.name ? 'page' : undefined}>
             <span class="pill-icon"><Icon name={tab.icon} /></span>
@@ -105,12 +144,24 @@
   .pill-icon { width: 56px; height: 30px; border-radius: 15px; display: grid; place-items: center; transition: background 0.2s; }
   .tab.on { color: var(--text); font-weight: 600; }
   .tab.on .pill-icon { background: var(--secondary-container); color: var(--on-secondary-container); }
-  .brand.side { display: none; }
-  @media (min-width: 900px) {
-    .tabs { top: 0; right: auto; width: 96px; height: auto; flex-direction: column; justify-content: flex-start; gap: 10px; padding: 18px 0; border-top: 0; border-right: 1px solid var(--outline-variant); }
-    .tab { flex: none; height: 64px; }
-    .brand.side { display: block; font-size: 0.95rem; text-align: center; margin-bottom: 18px; }
-    .shell.nav main { margin-left: 96px; }
-    .shell.nav :global(.page) { padding-bottom: 32px; }
+  .topnav { display: none; }
+  /* Computers get a real website header (sections, search, account) instead of the phone's tab bar. */
+  @media (min-width: 1024px) {
+    .tabs { display: none; }
+    .topnav { display: block; position: sticky; top: 0; z-index: 40; height: var(--top-h); background: var(--surface-low); border-bottom: 1px solid var(--outline-variant); }
+    .topnav-inner { height: 100%; max-width: var(--page-max); margin: 0 auto; padding: 0 32px; display: flex; align-items: center; gap: 28px; }
+    .topnav .brand { font-size: 1.45rem; }
+    .links { display: flex; gap: 4px; }
+    .link { padding: 8px 14px; border-radius: 10px; color: var(--text-dim); font-weight: 600; font-size: 0.95rem; transition: color 0.15s, background 0.15s; }
+    .link:hover { color: var(--text); background: var(--surface-high); }
+    .link.on { color: var(--text); background: var(--secondary-container); }
+    .spacer { flex: 1; }
+    .find { display: flex; align-items: center; gap: 10px; width: min(440px, 34vw); height: 42px; padding: 0 10px 0 14px; border-radius: 12px; background: var(--surface-high); border: 1px solid transparent; color: var(--text-dim); transition: border-color 0.15s, background 0.15s; }
+    .find:focus-within { border-color: var(--primary); background: var(--surface); }
+    .find input { flex: 1; min-width: 0; background: none; border: 0; outline: none; font-size: 0.95rem; }
+    kbd { font: inherit; font-size: 0.75rem; padding: 1px 7px; border-radius: 6px; border: 1px solid var(--outline); color: var(--text-dim); }
+    .find:focus-within kbd { display: none; }
+    .user { max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-dim); font-size: 0.9rem; }
+    .shell.nav :global(.page) { padding-bottom: 48px; }
   }
 </style>

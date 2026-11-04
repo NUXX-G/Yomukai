@@ -53,16 +53,20 @@
 
 <div class="page">
   <header class="topbar">
-    <span class="brand" style="flex:1">Yomukai</span>
-    <button class="icon-btn" onclick={() => (shuffle = true)} aria-label="Descubrir al azar"><Icon name="shuffle" /></button>
-    <a class="icon-btn" href="/buscar" aria-label="Buscar"><Icon name="search" /></a>
+    <span class="brand">Yomukai</span>
+    <h1 class="desk-title">Inicio</h1>
+    <button class="icon-btn phone" onclick={() => (shuffle = true)} aria-label="Descubrir al azar"><Icon name="shuffle" /></button>
+    <a class="icon-btn phone" href="/buscar" aria-label="Buscar"><Icon name="search" /></a>
+    <button class="btn outline desk" onclick={() => (shuffle = true)}><Icon name="shuffle" size={18} /> Sorpréndeme</button>
   </header>
 
-  <div class="chips">
-    {#each TYPE_FILTERS as f}<button class="chip" class:on={typeKey === f.key} onclick={() => (typeKey = f.key)}>{f.label}</button>{/each}
-  </div>
-  <div class="chips" style="margin-top:8px">
-    {#each LANGUAGES as l}<button class="chip" class:on={lang === l.key} onclick={() => (lang = l.key)}>{l.label}</button>{/each}
+  <div class="filters">
+    <div class="chips" role="group" aria-label="Tipo">
+      {#each TYPE_FILTERS as f}<button class="chip" class:on={typeKey === f.key} onclick={() => (typeKey = f.key)}>{f.label}</button>{/each}
+    </div>
+    <div class="chips" role="group" aria-label="Idioma">
+      {#each LANGUAGES as l}<button class="chip" class:on={lang === l.key} onclick={() => (lang = l.key)}>{l.label}</button>{/each}
+    </div>
   </div>
 
   {#if history.length}
@@ -121,10 +125,23 @@
 
 <style>
   .right { display: flex; align-items: center; gap: 4px; }
-  :global(.continue) > .cont { width: 260px; }
-  .cont { display: flex; gap: 10px; align-items: center; padding: 8px; border-radius: 14px; background: var(--surface-high); }
+  .brand { flex: 1; }
+  .desk-title, .desk { display: none; }
+  .filters { display: flex; flex-direction: column; gap: 8px; }
+  /* Scoped class beats the shelf's generic item width. */
+  .cont { width: 260px; display: flex; gap: 10px; align-items: center; padding: 8px; border-radius: 14px; background: var(--surface-high); }
   .cont img { width: 52px; height: 74px; object-fit: cover; border-radius: 6px; background: var(--surface-variant); flex: none; }
   .cont-text { min-width: 0; }
   .cont-title { font-size: 0.9rem; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .accent { color: var(--primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  @media (min-width: 1024px) {
+    .brand, .phone { display: none; }
+    .desk-title { display: block; }
+    .desk { display: inline-flex; }
+    .filters { flex-direction: row; align-items: center; gap: 12px; margin-top: 8px; }
+    .filters .chips + .chips { padding-left: 12px; border-left: 1px solid var(--outline-variant); }
+    .cont { width: 300px; }
+    .cont { transition: background 0.15s; }
+    .cont:hover { background: var(--surface-highest); }
+  }
 </style>

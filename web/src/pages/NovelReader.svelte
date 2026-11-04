@@ -406,7 +406,7 @@
   p.hit-now { outline: 2px solid var(--primary); outline-offset: 4px; }
   mark { background: color-mix(in srgb, var(--primary) 45%, transparent); color: inherit; border-radius: 3px; }
   .end { display: flex; justify-content: space-between; gap: 12px; margin-top: 2em; font-size: 16px; font-family: var(--font); }
-  .top { position: fixed; top: 0; left: 0; right: 0; z-index: 20; display: flex; align-items: center; gap: 2px; padding: calc(var(--safe-top) + 4px) 8px 6px; background: #000d; color: #fff; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .top { position: fixed; top: 0; left: 0; right: 0; z-index: 20; display: flex; align-items: center; gap: 2px; padding: calc(var(--safe-top) + 4px) 8px 6px; background: #0c0c0f; color: #fff; border-bottom: 1px solid #ffffff14; }
   .top .icon-btn { color: #fff; }
   .top .active { color: var(--primary); }
   .titles { flex: 1; min-width: 0; }
