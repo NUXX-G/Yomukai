@@ -8,7 +8,7 @@
   import { detectCrop, cropStyles } from '../lib/crop.js';
   import Icon from '../components/Icon.svelte';
   import Sheet from '../components/Sheet.svelte';
-  import { screen, canFullscreen, toggleFullscreen, enterFullscreen } from '../lib/fullscreen.svelte.js';
+  import { screen, canFullscreen, toggleFullscreen, enterFullscreen, enterFullscreenQuietly } from '../lib/fullscreen.svelte.js';
 
   const sourceId = route.params.source;
   const mediaId = route.params.id;
@@ -284,7 +284,7 @@
 </script>
 
 <!-- With full screen chosen, the first touch in the reader enters it (browsers only allow it after one). -->
-<svelte:window onkeydown={key} onpointerup={() => { if (settings.reader.fullscreen) enterFullscreen(); }} />
+<svelte:window onkeydown={key} onpointerup={() => { if (settings.reader.fullscreen) enterFullscreenQuietly(); }} />
 
 <div class="reader f-{filter}" class:paged={mode === 'paged'}>
   {#if brightness < 1}<div class="dim" style:opacity={1 - brightness}></div>{/if}

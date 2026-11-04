@@ -1,6 +1,9 @@
 import './app.css';
 import { mount } from 'svelte';
 import App from './App.svelte';
+import { adaptToIOS } from './lib/platform.js';
+
+adaptToIOS();
 
 mount(App, { target: document.getElementById('app') });
 

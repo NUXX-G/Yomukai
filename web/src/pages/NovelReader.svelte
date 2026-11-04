@@ -7,7 +7,7 @@
   import { clock } from '../lib/format.js';
   import Icon from '../components/Icon.svelte';
   import Sheet from '../components/Sheet.svelte';
-  import { screen, canFullscreen, toggleFullscreen, enterFullscreen } from '../lib/fullscreen.svelte.js';
+  import { screen, canFullscreen, toggleFullscreen, enterFullscreen, enterFullscreenQuietly } from '../lib/fullscreen.svelte.js';
 
   const sourceId = route.params.source;
   const mediaId = route.params.id;
@@ -262,7 +262,7 @@
   function line(delta) { set('line', Math.round(Math.min(2.4, Math.max(1.2, settings.novel.line + delta)) * 10) / 10); }
 </script>
 
-<svelte:window onscroll={onScroll} onkeydown={key} onpointerup={() => { if (settings.reader.fullscreen) enterFullscreen(); }} />
+<svelte:window onscroll={onScroll} onkeydown={key} onpointerup={() => { if (settings.reader.fullscreen) enterFullscreenQuietly(); }} />
 
 <div class="novel" style:background={colors[0]} style:color={colors[1]} onclick={tap} role="presentation">
   {#if error}

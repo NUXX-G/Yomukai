@@ -1,4 +1,6 @@
 <script>
+  import { isIOS, isIPhone, isStandalone } from '../lib/platform.js';
+  import { installGuide } from '../lib/fullscreen.svelte.js';
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
   import { session, settings, sources, saveSettings, notify, resetUserState, loadUserData } from '../lib/store.svelte.js';
@@ -198,7 +200,7 @@
     <form class="add" onsubmit={addGenre}><input class="field" placeholder="Otro género" bind:value={customGenre} /><button class="btn tonal">Añadir</button></form>
   </section>
 
-  {#if !session.user.guest}
+  {#if !session.user.guest && !isIOS}
     <h2 class="h">App de Android</h2>
     <section class="card">
       <p class="small muted" style="margin-top:0">
@@ -208,6 +210,14 @@
       <div class="sync-box"><span class="small muted">Servidor</span><code>{location.origin}</code></div>
       <div class="sync-box"><span class="small muted">Usuario</span><code>{session.user.name}</code></div>
       <p class="small muted">y tu contraseña de aquí. {#if location.protocol !== 'https:'}<b>Ojo:</b> la app solo se conecta a servidores con HTTPS (para que la contraseña no viaje sin cifrar). Pon el servidor detrás de nginx o Caddy con un certificado; el README explica cómo.{/if}</p>
+    </section>
+  {/if}
+
+  {#if isIOS && !isStandalone}
+    <h2 class="h">{isIPhone ? 'iPhone' : 'iPad'}</h2>
+    <section class="card">
+      <p class="small muted" style="margin-top:0">Añade Yomukai a tu pantalla de inicio: se abre como una app, a pantalla completa y sin las barras de Safari.</p>
+      <button class="btn tonal" onclick={() => (installGuide.open = true)}><Icon name="share" size={18} /> Cómo instalarla</button>
     </section>
   {/if}
 

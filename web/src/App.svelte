@@ -15,6 +15,7 @@
   import NovelReader from './pages/NovelReader.svelte';
   import Player from './pages/Player.svelte';
   import LocateSheet from './components/LocateSheet.svelte';
+  import InstallGuide from './components/InstallGuide.svelte';
   import { exitFullscreen } from './lib/fullscreen.svelte.js';
 
   define('home', '/');
@@ -138,6 +139,7 @@
 {/if}
 
 {#if session.user}<LocateSheet />{/if}
+<InstallGuide />
 {#if toast.text}<div class="toast" role="status">{toast.text}</div>{/if}
 
 <style>

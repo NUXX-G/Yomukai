@@ -161,15 +161,19 @@
 
   /** Full screen and landscape on Android; on iPhone, Safari's own full-screen video. */
   async function fullscreen() {
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      try { await (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch {}
+      return;
+    }
+    const request = shell.requestFullscreen || shell.webkitRequestFullscreen;
     try {
-      if (document.fullscreenElement) { await document.exitFullscreen(); return; }
-      if (shell.requestFullscreen) {
-        await shell.requestFullscreen({ navigationUI: 'hide' });
-        await screen.orientation?.lock?.('landscape').catch(() => {});
-      } else if (video.webkitEnterFullscreen) {
-        video.webkitEnterFullscreen();
-      }
-    } catch {}
+      if (!request) throw new Error('no fullscreen');
+      await request.call(shell, { navigationUI: 'hide' });
+      await screen.orientation?.lock?.('landscape').catch(() => {});
+    } catch {
+      // iPhone, or an iPad that refuses: Safari's own full-screen video always works.
+      try { video.webkitEnterFullscreen?.(); } catch {}
+    }
   }
 
   async function keepAwake(on) {

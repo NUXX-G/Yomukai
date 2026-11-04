@@ -25,7 +25,8 @@
   /* Height of the computer's top bar (none on phones) and the widest a page gets. */
   --top-h: 0px;
   --page-max: 1280px;
-  --safe-top: env(safe-area-inset-top, 0px);
+  /* --ios-top: a minimum set on iPhones/iPads whose Safari hides the status bar area without reporting it. */
+  --safe-top: max(env(safe-area-inset-top, 0px), var(--ios-top, 0px));
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   color-scheme: dark;
@@ -119,3 +120,10 @@ input[type='checkbox']:checked::after { transform: translateX(18px); background:
   .row > * { width: 200px; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
 }
+
+/* iPhone/iPad. Safari zooms the page into any text field under 16 px, leaving the layout off: none are smaller. */
+html.ios input, html.ios select, html.ios textarea { font-size: max(16px, 1em); }
+/* Installed on the home screen, the status bar already shows the time in portrait: no second clock. */
+@media (orientation: portrait) { html.ios.standalone .mini-clock { display: none; } }
+/* Taps answer at once and never double-tap zoom on buttons. */
+html.ios button, html.ios a, html.ios [role='button'] { touch-action: manipulation; }
