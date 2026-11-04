@@ -197,3 +197,15 @@ Funciona: sincronización app ↔ web, cuentas, móvil por web.
       título del reproductor cortado. Arreglados y comprobados a 390 px.
 - [x] Una línea de código salía como texto encima del lector de manga (edición con perl rota). Cuidado: en perl con `|` como
       delimitador, un `\|\|` en el patrón empareja vacío al principio del fichero.
+
+## v1.10.0: MegaBanana, suspensión por abuso, invitados de 1 día
+
+- Fuentes de cómics evaluadas: CBRcomics y MegaComicsTV3 (descargas Mega/Mediafire), ZonaComics (enlaces ouo.io):
+  no tienen lector, no se pueden integrar. MegaBanana sí (API `wp-json/megabanana/v1`: catalog, reader/{post}?chapter=N).
+- El CDN de MegaBanana (hcdn) da 403 a OkHttp por HTTP/2 y 200 por HTTP/1.1: servidor reintenta imágenes por HTTP/1.1;
+  la app usa HTTP/1.1 para `HTTP1_IMAGE_HOSTS`.
+- Abuso: más de ABUSE_LIMIT (1500) / GUEST_ABUSE_LIMIT (300) peticiones a fuentes en 10 min → cuenta suspendida hasta que el
+  admin la reactiva. Invitados contados también por conexión; si se suspende uno, esa conexión no crea invitados en 24 h;
+  máximo 5 invitados por hora por conexión.
+- Invitados: 1 día, 120 peticiones/min, sin exportar/importar/sincronizar, 3 capítulos por descarga.
+- En el VPS, el `.env` ya creado conserva GUEST_DAYS=7: cambiarlo a mano (sed) al actualizar.

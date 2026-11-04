@@ -1,5 +1,6 @@
 package com.nelson.yomukai.server
 
+import io.ktor.http.decodeURLPart
 import io.ktor.server.request.path
 import io.ktor.http.Cookie
 import io.ktor.http.HttpStatusCode
@@ -240,7 +241,23 @@ class Auth(private val db: Database, private val config: Config) {
     fun allow(user: User): Boolean =
         limiter.allow(user.id, if (user.isGuest) config.guestRatePerMinute else Config.ACCOUNT_RATE)
 
-    private val usage = ConcurrentHashMap<Long, LongArray>()
+    private val usage = ConcurrentHashMap<String, LongArray>()
+    /** Connections whose guest was suspended: no new guests from there for a day. */
+    private val blockedAddresses = ConcurrentHashMap<String, Long>()
+    private val guestsCreated = ConcurrentHashMap<String, MutableList<Long>>()
+
+    /** Null when [address] may create a guest now; otherwise why not. Counts the guest when allowed. */
+    fun guestAllowedFrom(address: String, now: Long = System.currentTimeMillis()): String? {
+        blockedAddresses[address]?.let { until -> if (until > now) return "Desde esta conexión no se pueden crear invitados durante un tiempo" else blockedAddresses.remove(address) }
+        val recent = guestsCreated.getOrPut(address) { mutableListOf() }
+        synchronized(recent) {
+            recent.removeAll { now - it > GUEST_CREATION_WINDOW_MS }
+            if (recent.size >= GUESTS_PER_WINDOW) return "Demasiados invitados desde esta conexión; espera un rato o pide una cuenta"
+            recent += now
+        }
+        if (guestsCreated.size > 10_000) guestsCreated.entries.removeIf { (_, v) -> synchronized(v) { v.all { now - it > GUEST_CREATION_WINDOW_MS } } }
+        return null
+    }
 
     /**
      * Counts a request that makes the server ask the sources for something. An account that asks for far
@@ -248,18 +265,27 @@ class Auth(private val db: Database, private val config: Config) {
      * so one user cannot get the server blocked by the sites or slow it down for everyone else.
      * Returns false when this request suspended the account.
      */
-    suspend fun countSourceRequest(user: User, now: Long = System.currentTimeMillis()): Boolean {
+    suspend fun countSourceRequest(user: User, address: String = "", now: Long = System.currentTimeMillis()): Boolean {
         if (user.isAdmin) return true
         val limit = if (user.isGuest) config.guestAbuseLimit else config.abuseLimit
-        val window = usage.getOrPut(user.id) { longArrayOf(now, 0) }
-        val over = synchronized(window) {
-            if (now - window[0] > ABUSE_WINDOW_MS) { window[0] = now; window[1] = 0 }
-            window[1]++
-            window[1] > limit
+        fun over(key: String): Boolean {
+            val window = usage.getOrPut(key) { longArrayOf(now, 0) }
+            return synchronized(window) {
+                if (now - window[0] > ABUSE_WINDOW_MS) { window[0] = now; window[1] = 0 }
+                window[1]++
+                window[1] > limit
+            }
         }
-        if (!over) return true
+        // Guests are also counted per connection: making a new guest does not start the count again.
+        val byUser = over("u:${user.id}")
+        val byAddress = user.isGuest && address.isNotEmpty() && over("ip:$address")
+        if (!byUser && !byAddress) return true
         db.suspend(user.id, "Más de $limit peticiones a las fuentes en 10 minutos")
-        usage.remove(user.id)
+        if (user.isGuest && address.isNotEmpty()) {
+            blockedAddresses[address] = now + GUEST_BLOCK_MS
+            usage.remove("ip:$address")
+        }
+        usage.remove("u:${user.id}")
         forget(user.id)
         log.warn("Cuenta {} suspendida por uso excesivo", user.name)
         return false
@@ -267,7 +293,7 @@ class Auth(private val db: Database, private val config: Config) {
 
     suspend fun reactivate(userId: Long) {
         db.reactivate(userId)
-        usage.remove(userId)
+        usage.remove("u:$userId")
         forget(userId)
     }
 
@@ -289,6 +315,9 @@ class Auth(private val db: Database, private val config: Config) {
         const val DAY_MS = 86_400_000L
         private const val SESSION_CACHE_MS = 60_000L
         private const val ABUSE_WINDOW_MS = 10 * 60_000L
+        private const val GUEST_BLOCK_MS = 24 * 60 * 60_000L
+        private const val GUEST_CREATION_WINDOW_MS = 60 * 60_000L
+        private const val GUESTS_PER_WINDOW = 5
         private const val TEN_YEARS_S = 10 * 365 * 24 * 3600
     }
 }
@@ -298,7 +327,8 @@ val UserKey = AttributeKey<User>("yomukai.user")
 val ApplicationCall.user: User get() = attributes[UserKey]
 
 /** Lets through only requests with a valid session, within their rate; [admin] restricts to admins. */
-fun requireUser(auth: Auth, admin: Boolean = false) = createRouteScopedPlugin("RequireUser${if (admin) "Admin" else ""}") {
+fun requireUser(auth: Auth, admin: Boolean = false, addressOf: (io.ktor.server.application.ApplicationCall) -> String = { "" }) =
+    createRouteScopedPlugin("RequireUser${if (admin) "Admin" else ""}") {
     onCall { call ->
         val user = auth.userFor(call.request.cookies[Auth.COOKIE])
         when {
@@ -306,7 +336,7 @@ fun requireUser(auth: Auth, admin: Boolean = false) = createRouteScopedPlugin("R
             user.suspendedAt != null -> call.respond(HttpStatusCode.Forbidden, mapOf("error" to SUSPENDED_MESSAGE, "suspended" to true))
             admin && !user.isAdmin -> call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Solo para administradores"))
             !auth.allow(user) -> call.respond(HttpStatusCode.TooManyRequests, mapOf("error" to "Demasiadas peticiones, espera un momento"))
-            isSourceRequest(call.request.path()) && !auth.countSourceRequest(user) ->
+            isSourceRequest(call.request.path()) && !auth.countSourceRequest(user, addressOf(call)) ->
                 call.respond(HttpStatusCode.Forbidden, mapOf("error" to SUSPENDED_MESSAGE, "suspended" to true))
             else -> call.attributes.put(UserKey, user)
         }
@@ -322,4 +352,11 @@ private val SOURCE_PATHS = listOf(
     "/api/updates", "/api/download"
 )
 
-fun isSourceRequest(path: String) = SOURCE_PATHS.any { path.startsWith(it) }
+/**
+ * Decoded and with repeated slashes collapsed, as the router sees it: "/api/%70ages" or "//api/pages"
+ * reach the same handler as "/api/pages" and must be counted the same.
+ */
+fun isSourceRequest(path: String): Boolean {
+    val clean = runCatching { path.decodeURLPart() }.getOrDefault(path).replace(Regex("/{2,}"), "/")
+    return SOURCE_PATHS.any { clean.startsWith(it) }
+}

@@ -119,7 +119,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
         authRoutes(services)
         route("/api") {
             run {
-                install(requireUser(services.auth))
+                install(requireUser(services.auth) { LoginThrottle.addressKey(clientAddress(it, config)) })
                 catalogRoutes(services)
                 userRoutes(services)
                 get("/img") { services.proxy.serveImage(call) }
@@ -194,6 +194,9 @@ private fun Route.authRoutes(s: Services) {
     }
     post("/auth/guest") {
         if (!s.config.guestsEnabled) return@post call.respond(HttpStatusCode.Forbidden, mapOf("error" to "El modo invitado está desactivado"))
+        s.auth.guestAllowedFrom(LoginThrottle.addressKey(clientAddress(call, s.config)))?.let {
+            return@post call.respond(HttpStatusCode.TooManyRequests, mapOf("error" to it))
+        }
         val (user, token) = s.auth.guest()
         call.response.cookies.append(s.auth.sessionCookie(token, secure(call)))
         call.respond(user.dto())

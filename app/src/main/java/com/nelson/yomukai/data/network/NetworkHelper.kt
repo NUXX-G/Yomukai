@@ -291,7 +291,8 @@ class NetworkHelper(
     /** Fetches [url] the way the image loader does; returns a short description or throws when it is not an image. */
     override suspend fun checkImage(url: String, headers: Map<String, String>): String = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url).apply { headers.forEach { (k, v) -> header(k, v) } }.build()
-        client.newCall(request).await().use { response ->
+        // Checked the way the reader loads it, so a CDN that needs HTTP/1.1 is tested over HTTP/1.1 too.
+        imageCallFactory.newCall(request).await().use { response ->
             if (!response.isSuccessful) throw HttpException(response.code, url)
             val type = response.header("Content-Type").orEmpty()
             if (!type.startsWith("image/")) throw IOException("No es una imagen: ${type.ifBlank { "sin tipo" }} en ${response.request.url.host}")

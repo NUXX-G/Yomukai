@@ -261,14 +261,38 @@ class ServerLogicTest {
         val friend = db.createUser("amigo", null, admin = false, guest = false, expiresAt = null)
         val boss = db.createUser("jefe", null, admin = true, guest = false, expiresAt = null)
         val start = 1_000_000L
-        repeat(100) { assertTrue(auth.countSourceRequest(friend, start + it)) }
-        assertFalse("request 101 in ten minutes suspends", auth.countSourceRequest(friend, start + 200))
+        repeat(100) { assertTrue(auth.countSourceRequest(friend, now = start + it)) }
+        assertFalse("request 101 in ten minutes suspends", auth.countSourceRequest(friend, now = start + 200))
         assertTrue(db.users().first { it.id == friend.id }.suspendedAt != null)
-        repeat(500) { assertTrue("admins are never suspended", auth.countSourceRequest(boss, start + it)) }
+        repeat(500) { assertTrue("admins are never suspended", auth.countSourceRequest(boss, now = start + it)) }
         auth.reactivate(friend.id)
         assertNull(db.users().first { it.id == friend.id }.suspendedAt)
         // A new window starts after ten minutes.
-        repeat(100) { assertTrue(auth.countSourceRequest(friend, start + 700_000 + it)) }
+        repeat(100) { assertTrue(auth.countSourceRequest(friend, now = start + 700_000 + it)) }
         assertTrue(isSourceRequest("/api/pages") && !isSourceRequest("/api/img") && !isSourceRequest("/api/progress"))
+    }
+
+    @Test
+    fun guestsCannotDodgeTheLimitWithNewGuests() = runBlocking {
+        val db = tempDb()
+        val auth = Auth(db, Config.fromEnv(mapOf("ADMIN_PASSWORD" to "x".repeat(12), "GUEST_ABUSE_LIMIT" to "50")))
+        val ip = "203.0.113.7"
+        assertNull(auth.guestAllowedFrom(ip, 1_000))
+        // Many guests from one connection share one count.
+        val start = 1_000_000L
+        var suspended = false
+        for (n in 0 until 3) {
+            val g = db.createUser("g$n", null, admin = false, guest = true, expiresAt = Long.MAX_VALUE)
+            repeat(20) { if (!auth.countSourceRequest(g, ip, start + n * 20 + it)) suspended = true }
+        }
+        assertTrue("60 requests from three guests on one connection exceed 50", suspended)
+        assertTrue("no more guests from there", auth.guestAllowedFrom(ip, start + 100) != null)
+        // At most five new guests an hour from one connection.
+        val other = "198.51.100.9"
+        repeat(5) { assertNull(auth.guestAllowedFrom(other, 2_000L + it)) }
+        assertTrue(auth.guestAllowedFrom(other, 2_010) != null)
+        assertNull(auth.guestAllowedFrom(other, 2_000L + 3_600_001))
+        // Encoded or doubled paths are counted like the plain ones.
+        assertTrue(isSourceRequest("/api/%70ages") && isSourceRequest("//api//pages"))
     }
 }
