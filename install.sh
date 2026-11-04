@@ -54,7 +54,9 @@ docker compose up -d
 
 PORT_IN_USE="$(grep -E '^PORT=' .env | cut -d= -f2)"
 say ""
-say "Yomukai está en marcha: http://localhost:${PORT_IN_USE:-8080}"
+PORT_IN_USE="${PORT_IN_USE:-8080}"
+case "$PORT_IN_USE" in *:*) ADDRESS="$PORT_IN_USE" ;; *) ADDRESS="localhost:$PORT_IN_USE" ;; esac
+say "Yomukai está en marcha: http://$ADDRESS"
 if [ "${NEW:-0}" = 1 ]; then
   say "Usuario: admin"
   say "Contraseña: $(grep -E '^ADMIN_PASSWORD=' .env | cut -d= -f2)"
