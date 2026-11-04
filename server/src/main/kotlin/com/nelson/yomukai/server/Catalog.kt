@@ -40,6 +40,13 @@ import java.util.concurrent.ConcurrentHashMap
 
 /** What a user's settings say about sources and genres. The web app owns the rest of the document. */
 data class UserPrefs(val enabledSources: Set<String>?, val globalExclusions: Set<String>, val perSource: Map<String, Set<String>>) {
+    /** An exact text form of these settings (never a hash: two users must never share an answer by accident). */
+    fun cacheKey(): String = listOf(
+        enabledSources?.sorted()?.joinToString(",") ?: "*",
+        globalExclusions.sorted().joinToString(","),
+        perSource.toSortedMap().entries.joinToString(";") { (id, genres) -> id + "=" + genres.sorted().joinToString(",") }
+    ).joinToString("|")
+
     fun excludedFor(sourceId: String): Set<String> = globalExclusions + perSource[sourceId].orEmpty()
 
     companion object {
@@ -337,7 +344,7 @@ class Catalog(
 
     suspend fun alternatives(user: User, prefs: UserPrefs, sourceId: String, mediaId: String): Result<List<AlternativeDto>> = runCatching {
         // The same title with the same sources on gives the same answer: opening it again is instant.
-        val k = key("alternatives", sourceId, mediaId, prefs.hashCode().toString())
+        val k = key("alternatives", sourceId, mediaId, prefs.cacheKey())
         alternativesCache.get(k)?.let { return@runCatching it }
         val item = media(sourceId, mediaId).getOrThrow()
         val found = java.util.Collections.synchronizedList(mutableListOf<com.nelson.yomukai.data.discovery.Alternative>())
