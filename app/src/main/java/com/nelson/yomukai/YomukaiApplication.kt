@@ -54,6 +54,7 @@ class AppContainer(context: Context) {
             network.webViewReady = { proxy.state.value.ready }
         }
     val libraryRepository = LibraryRepository(database, sourceManager)
+    val serverSync = com.nelson.yomukai.data.sync.ServerSync(context, database, preferences)
     val videoOffline = VideoOffline(context, network)
     val downloadManager = DownloadManager(context, database, sourceManager, network, applicationScope, preferences, videoOffline)
     val contentRepository = ContentRepository(sourceManager, downloadManager)
@@ -98,6 +99,18 @@ class YomukaiApplication : Application(), SingletonImageLoader.Factory {
                 .map { Triple(it.updatesEnabled, it.updateIntervalHours, it.updatesWifiOnly) }
                 .distinctUntilChanged()
                 .collect { LibraryUpdateWorker.schedule(this@YomukaiApplication, container.preferences.app.value) }
+        }
+        // Optional sync with a Yomukai server: changes here go up a little later, and once an hour
+        // (and at every start) what changed on the web comes down.
+        val sync = container.serverSync
+        val wake = { if (sync.state.value.connected) com.nelson.yomukai.data.sync.SyncWorker.soon(this) }
+        container.libraryRepository.onLocalChange = wake
+        container.preferences.onSharedChanged = wake
+        container.applicationScope.launch {
+            sync.state.map { it.connected }.distinctUntilChanged().collect { connected ->
+                com.nelson.yomukai.data.sync.SyncWorker.schedule(this@YomukaiApplication, connected)
+                if (connected) com.nelson.yomukai.data.sync.SyncWorker.soon(this@YomukaiApplication, 0)
+            }
         }
     }
 

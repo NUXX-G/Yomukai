@@ -22,8 +22,8 @@ android {
         applicationId = "com.nelson.yomukai"
         minSdk = 26
         targetSdk = 37
-        versionCode = 18
-        versionName = "1.8.0"
+        versionCode = 19
+        versionName = "1.9.0"
 
         ndk {
             // tor ships ~7 MB per ABI; 32-bit x86 devices are not supported.
@@ -122,6 +122,9 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.room.testing)
+    // room-testing reads schemas with a newer kotlinx-serialization than the app otherwise brings in;
+    // without this the test APK fails with AbstractMethodError.
+    constraints { implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.9.0") }
     // Room testing reads the exported schemas with this; the app itself does not use it.
     androidTestImplementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     debugImplementation(libs.androidx.compose.ui.test.manifest)

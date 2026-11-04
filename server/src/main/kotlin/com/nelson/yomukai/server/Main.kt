@@ -413,6 +413,8 @@ private fun Route.userRoutes(s: Services) {
         call.respond(mapOf("ok" to true))
     }
     post("/sync") {
+        // The app signs in with a real account; guests (a week, one browser) have nothing to sync.
+        if (call.user.isGuest) return@post call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Las cuentas de invitado no se sincronizan"))
         val text = call.receiveText()
         require(text.length < MAX_IMPORT_CHARS) { "Demasiados cambios de una vez" }
         val root = JsonParser.parseString(text).asJsonObject
@@ -423,6 +425,9 @@ private fun Route.userRoutes(s: Services) {
         val history = list("history", HistoryRow::class.java)
         val bookmarks = list("bookmarks", BookmarkRow::class.java)
         require(library.size + categories.size + progress.size + history.size + bookmarks.size <= MAX_SYNC_ROWS) { "Demasiados cambios de una vez" }
+        require(categories.size <= MAX_CATEGORIES) { "Demasiadas categorías" }
+        val shared = root.getAsJsonObject("settings")
+        require(shared == null || shared.toString().length < MAX_SETTINGS_CHARS) { "Ajustes demasiado grandes" }
         // Rows without their keys are dropped rather than stored half empty.
         val changes = s.db.sync(
             call.user.id, root.get("since")?.asLong ?: 0L,
@@ -431,7 +436,7 @@ private fun Route.userRoutes(s: Services) {
             progress.filter { !it.sourceId.isNullOrBlank() && !it.chapterId.isNullOrBlank() && !it.mediaId.isNullOrBlank() },
             history.filter { !it.sourceId.isNullOrBlank() && !it.mediaId.isNullOrBlank() && !it.chapterId.isNullOrBlank() },
             bookmarks.filter { !it.sourceId.isNullOrBlank() && !it.chapterId.isNullOrBlank() && !it.mediaId.isNullOrBlank() },
-            root.getAsJsonObject("settings")
+            shared
         )
         call.respond(changes)
     }

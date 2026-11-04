@@ -85,6 +85,7 @@ fun SettingsScreen(
     val storage by viewModel.storage.collectAsStateWithLifecycle()
     val network by viewModel.network.collectAsStateWithLifecycle()
     val tor by viewModel.tor.collectAsStateWithLifecycle()
+    val sync by viewModel.sync.collectAsStateWithLifecycle()
     var confirmHistory by remember { mutableStateOf(false) }
     var showExclusions by remember { mutableStateOf(false) }
     val exclusions by viewModel.exclusions.collectAsStateWithLifecycle()
@@ -116,6 +117,9 @@ fun SettingsScreen(
                 .padding(padding),
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
+            item { GroupTitle("Sincronizar con servidor") }
+            item { ServerSyncItem(sync, viewModel::connectServer, viewModel::syncNow, viewModel::disconnectServer) }
+
             item { GroupTitle("Apariencia") }
             item {
                 ChipRow {

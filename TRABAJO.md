@@ -164,3 +164,17 @@ Descartado: fallo de notificaciones con la app cerrada; el usuario confirma que 
 - DNS sobre HTTPS sin caché y con 10 s de espera si 1.1.1.1 no responde.
 - LectorTMO parsea su HTML de 1,6 MB dos veces.
 - Explorar no guarda nada entre aperturas.
+
+## v1.9.0 (pre-release): sincronización app ↔ web, descargas en la web, paridad
+
+- Sincronización opcional (Ajustes › Sincronizar con servidor): biblioteca con estados y categorías, progreso, historial,
+  marcadores, fuentes activas y géneros excluidos. El servidor numera cada cambio (`rev`); el móvil pide "lo posterior a N"
+  y gana el `updatedAt` más reciente. Los borrados viajan como filas `deleted` (servidor) o `sync_tombstones` (móvil).
+  Progreso de capítulos que el móvil aún no listó: `pending_progress`, se aplica en `replaceForMedia`.
+- Room v8 (MIGRATION_7_8), probada de v2 a v8 en API 26, 33 y 37. Prueba en vivo: `SyncLiveTest` con `-e live true`
+  contra un servidor en 10.0.2.2:8099 (admin / prueba123); solo las builds debug permiten HTTP a 10.0.2.2.
+- La app solo sincroniza por HTTPS. Android 17: permiso ACCESS_LOCAL_NETWORK, pedido solo para servidores en la red de casa.
+- La sesión del servidor no entra en las copias de seguridad de Android (`yomukai_sync.xml` excluido).
+- Web: descargas al dispositivo (CBZ/EPUB/MP4 montados al vuelo), categorías, marcadores, desplazamiento automático,
+  recorte de bordes, brillo y filtros, géneros por fuente, novela continua y búsqueda en el capítulo.
+- No posible en web: Tor, navegador de captura, avisos con la web cerrada, bloquear orientación del lector.

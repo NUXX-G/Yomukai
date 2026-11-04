@@ -31,6 +31,10 @@ data class MediaEntity(
     @ColumnInfo(defaultValue = "1") val notifyUpdates: Boolean = true,
     /** Other names of the title, separated by '|'; they help to find it in other sources. */
     @ColumnInfo(defaultValue = "''") val altTitles: String = ""
+,
+    /** Sync: when the library state (saved, status, categories) last changed, and whether the server lacks it. */
+    @ColumnInfo(defaultValue = "0") val libraryUpdatedAt: Long = 0L,
+    @ColumnInfo(defaultValue = "0") val libraryDirty: Boolean = false
 )
 
 enum class ReadingStatus(val displayName: String) {
@@ -51,7 +55,9 @@ enum class ReadingStatus(val displayName: String) {
 data class CategoryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
-    val sortOrder: Int = 0
+    val sortOrder: Int = 0,
+    @ColumnInfo(defaultValue = "0") val updatedAt: Long = 0L,
+    @ColumnInfo(defaultValue = "0") val dirty: Boolean = false
 )
 
 @Entity(
@@ -97,7 +103,10 @@ data class ChapterEntity(
     val totalPages: Int = 0,
     /** Novel: scroll position as a fraction 0..1. */
     val progress: Float = 0f,
-    val lastReadAt: Long = 0L
+    val lastReadAt: Long = 0L,
+    /** Sync: when read/page/progress last changed, and whether the server lacks it. */
+    @ColumnInfo(defaultValue = "0") val progressUpdatedAt: Long = 0L,
+    @ColumnInfo(defaultValue = "0") val progressDirty: Boolean = false
 )
 
 /** One row per title: the most recently read chapter. */
@@ -111,7 +120,8 @@ data class HistoryEntity(
     val mediaId: String,
     val chapterId: String,
     val chapterTitle: String,
-    val readAt: Long
+    val readAt: Long,
+    @ColumnInfo(defaultValue = "0") val dirty: Boolean = false
 )
 
 enum class DownloadStatus { QUEUED, DOWNLOADING, COMPLETED, FAILED }
@@ -171,5 +181,30 @@ data class BookmarkEntity(
     val position: Int,
     /** Short preview text for novels, empty for pages. */
     val label: String = "",
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(defaultValue = "0") val updatedAt: Long = 0L,
+    @ColumnInfo(defaultValue = "0") val dirty: Boolean = false
+)
+
+/** Something deleted here that the sync server has not been told about yet. */
+@Entity(tableName = "sync_tombstones", primaryKeys = ["kind", "key"])
+data class SyncTombstoneEntity(
+    /** "history", "bookmark" or "category". */
+    val kind: String,
+    /** history: source, media; bookmark: source, media, chapter, position (joined by line breaks); category: its name. */
+    val key: String,
+    val deletedAt: Long
+)
+
+/** Progress from the server for chapters this phone has not listed yet; merged when the list arrives. */
+@Entity(tableName = "pending_progress", primaryKeys = ["sourceId", "chapterId"], indices = [Index("sourceId", "mediaId")])
+data class PendingProgressEntity(
+    val sourceId: String,
+    val chapterId: String,
+    val mediaId: String,
+    val read: Boolean,
+    val page: Int,
+    val total: Int,
+    val fraction: Float,
+    val updatedAt: Long
 )

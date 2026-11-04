@@ -102,7 +102,9 @@ El instalador crea `~/yomukai`, genera una contraseña de administrador, arranca
 
 - **Cuentas:** entra como `admin` y crea las cuentas de tus amigos en Ajustes › Administración. La sesión dura hasta que se cierre.
 - **Invitados:** «Probar sin cuenta» no pide contraseña y permite hacer de todo; la cuenta y sus datos se borran a los 7 días.
-- **Exportar e importar:** Ajustes › Tus datos descarga un JSON con biblioteca, progreso, historial y ajustes, y lo importa en cualquier otra cuenta o servidor (fusionar o reemplazar).
+- **Exportar e importar:** Ajustes › Tus datos descarga un JSON con biblioteca, categorías, progreso, historial, marcadores y ajustes, y lo importa en cualquier otra cuenta o servidor (fusionar o reemplazar).
+- **Descargas:** desde la ficha (⋮ › Descargar en este dispositivo) los capítulos se guardan en el móvil o el PC de quien descarga, no en el servidor: cómics en CBZ (varios capítulos en un ZIP), novelas en EPUB y episodios en MP4.
+- **Sincronizar la app de Android (opcional):** en la app, Ajustes › Sincronizar con servidor, con la dirección de la web y tu usuario. Biblioteca, estados, categorías, progreso, historial, marcadores, fuentes y géneros excluidos quedan iguales en la web y en el móvil; gana el cambio más reciente. La app solo se conecta por HTTPS (en Android 17 pide permiso si el servidor está en tu red de casa). Las cuentas de invitado no se sincronizan.
 
 Opciones en `~/yomukai/.env` (aplícalas con `docker compose up -d`):
 
@@ -117,6 +119,16 @@ Opciones en `~/yomukai/.env` (aplícalas con `docker compose up -d`):
 | `TRUST_PROXY` | `false` | Ponlo a `true` solo si hay un proxy inverso delante (nginx, Caddy) |
 
 Detrás de nginx o Caddy con HTTPS, apunta el proxy a `http://127.0.0.1:8080`, pon `TRUST_PROXY=true` y desactiva el buffering para que la búsqueda en vivo y el vídeo fluyan (`proxy_buffering off;` en nginx).
+
+La forma más sencilla de tener HTTPS es [Caddy](https://caddyserver.com), que pide y renueva el certificado solo. Con un dominio que apunte a tu VPS, este `Caddyfile` basta:
+
+```
+yomukai.tudominio.com {
+    reverse_proxy 127.0.0.1:8080 {
+        flush_interval -1
+    }
+}
+```
 
 Para desarrollar sin Docker: `./gradlew :server:installDist` (con `YOMUKAI_SERVER_ONLY=true` no hace falta el SDK de Android), `cd web && npm install && npm run dev`, y arranca `server/build/install/server/bin/server` con `PORT=8099`.
 
@@ -202,7 +214,7 @@ curl -fsSL https://raw.githubusercontent.com/NUXX-G/Yomukai/main/install.sh | ba
 irm https://raw.githubusercontent.com/NUXX-G/Yomukai/main/install.ps1 | iex             # Windows PowerShell
 ```
 
-It creates `~/yomukai`, generates an admin password, starts Yomukai plus FlareSolverr and prints the address. Run it again to update. Create accounts for friends in Settings › Administration; guests need no password and are deleted after 7 days; data can be exported and imported as JSON. Options live in `~/yomukai/.env` (see the table above). Behind a reverse proxy, set `TRUST_PROXY=true` and disable response buffering.
+It creates `~/yomukai`, generates an admin password, starts Yomukai plus FlareSolverr and prints the address. Run it again to update. Chapters and episodes can be downloaded to the viewer's own device (CBZ, EPUB, MP4; nothing is stored on the server), and the Android app can optionally sync its library, progress, history, bookmarks and settings with an account on the server (HTTPS only). Create accounts for friends in Settings › Administration; guests need no password and are deleted after 7 days; data can be exported and imported as JSON. Options live in `~/yomukai/.env` (see the table above). Behind a reverse proxy, set `TRUST_PROXY=true` and disable response buffering.
 
 The backend is a Ktor server (`server/`) reusing the app's sources from the pure-Kotlin `shared/` module; the frontend is Svelte 5 + Vite (`web/`). User data is stored in SQLite, and images and video go through a signed proxy with a disk cache.
 

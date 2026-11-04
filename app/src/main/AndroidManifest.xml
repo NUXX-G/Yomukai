@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Android 17+: reaching a Yomukai server on the home network (only asked for when the user connects to one). -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Keeps the network up while an episode plays with the screen off (picture in picture). -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -14,6 +16,7 @@
 
     <application
         android:name=".YomukaiApplication"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"

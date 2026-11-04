@@ -26,9 +26,11 @@ class Converters {
         DownloadEntity::class,
         CategoryEntity::class,
         MediaCategoryEntity::class,
-        BookmarkEntity::class
+        BookmarkEntity::class,
+        SyncTombstoneEntity::class,
+        PendingProgressEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -39,6 +41,7 @@ abstract class YomukaiDatabase : RoomDatabase() {
     abstract fun downloadDao(): DownloadDao
     abstract fun categoryDao(): CategoryDao
     abstract fun bookmarkDao(): BookmarkDao
+    abstract fun syncDao(): SyncDao
 
     companion object {
         /** v2: reading status + update notifications per title, user categories. */
@@ -117,9 +120,38 @@ abstract class YomukaiDatabase : RoomDatabase() {
             }
         }
 
+        /** v8: sync with a Yomukai server: change times, "not sent yet" flags, deletions to send, progress waiting for its chapter. */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE media ADD COLUMN libraryUpdatedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE media ADD COLUMN libraryDirty INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE categories ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE categories ADD COLUMN dirty INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE chapters ADD COLUMN progressUpdatedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE chapters ADD COLUMN progressDirty INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE history ADD COLUMN dirty INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE bookmarks ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE bookmarks ADD COLUMN dirty INTEGER NOT NULL DEFAULT 0")
+                // What already exists dates from when it was saved or last read.
+                db.execSQL("UPDATE media SET libraryUpdatedAt = dateAdded WHERE inLibrary = 1")
+                db.execSQL("UPDATE chapters SET progressUpdatedAt = lastReadAt")
+                db.execSQL("UPDATE bookmarks SET updatedAt = createdAt")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `sync_tombstones` (`kind` TEXT NOT NULL, `key` TEXT NOT NULL, `deletedAt` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`kind`, `key`))"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `pending_progress` (`sourceId` TEXT NOT NULL, `chapterId` TEXT NOT NULL, `mediaId` TEXT NOT NULL, " +
+                        "`read` INTEGER NOT NULL, `page` INTEGER NOT NULL, `total` INTEGER NOT NULL, `fraction` REAL NOT NULL, " +
+                        "`updatedAt` INTEGER NOT NULL, PRIMARY KEY(`sourceId`, `chapterId`))"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_pending_progress_sourceId_mediaId` ON `pending_progress` (`sourceId`, `mediaId`)")
+            }
+        }
+
         fun build(context: Context): YomukaiDatabase =
             Room.databaseBuilder(context, YomukaiDatabase::class.java, "yomukai.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .build()
     }
 }

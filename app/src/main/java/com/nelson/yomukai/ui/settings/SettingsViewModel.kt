@@ -22,6 +22,14 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     val network: StateFlow<NetworkSettings> = container.preferences.network
     val sources: List<CatalogueSource> = container.sourceManager.all
     val tor: StateFlow<com.nelson.yomukai.data.network.TorState> = container.tor.state
+    val sync: StateFlow<com.nelson.yomukai.data.sync.SyncState> = container.serverSync.state
+
+    suspend fun connectServer(server: String, user: String, password: String): String? =
+        container.serverSync.connect(server, user, password)
+
+    fun syncNow() { viewModelScope.launch { container.serverSync.sync() } }
+
+    fun disconnectServer() { viewModelScope.launch { container.serverSync.disconnect() } }
 
     private val _storage = MutableStateFlow(0L to 0L) // image cache bytes, download bytes
     val storage: StateFlow<Pair<Long, Long>> = _storage.asStateFlow()

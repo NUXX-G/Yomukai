@@ -197,7 +197,7 @@
       </p>
       <div class="sync-box"><span class="small muted">Servidor</span><code>{location.origin}</code></div>
       <div class="sync-box"><span class="small muted">Usuario</span><code>{session.user.name}</code></div>
-      <p class="small muted">y tu contraseña de aquí. {location.protocol === 'https:' ? '' : 'Para usarla fuera de casa, el servidor necesita HTTPS; sin él, la app solo se conecta en tu red.'}</p>
+      <p class="small muted">y tu contraseña de aquí. {#if location.protocol !== 'https:'}<b>Ojo:</b> la app solo se conecta a servidores con HTTPS (para que la contraseña no viaje sin cifrar). Pon el servidor detrás de nginx o Caddy con un certificado; el README explica cómo.{/if}</p>
     </section>
   {/if}
 

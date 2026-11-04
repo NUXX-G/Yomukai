@@ -168,6 +168,44 @@ class AppPreferences(context: Context) {
         val current = prefs.getStringSet("excluded_genres", null).orEmpty()
         prefs.edit().putStringSet("excluded_genres", if (row in current) current - row else current + row).apply()
         _exclusions.value = readExclusions()
+        markSharedChanged()
+    }
+
+    // Sources and excluded genres are shared with the web when sync is on: each local change is
+    // stamped, so the newest of the phone and the server wins.
+
+    /** When the shared settings last changed here, and whether the server has not been told yet. */
+    val sharedUpdatedAt: Long get() = prefs.getLong("sync_shared_at", 0L)
+    val sharedDirty: Boolean get() = prefs.getBoolean("sync_shared_dirty", false)
+
+    private fun markSharedChanged() {
+        prefs.edit().putLong("sync_shared_at", System.currentTimeMillis()).putBoolean("sync_shared_dirty", true).apply()
+        onSharedChanged()
+    }
+
+    /** Called after a local change to something that syncs; the sync code sets it. */
+    @Volatile var onSharedChanged: () -> Unit = {}
+
+    fun markSharedSent(at: Long) {
+        if (sharedUpdatedAt == at) prefs.edit().putBoolean("sync_shared_dirty", false).apply()
+    }
+
+    /** Everything shared counts as changed now (first connection to a server). */
+    fun markSharedForUpload() = prefs.edit().putBoolean("sync_shared_dirty", true).apply()
+
+    /** The server's version, newer than ours: written without counting as a local change. */
+    fun applySharedFromServer(enabledSources: Set<String>?, exclusions: GenreExclusions, updatedAt: Long) {
+        val rows = exclusions.global.map { "*\t$it" } + exclusions.bySource.flatMap { (source, genres) -> genres.map { "$source\t$it" } }
+        prefs.edit()
+            .putStringSet("excluded_genres", rows.toSet())
+            .putLong("sync_shared_at", updatedAt)
+            .putBoolean("sync_shared_dirty", false)
+            .apply {
+                if (enabledSources == null) remove("enabled_sources") else putStringSet("enabled_sources", enabledSources)
+            }
+            .apply()
+        _exclusions.value = readExclusions()
+        _app.value = _app.value.copy(enabledSources = enabledSources)
     }
 
     /** One page per line: url, tab, title. */
@@ -232,6 +270,7 @@ class AppPreferences(context: Context) {
 
     fun updateApp(transform: (AppSettings) -> AppSettings) {
         val value = transform(_app.value)
+        if (value.enabledSources != _app.value.enabledSources) markSharedChanged()
         prefs.edit()
             .putString("theme_mode", value.themeMode.name)
             .putBoolean("dynamic_color_v2", value.dynamicColor)
