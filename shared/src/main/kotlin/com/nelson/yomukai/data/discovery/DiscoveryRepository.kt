@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
@@ -42,7 +43,9 @@ class DiscoveryRepository(
     private val enabledIds: () -> Set<String>?,
     private val aniList: AniListClient,
     private val savedTitles: () -> List<MediaItem>,
-    private val filter: () -> TitleFilter
+    private val filter: () -> TitleFilter,
+    /** Whether random picks are looked for ahead of time; off for guests on the server. */
+    private val prefetch: Boolean = true
 ) {
     private fun readableIn(source: CatalogueSource, type: MediaType): Boolean = when (type) {
         MediaType.ANIME -> source is AnimeSource
@@ -190,8 +193,10 @@ class DiscoveryRepository(
      * user's sources and only kept when some source has it; after a few misses the pick comes from
      * titles already seen in the user's sources, so the answer always opens.
      */
-    suspend fun randomAvailable(kind: RandomKind, genre: String?): Pair<RelatedTitle, List<Alternative>>? {
-        val key = "${kind.name}|${genre.orEmpty()}"
+    suspend fun randomAvailable(kind: RandomKind, requestedGenre: String?): Pair<RelatedTitle, List<Alternative>>? {
+        // Only the genres the app offers: anything else would be a new key with its own background work.
+        val genre = requestedGenre?.takeIf { it in RANDOM_GENRES }
+        val key ="${kind.name}|${genre.orEmpty()}"
         // A pick found ahead of time answers at once; the next ones are looked for meanwhile.
         val ready = synchronized(prefetched) { prefetched[key]?.removeFirstOrNull() }
         refill(kind, genre, key)
@@ -208,18 +213,27 @@ class DiscoveryRepository(
     private val background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private fun refill(kind: RandomKind, genre: String?, key: String) {
+        if (!prefetch) return
+        // A handful of kind/genre pairs per user is plenty; the queue for a new one waits its turn.
+        if (synchronized(prefetched) { key !in prefetched && prefetched.size >= MAX_PREFETCH_KEYS }) return
         if (!refilling.add(key)) return
         background.launch {
             try {
-                while (synchronized(prefetched) { prefetched[key]?.size ?: 0 } < PREFETCH) {
-                    val found = findRandom(kind, genre) ?: break
-                    synchronized(prefetched) { prefetched.getOrPut(key) { ArrayDeque() }.addLast(found) }
+                // Background searches of every user share a few slots, so the sites are never flooded.
+                prefetchSlots.withPermit {
+                    while (synchronized(prefetched) { prefetched[key]?.size ?: 0 } < PREFETCH) {
+                        val found = findRandom(kind, genre) ?: break
+                        synchronized(prefetched) { prefetched.getOrPut(key) { ArrayDeque() }.addLast(found) }
+                    }
                 }
             } finally {
                 refilling.remove(key)
             }
         }
     }
+
+    /** Stops what is being looked for ahead of time; called when this user's instance is replaced. */
+    fun close() = background.cancel()
 
     /** Two AniList picks are looked for at the same time; the first one some source has wins. */
     private suspend fun findRandom(kind: RandomKind, genre: String?): Pair<RelatedTitle, List<Alternative>>? {
@@ -328,8 +342,16 @@ class DiscoveryRepository(
             .filter { it.second != MatchConfidence.NONE }
             .minByOrNull { it.second.ordinal }
 
-    private companion object {
-        const val ALIAS_TIMEOUT_MS = 3_000L
+    companion object {
+        /** The AniList genres the random picker offers (same list in the app and the web). */
+        val RANDOM_GENRES = setOf(
+            "Action", "Adventure", "Comedy", "Drama", "Ecchi", "Fantasy", "Horror", "Mahou Shoujo", "Mecha", "Music",
+            "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"
+        )
+        private const val MAX_PREFETCH_KEYS = 4
+        /** Background random searches running at once, across every user of the process. */
+        private val prefetchSlots = Semaphore(2)
+        private const val ALIAS_TIMEOUT_MS = 3_000L
         const val MAX_SIMILAR = 20
         const val MAX_SEEDS = 8
         const val MAX_FOR_YOU = 30

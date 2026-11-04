@@ -316,11 +316,17 @@ class Catalog(
     }
 
     private suspend fun discovery(user: User, prefs: UserPrefs): DiscoveryRepository = discoveryLock.withLock {
-        discoveries.get(user.id)?.takeIf { it.first == prefs }?.second ?: DiscoveryRepository(
+        val current = discoveries.get(user.id)
+        current?.takeIf { it.first == prefs }?.second ?: DiscoveryRepository(
             sources, { prefs.enabledSources }, aniList,
             savedTitles = { latest.values().flatten() },
-            filter = { filterFor(prefs) }
-        ).also { discoveries.put(user.id, prefs to it) }
+            filter = { filterFor(prefs) },
+            // Guests get no picks looked for ahead of time: that work would not count against their limits.
+            prefetch = !user.isGuest
+        ).also {
+            current?.second?.close()
+            discoveries.put(user.id, prefs to it)
+        }
     }
 
     suspend fun similar(user: User, prefs: UserPrefs, sourceId: String, mediaId: String): Result<List<RelatedDto>> = runCatching {
