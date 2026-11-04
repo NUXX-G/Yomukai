@@ -14,7 +14,6 @@ import com.nelson.yomukai.data.source.manga.YskComicsSource
 import com.nelson.yomukai.data.source.manga.OlympusScansSource
 import com.nelson.yomukai.data.source.manga.WebtoonsSource
 import com.nelson.yomukai.data.source.manga.ZonaTmoSource
-import com.nelson.yomukai.data.source.novel.RoyalRoadSource
 import com.nelson.yomukai.data.source.novel.SkyNovelsSource
 import com.nelson.yomukai.data.source.novel.TuNovelaLigeraSource
 
@@ -34,7 +33,6 @@ class SourceManager(network: HttpFetcher) {
         MegaBananaSource(network),
         YskComicsSource(network),
         // Novels
-        RoyalRoadSource(network),
         SkyNovelsSource(network),
         TuNovelaLigeraSource(network),
         // Anime

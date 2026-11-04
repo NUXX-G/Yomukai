@@ -69,14 +69,37 @@ class DiscoveryRepository(
     private var lastForYou: Pair<List<String>, List<RelatedTitle>>? = null
 
     /**
-     * Recommendations from [seen]: a title suggested by several of them comes first, and whatever
-     * the user already has is left out.
+     * Recommendations from [seen] that can actually be read: each candidate is looked for in the
+     * user's sources (all at once, a few candidates at a time) and only the ones some source has are
+     * kept, so tapping one always opens it, and at once, since where it is stays known.
      */
     suspend fun forYou(seen: List<MediaItem>): List<RelatedTitle> {
-        // A manhwa and its novel share a name but are two works: the type family is part of every key.
-        val seeds = seen.distinctBy { TitleMatcher.familyKey(it.type, it.title) }.take(MAX_SEEDS)
-        val seedKey = seeds.map { TitleMatcher.familyKey(it.type, it.title) }
+        val seedKey = seedKeyOf(seen)
         lastForYou?.takeIf { it.first == seedKey }?.let { return it.second }
+        val candidates = recommendations(seen)
+        val available = java.util.concurrent.ConcurrentHashMap<Int, RelatedTitle>()
+        val limiter = Semaphore(FOR_YOU_CHECK_PARALLEL)
+        val finished = withTimeoutOrNull(FOR_YOU_CHECK_MS) {
+            coroutineScope {
+                candidates.mapIndexed { i, title ->
+                    launch { limiter.withPermit { if (locateQuick(title).isNotEmpty()) available[i] = title } }
+                }
+            }
+            true
+        } ?: false
+        val found = available.toSortedMap().values.take(MAX_FOR_YOU)
+        // A check cut short is not kept: next time the known places and misses make it quick anyway.
+        if (finished && found.isNotEmpty()) lastForYou = seedKey to found
+        return found
+    }
+
+    // A manhwa and its novel share a name but are two works: the type family is part of every key.
+    private fun seedsOf(seen: List<MediaItem>) = seen.distinctBy { TitleMatcher.familyKey(it.type, it.title) }.take(MAX_SEEDS)
+    private fun seedKeyOf(seen: List<MediaItem>) = seedsOf(seen).map { TitleMatcher.familyKey(it.type, it.title) }
+
+    /** AniList's recommendations from [seen]: a title suggested by several comes first; what the user has is left out. */
+    private suspend fun recommendations(seen: List<MediaItem>): List<RelatedTitle> {
+        val seeds = seedsOf(seen)
         val votes = LinkedHashMap<String, Pair<RelatedTitle, Int>>()
         // The lookups go out together (a few at a time, AniList limits the pace) and are counted in order.
         val limiter = Semaphore(FOR_YOU_PARALLEL)
@@ -97,8 +120,7 @@ class DiscoveryRepository(
             // still lets its novel or anime be recommended.
             .filterNot { related -> seen.any { TitleMatcher.sameFamily(it.type, related.type) && TitleMatcher.shareName(related.names, listOf(it.title) + it.altTitles) } }
             .filter(filter()::allows)
-            .take(MAX_FOR_YOU)
-        if (found.isNotEmpty()) lastForYou = seedKey to found
+            .take(FOR_YOU_CANDIDATES)
         return found
     }
 
@@ -157,6 +179,8 @@ class DiscoveryRepository(
 
     /** Places already found for recommended titles in this session, so opening one again is instant. */
     private val located = java.util.concurrent.ConcurrentHashMap<String, List<Alternative>>()
+    /** Recommended titles none of the user's sources has, already checked this session. */
+    private val nowhere = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     private fun locateKey(related: RelatedTitle) = related.type.name + "|" + related.names.joinToString("|") { SmartSearch.duplicateKey(it) }
 
@@ -274,10 +298,11 @@ class DiscoveryRepository(
     private suspend fun locateQuick(related: RelatedTitle): List<Alternative> {
         if (related.item != null) return locate(related)
         located[locateKey(related)]?.let { return it }
+        if (locateKey(related) in nowhere) return emptyList()
         val names = (related.names + related.title).filter { it.isNotBlank() }.distinct()
         val queries = (searchable(names, MAX_LOCATE_QUERIES) + shortNames(names)).distinctBy(SmartSearch::duplicateKey)
         val found = java.util.Collections.synchronizedList(mutableListOf<Alternative>())
-        withTimeoutOrNull(RANDOM_LOCATE_MS) {
+        val completed = withTimeoutOrNull(RANDOM_LOCATE_MS) {
             coroutineScope {
                 val first = CompletableDeferred<Unit>()
                 val searches = candidates(related.type, null).map { source ->
@@ -297,9 +322,12 @@ class DiscoveryRepository(
                 withTimeoutOrNull(QUICK_GRACE_MS) { runCatching { searches.awaitAll() } }
                 coroutineContext.cancelChildren()
             }
-        }
+            true
+        } != null
         val result = synchronized(found) { found.toList() }.sortedWith(compareBy({ it.confidence.ordinal }, { it.sourceName }))
         if (result.isNotEmpty()) located[locateKey(related)] = result
+        // Every source answered without it: not looked for again this session.
+        else if (completed) nowhere += locateKey(related)
         return result
     }
 
@@ -378,6 +406,9 @@ class DiscoveryRepository(
         const val MAX_DETAILS = 2
         const val MAX_PARALLEL = 12
         const val FOR_YOU_PARALLEL = 4
+        const val FOR_YOU_CANDIDATES = 40
+        const val FOR_YOU_CHECK_PARALLEL = 6
+        const val FOR_YOU_CHECK_MS = 15_000L
         const val FOR_YOU_LOOKUP_MS = 8_000L
         const val MIN_WORD = 4
         const val LATIN_LIMIT = 0x24F

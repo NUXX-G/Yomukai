@@ -94,6 +94,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -229,22 +230,32 @@ private fun DetailsContent(
         snackbarHost = { SnackbarHost(snackbar) },
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            val collapsed by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+            // 0 at the top, 1 once the header has scrolled a little: the bar fills in gradually, never in one jump.
+            val fill by remember {
+                derivedStateOf {
+                    if (listState.firstVisibleItemIndex > 0) 1f else (listState.firstVisibleItemScrollOffset / 420f).coerceIn(0f, 1f)
+                }
+            }
+            // Over a bright cover the icons sit on a dark disc, which fades as the bar fills.
+            val discs = androidx.compose.material3.IconButtonDefaults.iconButtonColors(
+                containerColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = (1f - fill) * 0.42f)
+            )
             TopAppBar(
                 title = {
-                    AnimatedVisibility(collapsed, enter = fadeIn(), exit = fadeOut()) {
-                        Text(state.media?.title.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
+                    Text(
+                        state.media?.title.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.graphicsLayer { alpha = ((fill - 0.6f) * 2.5f).coerceIn(0f, 1f) }
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = if (collapsed) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.background.copy(alpha = 0f)
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = fill)
                 ),
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver") }
+                    IconButton(onClick = onBack, colors = discs) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver") }
                 },
                 actions = {
                     var menu by remember { mutableStateOf(false) }
-                    IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "Más") }
+                    IconButton(onClick = { menu = true }, colors = discs) { Icon(Icons.Default.MoreVert, contentDescription = "Más") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(
                             text = { Text("Descargar todo") },

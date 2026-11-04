@@ -36,6 +36,12 @@
   let issuesOpen = $state(false);
   /** Once the page moves, the top bar turns solid: chapters must never show through it. */
   let scrolled = $state(false);
+  /** 0 at the top, 1 once the page has moved a little: the bar fills in gradually, never in one jump. */
+  let fill = $state(0);
+  function onScroll() {
+    fill = Math.min(1, Math.max(0, scrollY / 100));
+    scrolled = fill >= 1;
+  }
 
   let chapterQuery = $state('');
   let catsOpen = $state(false);
@@ -171,14 +177,14 @@
   }
 </script>
 
-<svelte:window onscroll={() => (scrolled = scrollY > 8)} />
+<svelte:window onscroll={onScroll} />
 
 <div class="details" style={styleOf(theme)}>
   {#if item?.cover}<div class="backdrop" style:background-image="url('{item.cover}')"></div>{/if}
   <div class="wrap">
-  <header class="bar" class:solid={scrolled}>
+  <header class="bar" style:--fill={fill}>
     <button class="icon-btn" onclick={() => back('/')} aria-label="Volver"><Icon name="back" /></button>
-    <span class="bar-title">{scrolled ? item?.title ?? '' : ''}</span>
+    <span class="bar-title" aria-hidden={!scrolled}>{item?.title ?? ''}</span>
     <button class="icon-btn" onclick={() => (menu = true)} aria-label="Más opciones"><Icon name="more" /></button>
   </header>
 
@@ -447,12 +453,12 @@
 <style>
   .details { position: relative; background: var(--bg); min-height: 100vh; transition: background 0.45s; overflow-x: clip; }
   .wrap { position: relative; max-width: 1200px; margin: 0 auto; }
-  .bar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 4px; padding: calc(var(--safe-top) + 4px) 4px 4px; background: transparent; transition: background 0.2s, box-shadow 0.2s; }
-  .bar.solid { background: var(--bg); box-shadow: 0 1px 0 var(--outline-variant); }
+  /* The bar's colour follows the scroll (--fill from 0 to 1) instead of switching on and off. */
+  .bar { --fill: 0; position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 4px; padding: calc(var(--safe-top) + 4px) 4px 4px; background: color-mix(in srgb, var(--bg) calc(var(--fill) * 100%), transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--outline-variant) calc(var(--fill) * 100%), transparent); -webkit-backdrop-filter: blur(calc(var(--fill) * 18px)); backdrop-filter: blur(calc(var(--fill) * 18px)); }
   /* Over a bright cover the white icons vanished: while the bar is see-through they sit on a dark disc. */
-  .bar .icon-btn { transition: background 0.2s; }
-  .bar:not(.solid) .icon-btn { background: #0000006b; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
-  .bar-title { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Over a bright cover the white icons vanished: they sit on a dark disc that fades as the bar fills. */
+  .bar .icon-btn { background: rgb(0 0 0 / calc((1 - var(--fill)) * 42%)); }
+  .bar-title { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: calc((var(--fill) - 0.6) * 2.5); }
   .start { display: none; }
   .grow { flex: 1; }
   .hero { position: relative; padding: 0 16px; }
