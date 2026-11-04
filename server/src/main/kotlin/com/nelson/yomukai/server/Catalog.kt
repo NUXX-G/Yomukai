@@ -40,12 +40,10 @@ import java.util.concurrent.ConcurrentHashMap
 
 /** What a user's settings say about sources and genres. The web app owns the rest of the document. */
 data class UserPrefs(val enabledSources: Set<String>?, val globalExclusions: Set<String>, val perSource: Map<String, Set<String>>) {
-    /** An exact text form of these settings (never a hash: two users must never share an answer by accident). */
-    fun cacheKey(): String = listOf(
-        enabledSources?.sorted()?.joinToString(",") ?: "*",
-        globalExclusions.sorted().joinToString(","),
-        perSource.toSortedMap().entries.joinToString(";") { (id, genres) -> id + "=" + genres.sorted().joinToString(",") }
-    ).joinToString("|")
+    /** An exact, unambiguous (JSON) form of these settings: two different settings never share a key. */
+    fun cacheKey(): String = com.google.gson.Gson().toJson(
+        listOf(enabledSources?.sorted(), globalExclusions.sorted(), perSource.toSortedMap().mapValues { it.value.sorted() })
+    )
 
     fun excludedFor(sourceId: String): Set<String> = globalExclusions + perSource[sourceId].orEmpty()
 
