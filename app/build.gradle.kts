@@ -22,8 +22,8 @@ android {
         applicationId = "com.nelson.yomukai"
         minSdk = 26
         targetSdk = 37
-        versionCode = 22
-        versionName = "1.12.0"
+        versionCode = 23
+        versionName = "1.12.1"
 
         ndk {
             // tor ships ~7 MB per ABI; 32-bit x86 devices are not supported.

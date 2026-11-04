@@ -16,6 +16,8 @@ export const settings = $state(structuredClone(DEFAULT_SETTINGS));
 export const library = $state({ items: [], loaded: false });
 export const sources = $state({ list: [], loaded: false });
 export const toast = $state({ text: '', at: 0 });
+/** What the home page showed: coming back to it shows the same at once, in place, instead of loading it all again. */
+export const home = $state({ sections: {}, history: null, forYou: null });
 
 export function notify(text) {
   toast.text = text;
@@ -185,6 +187,9 @@ export function rememberSearch(query) {
 
 export function resetUserState() {
   clearMemo();
+  home.sections = {};
+  home.history = null;
+  home.forYou = null;
   session.user = null;
   library.items = [];
   library.loaded = false;

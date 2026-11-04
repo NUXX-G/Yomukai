@@ -152,7 +152,10 @@ class SearchViewModel(handle: SavedStateHandle, private val container: AppContai
             val aliases = async(start = CoroutineStart.LAZY) { container.discovery.aliases(query) }
             sources.forEach { source ->
                 launch {
-                    val result = com.nelson.yomukai.data.search.SourceSearch.search(source, query) { aliases.await() }
+                    // A source slower than this is left out (marked), so the search does not stay "loading" for it.
+                    val result = kotlinx.coroutines.withTimeoutOrNull(SOURCE_TIMEOUT_MS) {
+                        com.nelson.yomukai.data.search.SourceSearch.search(source, query) { aliases.await() }
+                    } ?: com.nelson.yomukai.data.search.SourceSearchResult(emptyList(), "Tardó demasiado", emptySet())
                     trusted += result.trusted
                     val outcome = result.items to result.error
                     val allowed = container.contentFilter.screen(source, outcome.first)
@@ -177,4 +180,7 @@ class SearchViewModel(handle: SavedStateHandle, private val container: AppContai
         }
     }
 
+    private companion object {
+        const val SOURCE_TIMEOUT_MS = 10_000L
+    }
 }

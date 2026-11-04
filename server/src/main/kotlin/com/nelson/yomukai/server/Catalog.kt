@@ -106,6 +106,7 @@ class Catalog(
     private val pages = TtlCache<String, List<String>>(5_000, HOUR)
     private val texts = TtlCache<String, String>(2_000, HOUR)
     private val videos = TtlCache<String, List<com.nelson.yomukai.domain.model.VideoSource>>(2_000, 10 * MINUTE)
+    private val alternativesCache = TtlCache<String, List<AlternativeDto>>(2_000, 30 * MINUTE)
     private val searches = TtlCache<String, com.nelson.yomukai.data.search.SourceSearchResult>(2_000, 15 * MINUTE)
     private val inFlight = ConcurrentHashMap<String, CompletableDeferred<Result<Any?>>>()
 
@@ -335,6 +336,9 @@ class Catalog(
     }
 
     suspend fun alternatives(user: User, prefs: UserPrefs, sourceId: String, mediaId: String): Result<List<AlternativeDto>> = runCatching {
+        // The same title with the same sources on gives the same answer: opening it again is instant.
+        val k = key("alternatives", sourceId, mediaId, prefs.hashCode().toString())
+        alternativesCache.get(k)?.let { return@runCatching it }
         val item = media(sourceId, mediaId).getOrThrow()
         val found = java.util.Collections.synchronizedList(mutableListOf<com.nelson.yomukai.data.discovery.Alternative>())
         withTimeoutOrNull(ALTERNATIVES_TIMEOUT_MS) { discovery(user, prefs).alternatives(item) { found += it } }
@@ -342,6 +346,7 @@ class Catalog(
             .sortedWith(compareBy({ it.confidence.ordinal }, { -(it.chapterCount ?: -1) }))
             .onEach { remember(listOf(it.item)) }
             .map(dtos::alternative)
+            .also { if (it.isNotEmpty()) alternativesCache.put(k, it) }
     }
 
     suspend fun locate(user: User, prefs: UserPrefs, related: RelatedTitle): Result<List<AlternativeDto>> = runCatching {
@@ -371,8 +376,9 @@ class Catalog(
     private companion object {
         const val MINUTE = 60_000L
         const val HOUR = 60 * MINUTE
-        const val SOURCE_TIMEOUT_MS = 25_000L
-        const val ALTERNATIVES_TIMEOUT_MS = 40_000L
+        /** A source slower than this is left out of the search (marked as such): the rest are not held up. */
+        const val SOURCE_TIMEOUT_MS = 10_000L
+        const val ALTERNATIVES_TIMEOUT_MS = 18_000L
         const val MAX_GROUPS = 80
     }
 }

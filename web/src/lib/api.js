@@ -103,10 +103,19 @@ export const api = {
 
 /**
  * Downloads chapters to the user's device; the server puts the file together while it is sent.
- * One chapter is a plain link (every browser, iPhone included, hands it to its download manager);
- * several go as a form post into a hidden frame, which only loads when the server answers with an error.
+ * Everything goes through a hidden frame: a file goes straight to the browser's downloads and never
+ * loads the frame, while an error (a download already running, no server for that episode...) does,
+ * so it is shown as a message instead of being saved as a file. iPhones and iPads only download from
+ * a plain link, so there one chapter still uses one.
  */
+const IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
 export function downloadChapters({ sourceId, mediaId, title, chapterIds }, onError) {
+  if (chapterIds.length === 1 && !IOS) {
+    const frame = errorFrame(onError);
+    frame.src = `/api/download?${qs({ s: sourceId, id: mediaId, t: title, c: chapterIds[0] })}`;
+    return;
+  }
   if (chapterIds.length === 1) {
     const a = document.createElement('a');
     a.href = `/api/download?${qs({ s: sourceId, id: mediaId, t: title, c: chapterIds[0] })}`;
@@ -117,12 +126,26 @@ export function downloadChapters({ sourceId, mediaId, title, chapterIds }, onErr
     a.remove();
     return;
   }
-  const name = 'yk-download-' + Date.now();
+  const frame = errorFrame(onError);
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/api/download';
+  form.target = frame.name;
+  const add = (k, v) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = v; form.appendChild(i); };
+  add('s', sourceId); add('id', mediaId); add('t', title || '');
+  add('ids', chapterIds.join('\n'));
+  document.body.appendChild(form);
+  form.submit();
+  form.remove();
+}
+
+/** A hidden frame that reports what the server answered when it was an error, not a file. */
+function errorFrame(onError) {
   const frame = document.createElement('iframe');
-  frame.name = name;
+  frame.name = 'yk-download-' + Date.now() + '-' + Math.random().toString(36).slice(2);
   frame.hidden = true;
   frame.onload = () => {
-    // A finished download never loads the frame; an error page does.
+    // A download never loads the frame; an error answer does.
     try {
       const text = frame.contentDocument?.body?.innerText || '';
       if (text) onError?.(safeJson(text).error || text);
@@ -130,18 +153,9 @@ export function downloadChapters({ sourceId, mediaId, title, chapterIds }, onErr
     setTimeout(() => frame.remove(), 1000);
   };
   document.body.appendChild(frame);
-  const form = document.createElement('form');
-  form.method = 'POST';
-  form.action = '/api/download';
-  form.target = name;
-  const add = (k, v) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = v; form.appendChild(i); };
-  add('s', sourceId); add('id', mediaId); add('t', title || '');
-  add('ids', chapterIds.join('\n'));
-  document.body.appendChild(form);
-  form.submit();
-  form.remove();
   // The frame stays a while in case the server answers late with an error.
   setTimeout(() => frame.remove(), 30 * 60_000);
+  return frame;
 }
 
 /**

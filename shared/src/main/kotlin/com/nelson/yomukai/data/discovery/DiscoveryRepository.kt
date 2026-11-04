@@ -78,8 +78,15 @@ class DiscoveryRepository(
         val seedKey = seeds.map { TitleMatcher.familyKey(it.type, it.title) }
         lastForYou?.takeIf { it.first == seedKey }?.let { return it.second }
         val votes = LinkedHashMap<String, Pair<RelatedTitle, Int>>()
-        seeds.forEach { seed ->
-            val entry = runCatching { aniList.lookup(listOf(seed.title) + seed.altTitles, seed.type) }.getOrNull() ?: return@forEach
+        // The lookups go out together (a few at a time, AniList limits the pace) and are counted in order.
+        val limiter = Semaphore(FOR_YOU_PARALLEL)
+        val entries = coroutineScope {
+            seeds.map { seed ->
+                async { limiter.withPermit { withTimeoutOrNull(FOR_YOU_LOOKUP_MS) { runCatching { aniList.lookup(listOf(seed.title) + seed.altTitles, seed.type) }.getOrNull() } } }
+            }.awaitAll()
+        }
+        entries.forEach { entry ->
+            entry ?: return@forEach
             entry.related.forEach { related ->
                 val key = TitleMatcher.familyKey(related.type, related.title)
                 votes[key] = related to (votes[key]?.second ?: 0) + 1
@@ -369,10 +376,12 @@ class DiscoveryRepository(
         const val QUICK_GRACE_MS = 1_200L
         const val CLOSE_SCORE = 0.75
         const val MAX_DETAILS = 2
-        const val MAX_PARALLEL = 4
+        const val MAX_PARALLEL = 12
+        const val FOR_YOU_PARALLEL = 4
+        const val FOR_YOU_LOOKUP_MS = 8_000L
         const val MIN_WORD = 4
         const val LATIN_LIMIT = 0x24F
-        const val SOURCE_TIMEOUT_MS = 30_000L
-        const val CHAPTERS_TIMEOUT_MS = 20_000L
+        const val SOURCE_TIMEOUT_MS = 15_000L
+        const val CHAPTERS_TIMEOUT_MS = 10_000L
     }
 }

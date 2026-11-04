@@ -15,6 +15,7 @@
   import NovelReader from './pages/NovelReader.svelte';
   import Player from './pages/Player.svelte';
   import LocateSheet from './components/LocateSheet.svelte';
+  import { exitFullscreen } from './lib/fullscreen.svelte.js';
 
   define('home', '/');
   define('search', '/buscar');
@@ -36,6 +37,8 @@
   const showNav = $derived(tabs.some((t) => t.name === route.name));
   /** Readers and the player take the whole screen; every other page gets the computer's top bar. */
   const immersive = $derived(route.name === 'read' || route.name === 'watch');
+  // Leaving a reader leaves full screen too: the rest of the app needs its bars.
+  $effect(() => { if (!immersive) exitFullscreen(); });
   let headerQuery = $state('');
   function headerSearch(e) {
     e.preventDefault();

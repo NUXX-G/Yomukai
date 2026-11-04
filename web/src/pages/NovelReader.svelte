@@ -7,6 +7,7 @@
   import { clock } from '../lib/format.js';
   import Icon from '../components/Icon.svelte';
   import Sheet from '../components/Sheet.svelte';
+  import { screen, canFullscreen, toggleFullscreen, enterFullscreen } from '../lib/fullscreen.svelte.js';
 
   const sourceId = route.params.source;
   const mediaId = route.params.id;
@@ -261,7 +262,7 @@
   function line(delta) { set('line', Math.round(Math.min(2.4, Math.max(1.2, settings.novel.line + delta)) * 10) / 10); }
 </script>
 
-<svelte:window onscroll={onScroll} onkeydown={key} />
+<svelte:window onscroll={onScroll} onkeydown={key} onpointerup={() => { if (settings.reader.fullscreen) enterFullscreen(); }} />
 
 <div class="novel" style:background={colors[0]} style:color={colors[1]} onclick={tap} role="presentation">
   {#if error}
@@ -302,6 +303,7 @@
     <button class="icon-btn" onclick={toggleBookmark} aria-label="Marcador" title="Marcador en este párrafo"><Icon name="bookmark" /></button>
     {#if canSpeak}<button class="icon-btn" class:active={speaking} onclick={toggleSpeech} aria-label="Leer en voz alta" title="Leer en voz alta"><Icon name="speech" /></button>{/if}
     <button class="icon-btn" onclick={() => (indexOpen = true)} aria-label="Índice" title="Índice"><Icon name="list" /></button>
+    {#if canFullscreen}<button class="icon-btn" class:active={screen.full} onclick={toggleFullscreen} aria-label="Pantalla completa" title="Pantalla completa"><Icon name="fullscreen" /></button>{/if}
     <button class="icon-btn" onclick={() => (options = true)} aria-label="Texto" title="Texto"><Icon name="text" /></button>
   </header>
 {:else}
@@ -382,6 +384,7 @@
       <button class="chip" class:on={(settings.novel.width || 'normal') === k} onclick={() => set('width', k)}>{label}</button>
     {/each}
   </div>
+  {#if canFullscreen}<label class="toggle"><span class="grow">Pantalla completa al leer</span><input type="checkbox" checked={!!settings.reader.fullscreen} onchange={(e) => { settings.reader.fullscreen = e.target.checked; saveSettings(); if (e.target.checked) enterFullscreen(); }} /></label>{/if}
   <label class="toggle"><span class="grow">Texto justificado</span><input type="checkbox" checked={settings.novel.justify !== false} onchange={(e) => set('justify', e.target.checked)} /></label>
   <label class="toggle"><span class="grow">Seguir con el siguiente capítulo al llegar al final</span><input type="checkbox" checked={infinite} onchange={(e) => set('infinite', e.target.checked)} /></label>
   <div class="opt-row"><span class="grow">Desplazamiento automático</span><button class="btn outline" onclick={() => { options = false; toggleScroll(); }}>{scrolling ? 'Parar' : 'Empezar'}</button></div>

@@ -103,12 +103,27 @@
   const synopsis = $derived(item?.description || meta?.synopsis || '');
   /** Width of the source's own cover once loaded: anime sites give ~250 px ones, blurry at poster size. */
   let sourceCoverWidth = $state(0);
-  const poster = $derived(meta?.cover && sourceCoverWidth && sourceCoverWidth < 400 ? meta.cover : item?.cover);
+  /** Anime: the database's big cover is waited for (briefly) instead of showing the small one and swapping. */
+  let coverWaitOver = $state(false);
+  const poster = $derived.by(() => {
+    if (anime) return metaLoading && !coverWaitOver ? null : meta?.cover || item?.cover;
+    return meta?.cover && sourceCoverWidth && sourceCoverWidth < 400 ? meta.cover : item?.cover;
+  });
+  let posterReady = $state(false);
   function posterLoaded(e) {
+    posterReady = true;
     if (e.currentTarget.getAttribute('src') === item?.cover) sourceCoverWidth = e.currentTarget.naturalWidth;
   }
 
   onMount(async () => {
+    setTimeout(() => (coverWaitOver = true), 2500);
+    // Everything at once: the chapter list and the database answer do not need the title page first.
+    api.chapters(sourceId, mediaId).then(
+      (r) => (list = { ...r, loading: false, error: '' }),
+      (e) => (list = { ...list, loading: false, error: e.message })
+    );
+    progressMap(sourceId, mediaId).then((p) => (progress = p));
+    api.metadata(sourceId, mediaId).then((m) => (meta = m), () => {}).finally(() => (metaLoading = false));
     const early = item?.cover;
     if (early) coverSeed(early).then((seed) => (theme = themeFor(seed)));
     try {
@@ -117,12 +132,6 @@
     } catch (e) {
       error = e.message;
     }
-    api.chapters(sourceId, mediaId).then(
-      (r) => (list = { ...r, loading: false, error: '' }),
-      (e) => (list = { ...list, loading: false, error: e.message })
-    );
-    progressMap(sourceId, mediaId).then((p) => (progress = p));
-    api.metadata(sourceId, mediaId).then((m) => (meta = m), () => {}).finally(() => (metaLoading = false));
   });
 
   $effect(() => {
@@ -181,7 +190,11 @@
    <div class="layout">
     <section class="hero">
       <div class="hero-inner">
-        <img class="poster" src={poster} alt="" onload={posterLoaded} />
+        {#if poster}
+          {#key poster}<img class="poster" class:shown={posterReady} src={poster} alt="" onload={posterLoaded} onerror={() => (posterReady = true)} />{/key}
+        {:else}
+          <div class="poster skeleton" aria-hidden="true"></div>
+        {/if}
         <div class="facts">
           <h1>{item.title}</h1>
           {#if item.author}<div class="muted author">{item.author}</div>{/if}
@@ -436,6 +449,9 @@
   .wrap { position: relative; max-width: 1200px; margin: 0 auto; }
   .bar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 4px; padding: calc(var(--safe-top) + 4px) 4px 4px; background: transparent; transition: background 0.2s, box-shadow 0.2s; }
   .bar.solid { background: var(--bg); box-shadow: 0 1px 0 var(--outline-variant); }
+  /* Over a bright cover the white icons vanished: while the bar is see-through they sit on a dark disc. */
+  .bar .icon-btn { transition: background 0.2s; }
+  .bar:not(.solid) .icon-btn { background: #0000006b; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
   .bar-title { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .start { display: none; }
   .grow { flex: 1; }
@@ -447,7 +463,8 @@
   .ch-search { display: flex; align-items: center; gap: 8px; margin: 4px 16px 8px; padding: 0 12px; height: 40px; border-radius: 20px; background: var(--surface-high); color: var(--text-dim); }
   .ch-search input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--text); font-size: 0.95rem; }
   .hero-inner { position: relative; display: flex; gap: 16px; align-items: flex-end; }
-  .poster { width: 116px; height: 166px; object-fit: cover; border-radius: 14px; box-shadow: 0 10px 30px #000a; background: var(--surface-variant); flex: none; }
+  .poster { width: 116px; height: 166px; object-fit: cover; border-radius: 14px; box-shadow: 0 10px 30px #000a; background: var(--surface-variant); flex: none; opacity: 0; transition: opacity 0.35s ease; }
+  .poster.shown, .poster.skeleton { opacity: 1; }
   @media (min-width: 760px) { .poster { width: 160px; height: 228px; } }
   .facts { min-width: 0; }
   h1 { font-size: 1.4rem; margin: 0 0 4px; line-height: 1.2; }

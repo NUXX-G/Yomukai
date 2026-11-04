@@ -59,7 +59,7 @@ class Downloader(private val catalog: Catalog, private val proxy: MediaProxy, pr
             return call.respond(HttpStatusCode.BadRequest, mapOf("error" to if (kind == "anime") "Los episodios se descargan de uno en uno" else "Como mucho $max capítulos por descarga"))
         }
         val counter = active.getOrPut(user.id) { AtomicInteger() }
-        val limit = if (user.isGuest) 1 else 2
+        val limit = if (user.isGuest) 1 else 3
         if (counter.incrementAndGet() > limit) {
             counter.decrementAndGet()
             return call.respond(HttpStatusCode.TooManyRequests, mapOf("error" to "Espera a que termine la descarga que ya está en marcha"))

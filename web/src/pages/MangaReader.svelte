@@ -8,6 +8,7 @@
   import { detectCrop, cropStyles } from '../lib/crop.js';
   import Icon from '../components/Icon.svelte';
   import Sheet from '../components/Sheet.svelte';
+  import { screen, canFullscreen, toggleFullscreen, enterFullscreen } from '../lib/fullscreen.svelte.js';
 
   const sourceId = route.params.source;
   const mediaId = route.params.id;
@@ -282,7 +283,8 @@
   onDestroy(() => { observer?.disconnect(); clearInterval(clockTimer); cancelAnimationFrame(scrollFrame); scrolling = false; flush(); });
 </script>
 
-<svelte:window onkeydown={key} />
+<!-- With full screen chosen, the first touch in the reader enters it (browsers only allow it after one). -->
+<svelte:window onkeydown={key} onpointerup={() => { if (settings.reader.fullscreen) enterFullscreen(); }} />
 
 <div class="reader f-{filter}" class:paged={mode === 'paged'}>
   {#if brightness < 1}<div class="dim" style:opacity={1 - brightness}></div>{/if}
@@ -326,6 +328,7 @@
       </div>
       <button class="icon-btn" class:on={marked} onclick={toggleBookmark} aria-label={marked ? 'Quitar marcador' : 'Poner marcador en esta página'} title="Marcador"><Icon name="bookmark" /></button>
       <button class="icon-btn" onclick={() => (indexOpen = true)} aria-label="Índice de capítulos" title="Índice"><Icon name="list" /></button>
+      {#if canFullscreen}<button class="icon-btn" class:on={screen.full} onclick={toggleFullscreen} aria-label={screen.full ? 'Salir de pantalla completa' : 'Pantalla completa'} title="Pantalla completa"><Icon name="fullscreen" /></button>{/if}
       <button class="icon-btn" onclick={() => (optionsOpen = true)} aria-label="Ajustes de lectura" title="Ajustes de lectura"><Icon name="tune" /></button>
     </header>
     <footer class="bottom">
@@ -396,6 +399,7 @@
     </div>
   {/if}
   <label class="toggle"><span class="grow">Pasar solo al siguiente capítulo</span><input type="checkbox" checked={settings.reader.infinite} onchange={(e) => setReader('infinite', e.target.checked)} /></label>
+  {#if canFullscreen}<label class="toggle"><span class="grow">Pantalla completa al leer (oculta las barras del navegador y del móvil)</span><input type="checkbox" checked={!!settings.reader.fullscreen} onchange={(e) => { setReader('fullscreen', e.target.checked); if (e.target.checked) enterFullscreen(); }} /></label>{/if}
   <label class="toggle"><span class="grow">Recortar bordes blancos o negros</span><input type="checkbox" checked={!!settings.reader.crop} onchange={(e) => setReader('crop', e.target.checked)} /></label>
   <div class="small muted" style="margin-top:12px">Brillo</div>
   <input class="range" type="range" min="0.2" max="1" step="0.05" value={brightness} oninput={(e) => setReader('brightness', +e.target.value)} aria-label="Brillo" />

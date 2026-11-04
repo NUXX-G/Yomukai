@@ -2,7 +2,7 @@
   // Inicio: continue reading, recommendations, and the newest titles of every enabled source.
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
-  import { sources, rememberItems } from '../lib/store.svelte.js';
+  import { sources, rememberItems, home } from '../lib/store.svelte.js';
   import { media, reader } from '../lib/router.svelte.js';
   import { openRelated } from '../lib/open.svelte.js';
   import { TYPE_FILTERS, LANGUAGES } from '../lib/format.js';
@@ -15,9 +15,11 @@
   let typeKey = $state(sessionStorage.getItem('home.type') || 'ALL');
   let lang = $state(sessionStorage.getItem('home.lang') || '');
   let shuffle = $state(false);
-  let history = $state([]);
-  let forYou = $state({ loading: true, items: [] });
-  const sections = $state({});
+  // Kept in the store: back on this page, everything is already there and the scroll lands in place.
+  const sections = home.sections;
+  const history = $derived(home.history || []);
+  const forYou = $derived(home.forYou || { loading: true, items: [] });
+  const FRESH_MS = 5 * 60_000;
 
   const typeFilter = $derived(TYPE_FILTERS.find((f) => f.key === typeKey));
   const visible = $derived(
@@ -29,19 +31,23 @@
   $effect(() => { sessionStorage.setItem('home.type', typeKey); sessionStorage.setItem('home.lang', lang); });
 
   function load(source) {
-    if (sections[source.id]) return;
-    sections[source.id] = { loading: true, items: [], error: '' };
+    const known = sections[source.id];
+    if (known && (known.loading || Date.now() - known.at < FRESH_MS)) return;
+    // An older list stays on screen while the new one comes: nothing blinks.
+    if (!known) sections[source.id] = { loading: true, items: [], error: '', at: 0 };
     api.latest(source.id).then(
-      (items) => { rememberItems(items); sections[source.id] = { loading: false, items, error: '' }; },
-      (e) => (sections[source.id] = { loading: false, items: [], error: e.message })
+      (items) => { rememberItems(items); sections[source.id] = { loading: false, items, error: '', at: Date.now() }; },
+      (e) => (sections[source.id] = known?.items.length ? { ...known, at: Date.now() } : { loading: false, items: [], error: e.message, at: Date.now() })
     );
   }
 
   $effect(() => { visible.forEach(load); });
 
   onMount(() => {
-    api.history().then((h) => (history = h.slice(0, 12))).catch(() => {});
-    api.forYou().then((items) => (forYou = { loading: false, items }), () => (forYou = { loading: false, items: [] }));
+    api.history().then((h) => (home.history = h.slice(0, 12))).catch(() => {});
+    if (!home.forYou || Date.now() - home.forYou.at > FRESH_MS) {
+      api.forYou().then((items) => (home.forYou = { loading: false, items, at: Date.now() }), () => (home.forYou = { loading: false, items: home.forYou?.items || [], at: Date.now() }));
+    }
   });
 
   const filtered = (items) => typeFilter.types ? items.filter((i) => typeFilter.types.includes(i.type)) : items;
