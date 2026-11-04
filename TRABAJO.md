@@ -210,3 +210,16 @@ Funciona: sincronización app ↔ web, cuentas, móvil por web.
   bloquea nuevos invitados 1 h; nunca suspende a nadie por sí solo (puede ser una red compartida).
 - Invitados: 1 día, 120 peticiones/min, sin exportar/importar/sincronizar, 3 capítulos por descarga.
 - En el VPS, el `.env` ya creado conserva GUEST_DAYS=7: cambiarlo a mano (sed) al actualizar.
+
+## Pendiente v1.11.0 (2026-11-04)
+
+- [x] YSK Comics (inglés): API `api.ysk-comics.com/api/v1` (home/latest-comics, search-comics-home?name=, comics/{slug},
+      comics/{slug}/chapters?page=, chapters/{slug}/images). Probada en web y en Android (LiveSourcesTest OK).
+- [ ] Anitaku (anime en inglés), la mejor de las tres propuestas: HTML de WordPress (tema AnimeStream).
+      Lista: `/series/?order=update&page=N` (article.bs); búsqueda: POST `/wp-admin/admin-ajax.php`
+      action=ts_ac_do_search&ts_ac_query=…; ficha: .entry-content, .spe, .genxed; episodios: .eplister li a (.epl-num);
+      episodio: `<option value=base64(iframe)>` → Blogger `video.g?token=…`; del HTML de Blogger (&quot; y &) sacar
+      `"https://…googlevideo.com/videoplayback?…",[22]` (720p MP4, itag 18 = 360p). Las URLs van ligadas a la IP que las pide.
+- Descartadas: anime.nexus (DRM Widevine/ClearKey + verificación del dispositivo), CompartiComics (solo RAR de ~200 MB,
+  5 descargas al día por conexión), AniZone (Livewire, frágil), AniSuge (AJAX cifrado).
+- Falta publicar la release 1.11.0 (versionCode 21 ya puesto) tras añadir Anitaku.
