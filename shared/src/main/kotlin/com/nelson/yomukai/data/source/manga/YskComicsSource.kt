@@ -1,5 +1,6 @@
 package com.nelson.yomukai.data.source.manga
 
+import com.nelson.yomukai.data.source.NoChaptersException
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
@@ -65,7 +66,7 @@ class YskComicsSource(private val network: HttpFetcher) : MangaSource {
             if (page >= total) break
             page++
         }
-        all.ifEmpty { error("Sin capítulos disponibles") }
+        all.ifEmpty { throw NoChaptersException("Sin capítulos disponibles") }
     }
 
     override suspend fun fetchPageList(chapterUrl: String): Result<List<String>> = runCatching {

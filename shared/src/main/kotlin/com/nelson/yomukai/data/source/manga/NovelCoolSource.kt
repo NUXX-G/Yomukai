@@ -1,5 +1,6 @@
 package com.nelson.yomukai.data.source.manga
 
+import com.nelson.yomukai.data.source.NoChaptersException
 import com.nelson.yomukai.data.network.HttpFetcher
 import com.nelson.yomukai.data.source.FilterKeys
 import com.nelson.yomukai.data.source.FilterOption
@@ -88,7 +89,7 @@ internal class NovelCoolSite(private val network: HttpFetcher, val baseUrl: Stri
                 url = url,
                 dateUploaded = a.selectFirst(".chapter-item-time")?.text()?.trim().orEmpty()
             )
-        }.distinctBy { it.url }.ifEmpty { error("Sin capítulos disponibles") }
+        }.distinctBy { it.url }.ifEmpty { throw NoChaptersException("Sin capítulos disponibles") }
     }
 
     /**

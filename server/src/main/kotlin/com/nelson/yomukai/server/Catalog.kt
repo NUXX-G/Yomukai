@@ -11,6 +11,8 @@ import com.nelson.yomukai.data.discovery.RandomKind
 import com.nelson.yomukai.data.discovery.RelatedTitle
 import com.nelson.yomukai.data.discovery.TitleFilter
 import com.nelson.yomukai.data.metadata.Abandonment
+import com.nelson.yomukai.data.metadata.ChapterHealth
+import com.nelson.yomukai.data.metadata.ChapterHealthRegistry
 import com.nelson.yomukai.data.metadata.ChapterIntegrity
 import com.nelson.yomukai.data.metadata.ChapterIssue
 import com.nelson.yomukai.data.metadata.MetadataRepository
@@ -29,7 +31,12 @@ import com.nelson.yomukai.domain.model.PublicationStatus
 import com.nelson.yomukai.ui.details.ChapterLabels
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -115,6 +122,12 @@ class Catalog(
     private val searches = TtlCache<String, com.nelson.yomukai.data.search.SourceSearchResult>(2_000, 15 * MINUTE)
     private val inFlight = ConcurrentHashMap<String, CompletableDeferred<Result<Any?>>>()
 
+    /** What each title's chapter list looked like: lists hide the empty ones and put the well-kept first. */
+    val health = ChapterHealthRegistry()
+    private val probeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val probing = ConcurrentHashMap.newKeySet<String>()
+    private val probeLimit = Semaphore(PROBE_PARALLEL)
+
     /** One discovery per user: it keeps that user's recent finds. */
     private val discoveries = TtlCache<Long, Pair<UserPrefs, DiscoveryRepository>>(2_000, HOUR)
     private val discoveryLock = Mutex()
@@ -157,8 +170,37 @@ class Catalog(
         val source = require(sourceId)
         val k = key("latest", sourceId, page.toString())
         val items = latest.get(k)?.let { Result.success(it) } ?: shared(k) { source.fetchLatestUpdates(page).onSuccess { latest.put(k, remember(it)) } }
-        return items.map { filterFor(prefs).known(source, it).map(dtos::media) }
+        return items.map { list -> probe(list, PROBE_PER_LIST); health.arrange(filterFor(prefs).known(source, list)).map(dtos::media) }
     }
+
+    /**
+     * Reads, in the background and a few at a time, the chapter lists of titles never checked: the next
+     * time they show, the empty ones are gone and the well-kept ones go first. Opening them is then
+     * instant too, the list being in memory already.
+     */
+    fun probe(items: List<MediaItem>, max: Int) {
+        health.unknown(items).asSequence()
+            .filter { sources.get(it.sourceId)?.cheapChapterList == true }
+            .take(max)
+            .forEach { item ->
+                val k = key(item.sourceId, item.id)
+                if (chapters.get(k) != null || !probing.add(k)) return@forEach
+                probeScope.launch {
+                    try { probeLimit.withPermit { withTimeoutOrNull(PROBE_TIMEOUT_MS) { chapterList(item.sourceId, item.id) } } } finally { probing.remove(k) }
+                }
+            }
+    }
+
+    /** The source's chapter list, cached, shared with identical requests in flight, its health noted. */
+    private suspend fun chapterList(sourceId: String, mediaId: String): Result<List<Chapter>> {
+        val source = require(sourceId)
+        val k = key(sourceId, mediaId)
+        chapters.get(k)?.let { return Result.success(it) }
+        return shared("chapters|$k") {
+            source.fetchChapterList(mediaId).onSuccess { chapters.put(k, it) }.also { health.record(sourceId, mediaId, it) }
+        }
+    }
+
 
     suspend fun browse(sourceId: String, page: Int, filtersJson: String?, prefs: UserPrefs): Result<List<MediaDto>> {
         val source = require(sourceId)
@@ -168,7 +210,7 @@ class Catalog(
         }.orEmpty()
         val k = key("browse", sourceId, page.toString(), values.toSortedMap().toString())
         val items = latest.get(k)?.let { Result.success(it) } ?: shared(k) { source.browse(page, values).onSuccess { latest.put(k, remember(it)) } }
-        return items.map { filterFor(prefs).known(source, it).map(dtos::media) }
+        return items.map { list -> probe(list, PROBE_PER_LIST); health.arrange(filterFor(prefs).known(source, list)).map(dtos::media) }
     }
 
     /**
@@ -210,7 +252,8 @@ class Catalog(
                 }
                 pending -= source.name
                 lock.withLock {
-                    val groups = SmartSearch.rankAndGroup(query, found.values.flatten(), trusted = trusted.toSet())
+                    val groups = health.arrangeGroups(SmartSearch.rankAndGroup(query, found.values.flatten(), trusted = trusted.toSet()))
+                    if (pending.isEmpty()) probe(groups.take(PROBE_PER_LIST).flatMap { listOf(it.primary) + it.others.take(2) }, PROBE_PER_LIST * 2)
                     onUpdate(
                         SearchUpdateDto(
                             groups.take(MAX_GROUPS).map { g -> SearchGroupDto(dtos.media(g.primary), g.others.map(dtos::media)) },
@@ -239,9 +282,7 @@ class Catalog(
     suspend fun chapters(sourceId: String, mediaId: String, ongoingHint: PublicationStatus?): Result<ChaptersDto> {
         val source = require(sourceId)
         val k = key(sourceId, mediaId)
-        val list = chapters.get(k)?.let { Result.success(it) } ?: shared("chapters|$k") {
-            source.fetchChapterList(mediaId).onSuccess { chapters.put(k, it) }
-        }
+        val list = chapterList(sourceId, mediaId)
         val mediaTitle = (details.get(k) ?: seen.get(k))?.title.orEmpty()
         val isAnime = source is AnimeSource
         return list.map { raw ->
@@ -348,7 +389,8 @@ class Catalog(
         val found = java.util.Collections.synchronizedList(mutableListOf<com.nelson.yomukai.data.discovery.Alternative>())
         withTimeoutOrNull(ALTERNATIVES_TIMEOUT_MS) { discovery(user, prefs).alternatives(item) { found += it } }
         synchronized(found) { found.toList() }
-            .sortedWith(compareBy({ it.confidence.ordinal }, { -(it.chapterCount ?: -1) }))
+            .filter { health.get(it.item) != ChapterHealth.EMPTY && it.chapterCount != 0 }
+            .sortedWith(compareBy({ it.confidence.ordinal }, { health.get(it.item).ordinal }, { -(it.chapterCount ?: -1) }))
             .onEach { remember(listOf(it.item)) }
             .map(dtos::alternative)
             .also { if (it.isNotEmpty()) alternativesCache.put(k, it) }
@@ -361,7 +403,7 @@ class Catalog(
     suspend fun random(user: User, prefs: UserPrefs, kind: RandomKind, genre: String?): Result<Pair<RelatedDto, List<AlternativeDto>>?> = runCatching {
         discovery(user, prefs).randomAvailable(kind, genre)?.let { (pick, places) ->
             places.forEach { remember(listOf(it.item)) }
-            dtos.related(pick) to places.map(dtos::alternative)
+            dtos.related(pick) to places.filter { health.get(it.item) != ChapterHealth.EMPTY }.sortedBy { health.get(it.item).ordinal }.map(dtos::alternative)
         }
     }
 
@@ -385,6 +427,9 @@ class Catalog(
         const val SOURCE_TIMEOUT_MS = 10_000L
         const val ALTERNATIVES_TIMEOUT_MS = 18_000L
         const val MAX_GROUPS = 80
+        const val PROBE_PER_LIST = 24
+        const val PROBE_PARALLEL = 4
+        const val PROBE_TIMEOUT_MS = 20_000L
     }
 }
 

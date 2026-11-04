@@ -19,6 +19,12 @@ interface CatalogueSource {
     val isExperimental: Boolean get() = false
     val supportsLatestPaging: Boolean get() = false
 
+    /**
+     * Whether reading a title's chapter list is a plain, quick request. Lists check unknown titles in the
+     * background only on such sources: not where every page needs a browser to pass an anti-bot check.
+     */
+    val cheapChapterList: Boolean get() = true
+
     /** Other domains this source loads from (image CDNs, players) so per-source Tor exclusion covers them. */
     val extraHosts: List<String> get() = emptyList()
 
@@ -58,3 +64,6 @@ interface AnimeSource : CatalogueSource {
     /** Servers for an episode, direct streams first. */
     suspend fun fetchVideoSources(episodeUrl: String): Result<List<VideoSource>>
 }
+
+/** The title exists but has no chapters or episodes yet: lists hide it until it has one. */
+class NoChaptersException(message: String = "Sin capítulos disponibles") : IllegalStateException(message)

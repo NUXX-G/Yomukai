@@ -12,6 +12,7 @@ import coil3.disk.directory
 import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
+import kotlinx.coroutines.sync.withPermit
 import org.conscrypt.Conscrypt
 import java.security.Security
 import com.nelson.yomukai.data.discovery.AniListClient
@@ -53,7 +54,40 @@ class AppContainer(context: Context) {
             network.webViewOnTor = { proxy.state.value.let { it.ready && it.viaTor } }
             network.webViewReady = { proxy.state.value.ready }
         }
-    val libraryRepository = LibraryRepository(database, sourceManager)
+    val libraryRepository = LibraryRepository(database, sourceManager).also { repo ->
+        // What was learnt about chapter lists survives a restart; saved a moment after it changes.
+        val file = java.io.File(context.filesDir, "chapter_health.tsv")
+        applicationScope.launch(Dispatchers.IO) { runCatching { if (file.exists()) repo.chapterHealth.import(file.readText()) } }
+        val saving = java.util.concurrent.atomic.AtomicBoolean(false)
+        repo.chapterHealth.onChange = {
+            if (saving.compareAndSet(false, true)) applicationScope.launch(Dispatchers.IO) {
+                kotlinx.coroutines.delay(5_000)
+                saving.set(false)
+                runCatching { file.writeText(repo.chapterHealth.export()) }
+            }
+        }
+    }
+    private val probing = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val probeLimit = kotlinx.coroutines.sync.Semaphore(2)
+
+    /**
+     * Reads in the background, two at a time, the chapter lists of [items] never checked, so empty
+     * titles disappear from the lists and well-kept ones come first. Sources behind anti-bot checks are left alone.
+     */
+    fun probeChapters(items: List<com.nelson.yomukai.domain.model.MediaItem>) {
+        libraryRepository.chapterHealth.unknown(items).forEach { item ->
+            val source = sourceManager.get(item.sourceId)?.takeIf { it.cheapChapterList } ?: return@forEach
+            val key = item.sourceId + "|" + item.id
+            if (!probing.add(key)) return@forEach
+            applicationScope.launch(Dispatchers.IO) {
+                try {
+                    probeLimit.withPermit {
+                        kotlinx.coroutines.withTimeoutOrNull(20_000) { libraryRepository.chapterHealth.record(item.sourceId, item.id, source.fetchChapterList(item.id)) }
+                    }
+                } finally { probing.remove(key) }
+            }
+        }
+    }
     val serverSync = com.nelson.yomukai.data.sync.ServerSync(context, database, preferences)
     val videoOffline = VideoOffline(context, network)
     val downloadManager = DownloadManager(context, database, sourceManager, network, applicationScope, preferences, videoOffline)

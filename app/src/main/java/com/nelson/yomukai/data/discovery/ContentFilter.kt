@@ -47,7 +47,8 @@ class ContentFilter(private val preferences: AppPreferences, private val library
      * and checked by [check] in the background; every page read meanwhile is remembered.
      */
     suspend fun screen(source: CatalogueSource, items: List<MediaItem>): List<MediaItem> {
-        val allowed = known(source, items)
+        // Titles known to have no chapters go, the well-kept ones go first.
+        val allowed = library.chapterHealth.arrange(known(source, items))
         if (preferences.exclusions.value.forSource(source.id).isEmpty()) return allowed
         val hidden = withTimeoutOrNull(SCREEN_WAIT_MS) { check(source, allowed) }
         return if (hidden != null) allowed.filterNot { it.id in hidden } else known(source, allowed)

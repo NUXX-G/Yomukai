@@ -51,6 +51,7 @@ data class SearchUiState(
 }
 
 class SearchViewModel(handle: SavedStateHandle, private val container: AppContainer) : ViewModel() {
+    private val health get() = container.libraryRepository.chapterHealth
 
     private val preferences = container.preferences
     private val _state = MutableStateFlow(
@@ -160,7 +161,8 @@ class SearchViewModel(handle: SavedStateHandle, private val container: AppContai
                     val outcome = result.items to result.error
                     val allowed = container.contentFilter.screen(source, outcome.first)
                     synchronized(found) { found[source.id] = allowed.filter { it.type in current.typeFilter.types } }
-                    val groups = synchronized(found) { SmartSearch.rankAndGroup(query, found.values.flatten(), trusted = trusted.toSet()) }
+                    val groups = synchronized(found) { health.arrangeGroups(SmartSearch.rankAndGroup(query, found.values.flatten(), trusted = trusted.toSet())) }
+                    if (synchronized(found) { found.size } == sources.size) container.probeChapters(groups.take(PROBE_GROUPS).map { it.primary })
                     _state.update { st ->
                         st.copy(
                             groups = groups,
@@ -172,7 +174,7 @@ class SearchViewModel(handle: SavedStateHandle, private val container: AppContai
                     val hidden = container.contentFilter.check(source, allowed)
                     if (hidden.isNotEmpty()) {
                         synchronized(found) { found[source.id] = found[source.id].orEmpty().filterNot { it.id in hidden } }
-                        val updated = synchronized(found) { SmartSearch.rankAndGroup(query, found.values.flatten(), trusted = trusted.toSet()) }
+                        val updated = synchronized(found) { health.arrangeGroups(SmartSearch.rankAndGroup(query, found.values.flatten(), trusted = trusted.toSet())) }
                         _state.update { it.copy(groups = updated) }
                     }
                 }
@@ -182,5 +184,7 @@ class SearchViewModel(handle: SavedStateHandle, private val container: AppContai
 
     private companion object {
         const val SOURCE_TIMEOUT_MS = 10_000L
+        /** Results whose chapter lists are checked in the background once the search ends. */
+        const val PROBE_GROUPS = 10
     }
 }

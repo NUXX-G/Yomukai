@@ -1,5 +1,6 @@
 package com.nelson.yomukai.data.source.manga
 
+import com.nelson.yomukai.data.source.NoChaptersException
 import com.nelson.yomukai.data.network.HttpException
 import com.nelson.yomukai.data.network.HttpFetcher
 import com.nelson.yomukai.data.source.FilterKeys
@@ -78,7 +79,7 @@ class LectorTmoSource(private val network: HttpFetcher) : MangaSource {
             }
             chapters = parseChapterLinks(Jsoup.parse(html, mediaId), mediaId)
         }
-        chapters.ifEmpty { error("Este título aún no tiene capítulos") }
+        chapters.ifEmpty { throw NoChaptersException("Este título aún no tiene capítulos") }
     }
 
     override suspend fun fetchPageList(chapterUrl: String): Result<List<String>> = runCatching {

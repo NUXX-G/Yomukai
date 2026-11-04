@@ -1,5 +1,6 @@
 package com.nelson.yomukai.data.source.manga
 
+import com.nelson.yomukai.data.source.NoChaptersException
 import com.nelson.yomukai.data.network.HttpFetcher
 import com.nelson.yomukai.data.source.FilterKeys
 import com.nelson.yomukai.data.source.FilterOption
@@ -52,7 +53,7 @@ class MarmotaComicsSource(private val network: HttpFetcher) : MangaSource {
 
     override suspend fun fetchChapterList(mediaId: String): Result<List<Chapter>> = runCatching {
         val body = network.postString(mediaId.trimEnd('/') + "/ajax/chapters/", mapOf("Referer" to mediaId))
-        parseChapters(body, mediaId).ifEmpty { error("Sin capítulos disponibles") }
+        parseChapters(body, mediaId).ifEmpty { throw NoChaptersException("Sin capítulos disponibles") }
     }
 
     override suspend fun fetchPageList(chapterUrl: String): Result<List<String>> = runCatching {

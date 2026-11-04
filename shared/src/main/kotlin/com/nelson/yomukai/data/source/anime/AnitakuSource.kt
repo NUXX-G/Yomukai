@@ -1,5 +1,6 @@
 package com.nelson.yomukai.data.source.anime
 
+import com.nelson.yomukai.data.source.NoChaptersException
 import com.google.gson.JsonParser
 import com.nelson.yomukai.data.network.HttpFetcher
 import com.nelson.yomukai.data.source.AnimeSource
@@ -46,7 +47,7 @@ class AnitakuSource(private val network: HttpFetcher) : AnimeSource {
     }
 
     override suspend fun fetchChapterList(mediaId: String): Result<List<Chapter>> = runCatching {
-        parseEpisodes(html(mediaId), mediaId).ifEmpty { error("Sin episodios disponibles todavía") }
+        parseEpisodes(html(mediaId), mediaId).ifEmpty { throw NoChaptersException("Sin episodios disponibles todavía") }
     }
 
     override suspend fun fetchVideoSources(episodeUrl: String): Result<List<VideoSource>> = runCatching {

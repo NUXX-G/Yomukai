@@ -1,5 +1,6 @@
 package com.nelson.yomukai.data.source.manga
 
+import com.nelson.yomukai.data.source.NoChaptersException
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
@@ -34,6 +35,8 @@ class LectorXdSource(private val network: HttpFetcher) : MangaSource {
     override val supportedTypes = setOf(MediaType.MANGA, MediaType.MANHWA, MediaType.MANHUA)
     override val supportsLatestPaging = true
     override val extraHosts = listOf("cdnlxd.xyz")
+    // Its title pages sit behind Cloudflare; the list already leaves out titles without chapters.
+    override val cheapChapterList = false
 
     private val sort = SelectFilter(
         FilterKeys.SORT, "Orden",
@@ -92,7 +95,7 @@ class LectorXdSource(private val network: HttpFetcher) : MangaSource {
 
     override suspend fun fetchChapterList(mediaId: String): Result<List<Chapter>> = runCatching {
         val html = network.getString("$baseUrl/${pathOf(mediaId)}")
-        parseChapters(html, mediaId, baseUrl).ifEmpty { error("Sin capítulos disponibles") }
+        parseChapters(html, mediaId, baseUrl).ifEmpty { throw NoChaptersException("Sin capítulos disponibles") }
     }
 
     override suspend fun fetchPageList(chapterUrl: String): Result<List<String>> = runCatching {

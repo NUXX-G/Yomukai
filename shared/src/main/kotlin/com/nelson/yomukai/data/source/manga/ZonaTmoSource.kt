@@ -1,5 +1,6 @@
 package com.nelson.yomukai.data.source.manga
 
+import com.nelson.yomukai.data.source.NoChaptersException
 import com.nelson.yomukai.data.network.HttpFetcher
 import com.nelson.yomukai.data.source.FilterKeys
 import com.nelson.yomukai.data.source.FilterOption
@@ -53,7 +54,7 @@ class ZonaTmoSource(private val network: HttpFetcher) : MangaSource {
     }
 
     override suspend fun fetchChapterList(mediaId: String): Result<List<Chapter>> = runCatching {
-        parseChapters(html(mediaId), mediaId).ifEmpty { error("Sin capítulos disponibles") }
+        parseChapters(html(mediaId), mediaId).ifEmpty { throw NoChaptersException("Sin capítulos disponibles") }
     }
 
     override suspend fun fetchPageList(chapterUrl: String): Result<List<String>> = runCatching {

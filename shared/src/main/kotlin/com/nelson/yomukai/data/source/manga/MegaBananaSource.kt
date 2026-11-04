@@ -1,5 +1,6 @@
 package com.nelson.yomukai.data.source.manga
 
+import com.nelson.yomukai.data.source.NoChaptersException
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.nelson.yomukai.data.network.HttpFetcher
@@ -69,7 +70,7 @@ class MegaBananaSource(private val network: HttpFetcher) : MangaSource {
     }
 
     override suspend fun fetchChapterList(mediaId: String): Result<List<Chapter>> = runCatching {
-        parseChapters(json("$api/reader/$mediaId"), mediaId, api).ifEmpty { error("Sin capítulos disponibles") }
+        parseChapters(json("$api/reader/$mediaId"), mediaId, api).ifEmpty { throw NoChaptersException("Sin capítulos disponibles") }
     }
 
     override suspend fun fetchPageList(chapterUrl: String): Result<List<String>> = runCatching {

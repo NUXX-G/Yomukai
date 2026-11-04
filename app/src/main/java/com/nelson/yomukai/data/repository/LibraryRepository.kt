@@ -136,9 +136,12 @@ class LibraryRepository(
         }
     }
 
+    /** What each title's chapter list looked like when last read: lists hide empty titles and put well-kept ones first. */
+    val chapterHealth = com.nelson.yomukai.data.metadata.ChapterHealthRegistry()
+
     suspend fun refreshChapters(sourceId: String, mediaId: String): Result<Int> = withContext(Dispatchers.IO) {
         val source = sources.get(sourceId) ?: return@withContext Result.failure(IllegalStateException("Fuente no disponible"))
-        source.fetchChapterList(mediaId).mapCatching { chapters ->
+        source.fetchChapterList(mediaId).also { chapterHealth.record(sourceId, mediaId, it) }.mapCatching { chapters ->
             // Stable sort: chapters sharing a number keep the order the source returned.
             val ordered = chapters.withIndex()
                 .sortedWith(compareBy({ it.value.chapterNumber }, { it.index }))
