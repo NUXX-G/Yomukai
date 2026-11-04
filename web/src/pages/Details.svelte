@@ -227,7 +227,10 @@
     {#if tab === 0}
       <div class="chapter-bar">
         <span class="small muted">{readCount ? `${readCount} ${anime ? 'vistos' : 'leídos'} de ${list.chapters.length}` : ''}</span>
-        <button class="btn text" onclick={() => (descending = !descending)}><Icon name="sort" size={18} /> {descending ? 'Más recientes' : 'Desde el principio'}</button>
+        <span class="bar-actions">
+          {#if list.chapters.length}<button class="btn text" onclick={openDownloads}><Icon name="download" size={18} /> Descargar</button>{/if}
+          <button class="btn text" onclick={() => (descending = !descending)}><Icon name="sort" size={18} /> {descending ? 'Más recientes' : 'Desde el principio'}</button>
+        </span>
       </div>
       {#if list.chapters.length > 20}
         <div class="ch-search">
@@ -329,7 +332,7 @@
 
 <Sheet bind:open={catsOpen} title="Categorías">
   {#if !categories.list.length}<p class="small muted" style="margin-top:0">Aún no tienes categorías. Crea una:</p>{/if}
-  <div class="wrap">
+  <div class="chipwrap">
     {#each categories.list as c (c.name)}
       <button class="chip" class:on={saved?.categories?.includes(c.name)} onclick={() => toggleCat(c.name)}>{c.name}</button>
     {/each}
@@ -425,16 +428,6 @@
   .statuses .chip { height: 30px; padding: 0 12px; font-size: 0.8rem; }
   .ch-search { display: flex; align-items: center; gap: 8px; margin: 4px 16px 8px; padding: 0 12px; height: 40px; border-radius: 20px; background: var(--surface-high); color: var(--text-dim); }
   .ch-search input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--text); font-size: 0.95rem; }
-  /* Computers: the title's card stays on the left while the chapter list scrolls on the right. */
-  @media (min-width: 1000px) {
-    .layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 36px; padding: 0 24px; align-items: start; }
-    .hero { position: sticky; top: calc(var(--safe-top) + 56px); padding: 0; max-height: calc(100vh - 72px); overflow-y: auto; scrollbar-width: thin; }
-    .hero-inner { flex-direction: column; align-items: flex-start; }
-    .poster { width: 100% !important; height: auto !important; aspect-ratio: 0.7; }
-    h1 { font-size: 1.6rem; }
-    .main .tabs { margin-top: 0; top: calc(var(--safe-top) + 52px); }
-    .fab.fab { right: max(24px, calc((100vw - 1200px) / 2 + 24px)); }
-  }
   .hero-inner { position: relative; display: flex; gap: 16px; align-items: flex-end; }
   .poster { width: 116px; height: 166px; object-fit: cover; border-radius: 14px; box-shadow: 0 10px 30px #000a; background: var(--surface-variant); flex: none; }
   @media (min-width: 760px) { .poster { width: 160px; height: 228px; } }
@@ -455,6 +448,7 @@
   .tabs { display: flex; margin-top: 18px; border-bottom: 1px solid var(--outline-variant); position: sticky; top: calc(var(--safe-top) + 52px); background: var(--bg); z-index: 5; }
   .tabs button { flex: 1; padding: 14px 0; color: var(--text-dim); font-weight: 600; border-bottom: 3px solid transparent; }
   .tabs button.on { color: var(--primary); border-bottom-color: var(--primary); }
+  .bar-actions { display: flex; align-items: center; }
   .chapter-bar { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 4px 16px; }
   .integrity { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; text-align: left; margin: 4px 16px; padding: 8px 12px; border-radius: 10px; background: var(--surface-high); color: var(--text-dim); font-size: 0.85rem; width: calc(100% - 32px); }
   .warn { color: var(--tertiary); display: flex; }
@@ -477,7 +471,7 @@
   .fab { position: fixed; right: max(16px, calc((100vw - 960px) / 2 + 16px)); bottom: calc(16px + var(--safe-bottom)); z-index: 30; height: 56px; padding: 0 22px 0 18px; border-radius: 18px; display: flex; align-items: center; gap: 10px; background: var(--primary-container); color: var(--on-primary-container); font-weight: 600; box-shadow: 0 6px 20px #0008; }
   .opt { width: 100%; text-align: left; gap: 14px; }
   .cats { position: relative; display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 0.82rem; color: var(--text-dim); text-align: left; }
-  .wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chipwrap { display: flex; flex-wrap: wrap; gap: 8px; }
   .row-form { display: flex; gap: 8px; margin-top: 14px; }
   .row-form .field { flex: 1; min-width: 0; height: 44px; }
   .dl-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
@@ -487,4 +481,22 @@
   .alt { align-items: flex-start; }
   .sure { color: var(--primary); font-size: 0.8rem; }
   .searching { display: flex; gap: 12px; align-items: center; padding: 12px 0; }
+  /* Computers: the title's card stays on the left while the chapter list scrolls on the right.
+     Last in the file, so these win over the phone styles above. */
+  @media (min-width: 1000px) {
+    .layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 36px; padding: 0 24px; align-items: start; }
+    .hero { position: sticky; top: calc(var(--safe-top) + 56px); padding: 0; max-height: calc(100vh - 72px); overflow-y: auto; scrollbar-width: thin; }
+    .hero-inner { flex-direction: column; align-items: flex-start; }
+    .poster { width: 100%; height: auto; aspect-ratio: 0.7; }
+    h1 { font-size: 1.6rem; }
+    .main .tabs { margin-top: 0; top: calc(var(--safe-top) + 52px); }
+    .fab { right: max(24px, calc((100vw - 1200px) / 2 + 24px)); }
+  }
+  @media (min-width: 1600px) {
+    .wrap { max-width: 1560px; }
+    .layout { grid-template-columns: 400px minmax(0, 1fr); gap: 48px; padding: 0 32px; }
+    .backdrop { height: 460px; }
+    h1 { font-size: 1.9rem; }
+    .fab { right: max(32px, calc((100vw - 1560px) / 2 + 32px)); }
+  }
 </style>

@@ -178,3 +178,17 @@ Descartado: fallo de notificaciones con la app cerrada; el usuario confirma que 
 - Web: descargas al dispositivo (CBZ/EPUB/MP4 montados al vuelo), categorías, marcadores, desplazamiento automático,
   recorte de bordes, brillo y filtros, géneros por fuente, novela continua y búsqueda en el capítulo.
 - No posible en web: Tor, navegador de captura, avisos con la web cerrada, bloquear orientación del lector.
+
+## Pendiente web (feedback del usuario tras desplegar en yomukai.nelsonffkarlsson.com, 2026-11-04)
+
+Funciona: sincronización app ↔ web, cuentas, móvil por web.
+
+- [x] Ficha en PC: en monitores grandes (27", 2560 px) la columna de 1200 px parecía de móvil → layout más ancho y escalado.
+- [x] Descargas: la opción estaba escondida en el menú ⋮ → botón visible «Descargar» junto a la lista de capítulos.
+- [ ] Calidad de imagen: en PC las portadas y páginas se ven como ampliadas. Revisar fuente por fuente qué URL de imagen
+      se usa (miniatura vs original: Asura, Olympus, Flame, Webtoons, ZonaTMO, LectorTMO); MangaDex ya usa original y portada .512.
+      Comprobar también que el proxy no recorta (MAX_IMAGE_BYTES 20 MB) y probar en pantalla 2560 px con devicePixelRatio 1 y 2.
+- [ ] Errores en fuentes y en «Para ti»: reproducir en el VPS (docker compose logs yomukai) y anotar qué fuente falla y con qué error.
+- [ ] TuNovelaLigera no carga o tarda muchísimo desde el VPS (¿Cloudflare? ¿bloqueo por IP del VPS?). Mirar logs y FlareSolverr.
+- [ ] Rendimiento general: medir tiempos de /api/sources/*/latest, /api/foryou y /api/metadata en el VPS; cachear más agresivo
+      y cargar las filas del Inicio de forma progresiva (solo las visibles).
