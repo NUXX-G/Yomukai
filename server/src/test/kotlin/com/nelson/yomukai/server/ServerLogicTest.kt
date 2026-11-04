@@ -296,4 +296,14 @@ class ServerLogicTest {
         // Encoded or doubled paths are counted like the plain ones.
         assertTrue(isSourceRequest("/api/%70ages") && isSourceRequest("//api//pages"))
     }
+
+    @Test
+    fun sourcesAddedLaterStartSwitchedOn() {
+        val all = setOf("mangadex", "asura", "megabanana", "anitaku")
+        val legacy = UserPrefs.parse("""{"enabledSources":["mangadex"]}""", all)
+        assertEquals(setOf("mangadex", "megabanana", "anitaku"), legacy.enabledSources)
+        val seen = UserPrefs.parse("""{"enabledSources":["mangadex"],"knownSources":["mangadex","asura","megabanana"]}""", all)
+        assertEquals("only the unseen source joins", setOf("mangadex", "anitaku"), seen.enabledSources)
+        assertNull(UserPrefs.parse("{}", all).enabledSources)
+    }
 }

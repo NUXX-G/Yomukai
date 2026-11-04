@@ -3,6 +3,7 @@ package com.nelson.yomukai.data.source
 import com.nelson.yomukai.data.network.HttpFetcher
 import com.nelson.yomukai.data.source.anime.AnimeAv1Source
 import com.nelson.yomukai.data.source.anime.AnimeFlvSource
+import com.nelson.yomukai.data.source.anime.AnitakuSource
 import com.nelson.yomukai.data.source.manga.AsuraScansSource
 import com.nelson.yomukai.data.source.manga.FlameComicsSource
 import com.nelson.yomukai.data.source.manga.LectorTmoSource
@@ -38,7 +39,8 @@ class SourceManager(network: HttpFetcher) {
         TuNovelaLigeraSource(network),
         // Anime
         AnimeAv1Source(network),
-        AnimeFlvSource(network)
+        AnimeFlvSource(network),
+        AnitakuSource(network)
     )
 
     private val byId = all.associateBy { it.id }

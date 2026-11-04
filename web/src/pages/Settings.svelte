@@ -30,6 +30,8 @@
     const next = new Set(enabledIds);
     next.has(id) ? next.delete(id) : next.add(id);
     settings.enabledSources = [...next];
+    // Sources added to the app later start switched on: the server only keeps off what was seen and turned off.
+    settings.knownSources = sources.list.map((s) => s.id);
     sources.list = sources.list.map((s) => ({ ...s, enabled: next.has(s.id) }));
     saveSettings({ reloadSources: true });
   }

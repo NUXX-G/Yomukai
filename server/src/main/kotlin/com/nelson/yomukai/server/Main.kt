@@ -83,7 +83,7 @@ class Services(val config: Config) {
     val catalog = Catalog(sources, aniList, metadata, proxy)
     val downloads = Downloader(catalog, proxy, http)
 
-    suspend fun prefs(user: User) = UserPrefs.parse(db.settings(user.id))
+    suspend fun prefs(user: User) = UserPrefs.parse(db.settings(user.id), sources.all.map { it.id }.toSet())
 }
 
 fun Application.yomukai(config: Config, services: Services = Services(config)) {

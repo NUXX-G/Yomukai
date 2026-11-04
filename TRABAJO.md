@@ -215,7 +215,7 @@ Funciona: sincronización app ↔ web, cuentas, móvil por web.
 
 - [x] YSK Comics (inglés): API `api.ysk-comics.com/api/v1` (home/latest-comics, search-comics-home?name=, comics/{slug},
       comics/{slug}/chapters?page=, chapters/{slug}/images). Probada en web y en Android (LiveSourcesTest OK).
-- [ ] Anitaku (anime en inglés), la mejor de las tres propuestas: HTML de WordPress (tema AnimeStream).
+- [x] Anitaku (anime en inglés), la mejor de las tres propuestas: HTML de WordPress (tema AnimeStream).
       Lista: `/series/?order=update&page=N` (article.bs); búsqueda: POST `/wp-admin/admin-ajax.php`
       action=ts_ac_do_search&ts_ac_query=…; ficha: .entry-content, .spe, .genxed; episodios: .eplister li a (.epl-num);
       episodio: `<option value=base64(iframe)>` → Blogger `video.g?token=…`; del HTML de Blogger (&quot; y &) sacar

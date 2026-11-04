@@ -45,6 +45,8 @@ class VideoExtractors(private val network: HttpFetcher) {
                 yourupload(network.getString(url.replace("/watch/", "/embed/"), cloudflareFallback = false))
                     ?.let { it to mapOf("Referer" to "https://www.yourupload.com/") }
             VOE_HOST in url -> voe(url)
+            "blogger.com/video.g" in url ->
+                blogger(network.getString(url, cloudflareFallback = false))?.let { it to emptyMap<String, String>() }
             else -> null
         } ?: return null
         return source.copy(
@@ -65,6 +67,18 @@ class VideoExtractors(private val network: HttpFetcher) {
     }
 
     companion object {
+        /**
+         * Blogger's player page lists its MP4 files as `"https://…googlevideo.com/videoplayback?…",[itag]`
+         * inside escaped JSON. 720p (itag 22) first, then 360p (18). The links are tied to the address that
+         * asked for the page, so the same client must play them (the server proxies, the app plays itself).
+         */
+        fun blogger(html: String): String? {
+            val text = html.replace("&quot;", "\"").replace("\\u0026", "&").replace("\\u003d", "=").replace("\\/", "/")
+            val found = BLOGGER_STREAM.findAll(text).map { it.groupValues[2] to it.groupValues[1] }.toList()
+            return (found.firstOrNull { it.first == "22" } ?: found.firstOrNull { it.first == "18" } ?: found.firstOrNull())?.second
+        }
+
+        private val BLOGGER_STREAM = Regex(""""(https://[a-z0-9-]+\.googlevideo\.com/videoplayback\?[^"\\]+)",\[(\d+)]""")
         private const val VOE_HOST = "voe.sx"
         private val VOE_MIRROR = Regex("""https://[a-zA-Z0-9.-]+/e/[a-z0-9]+""")
         private val VOE_DATA = Regex("""<script[^>]*type="application/json"[^>]*>(.*?)</script>""", RegexOption.DOT_MATCHES_ALL)

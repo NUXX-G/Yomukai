@@ -45,13 +45,25 @@ data class UserPrefs(val enabledSources: Set<String>?, val globalExclusions: Set
     companion object {
         val DEFAULT = UserPrefs(null, emptySet(), emptyMap())
 
-        fun parse(json: String?): UserPrefs {
+        /**
+         * Sources that existed before lists started recording which sources the user had seen. A saved list
+         * knows nothing of sources added later: those start switched on, like in the Android app.
+         */
+        private val LEGACY_KNOWN = setOf(
+            "mangadex", "olympus", "asura", "flame", "lectortmo", "zonatmo", "webtoons", "webtoons_en", "marmota",
+            "royalroad", "skynovels", "tunovelaligera", "animeav1", "animeflv"
+        )
+
+        fun parse(json: String?, allSources: Set<String> = emptySet()): UserPrefs {
             val root = runCatching { JsonParser.parseString(json ?: return DEFAULT).asJsonObject }.getOrNull() ?: return DEFAULT
             fun JsonObject.set(key: String): Set<String>? =
                 getAsJsonArray(key)?.mapNotNull { e -> e.takeIf { it.isJsonPrimitive }?.asString }?.toSet()
             val exclusions = root.getAsJsonObject("exclusions")
             return UserPrefs(
-                enabledSources = root.takeIf { it.has("enabledSources") && it.get("enabledSources").isJsonArray }?.set("enabledSources"),
+                enabledSources = root.takeIf { it.has("enabledSources") && it.get("enabledSources").isJsonArray }?.set("enabledSources")?.let { saved ->
+                    val known = root.set("knownSources") ?: LEGACY_KNOWN
+                    saved + (allSources - known)
+                },
                 globalExclusions = exclusions?.set("global").orEmpty(),
                 perSource = exclusions?.getAsJsonObject("perSource")?.entrySet()?.associate { (k, v) ->
                     k to v.takeIf { it.isJsonArray }?.asJsonArray?.mapNotNull { it.asString }?.toSet().orEmpty()
