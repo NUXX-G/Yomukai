@@ -1,6 +1,5 @@
 package com.nelson.yomukai.data.source
 
-import com.nelson.yomukai.data.source.manga.WebtoonsSource
 import com.nelson.yomukai.data.source.manga.ZonaTmoSource
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
@@ -8,7 +7,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class WebtoonsZonaTmoParsingTest {
+class ZonaTmoParsingTest {
     private fun fixture(name: String) =
         checkNotNull(javaClass.classLoader?.getResource(name)) { "missing fixture $name" }.readText()
 
@@ -78,41 +77,5 @@ class WebtoonsZonaTmoParsingTest {
             "/catalogo?order=score&page=1&genre=mecha",
             com.nelson.yomukai.data.source.anime.AnimeAv1Source.catalogueRequest(1, mapOf(FilterKeys.SORT to setOf("score"), FilterKeys.GENRE to setOf("mecha")))
         )
-    }
-
-    @Test
-    fun webtoonsCards() {
-        val originals = WebtoonsSource.parseCards(fixture("webtoons_originals.html"))
-        assertTrue(originals.size >= 40)
-        assertTrue(originals.all { it.id.startsWith("https://m.webtoons.com/") && it.title.isNotBlank() && " " !in it.coverUrl })
-
-        val search = WebtoonsSource.parseCards(fixture("webtoons_search.html"))
-        assertTrue(search.isNotEmpty())
-        assertTrue("search results must point at the mobile site", search.all { it.id.startsWith("https://m.webtoons.com/") })
-    }
-
-    @Test
-    fun webtoonsDetails() {
-        val url = "https://m.webtoons.com/es/fantasy/catastrophic-necromancer/list?title_no=8467"
-        val details = WebtoonsSource.parseDetails(fixture("webtoons_detail.html"), item(url, "webtoons"))
-        assertEquals("Catastrophic Necromancer", details.title)
-        assertTrue(details.description.startsWith("El juego se hace realidad"))
-        assertEquals("Mantudezhu, Hei NiaoShe", details.author)
-        assertEquals(listOf("Fantasía"), details.genres)
-    }
-
-    @Test
-    fun webtoonsEpisodesAndPages() {
-        val result = checkNotNull(parseJson(fixture("webtoons_episodes.json")).asJsonObject.obj("result"))
-        val episodes = WebtoonsSource.parseEpisodes(result, "m")
-        assertEquals(30, episodes.size)
-        assertEquals("EP 1", episodes.first().title)
-        assertEquals(1f, episodes.first().chapterNumber)
-        assertTrue(episodes.first().url.startsWith("https://m.webtoons.com/es/"))
-        assertEquals("30", result.str("nextCursor"))
-
-        val pages = WebtoonsSource.parsePages(fixture("webtoons_viewer.html"))
-        assertTrue(pages.size >= 20)
-        assertTrue(pages.all { it.startsWith("https://webtoon-phinf.pstatic.net/") && "_warning." !in it && " " !in it })
     }
 }

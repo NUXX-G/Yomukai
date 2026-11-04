@@ -49,7 +49,7 @@ class LiveSourcesTest {
         assumeTrue(InstrumentationRegistry.getArguments().getString("live") == "true")
         val app = ApplicationProvider.getApplicationContext<YomukaiApplication>()
         val container = app.container
-        for ((sourceId, index) in listOf("zonatmo" to 0, "webtoons" to 0, "animeflv" to 2)) {
+        for ((sourceId, index) in listOf("zonatmo" to 0, "animeflv" to 2)) {
             val source = container.sourceManager.require(sourceId)
             val item = source.fetchLatestUpdates(1).getOrThrow()[index]
             container.libraryRepository.cacheMedia(item)

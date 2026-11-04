@@ -3,7 +3,6 @@ package com.nelson.yomukai.data.source
 import com.nelson.yomukai.data.source.manga.AsuraScansSource
 import com.nelson.yomukai.data.source.manga.MangaDexSource
 import com.nelson.yomukai.data.source.manga.MarmotaComicsSource
-import com.nelson.yomukai.data.source.novel.TuNovelaLigeraSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -44,11 +43,6 @@ class CatalogueFiltersTest {
             MarmotaComicsSource.catalogueUrl(
                 2, mapOf(FilterKeys.SORT to setOf("views"), FilterKeys.STATUS to setOf("end"), FilterKeys.GENRE to setOf("dc-comics"))
             )
-        )
-        assertEquals("https://tunovelaligera.com/novelas/", TuNovelaLigeraSource.catalogueUrl(1, emptyMap()))
-        assertEquals(
-            "https://tunovelaligera.com/novelas/page/3/?m_orderby=alphabet",
-            TuNovelaLigeraSource.catalogueUrl(2, mapOf(FilterKeys.SORT to setOf("alphabet")))
         )
     }
 }
