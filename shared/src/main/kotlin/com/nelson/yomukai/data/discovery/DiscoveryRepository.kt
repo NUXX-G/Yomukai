@@ -8,9 +8,16 @@ import com.nelson.yomukai.data.source.NovelSource
 import com.nelson.yomukai.data.source.SourceManager
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
@@ -184,14 +191,95 @@ class DiscoveryRepository(
      * titles already seen in the user's sources, so the answer always opens.
      */
     suspend fun randomAvailable(kind: RandomKind, genre: String?): Pair<RelatedTitle, List<Alternative>>? {
-        repeat(RANDOM_LOCATE_ATTEMPTS) {
-            val pick = withTimeoutOrNull(RANDOM_TIMEOUT_MS) { aniList.random(kind, genre) }?.takeIf(filter()::allows) ?: return@repeat
-            val places = locate(pick, RANDOM_LOCATE_MS)
-            if (places.isNotEmpty()) return pick to places
-        }
+        val key = "${kind.name}|${genre.orEmpty()}"
+        // A pick found ahead of time answers at once; the next ones are looked for meanwhile.
+        val ready = synchronized(prefetched) { prefetched[key]?.removeFirstOrNull() }
+        refill(kind, genre, key)
+        ready?.takeIf { filter().allows(it.first) }?.let { return it }
+        findRandom(kind, genre)?.let { return it }
         val saved = savedTitles().filter { kind.type == null || it.type == kind.type }.randomOrNull() ?: return null
         val pick = RelatedTitle(saved.title, listOf(saved.title), saved.coverUrl, saved.type, saved.genres, item = saved)
         return pick to locate(pick)
+    }
+
+    /** Random picks already found in the user's sources, per kind and genre. */
+    private val prefetched = HashMap<String, ArrayDeque<Pair<RelatedTitle, List<Alternative>>>>()
+    private val refilling = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    private fun refill(kind: RandomKind, genre: String?, key: String) {
+        if (!refilling.add(key)) return
+        background.launch {
+            try {
+                while (synchronized(prefetched) { prefetched[key]?.size ?: 0 } < PREFETCH) {
+                    val found = findRandom(kind, genre) ?: break
+                    synchronized(prefetched) { prefetched.getOrPut(key) { ArrayDeque() }.addLast(found) }
+                }
+            } finally {
+                refilling.remove(key)
+            }
+        }
+    }
+
+    /** Two AniList picks are looked for at the same time; the first one some source has wins. */
+    private suspend fun findRandom(kind: RandomKind, genre: String?): Pair<RelatedTitle, List<Alternative>>? {
+        repeat(RANDOM_LOCATE_ATTEMPTS) {
+            val picks = (1..RANDOM_RACE)
+                .mapNotNull { withTimeoutOrNull(RANDOM_TIMEOUT_MS) { aniList.random(kind, genre) }?.takeIf(filter()::allows) }
+                .distinctBy { TitleMatcher.familyKey(it.type, it.title) }
+            val tasks: List<suspend () -> Pair<RelatedTitle, List<Alternative>>?> = picks.map { pick ->
+                { locateQuick(pick).takeIf { it.isNotEmpty() }?.let { pick to it } }
+            }
+            firstOf(tasks)?.let { return it }
+        }
+        return null
+    }
+
+    /** The first non-null answer of [tasks], run together; the rest are stopped. */
+    private suspend fun <T : Any> firstOf(tasks: List<suspend () -> T?>): T? = coroutineScope {
+        if (tasks.isEmpty()) return@coroutineScope null
+        val answers = Channel<T?>(tasks.size)
+        val jobs = tasks.map { task -> launch { answers.send(runCatching { task() }.getOrNull()) } }
+        var found: T? = null
+        repeat(tasks.size) { if (found == null) found = answers.receive() }
+        jobs.forEach { it.cancel() }
+        found
+    }
+
+    /**
+     * Where [related] can be read, asking every source at once and answering soon after the first
+     * one has it: for a random pick one place is enough to open it, and slow sites do not hold it up.
+     */
+    private suspend fun locateQuick(related: RelatedTitle): List<Alternative> {
+        if (related.item != null) return locate(related)
+        located[locateKey(related)]?.let { return it }
+        val names = (related.names + related.title).filter { it.isNotBlank() }.distinct()
+        val queries = (searchable(names, MAX_LOCATE_QUERIES) + shortNames(names)).distinctBy(SmartSearch::duplicateKey)
+        val found = java.util.Collections.synchronizedList(mutableListOf<Alternative>())
+        withTimeoutOrNull(RANDOM_LOCATE_MS) {
+            coroutineScope {
+                val first = CompletableDeferred<Unit>()
+                val searches = candidates(related.type, null).map { source ->
+                    async {
+                        withTimeoutOrNull(QUICK_SOURCE_MS) {
+                            val hit = match(source, names, "", related.type, queryList = queries) ?: closest(source, names, related.type)
+                            if (hit != null && filter().known(source, listOf(hit.item)).isNotEmpty()) {
+                                found += hit
+                                first.complete(Unit)
+                            }
+                        }
+                    }
+                }
+                launch { runCatching { searches.awaitAll() }; first.complete(Unit) }
+                first.await()
+                // A short moment more, so other sources that already have it are listed too.
+                withTimeoutOrNull(QUICK_GRACE_MS) { runCatching { searches.awaitAll() } }
+                coroutineContext.cancelChildren()
+            }
+        }
+        val result = synchronized(found) { found.toList() }.sortedWith(compareBy({ it.confidence.ordinal }, { it.sourceName }))
+        if (result.isNotEmpty()) located[locateKey(related)] = result
+        return result
     }
 
     /** The entry whose title is the same name as one of [names] in both directions, for spellings no key catches. */
@@ -253,6 +341,10 @@ class DiscoveryRepository(
         const val MIN_SHORT_NAME = 4
         const val RANDOM_LOCATE_ATTEMPTS = 3
         const val RANDOM_LOCATE_MS = 12_000L
+        const val RANDOM_RACE = 2
+        const val PREFETCH = 2
+        const val QUICK_SOURCE_MS = 10_000L
+        const val QUICK_GRACE_MS = 1_200L
         const val CLOSE_SCORE = 0.75
         const val MAX_DETAILS = 2
         const val MAX_PARALLEL = 4

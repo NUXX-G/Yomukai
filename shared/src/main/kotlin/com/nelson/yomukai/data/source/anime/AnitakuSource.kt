@@ -61,7 +61,7 @@ class AnitakuSource(private val network: HttpFetcher) : AnimeSource {
                 val url = a.absUrl("href").ifBlank { return@mapNotNull null }
                 val title = a.attr("title").ifBlank { a.selectFirst("h2")?.text().orEmpty() }.trim()
                 if (title.isBlank()) return@mapNotNull null
-                MediaItem(url, title, a.selectFirst("img")?.absUrl("src").orEmpty(), MediaType.ANIME, "", "", "anitaku")
+                MediaItem(url, title, AnimeFlvSource.fullCover(a.selectFirst("img")?.absUrl("src").orEmpty()), MediaType.ANIME, "", "", "anitaku")
             }.distinctBy { it.id }
 
         /** The live search answers JSON: `{"series":[{"all":[{post_title, post_link, post_image...}]}]}`. */

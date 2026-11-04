@@ -62,6 +62,10 @@ class AnimeFlvSource(private val network: HttpFetcher) : AnimeSource {
         private val EPISODE_PATH = Regex("""/\d{4}/\d{2}/\d{2}/(.+)-episodio-(\d+(?:-\d+)?)/?$""")
         private val TRAILING_EPISODE = Regex("""\s+Episodio\s+\d+(?:[.-]\d+)?\s*$""", RegexOption.IGNORE_CASE)
 
+        /** Lists show WordPress's cropped copies ("4482-260x200.jpg", landscape); the poster is the file without the size. */
+        fun fullCover(url: String): String = url.replace(SIZED_COPY, "$1")
+        private val SIZED_COPY = Regex("""-\d{2,4}x\d{2,4}(\.(?:jpe?g|png|webp))$""")
+
         fun parseCatalog(html: String): List<MediaItem> =
             Jsoup.parse(html, BASE).select("a.thumbnail-link[href*=/anime/]").mapNotNull { card ->
                 val url = card.absUrl("href").ifBlank { return@mapNotNull null }
@@ -70,7 +74,7 @@ class AnimeFlvSource(private val network: HttpFetcher) : AnimeSource {
                 MediaItem(
                     id = url,
                     title = title,
-                    coverUrl = card.selectFirst("img")?.absUrl("src").orEmpty(),
+                    coverUrl = fullCover(card.selectFirst("img")?.absUrl("src").orEmpty()),
                     type = MediaType.ANIME,
                     status = "",
                     description = "",
@@ -87,7 +91,7 @@ class AnimeFlvSource(private val network: HttpFetcher) : AnimeSource {
                 MediaItem(
                     id = "$BASE/anime/${match.groupValues[1]}/",
                     title = title,
-                    coverUrl = card.selectFirst("img")?.absUrl("src").orEmpty(),
+                    coverUrl = fullCover(card.selectFirst("img")?.absUrl("src").orEmpty()),
                     type = MediaType.ANIME,
                     status = "Episodio ${match.groupValues[2].replace('-', '.')}",
                     description = "",

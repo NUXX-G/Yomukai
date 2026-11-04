@@ -96,7 +96,7 @@ class AnimeAv1Source(private val network: HttpFetcher) : AnimeSource {
                 MediaItem(
                     id = slug,
                     title = card.selectFirst("h3")?.text()?.trim() ?: return@mapNotNull null,
-                    coverUrl = card.selectFirst("img")?.attr("src").orEmpty(),
+                    coverUrl = card.selectFirst("img")?.attr("src").orEmpty().replace("/thumbnails/", "/covers/"),
                     type = MediaType.ANIME,
                     status = card.selectFirst(".font-bold.text-xs, .text-xs")?.text().orEmpty(),
                     description = "",
@@ -113,7 +113,7 @@ class AnimeAv1Source(private val network: HttpFetcher) : AnimeSource {
                 MediaItem(
                     id = match.groupValues[1],
                     title = title,
-                    coverUrl = card.selectFirst("img")?.attr("src").orEmpty(),
+                    coverUrl = card.selectFirst("img")?.attr("src").orEmpty().replace("/thumbnails/", "/covers/"),
                     type = MediaType.ANIME,
                     status = "Episodio ${match.groupValues[2]}",
                     description = "",

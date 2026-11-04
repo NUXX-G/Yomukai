@@ -91,31 +91,51 @@
   <header class="topbar">
     <h1>Biblioteca</h1>
     <span class="grow"></span>
-    <button class="icon-btn" onclick={() => loadUpdates(true)} disabled={updates.loading} aria-label="Buscar capítulos nuevos" title="Buscar capítulos nuevos">
-      {#if updates.loading}<span class="spinner tiny"></span>{:else}<Icon name="refresh" />{/if}
+    <button class="refresh" onclick={() => loadUpdates(true)} disabled={updates.loading} aria-label="Buscar capítulos nuevos" title="Buscar capítulos nuevos">
+      {#if updates.loading}<span class="spinner tiny"></span>{:else}<Icon name="refresh" size={20} />{/if}
+      <span class="refresh-label">Buscar capítulos nuevos</span>
     </button>
   </header>
-  <div class="chips">
-    <button class="chip" class:on={tab === 'library'} onclick={() => (tab = 'library')}>Guardadas · {library.items.length}</button>
-    <button class="chip" class:on={tab === 'news'} onclick={() => (tab = 'news')}>Novedades{withNews.length ? ' · ' + withNews.length : ''}</button>
-    <button class="chip" class:on={tab === 'history'} onclick={() => (tab = 'history')}>Historial</button>
-  </div>
 
+  <div class="lib">
+  <aside class="side" aria-label="Filtros de la biblioteca">
+    <div class="group">
+      <div class="group-label">Ver</div>
+      <div class="chips">
+        <button class="chip" class:on={tab === 'library'} onclick={() => (tab = 'library')}><span>Guardadas</span><span class="n">{library.items.length}</span></button>
+        <button class="chip" class:on={tab === 'news'} onclick={() => (tab = 'news')}><span>Novedades</span>{#if withNews.length}<span class="n hot">{withNews.length}</span>{/if}</button>
+        <button class="chip" class:on={tab === 'history'} onclick={() => (tab = 'history')}><span>Historial</span></button>
+      </div>
+    </div>
+    {#if tab === 'library'}
+      <div class="group">
+        <div class="group-label">Estado</div>
+        <div class="chips">
+          <button class="chip" class:on={status === 'ALL'} onclick={() => (status = 'ALL')}><span>Todas</span></button>
+          {#each READING_STATUSES as [k, label]}
+            {#if counts[k]}<button class="chip" class:on={status === k} onclick={() => (status = k)}><span>{label}</span><span class="n">{counts[k]}</span></button>{/if}
+          {/each}
+        </div>
+      </div>
+      <div class="group">
+        <div class="group-label">Categorías <button class="manage" onclick={() => (manageOpen = true)}>Gestionar</button></div>
+        <div class="chips">
+          <button class="chip" class:on={!category} onclick={() => (category = '')}><span>Todas las categorías</span></button>
+          {#each categories.list as c (c.name)}
+            <button class="chip" class:on={category === c.name} onclick={() => (category = c.name)}><span>{c.name}</span><span class="n">{library.items.filter((r) => (r.categories || []).includes(c.name)).length}</span></button>
+          {/each}
+          <button class="chip phone-only" onclick={() => (manageOpen = true)}><Icon name="tune" size={16} /> Categorías</button>
+        </div>
+      </div>
+      <div class="group">
+        <div class="group-label">Tipo</div>
+        <div class="chips">{#each TYPE_FILTERS as f}<button class="chip" class:on={typeKey === f.key} onclick={() => (typeKey = f.key)}><span>{f.label}</span></button>{/each}</div>
+      </div>
+    {/if}
+  </aside>
+
+  <section class="content">
   {#if tab === 'library'}
-    <div class="chips" style="margin-top:8px">
-      <button class="chip" class:on={status === 'ALL'} onclick={() => (status = 'ALL')}>Todas</button>
-      {#each READING_STATUSES as [k, label]}
-        {#if counts[k]}<button class="chip" class:on={status === k} onclick={() => (status = k)}>{label} · {counts[k]}</button>{/if}
-      {/each}
-    </div>
-    <div class="chips" style="margin-top:8px">
-      <button class="chip" class:on={!category} onclick={() => (category = '')}>Todas las categorías</button>
-      {#each categories.list as c (c.name)}
-        <button class="chip" class:on={category === c.name} onclick={() => (category = c.name)}>{c.name} · {library.items.filter((r) => (r.categories || []).includes(c.name)).length}</button>
-      {/each}
-      <button class="chip" onclick={() => (manageOpen = true)}><Icon name="tune" size={16} /> Categorías</button>
-    </div>
-    <div class="chips" style="margin-top:8px">{#each TYPE_FILTERS as f}<button class="chip" class:on={typeKey === f.key} onclick={() => (typeKey = f.key)}>{f.label}</button>{/each}</div>
     {#if library.items.length}
       <div class="tools">
         {#if library.items.length > 12}<input class="field" placeholder="Filtrar por título" bind:value={filter} />{:else}<span class="grow"></span>{/if}
@@ -144,6 +164,7 @@
     {:else if !withNews.length}
       <div class="center"><p class="muted">Estás al día. Aquí salen las obras guardadas con capítulos nuevos desde el último que leíste.</p></div>
     {:else}
+      <div class="rows">
       {#each withNews as r (keyOf(r))}
         {@const u = updates.byKey[keyOf(r)]}
         <div class="list-item">
@@ -158,12 +179,14 @@
           <a class="icon-btn" href={media(r.sourceId, r.mediaId)} aria-label="Ficha"><Icon name="list" size={20} /></a>
         </div>
       {/each}
+      </div>
     {/if}
   {:else if history === null}
     <div class="center"><div class="spinner"></div></div>
   {:else if !history.length}
     <div class="center"><p class="muted">Lo que leas y veas aparecerá aquí.</p></div>
   {:else}
+    <div class="rows">
     {#each history as h (h.sourceId + h.mediaId)}
       <div class="list-item">
         <a class="hist" href={reader(kind(h.sourceId), h.sourceId, h.mediaId, h.chapterId)}>
@@ -178,7 +201,10 @@
         <button class="icon-btn" onclick={() => forget(h)} aria-label="Quitar del historial"><Icon name="close" size={20} /></button>
       </div>
     {/each}
+    </div>
   {/if}
+  </section>
+  </div>
 </div>
 
 <Sheet bind:open={manageOpen} title="Categorías">
@@ -216,4 +242,36 @@
   .hist img { width: 48px; height: 68px; object-fit: cover; border-radius: 6px; background: var(--surface-variant); flex: none; }
   .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .accent { color: var(--primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .refresh { width: 44px; height: 44px; display: inline-grid; place-items: center; border-radius: 50%; }
+  .refresh-label, .group-label { display: none; }
+  .group + .group { margin-top: 8px; }
+  .n::before { content: ' · '; }
+  .n.hot { color: var(--primary); font-weight: 700; }
+  /* Computers: the filters become a side panel and the titles fill the rest. */
+  @media (min-width: 1024px) {
+    .refresh { width: auto; height: 40px; display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 20px; border: 1px solid var(--outline); color: var(--primary); font-weight: 600; transition: background 0.15s; }
+    .refresh:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+    .refresh-label { display: inline; }
+    .lib { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 36px; align-items: start; margin-top: 8px; }
+    .side { position: sticky; top: calc(var(--top-h) + 24px); max-height: calc(100vh - var(--top-h) - 48px); overflow-y: auto; scrollbar-width: none; padding: 14px 10px; border-radius: 18px; background: var(--surface-low); border: 1px solid var(--outline-variant); }
+    .side::-webkit-scrollbar { display: none; }
+    .group + .group { margin-top: 18px; }
+    .group-label { display: flex; align-items: center; justify-content: space-between; padding: 0 10px 6px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); }
+    .manage { font-size: 0.75rem; letter-spacing: 0; text-transform: none; color: var(--primary); font-weight: 600; }
+    .manage:hover { text-decoration: underline; }
+    .side .chips { flex-direction: column; gap: 2px; overflow: visible; }
+    .side .chip { width: 100%; height: 38px; justify-content: space-between; border: 0; border-radius: 10px; padding: 0 12px; color: var(--text); background: none; font-size: 0.92rem; }
+    .side .chip:hover:not(.on) { background: var(--surface-high); color: var(--text); }
+    .side .chip.on { background: var(--secondary-container); color: var(--on-secondary-container); font-weight: 600; }
+    .n { color: var(--text-dim); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+    .n::before { content: none; }
+    .chip.on .n { color: inherit; }
+    .phone-only { display: none !important; }
+    .content .tools { margin-top: 0; }
+    .content .tools .field:first-child { max-width: 420px; }
+    .rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 10px; }
+    .rows .list-item { border: 0; border-radius: 14px; padding: 10px 8px 10px 10px; background: var(--surface); }
+    .rows .list-item:hover { background: var(--surface-high); }
+    .hist img { width: 56px; height: 80px; }
+  }
 </style>

@@ -46,7 +46,7 @@
   let dlTo = $state(0);
   let marksOpen = $state(false);
   let marks = $state(null);
-  const maxDownload = $derived(session.user?.guest ? 20 : 100);
+  const maxDownload = $derived(session.user?.guest ? 3 : 100);
 
   function toggleCat(name) {
     const current = saved?.categories || [];
