@@ -280,12 +280,13 @@ class ServerLogicTest {
         assertNull(auth.guestAllowedFrom(ip, 1_000))
         // Many guests from one connection share one count.
         val start = 1_000_000L
-        var suspended = false
+        var refused = false
         for (n in 0 until 3) {
             val g = db.createUser("g$n", null, admin = false, guest = true, expiresAt = Long.MAX_VALUE)
-            repeat(20) { if (!auth.countSourceRequest(g, ip, start + n * 20 + it)) suspended = true }
+            repeat(20) { try { auth.countSourceRequest(g, ip, start + n * 20 + it) } catch (_: TooManyFromAddress) { refused = true } }
         }
-        assertTrue("60 requests from three guests on one connection exceed 50", suspended)
+        assertTrue("60 requests from three guests on one connection exceed 50", refused)
+        assertTrue("sharing a connection never suspends anyone", db.users().none { it.suspendedAt != null })
         assertTrue("no more guests from there", auth.guestAllowedFrom(ip, start + 100) != null)
         // At most five new guests an hour from one connection.
         val other = "198.51.100.9"

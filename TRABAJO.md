@@ -205,7 +205,8 @@ Funciona: sincronización app ↔ web, cuentas, móvil por web.
 - El CDN de MegaBanana (hcdn) da 403 a OkHttp por HTTP/2 y 200 por HTTP/1.1: servidor reintenta imágenes por HTTP/1.1;
   la app usa HTTP/1.1 para `HTTP1_IMAGE_HOSTS`.
 - Abuso: más de ABUSE_LIMIT (1500) / GUEST_ABUSE_LIMIT (300) peticiones a fuentes en 10 min → cuenta suspendida hasta que el
-  admin la reactiva. Invitados contados también por conexión; si se suspende uno, esa conexión no crea invitados en 24 h;
-  máximo 5 invitados por hora por conexión.
+  admin la reactiva. Invitados contados también por conexión;
+  máximo 5 invitados por hora por conexión. Pasarse del límite compartido de una conexión solo rechaza la petición (429) y
+  bloquea nuevos invitados 1 h; nunca suspende a nadie por sí solo (puede ser una red compartida).
 - Invitados: 1 día, 120 peticiones/min, sin exportar/importar/sincronizar, 3 capítulos por descarga.
 - En el VPS, el `.env` ya creado conserva GUEST_DAYS=7: cambiarlo a mano (sed) al actualizar.

@@ -276,15 +276,17 @@ class Auth(private val db: Database, private val config: Config) {
                 window[1] > limit
             }
         }
-        // Guests are also counted per connection: making a new guest does not start the count again.
         val byUser = over("u:${user.id}")
-        val byAddress = user.isGuest && address.isNotEmpty() && over("ip:$address")
-        if (!byUser && !byAddress) return true
-        db.suspend(user.id, "Más de $limit peticiones a las fuentes en 10 minutos")
-        if (user.isGuest && address.isNotEmpty()) {
-            blockedAddresses[address] = now + GUEST_BLOCK_MS
-            usage.remove("ip:$address")
+        // Guests are also counted per connection, so making new guests does not restart the count. Several
+        // people can share a connection (an office, a phone network): crossing that shared count only refuses
+        // the request and stops new guests from there for a while; it never suspends anyone by itself.
+        if (!byUser && user.isGuest && address.isNotEmpty() && over("ip:$address")) {
+            blockedAddresses[address] = now + ADDRESS_BLOCK_MS
+            throw TooManyFromAddress()
         }
+        if (!byUser) return true
+        db.suspend(user.id, "Más de $limit peticiones a las fuentes en 10 minutos")
+        if (user.isGuest && address.isNotEmpty()) blockedAddresses[address] = now + ADDRESS_BLOCK_MS
         usage.remove("u:${user.id}")
         forget(user.id)
         log.warn("Cuenta {} suspendida por uso excesivo", user.name)
@@ -315,7 +317,7 @@ class Auth(private val db: Database, private val config: Config) {
         const val DAY_MS = 86_400_000L
         private const val SESSION_CACHE_MS = 60_000L
         private const val ABUSE_WINDOW_MS = 10 * 60_000L
-        private const val GUEST_BLOCK_MS = 24 * 60 * 60_000L
+        private const val ADDRESS_BLOCK_MS = 60 * 60_000L
         private const val GUEST_CREATION_WINDOW_MS = 60 * 60_000L
         private const val GUESTS_PER_WINDOW = 5
         private const val TEN_YEARS_S = 10 * 365 * 24 * 3600
@@ -336,8 +338,7 @@ fun requireUser(auth: Auth, admin: Boolean = false, addressOf: (io.ktor.server.a
             user.suspendedAt != null -> call.respond(HttpStatusCode.Forbidden, mapOf("error" to SUSPENDED_MESSAGE, "suspended" to true))
             admin && !user.isAdmin -> call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Solo para administradores"))
             !auth.allow(user) -> call.respond(HttpStatusCode.TooManyRequests, mapOf("error" to "Demasiadas peticiones, espera un momento"))
-            isSourceRequest(call.request.path()) && !auth.countSourceRequest(user, addressOf(call)) ->
-                call.respond(HttpStatusCode.Forbidden, mapOf("error" to SUSPENDED_MESSAGE, "suspended" to true))
+            isSourceRequest(call.request.path()) && !countOrRefuse(call, auth, user, addressOf) -> Unit
             else -> call.attributes.put(UserKey, user)
         }
     }
@@ -359,4 +360,18 @@ private val SOURCE_PATHS = listOf(
 fun isSourceRequest(path: String): Boolean {
     val clean = runCatching { path.decodeURLPart() }.getOrDefault(path).replace(Regex("/{2,}"), "/")
     return SOURCE_PATHS.any { clean.startsWith(it) }
+}
+
+/** Too many requests from one connection's guests together: this request is refused, nobody is suspended. */
+class TooManyFromAddress : RuntimeException("Demasiadas peticiones desde esta conexión; espera un rato")
+
+/** False when the request was answered here (account suspended now, or the connection's guests over their count). */
+private suspend fun countOrRefuse(
+    call: io.ktor.server.application.ApplicationCall, auth: Auth, user: User,
+    addressOf: (io.ktor.server.application.ApplicationCall) -> String
+): Boolean = try {
+    if (auth.countSourceRequest(user, addressOf(call))) true
+    else { call.respond(HttpStatusCode.Forbidden, mapOf("error" to SUSPENDED_MESSAGE, "suspended" to true)); false }
+} catch (e: TooManyFromAddress) {
+    call.respond(HttpStatusCode.TooManyRequests, mapOf("error" to e.message)); false
 }
