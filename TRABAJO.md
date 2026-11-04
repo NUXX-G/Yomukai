@@ -185,10 +185,15 @@ Funciona: sincronización app ↔ web, cuentas, móvil por web.
 
 - [x] Ficha en PC: en monitores grandes (27", 2560 px) la columna de 1200 px parecía de móvil → layout más ancho y escalado.
 - [x] Descargas: la opción estaba escondida en el menú ⋮ → botón visible «Descargar» junto a la lista de capítulos.
-- [ ] Calidad de imagen: en PC las portadas y páginas se ven como ampliadas. Revisar fuente por fuente qué URL de imagen
+- [x] Calidad de imagen (el lector estiraba las páginas a 900 px; ahora «Tamaño original»): en PC las portadas y páginas se ven como ampliadas. Revisar fuente por fuente qué URL de imagen
       se usa (miniatura vs original: Asura, Olympus, Flame, Webtoons, ZonaTMO, LectorTMO); MangaDex ya usa original y portada .512.
       Comprobar también que el proxy no recorta (MAX_IMAGE_BYTES 20 MB) y probar en pantalla 2560 px con devicePixelRatio 1 y 2.
 - [ ] Errores en fuentes y en «Para ti»: reproducir en el VPS (docker compose logs yomukai) y anotar qué fuente falla y con qué error.
 - [ ] TuNovelaLigera no carga o tarda muchísimo desde el VPS (¿Cloudflare? ¿bloqueo por IP del VPS?). Mirar logs y FlareSolverr.
-- [ ] Rendimiento general: medir tiempos de /api/sources/*/latest, /api/foryou y /api/metadata en el VPS; cachear más agresivo
+- [x] Rendimiento: la ficha esperaba 10-20 s a las notas (peticiones no cancelables y MAL/Jikan sin responder) → menos de 1 s.
+- [ ] Rendimiento general (resto): medir tiempos de /api/sources/*/latest, /api/foryou y /api/metadata en el VPS; cachear más agresivo
       y cargar las filas del Inicio de forma progresiva (solo las visibles).
+- [x] Móvil: el botón «Empezar a leer» no tomaba el color de la portada; barra del lector con la barra de páginas aplastada;
+      título del reproductor cortado. Arreglados y comprobados a 390 px.
+- [x] Una línea de código salía como texto encima del lector de manga (edición con perl rota). Cuidado: en perl con `|` como
+      delimitador, un `\|\|` en el patrón empareja vacío al principio del fichero.

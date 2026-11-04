@@ -331,8 +331,16 @@
   .seen { opacity: 0.55; }
   .flash { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 3; padding: 10px 18px; border-radius: 14px; background: #000a; color: #fff; font-weight: 600; pointer-events: none; animation: in 0.15s; }
   .volume { display: none; align-items: center; }
+  .actions .btn { white-space: nowrap; }
+  /* Phones: the title gets its own line instead of being squeezed between the buttons. */
+  @media (max-width: 600px) {
+    .top { flex-wrap: wrap; row-gap: 0; }
+    .title { order: 10; flex-basis: 100%; padding: 0 8px 4px 48px; font-size: 0.9rem; }
+    .title + * { margin-left: auto; }
+    .top .btn { padding: 0 8px; }
+  }
   .vol { width: 90px; margin: 0; }
-  @media (hover: hover) and (pointer: fine) { .volume { display: inline-flex; } }
+  @media (hover: hover) and (pointer: fine) and (min-width: 601px) { .volume { display: inline-flex; } }
   @keyframes in { from { opacity: 0; } }
   @keyframes slide-down { from { transform: translateY(-30%); opacity: 0; } }
   @keyframes slide-up { from { transform: translateY(30%); opacity: 0; } }

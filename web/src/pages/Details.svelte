@@ -314,7 +314,7 @@
 </div>
 
 {#if target && item}
-  <button class="fab" onclick={() => open(target.chapter)}>
+  <button class="fab" style={styleOf(theme)} onclick={() => open(target.chapter)}>
     <Icon name="play" />
     {target.started ? 'Continuar' : anime ? 'Empezar a ver' : 'Empezar a leer'} · {target.chapter.label}
   </button>

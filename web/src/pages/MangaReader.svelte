@@ -1,4 +1,4 @@
-  const width = $derived(settings.reader.width || 'original');<script>
+<script>
   import { onMount, onDestroy, tick } from 'svelte';
   import { api, downloadChapters } from '../lib/api.js';
   import { route, back, navigate, media as mediaHref, reader } from '../lib/router.svelte.js';
@@ -94,7 +94,7 @@
     if (c) crops[src] = cropStyles(e.currentTarget, c);
   }
   const rtl = $derived(settings.reader.direction === 'rtl');
-  const width = $derived(settings.reader.width || 'normal');
+  const width = $derived(settings.reader.width || 'original');
   const flat = $derived(loaded.flatMap((l) => l.pages.map((src, i) => ({ src, i, chapter: l.chapter, total: l.pages.length }))));
   const currentPages = $derived(current ? loaded.find((l) => l.chapter.id === current.id)?.pages.length || 0 : 0);
   const indexList = $derived.by(() => {
@@ -313,13 +313,17 @@
       <button class="icon-btn" onclick={() => (optionsOpen = true)} aria-label="Ajustes de lectura" title="Ajustes de lectura"><Icon name="tune" /></button>
     </header>
     <footer class="bottom">
-      <button class="btn text" disabled={!current || !prevOf(current)} onclick={() => open(prevOf(current))}>Anterior</button>
-      {#if currentPages > 1}
-        <input class="slider" type="range" min="0" max={currentPages - 1} value={page} dir={mode === 'paged' && rtl ? 'rtl' : 'ltr'} onchange={(e) => jumpTo(+e.target.value)} aria-label="Página" />
-      {/if}
-      <span class="small count">{current ? `${page + 1} / ${currentPages || '…'}` : ''}</span>
-      {#if mode === 'vertical'}<button class="icon-btn" onclick={toggleScroll} aria-label={scrolling ? 'Parar desplazamiento' : 'Desplazamiento automático'} title="Desplazamiento automático"><Icon name={scrolling ? 'pause' : 'play'} /></button>{/if}
-      <button class="btn text" disabled={!current || !nextOf(current)} onclick={() => open(nextOf(current))}>Siguiente</button>
+      <div class="track">
+        {#if currentPages > 1}
+          <input class="slider" type="range" min="0" max={currentPages - 1} value={page} dir={mode === 'paged' && rtl ? 'rtl' : 'ltr'} onchange={(e) => jumpTo(+e.target.value)} aria-label="Página" />
+        {/if}
+        <span class="small count">{current ? `${page + 1} / ${currentPages || '…'}` : ''}</span>
+      </div>
+      <div class="actions">
+        <button class="btn text" disabled={!current || !prevOf(current)} onclick={() => open(prevOf(current))}>Anterior</button>
+        {#if mode === 'vertical'}<button class="icon-btn" onclick={toggleScroll} aria-label={scrolling ? 'Parar desplazamiento' : 'Desplazamiento automático'} title="Desplazamiento automático"><Icon name={scrolling ? 'pause' : 'play'} /></button>{/if}
+        <button class="btn text" disabled={!current || !nextOf(current)} onclick={() => open(nextOf(current))}>Siguiente</button>
+      </div>
     </footer>
   {:else}
     <div class="mini-clock">{now}</div>
@@ -418,7 +422,9 @@
   .single img { max-width: 100%; max-height: 100vh; max-height: 100dvh; object-fit: contain; user-select: none; -webkit-user-drag: none; }
   .top, .bottom { position: fixed; left: 0; right: 0; z-index: 20; display: flex; align-items: center; gap: 8px; background: #000d; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); animation: in 0.2s; }
   .top { top: 0; padding: calc(var(--safe-top) + 4px) 8px 6px; }
-  .bottom { bottom: 0; padding: 6px 8px calc(var(--safe-bottom) + 6px); }
+  .bottom { bottom: 0; flex-direction: column; align-items: stretch; gap: 2px; padding: 6px 8px calc(var(--safe-bottom) + 6px); }
+  .track { display: flex; align-items: center; gap: 10px; padding: 0 8px; min-height: 28px; }
+  .actions { display: flex; align-items: center; justify-content: space-between; }
   .slider { flex: 1; min-width: 0; accent-color: var(--primary); }
   .count { min-width: 64px; text-align: center; color: var(--text-dim); }
   .titles { flex: 1; min-width: 0; }
