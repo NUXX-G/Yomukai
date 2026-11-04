@@ -16,7 +16,7 @@
   let importing = $state(false);
   let fileInput;
 
-  const daysLeft = $derived(session.user?.expiresAt ? Math.max(0, Math.ceil((session.user.expiresAt - Date.now()) / 86_400_000)) : null);
+  const hoursLeft = $derived(session.user?.expiresAt ? Math.max(0, Math.ceil((session.user.expiresAt - Date.now()) / 3_600_000)) : 0);
   const enabledIds = $derived(new Set(sources.list.filter((s) => s.enabled).map((s) => s.id)));
 
   onMount(() => { if (session.user?.admin) loadUsers(); });
@@ -122,6 +122,12 @@
     if (r) created = { name: u.name, password: r.password };
   }
 
+  async function reactivate(u) {
+    await api.adminReactivate(u.id).catch((e) => notify(e.message));
+    notify(`Cuenta ${u.guest ? 'de invitado' : u.name} reactivada`);
+    loadUsers();
+  }
+
   async function remove(u) {
     if (!confirm(`¿Borrar la cuenta ${u.name} y todos sus datos?`)) return;
     await api.adminDelete(u.id).catch((e) => notify(e.message));
@@ -137,12 +143,13 @@
       <Icon name="person" />
       <div class="grow">
         <div class="name">{session.user.guest ? 'Invitado' : session.user.name}{#if session.user.admin} <span class="tag">admin</span>{/if}</div>
-        {#if daysLeft !== null}<div class="small muted">Tus datos se borrarán en {daysLeft} {daysLeft === 1 ? 'día' : 'días'}. Expórtalos para no perderlos.</div>{/if}
+        {#if session.user.expiresAt}<div class="small muted">Eres invitado: todo se borra {hoursLeft > 24 ? `en ${Math.ceil(hoursLeft / 24)} días` : hoursLeft <= 1 ? 'en menos de una hora' : `en ${hoursLeft} horas`}. Para guardar tu progreso, pide una cuenta.</div>{/if}
       </div>
       <button class="btn text" onclick={logout}><Icon name="logout" size={18} /> Salir</button>
     </div>
   </section>
 
+  {#if !session.user.guest}
   <h2 class="h">Tus datos</h2>
   <section class="card">
     <p class="small muted" style="margin-top:0">Una copia con tu biblioteca, lo que llevas leído, el historial y estos ajustes. Puedes importarla en otra cuenta o en otro servidor de Yomukai.</p>
@@ -152,6 +159,7 @@
       <input type="file" accept="application/json,.json" hidden bind:this={fileInput} onchange={importFile} />
     </div>
   </section>
+  {/if}
 
   <h2 class="h">Fuentes</h2>
   <section class="card list">
@@ -229,7 +237,11 @@
       {/if}
       {#each users || [] as u (u.id)}
         <div class="list-item">
-          <span class="grow">{u.name}{#if u.admin} <span class="tag">admin</span>{/if}</span>
+          <span class="grow">
+            {u.guest ? 'Invitado' : u.name}{#if u.admin} <span class="tag">admin</span>{/if}
+            {#if u.suspended}<span class="small error-text susp">Suspendida: {u.suspendedReason || 'uso excesivo'}</span>{/if}
+          </span>
+          {#if u.suspended}<button class="btn tonal" onclick={() => reactivate(u)}>Reactivar</button>{/if}
           <button class="icon-btn" onclick={() => reset(u)} aria-label="Nueva contraseña"><Icon name="key" size={20} /></button>
           {#if u.name !== session.user.name}<button class="icon-btn" onclick={() => remove(u)} aria-label="Borrar cuenta"><Icon name="delete" size={20} /></button>{/if}
         </div>
@@ -265,6 +277,7 @@
   .check.ok { color: #6fcf8a; }
   .check.fail { color: var(--error, #ff8a80); }
   .diag { padding: 12px 0; }
+  .susp { display: block; }
   .sync-box { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin: 6px 0; border-radius: 10px; background: var(--surface-high); }
   .sync-box code { flex: 1; min-width: 0; overflow-wrap: anywhere; user-select: all; }
   .add { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }

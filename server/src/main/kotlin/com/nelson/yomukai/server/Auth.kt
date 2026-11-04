@@ -1,5 +1,6 @@
 package com.nelson.yomukai.server
 
+import io.ktor.server.request.path
 import io.ktor.http.Cookie
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
@@ -239,6 +240,37 @@ class Auth(private val db: Database, private val config: Config) {
     fun allow(user: User): Boolean =
         limiter.allow(user.id, if (user.isGuest) config.guestRatePerMinute else Config.ACCOUNT_RATE)
 
+    private val usage = ConcurrentHashMap<Long, LongArray>()
+
+    /**
+     * Counts a request that makes the server ask the sources for something. An account that asks for far
+     * more than any person reading could (a script, a scraper) is suspended until an admin lifts it,
+     * so one user cannot get the server blocked by the sites or slow it down for everyone else.
+     * Returns false when this request suspended the account.
+     */
+    suspend fun countSourceRequest(user: User, now: Long = System.currentTimeMillis()): Boolean {
+        if (user.isAdmin) return true
+        val limit = if (user.isGuest) config.guestAbuseLimit else config.abuseLimit
+        val window = usage.getOrPut(user.id) { longArrayOf(now, 0) }
+        val over = synchronized(window) {
+            if (now - window[0] > ABUSE_WINDOW_MS) { window[0] = now; window[1] = 0 }
+            window[1]++
+            window[1] > limit
+        }
+        if (!over) return true
+        db.suspend(user.id, "Más de $limit peticiones a las fuentes en 10 minutos")
+        usage.remove(user.id)
+        forget(user.id)
+        log.warn("Cuenta {} suspendida por uso excesivo", user.name)
+        return false
+    }
+
+    suspend fun reactivate(userId: Long) {
+        db.reactivate(userId)
+        usage.remove(userId)
+        forget(userId)
+    }
+
     suspend fun cleanUpGuests() {
         val removed = db.deleteExpiredGuests()
         if (removed > 0) {
@@ -256,6 +288,7 @@ class Auth(private val db: Database, private val config: Config) {
         const val COOKIE = "yk_session"
         const val DAY_MS = 86_400_000L
         private const val SESSION_CACHE_MS = 60_000L
+        private const val ABUSE_WINDOW_MS = 10 * 60_000L
         private const val TEN_YEARS_S = 10 * 365 * 24 * 3600
     }
 }
@@ -270,9 +303,23 @@ fun requireUser(auth: Auth, admin: Boolean = false) = createRouteScopedPlugin("R
         val user = auth.userFor(call.request.cookies[Auth.COOKIE])
         when {
             user == null -> call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Inicia sesión o entra como invitado"))
+            user.suspendedAt != null -> call.respond(HttpStatusCode.Forbidden, mapOf("error" to SUSPENDED_MESSAGE, "suspended" to true))
             admin && !user.isAdmin -> call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Solo para administradores"))
             !auth.allow(user) -> call.respond(HttpStatusCode.TooManyRequests, mapOf("error" to "Demasiadas peticiones, espera un momento"))
+            isSourceRequest(call.request.path()) && !auth.countSourceRequest(user) ->
+                call.respond(HttpStatusCode.Forbidden, mapOf("error" to SUSPENDED_MESSAGE, "suspended" to true))
             else -> call.attributes.put(UserKey, user)
         }
     }
 }
+
+const val SUSPENDED_MESSAGE = "Tu cuenta está suspendida por un uso excesivo. Pide al administrador que la reactive."
+
+/** Requests that make the server ask the sources (or AniList) for something: what abuse would hammer. */
+private val SOURCE_PATHS = listOf(
+    "/api/sources/", "/api/search", "/api/media", "/api/chapters", "/api/pages", "/api/text", "/api/videos",
+    "/api/metadata", "/api/similar", "/api/alternatives", "/api/locate", "/api/random", "/api/foryou",
+    "/api/updates", "/api/download"
+)
+
+fun isSourceRequest(path: String) = SOURCE_PATHS.any { path.startsWith(it) }

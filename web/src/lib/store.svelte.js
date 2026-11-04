@@ -1,7 +1,7 @@
 // What the whole app shares: who is logged in, their settings (kept on the server) and the library.
 import { api } from './api.js';
 
-export const session = $state({ user: null, ready: false, offline: false, guestsEnabled: true, guestDays: 7 });
+export const session = $state({ user: null, ready: false, offline: false, suspended: '', guestsEnabled: true, guestDays: 1 });
 
 const DEFAULT_SETTINGS = {
   enabledSources: null,
@@ -33,6 +33,11 @@ export async function loadSession(attempt = 0) {
   } catch (e) {
     // The server is restarting or the connection dropped: the session is still good, so wait and retry
     // instead of showing the login screen.
+    if (e.status === 403) {
+      session.suspended = e.message;
+      session.ready = true;
+      return;
+    }
     if (e.status !== 401 && attempt < 30) {
       session.offline = true;
       await new Promise((r) => setTimeout(r, Math.min(5000, 1000 + attempt * 500)));

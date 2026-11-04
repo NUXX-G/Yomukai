@@ -1,7 +1,7 @@
 <script>
   import { onDestroy } from 'svelte';
   import { searchStream } from '../lib/api.js';
-  import { settings, rememberSearch, saveSettings, rememberItems } from '../lib/store.svelte.js';
+  import { settings, rememberSearch, saveSettings, rememberItems, sourceById } from '../lib/store.svelte.js';
   import { route, navigate, media } from '../lib/router.svelte.js';
   import { TYPE_FILTERS, LANGUAGES, TYPE_NAMES, TYPE_COLORS } from '../lib/format.js';
   import Icon from '../components/Icon.svelte';
@@ -73,13 +73,13 @@
           <img src={g.primary.cover} alt="" loading="lazy" />
           <div class="info">
             <div class="title">{g.primary.title}</div>
-            <div class="small muted type"><span class="dot" style:background={TYPE_COLORS[g.primary.type]}></span>{TYPE_NAMES[g.primary.type]} {g.primary.status ? '· ' + g.primary.status : ''}</div>
+            <div class="small muted type"><span class="dot" style:background={TYPE_COLORS[g.primary.type]}></span>{TYPE_NAMES[g.primary.type]} · {sourceById(g.primary.sourceId)?.name ?? g.primary.sourceId}{g.primary.status ? ' · ' + g.primary.status : ''}</div>
           </div>
         </a>
         {#if g.others.length}
           <div class="small muted also">También en:</div>
           <div class="chips">
-            {#each g.others as o}<a class="chip" href={media(o.sourceId, o.id)}>{o.sourceId}</a>{/each}
+            {#each g.others as o}<a class="chip" href={media(o.sourceId, o.id)}>{sourceById(o.sourceId)?.name ?? o.sourceId}</a>{/each}
           </div>
         {/if}
       </div>

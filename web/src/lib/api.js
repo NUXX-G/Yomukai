@@ -9,6 +9,9 @@ export class ApiError extends Error {
 
 let onUnauthorized = () => {};
 export function setUnauthorizedHandler(fn) { onUnauthorized = fn; }
+let onSuspended = () => {};
+/** The account was suspended for abusive use: the app shows a notice instead of its pages. */
+export function setSuspendedHandler(fn) { onSuspended = fn; }
 
 async function request(method, path, body, { raw = false, signal } = {}) {
   const init = { method, credentials: 'same-origin', signal, headers: {} };
@@ -21,6 +24,7 @@ async function request(method, path, body, { raw = false, signal } = {}) {
   if (raw) return res;
   const text = await res.text();
   const data = text ? safeJson(text) : null;
+  if (res.status === 403 && data?.suspended) onSuspended(data.error);
   if (!res.ok) throw new ApiError(data?.error || `Error ${res.status}`, res.status);
   return data;
 }
@@ -73,7 +77,8 @@ export const api = {
   adminUsers: () => request('GET', '/api/admin/users'),
   adminCreate: (name, password, admin) => request('POST', '/api/admin/users', { name, password, admin }),
   adminReset: (id) => request('POST', `/api/admin/users/${id}/password`),
-  adminDelete: (id) => request('DELETE', `/api/admin/users/${id}`)
+  adminDelete: (id) => request('DELETE', `/api/admin/users/${id}`),
+  adminReactivate: (id) => request('POST', `/api/admin/users/${id}/reactivate`)
 };
 
 /**

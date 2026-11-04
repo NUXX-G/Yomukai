@@ -32,7 +32,7 @@ PORT=${PORT:-8080}
 ADMIN_USER=admin
 ADMIN_PASSWORD=$PASSWORD
 GUESTS_ENABLED=${GUESTS_ENABLED:-true}
-GUEST_DAYS=7
+GUEST_DAYS=1
 # Behind nginx, Caddy or Traefik on this machine: true.
 TRUST_PROXY=false
 # Optional MyAnimeList Client ID (https://myanimelist.net/apiconfig, type "android").

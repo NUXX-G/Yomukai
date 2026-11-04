@@ -17,7 +17,10 @@ data class User(
     val isGuest: Boolean,
     val createdAt: Long,
     /** Guests only: when their account and data are deleted. */
-    val expiresAt: Long?
+    val expiresAt: Long?,
+    /** Set when the account was blocked for abusive use; only an admin lifts it. */
+    val suspendedAt: Long? = null,
+    val suspendedReason: String? = null
 )
 
 /*
@@ -138,6 +141,8 @@ class Database(file: File) {
         add("history", "rev", "INTEGER NOT NULL DEFAULT 0")
         add("settings", "shared_updated_at", "INTEGER NOT NULL DEFAULT 0")
         add("settings", "rev", "INTEGER NOT NULL DEFAULT 0")
+        add("users", "suspended_at", "INTEGER")
+        add("users", "suspended_reason", "TEXT")
         connection.createStatement().use { s ->
             listOf("library", "progress", "history", "bookmarks", "categories").forEach { t ->
                 s.execute("CREATE INDEX IF NOT EXISTS ${t}_rev ON $t(user_id, rev)")
@@ -203,7 +208,7 @@ class Database(file: File) {
     }
 
     suspend fun users(): List<User> = tx {
-        prepare("SELECT * FROM users WHERE is_guest = 0 ORDER BY name") { executeQuery().use { rs -> rs.all { user() } } }
+        prepare("SELECT * FROM users WHERE is_guest = 0 OR suspended_at IS NOT NULL ORDER BY is_guest, name") { executeQuery().use { rs -> rs.all { user() } } }
     }
 
     suspend fun guestCount(): Int = tx {
@@ -214,6 +219,16 @@ class Database(file: File) {
         prepare("UPDATE users SET pass_hash = ? WHERE id = ?") { setString(1, passHash); setLong(2, userId); executeUpdate() }
         // Changing the password closes every other session.
         prepare("DELETE FROM sessions WHERE user_id = ?") { setLong(1, userId); executeUpdate() }
+    }
+
+    suspend fun suspend(userId: Long, reason: String) = tx {
+        prepare("UPDATE users SET suspended_at = ?, suspended_reason = ? WHERE id = ? AND suspended_at IS NULL") {
+            setLong(1, System.currentTimeMillis()); setString(2, reason.take(300)); setLong(3, userId); executeUpdate()
+        }
+    }
+
+    suspend fun reactivate(userId: Long) = tx {
+        prepare("UPDATE users SET suspended_at = NULL, suspended_reason = NULL WHERE id = ?") { setLong(1, userId); executeUpdate() }
     }
 
     suspend fun deleteUser(userId: Long) = tx {
@@ -561,7 +576,8 @@ private val stringList = object : com.google.gson.reflect.TypeToken<List<String>
 
 private fun ResultSet.user() = User(
     id = getLong("id"), name = getString("name"), isAdmin = getInt("is_admin") == 1, isGuest = getInt("is_guest") == 1,
-    createdAt = getLong("created_at"), expiresAt = getLong("expires_at").takeIf { !wasNull() }
+    createdAt = getLong("created_at"), expiresAt = getLong("expires_at").takeIf { !wasNull() },
+    suspendedAt = getLong("suspended_at").takeIf { !wasNull() }, suspendedReason = getString("suspended_reason")
 )
 
 private fun ResultSet.libraryRow() = LibraryRow(

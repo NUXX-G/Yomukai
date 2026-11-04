@@ -405,8 +405,9 @@
   .strip .pg.ready { min-height: 0; background: none; }
   .pg img { display: block; width: 100%; height: auto; }
   .strip.w-original { max-width: none; }
-  .strip.w-original .pg { margin: 0 auto; }
-  .strip.w-original .pg:not(.cropped) img { width: auto; max-width: 100%; margin: 0 auto; }
+  /* Own size, but a big comic scan never wider than a comfortable page; nothing is ever enlarged. */
+  .strip.w-original .pg { margin: 0 auto; max-width: min(100%, 1000px); }
+  .strip.w-original .pg:not(.cropped) img { width: auto; max-width: min(100%, 1000px); margin: 0 auto; }
   .pg.cropped { overflow: hidden; }
   .pg.cropped img { position: absolute; max-width: none; max-height: none; }
   .single .pg.one { position: relative; }

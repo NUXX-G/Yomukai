@@ -24,6 +24,12 @@ data class Config(
     val guestRatePerMinute: Int,
     /** Video streams a guest may have open at once. */
     val guestStreams: Int,
+    /**
+     * Requests to the sources (lists, searches, chapters, pages...) an account may make in ten minutes
+     * before it is suspended until an admin lifts it; [guestAbuseLimit] for guests. Admins are exempt.
+     */
+    val abuseLimit: Int = 1500,
+    val guestAbuseLimit: Int = 300,
     /** Read the visitor address from the proxy's X-Forwarded-For entry; set only behind nginx, Caddy or Traefik. */
     val trustProxy: Boolean,
     /** Public address, for links in the export file; optional. */
@@ -42,10 +48,12 @@ data class Config(
                 adminPassword = env["ADMIN_PASSWORD"]?.ifBlank { null },
                 secret = env["SECRET"]?.ifBlank { null }?.toByteArray() ?: persistentSecret(dataDir),
                 guestsEnabled = env["GUESTS_ENABLED"]?.lowercase() != "false",
-                guestDays = env["GUEST_DAYS"]?.toIntOrNull()?.coerceIn(1, 365) ?: 7,
+                guestDays = env["GUEST_DAYS"]?.toIntOrNull()?.coerceIn(1, 365) ?: 1,
                 flareSolverrUrl = env["FLARESOLVERR_URL"]?.trimEnd('/')?.ifBlank { null },
                 malClientId = env["MAL_CLIENT_ID"].orEmpty().trim(),
-                guestRatePerMinute = env["GUEST_RATE"]?.toIntOrNull() ?: 240,
+                guestRatePerMinute = env["GUEST_RATE"]?.toIntOrNull() ?: 120,
+                abuseLimit = env["ABUSE_LIMIT"]?.toIntOrNull()?.coerceAtLeast(100) ?: 1500,
+                guestAbuseLimit = env["GUEST_ABUSE_LIMIT"]?.toIntOrNull()?.coerceAtLeast(50) ?: 300,
                 guestStreams = env["GUEST_STREAMS"]?.toIntOrNull() ?: 2,
                 trustProxy = env["TRUST_PROXY"]?.lowercase() == "true",
                 publicUrl = env["PUBLIC_URL"]?.trimEnd('/')?.ifBlank { null }

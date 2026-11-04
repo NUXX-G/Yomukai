@@ -33,6 +33,7 @@ import javax.crypto.spec.SecretKeySpec
 class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File, private val guestStreams: Int) {
     private val key = SecretKeySpec(secret, "HmacSHA256")
     private val gson = Gson()
+    private val log = org.slf4j.LoggerFactory.getLogger("YomukaiMedia")
     private val imageCache = ImageCache(File(cacheDir, "images"))
     private val openStreams = ConcurrentHashMap<Long, AtomicInteger>()
 
@@ -95,8 +96,14 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
                 .header("Accept", "image/avif,image/webp,image/*,*/*;q=0.8")
                 .apply { headers.filterKeys { it != "User-Agent" }.forEach { (k, v) -> header(k, v) } }
                 .build()
-            http.streamClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@withContext null
+            // Some CDNs refuse OkHttp over HTTP/2 (403) but serve the same image over HTTP/1.1.
+            val first = http.streamClient.newCall(request).await()
+            val response = if (first.code == 403) { first.close(); http.http1Client.newCall(request).await() } else first
+            response.use { response ->
+                if (!response.isSuccessful) {
+                    log.info("Imagen {} respondió {}", url.toHttpUrlOrNull()?.host, response.code)
+                    return@withContext null
+                }
                 val type = response.header("Content-Type").orEmpty()
                 val body = response.body?.let { readBounded(it, MAX_IMAGE_BYTES.toLong()) } ?: return@withContext null
                 if (body.size > MAX_IMAGE_BYTES) return@withContext null

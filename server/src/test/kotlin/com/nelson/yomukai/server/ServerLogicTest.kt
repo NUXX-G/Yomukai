@@ -252,4 +252,23 @@ class ServerLogicTest {
         assertEquals("Solo Leveling Cap. 1 x", Downloader.safeName("Solo Leveling / Cap. 1: x"))
         assertEquals("a &lt;b&gt; &amp; &quot;c&quot;", Downloader.xml("a <b> & \"c\"\u0001"))
     }
+
+    @Test
+    fun abusiveAccountsAreSuspendedUntilAnAdminLiftsIt() = runBlocking {
+        val db = tempDb()
+        val config = Config.fromEnv(mapOf("ADMIN_PASSWORD" to "x".repeat(12), "ABUSE_LIMIT" to "100", "GUEST_ABUSE_LIMIT" to "50"))
+        val auth = Auth(db, config)
+        val friend = db.createUser("amigo", null, admin = false, guest = false, expiresAt = null)
+        val boss = db.createUser("jefe", null, admin = true, guest = false, expiresAt = null)
+        val start = 1_000_000L
+        repeat(100) { assertTrue(auth.countSourceRequest(friend, start + it)) }
+        assertFalse("request 101 in ten minutes suspends", auth.countSourceRequest(friend, start + 200))
+        assertTrue(db.users().first { it.id == friend.id }.suspendedAt != null)
+        repeat(500) { assertTrue("admins are never suspended", auth.countSourceRequest(boss, start + it)) }
+        auth.reactivate(friend.id)
+        assertNull(db.users().first { it.id == friend.id }.suspendedAt)
+        // A new window starts after ten minutes.
+        repeat(100) { assertTrue(auth.countSourceRequest(friend, start + 700_000 + it)) }
+        assertTrue(isSourceRequest("/api/pages") && !isSourceRequest("/api/img") && !isSourceRequest("/api/progress"))
+    }
 }

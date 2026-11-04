@@ -121,6 +121,11 @@ class ServerHttp(private val flareSolverrUrl: String?) : HttpFetcher {
         .followRedirects(true)
         .build()
 
+    /** The same over HTTP/1.1 only, for CDNs that block HTTP/2 from non-browsers. */
+    val http1Client: OkHttpClient by lazy {
+        client.newBuilder().protocols(listOf(okhttp3.Protocol.HTTP_1_1)).readTimeout(60, TimeUnit.SECONDS).callTimeout(0, TimeUnit.SECONDS).build()
+    }
+
     /** For video and images: long reads, no overall limit. */
     val streamClient: OkHttpClient = client.newBuilder()
         .readTimeout(60, TimeUnit.SECONDS)

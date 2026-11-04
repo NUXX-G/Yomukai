@@ -185,6 +185,10 @@ private fun Route.authRoutes(s: Services) {
         if (session == null) {
             return@post call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Usuario o contraseña incorrectos"))
         }
+        if (session.first.suspendedAt != null) {
+            s.auth.logout(session.second)
+            return@post call.respond(HttpStatusCode.Forbidden, mapOf("error" to SUSPENDED_MESSAGE, "suspended" to true))
+        }
         call.response.cookies.append(s.auth.sessionCookie(session.second, secure(call)))
         call.respond(session.first.dto())
     }
@@ -202,6 +206,9 @@ private fun Route.authRoutes(s: Services) {
     get("/auth/me") {
         val user = s.auth.userFor(call.request.cookies[Auth.COOKIE])
             ?: return@get call.respond(HttpStatusCode.Unauthorized, mapOf("guestsEnabled" to s.config.guestsEnabled, "guestDays" to s.config.guestDays))
+        if (user.suspendedAt != null) {
+            return@get call.respond(HttpStatusCode.Forbidden, mapOf("error" to SUSPENDED_MESSAGE, "suspended" to true, "guestsEnabled" to s.config.guestsEnabled, "guestDays" to s.config.guestDays))
+        }
         call.respond(mapOf("user" to user.dto(), "guestsEnabled" to s.config.guestsEnabled, "guestDays" to s.config.guestDays))
     }
 }
@@ -227,7 +234,13 @@ private fun clientAddress(call: ApplicationCall, config: Config): String {
 
 private fun Route.adminRoutes(s: Services) {
     get("/users") {
-        call.respond(mapOf("users" to s.db.users().map { it.dto() + ("id" to it.id) }, "guests" to s.db.guestCount()))
+        call.respond(mapOf("users" to s.db.users().map {
+            it.dto() + mapOf("id" to it.id, "suspended" to (it.suspendedAt != null), "suspendedAt" to it.suspendedAt, "suspendedReason" to it.suspendedReason)
+        }, "guests" to s.db.guestCount()))
+    }
+    post("/users/{id}/reactivate") {
+        s.auth.reactivate(call.parameters["id"]!!.toLong())
+        call.respond(mapOf("ok" to true))
     }
     post("/users") {
         val body = JsonParser.parseString(call.receiveText()).asJsonObject
@@ -256,6 +269,9 @@ private fun Route.adminRoutes(s: Services) {
 
 private operator fun UserDto.plus(pair: Pair<String, Any?>): Map<String, Any?> =
     mapOf("name" to name, "admin" to admin, "guest" to guest, "expiresAt" to expiresAt, pair)
+
+private operator fun UserDto.plus(extra: Map<String, Any?>): Map<String, Any?> =
+    mapOf("name" to name, "admin" to admin, "guest" to guest, "expiresAt" to expiresAt) + extra
 
 private fun Route.catalogRoutes(s: Services) {
     get("/sources") {
@@ -473,6 +489,7 @@ private fun Route.userRoutes(s: Services) {
         call.respond(mapOf("ok" to true))
     }
     get("/export") {
+        if (call.user.isGuest) return@get call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Los invitados no pueden exportar datos"))
         val user = call.user
         val export = JsonObject().apply {
             addProperty("format", "yomukai-export")
@@ -494,6 +511,7 @@ private fun Route.userRoutes(s: Services) {
         call.respondText(gson.toJson(export), ContentType.Application.Json)
     }
     post("/import") {
+        if (call.user.isGuest) return@post call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Los invitados no pueden importar datos"))
         val text = call.receiveText()
         require(text.length < MAX_IMPORT_CHARS) { "El archivo es demasiado grande" }
         val root = runCatching { JsonParser.parseString(text).asJsonObject }.getOrNull()

@@ -47,6 +47,7 @@
 | Royal Road | Novela | EN | HTML |
 | SkyNovels | Novela | ES | API JSON |
 | Marmota Comics | Cómic | ES | HTML (Madara) + AJAX |
+| MegaBanana | Cómic | ES | API JSON propia (WordPress) |
 | LectorTMO | Manga | ES | HTML (tema propio) |
 | ZonaTMO | Manga/Manhwa/Manhua | ES | HTML |
 | WEBTOON ES, WEBTOON EN | Manhwa | ES, EN | API JSON + HTML |
@@ -101,7 +102,8 @@ irm https://raw.githubusercontent.com/NUXX-G/Yomukai/main/install.ps1 | iex
 El instalador crea `~/yomukai`, genera una contraseña de administrador, arranca Yomukai y FlareSolverr (para las webs con Cloudflare) y te enseña la dirección y el usuario. La primera vez compila la imagen y tarda unos minutos. Para actualizar, vuelve a ejecutar la misma línea: tus datos se conservan en el volumen `yomukai-data`.
 
 - **Cuentas:** entra como `admin` y crea las cuentas de tus amigos en Ajustes › Administración. La sesión dura hasta que se cierre.
-- **Invitados:** «Probar sin cuenta» no pide contraseña y permite hacer de todo; la cuenta y sus datos se borran a los 7 días.
+- **Invitados:** «Probar sin cuenta» no pide contraseña: sirve para echar un vistazo (por ejemplo, desde un portfolio). Tienen límites más bajos, no pueden exportar, importar ni sincronizar, descargan como mucho 3 capítulos de una vez, y la cuenta y sus datos se borran al cabo de un día.
+- **Protección contra abusos:** una cuenta que pide a las fuentes muchísimo más de lo que puede leer una persona (más de 1500 peticiones en 10 minutos; 300 los invitados) queda suspendida hasta que el administrador la reactiva en Ajustes › Administración. El administrador nunca se suspende.
 - **Exportar e importar:** Ajustes › Tus datos descarga un JSON con biblioteca, categorías, progreso, historial, marcadores y ajustes, y lo importa en cualquier otra cuenta o servidor (fusionar o reemplazar).
 - **Descargas:** desde la ficha (⋮ › Descargar en este dispositivo) los capítulos se guardan en el móvil o el PC de quien descarga, no en el servidor: cómics en CBZ (varios capítulos en un ZIP), novelas en EPUB y episodios en MP4.
 - **Sincronizar la app de Android (opcional):** en la app, Ajustes › Sincronizar con servidor, con la dirección de la web y tu usuario. Biblioteca, estados, categorías, progreso, historial, marcadores, fuentes y géneros excluidos quedan iguales en la web y en el móvil; gana el cambio más reciente. La app solo se conecta por HTTPS (en Android 17 pide permiso si el servidor está en tu red de casa). Las cuentas de invitado no se sincronizan.
@@ -113,8 +115,9 @@ Opciones en `~/yomukai/.env` (aplícalas con `docker compose up -d`):
 | `PORT` | `8080` | Puerto en el que escucha |
 | `ADMIN_USER` / `ADMIN_PASSWORD` | `admin` / generada | Cuenta de administrador inicial |
 | `GUESTS_ENABLED` | `true` | Permite entrar como invitado |
-| `GUEST_DAYS` | `7` | Días hasta borrar a un invitado |
-| `GUEST_RATE` / `GUEST_STREAMS` | `240` / `2` | Peticiones por minuto y vídeos a la vez por invitado |
+| `GUEST_DAYS` | `1` | Días hasta borrar a un invitado |
+| `GUEST_RATE` / `GUEST_STREAMS` | `120` / `2` | Peticiones por minuto y vídeos a la vez por invitado |
+| `ABUSE_LIMIT` / `GUEST_ABUSE_LIMIT` | `1500` / `300` | Peticiones a las fuentes en 10 minutos antes de suspender la cuenta |
 | `MAL_CLIENT_ID` | vacío | Client ID de MyAnimeList (opcional) |
 | `TRUST_PROXY` | `false` | Ponlo a `true` solo si hay un proxy inverso delante (nginx, Caddy) |
 
@@ -214,7 +217,7 @@ curl -fsSL https://raw.githubusercontent.com/NUXX-G/Yomukai/main/install.sh | ba
 irm https://raw.githubusercontent.com/NUXX-G/Yomukai/main/install.ps1 | iex             # Windows PowerShell
 ```
 
-It creates `~/yomukai`, generates an admin password, starts Yomukai plus FlareSolverr and prints the address. Run it again to update. Chapters and episodes can be downloaded to the viewer's own device (CBZ, EPUB, MP4; nothing is stored on the server), and the Android app can optionally sync its library, progress, history, bookmarks and settings with an account on the server (HTTPS only). Create accounts for friends in Settings › Administration; guests need no password and are deleted after 7 days; data can be exported and imported as JSON. Options live in `~/yomukai/.env` (see the table above). Behind a reverse proxy, set `TRUST_PROXY=true` and disable response buffering.
+It creates `~/yomukai`, generates an admin password, starts Yomukai plus FlareSolverr and prints the address. Run it again to update. Chapters and episodes can be downloaded to the viewer's own device (CBZ, EPUB, MP4; nothing is stored on the server), and the Android app can optionally sync its library, progress, history, bookmarks and settings with an account on the server (HTTPS only). Create accounts for friends in Settings › Administration; guests need no password, have lower limits and are deleted after one day; accounts that hammer the sources are suspended until an admin reactivates them; data can be exported and imported as JSON. Options live in `~/yomukai/.env` (see the table above). Behind a reverse proxy, set `TRUST_PROXY=true` and disable response buffering.
 
 The backend is a Ktor server (`server/`) reusing the app's sources from the pure-Kotlin `shared/` module; the frontend is Svelte 5 + Vite (`web/`). User data is stored in SQLite, and images and video go through a signed proxy with a disk cache.
 

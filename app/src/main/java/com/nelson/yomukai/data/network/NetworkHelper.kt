@@ -132,7 +132,20 @@ class NetworkHelper(
     val videoCallFactory = Call.Factory { request -> videoClient.newCall(request) }
 
     /** Same for the image loader, which must never store a web page as if it were the image. */
-    val imageCallFactory = Call.Factory { request -> imageClient.newCall(request) }
+    /**
+     * Images for the reader and covers. A few CDNs (MegaBanana's) refuse OkHttp over HTTP/2 with a 403
+     * and serve the very same file over HTTP/1.1, so those hosts get an HTTP/1.1 client.
+     */
+    val imageCallFactory = Call.Factory { request ->
+        val host = request.url.host
+        if (HTTP1_IMAGE_HOSTS.any { host == it || host.endsWith(".$it") }) imageClientHttp1.newCall(request) else imageClient.newCall(request)
+    }
+
+    private val imageClientHttp1: OkHttpClient
+        get() = http1Cache?.takeIf { it.first === imageClient }?.second
+            ?: imageClient.newBuilder().protocols(listOf(okhttp3.Protocol.HTTP_1_1)).build().also { http1Cache = imageClient to it }
+
+    @Volatile private var http1Cache: Pair<OkHttpClient, OkHttpClient>? = null
 
     init {
         scope.launch {
@@ -313,6 +326,9 @@ class NetworkHelper(
     }
 
     companion object {
+        /** Image hosts that only answer OkHttp over HTTP/1.1 (they refuse HTTP/2 with a 403). */
+        val HTTP1_IMAGE_HOSTS = listOf("megabanana.mx")
+
         const val TAG = "YomukaiNetwork"
         const val USER_AGENT = WebProtection.USER_AGENT
 

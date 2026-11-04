@@ -31,7 +31,7 @@ PORT=$Port
 ADMIN_USER=admin
 ADMIN_PASSWORD=$Password
 GUESTS_ENABLED=true
-GUEST_DAYS=7
+GUEST_DAYS=1
 TRUST_PROXY=false
 MAL_CLIENT_ID=
 "@ | Set-Content -Encoding ascii .env

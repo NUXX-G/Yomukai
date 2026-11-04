@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { route, define, startRouter } from './lib/router.svelte.js';
   import { session, toast, sources, loadSession, resetUserState } from './lib/store.svelte.js';
-  import { setUnauthorizedHandler } from './lib/api.js';
+  import { api, setUnauthorizedHandler, setSuspendedHandler } from './lib/api.js';
   import Icon from './components/Icon.svelte';
   import Login from './pages/Login.svelte';
   import Home from './pages/Home.svelte';
@@ -51,6 +51,7 @@
 
   onMount(() => {
     setUnauthorizedHandler(() => resetUserState());
+    setSuspendedHandler((message) => { session.suspended = message; });
     loadSession();
   });
 </script>
@@ -59,6 +60,12 @@
   <div class="center" style="min-height:100vh">
     <div class="spinner"></div>
     {#if session.offline}<p class="muted small">Conectando con el servidor...</p>{/if}
+  </div>
+{:else if session.suspended}
+  <div class="center suspended">
+    <h2>Cuenta suspendida</h2>
+    <p class="muted">{session.suspended}</p>
+    <button class="btn outline" onclick={async () => { await api.logout().catch(() => {}); session.suspended = ''; resetUserState(); }}>Salir</button>
   </div>
 {:else if !session.user}
   <Login />
@@ -92,6 +99,7 @@
 {#if toast.text}<div class="toast" role="status">{toast.text}</div>{/if}
 
 <style>
+  .suspended { min-height: 100vh; padding: 24px; text-align: center; gap: 8px; max-width: 520px; margin: 0 auto; }
   .tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; height: calc(var(--nav-h) + var(--safe-bottom)); padding-bottom: var(--safe-bottom); background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-top: 1px solid var(--outline-variant); }
   .tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 0.74rem; color: var(--text-dim); }
   .pill-icon { width: 56px; height: 30px; border-radius: 15px; display: grid; place-items: center; transition: background 0.2s; }

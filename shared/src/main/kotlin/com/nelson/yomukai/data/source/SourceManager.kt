@@ -8,6 +8,7 @@ import com.nelson.yomukai.data.source.manga.FlameComicsSource
 import com.nelson.yomukai.data.source.manga.LectorTmoSource
 import com.nelson.yomukai.data.source.manga.MangaDexSource
 import com.nelson.yomukai.data.source.manga.MarmotaComicsSource
+import com.nelson.yomukai.data.source.manga.MegaBananaSource
 import com.nelson.yomukai.data.source.manga.OlympusScansSource
 import com.nelson.yomukai.data.source.manga.WebtoonsSource
 import com.nelson.yomukai.data.source.manga.ZonaTmoSource
@@ -28,6 +29,7 @@ class SourceManager(network: HttpFetcher) {
         WebtoonsSource(network, "es"),
         WebtoonsSource(network, "en"),
         MarmotaComicsSource(network),
+        MegaBananaSource(network),
         // Novels
         RoyalRoadSource(network),
         SkyNovelsSource(network),

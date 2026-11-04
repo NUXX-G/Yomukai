@@ -54,8 +54,8 @@
     <div class="guest">
       <button class="btn outline block" onclick={guest} disabled={busy}>Probar sin cuenta</button>
       <p class="small muted">
-        Como invitado puedes hacer de todo. Tus datos se borran a los {session.guestDays} días;
-        antes puedes exportarlos desde Ajustes y llevártelos a una cuenta.
+        Para echar un vistazo: puedes leer y ver lo que quieras, con algunos límites.
+        Todo lo que hagas se borra {session.guestDays === 1 ? 'al cabo de un día' : `a los ${session.guestDays} días`}.
       </p>
     </div>
   {/if}
