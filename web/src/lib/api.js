@@ -41,6 +41,8 @@ function safeJson(text) {
 const memo = new Map();
 const MEMO_MS = 5 * 60_000;
 const MEMO_MAX = 300;
+/** Forgets every kept answer: on logout or a new session, nothing of the previous user may be reused. */
+export function clearMemo() { memo.clear(); }
 function cached(path) {
   const hit = memo.get(path);
   if (hit && Date.now() - hit.at < MEMO_MS) return hit.promise;
@@ -55,9 +57,9 @@ const qs = (params) => new URLSearchParams(Object.entries(params).filter(([, v])
 
 export const api = {
   me: () => request('GET', '/auth/me'),
-  login: (name, password) => request('POST', '/auth/login', { name, password }),
-  guest: () => request('POST', '/auth/guest'),
-  logout: () => request('POST', '/auth/logout'),
+  login: (name, password) => { memo.clear(); return request('POST', '/auth/login', { name, password }); },
+  guest: () => { memo.clear(); return request('POST', '/auth/guest'); },
+  logout: () => { memo.clear(); return request('POST', '/auth/logout'); },
 
   sources: () => request('GET', '/api/sources'),
   latest: (id, page = 1, opts) => request('GET', `/api/sources/${encodeURIComponent(id)}/latest?${qs({ page })}`, undefined, opts),
@@ -68,7 +70,7 @@ export const api = {
   text: (s, c) => cached(`/api/text?${qs({ s, c })}`),
   videos: (s, c) => request('GET', `/api/videos?${qs({ s, c })}`),
   metadata: (s, id) => cached(`/api/metadata?${qs({ s, id })}`),
-  similar: (s, id) => cached(`/api/similar?${qs({ s, id })}`),
+  similar: (s, id) => request('GET', `/api/similar?${qs({ s, id })}`),
   alternatives: (s, id) => request('GET', `/api/alternatives?${qs({ s, id })}`),
   locate: (related) => request('POST', '/api/locate', related),
   random: (kind, genre) => request('GET', `/api/random?${qs({ kind, genre })}`),

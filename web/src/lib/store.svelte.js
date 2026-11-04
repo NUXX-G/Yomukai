@@ -1,5 +1,5 @@
 // What the whole app shares: who is logged in, their settings (kept on the server) and the library.
-import { api } from './api.js';
+import { api, clearMemo } from './api.js';
 
 export const session = $state({ user: null, ready: false, offline: false, suspended: '', guestsEnabled: true, guestDays: 1 });
 
@@ -184,6 +184,7 @@ export function rememberSearch(query) {
 }
 
 export function resetUserState() {
+  clearMemo();
   session.user = null;
   library.items = [];
   library.loaded = false;
