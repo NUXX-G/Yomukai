@@ -179,7 +179,7 @@ class ServerHttp(private val flareSolverrUrl: String?) : HttpFetcher {
 
     private suspend fun fetch(url: String, headers: Map<String, String>, cloudflareFallback: Boolean): String {
         val request = Request.Builder().url(url).browserHeaders(url, headers).build()
-        val (code, body, mitigated) = client.newCall(request).execute().use { response ->
+        val (code, body, mitigated) = client.newCall(request).await().use { response ->
             Triple(response.code, response.body?.string().orEmpty(), response.header("cf-mitigated"))
         }
         val protection = WebProtection.detectProtection(code, body, mitigated)
@@ -232,7 +232,7 @@ class ServerHttp(private val flareSolverrUrl: String?) : HttpFetcher {
 
     override suspend fun postString(url: String, headers: Map<String, String>): String = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url).post(ByteArray(0).toRequestBody(null)).browserHeaders(url, headers).build()
-        client.newCall(request).execute().use { response ->
+        client.newCall(request).await().use { response ->
             val body = response.body?.string().orEmpty()
             WebProtection.detectProtection(response.code, body, response.header("cf-mitigated"))
                 ?.let { throw SourceBlockedException(request.url.host, it) }
@@ -247,7 +247,7 @@ class ServerHttp(private val flareSolverrUrl: String?) : HttpFetcher {
             .header("Accept", "application/json")
             .header("User-Agent", WebProtection.USER_AGENT)
             .build()
-        client.newCall(request).execute().use { response ->
+        client.newCall(request).await().use { response ->
             if (!response.isSuccessful) throw HttpException(response.code, url)
             response.body?.string().orEmpty()
         }
@@ -255,7 +255,7 @@ class ServerHttp(private val flareSolverrUrl: String?) : HttpFetcher {
 
     override suspend fun checkImage(url: String, headers: Map<String, String>): String = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url).browserHeaders(url, headers).build()
-        client.newCall(request).execute().use { response ->
+        client.newCall(request).await().use { response ->
             if (!response.isSuccessful) throw HttpException(response.code, url)
             val type = response.header("Content-Type").orEmpty()
             if (!type.startsWith("image/")) throw IOException("No es una imagen: $type")
@@ -270,4 +270,21 @@ class ServerHttp(private val flareSolverrUrl: String?) : HttpFetcher {
         const val RECENT_MAX_ENTRIES = 512
         const val COOKIE_LIFETIME_MS = 6 * 60 * 60 * 1000L
     }
+}
+
+/**
+ * Runs the call so that cancelling the coroutine (a timeout, a closed page) also cancels the request.
+ * A blocking execute() ignores timeouts set with withTimeout and holds on until OkHttp's own limits.
+ */
+suspend fun okhttp3.Call.await(): okhttp3.Response = kotlinx.coroutines.suspendCancellableCoroutine { cont ->
+    enqueue(object : okhttp3.Callback {
+        override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+            cont.resume(response) { _, value, _ -> value.close() }
+        }
+
+        override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+            if (!cont.isCancelled) cont.resumeWith(Result.failure(e))
+        }
+    })
+    cont.invokeOnCancellation { runCatching { cancel() } }
 }

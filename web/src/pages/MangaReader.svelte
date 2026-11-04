@@ -1,4 +1,4 @@
-<script>
+  const width = $derived(settings.reader.width || 'original');<script>
   import { onMount, onDestroy, tick } from 'svelte';
   import { api, downloadChapters } from '../lib/api.js';
   import { route, back, navigate, media as mediaHref, reader } from '../lib/router.svelte.js';
@@ -12,7 +12,9 @@
   const sourceId = route.params.source;
   const mediaId = route.params.id;
   const startId = route.params.chapter;
-  const WIDTHS = [['narrow', 'Estrecho'], ['normal', 'Normal'], ['wide', 'Ancho'], ['full', 'Toda la pantalla']];
+  // "original" shows each page at its own size, like the sites do: stretching a 720 px webtoon to a
+  // wide screen is what made pages look blurry on computers.
+  const WIDTHS = [['original', 'Tamaño original'], ['narrow', 'Estrecho'], ['normal', 'Normal'], ['wide', 'Ancho'], ['full', 'Toda la pantalla']];
   const FILTERS = [['none', 'Normal'], ['sepia', 'Sepia'], ['gray', 'Grises'], ['invert', 'Invertido']];
 
   let indexTab = $state('chapters');
@@ -278,7 +280,7 @@
         {#if l.error}<p class="center error-text">{l.error}</p>{/if}
         {#if !l.pages.length && !l.error}<div class="center"><div class="spinner"></div></div>{/if}
         {#each l.pages as src, i (src)}
-          <div class="pg" class:ready={ready[src]} class:cropped={crops[src]} style:aspect-ratio={crops[src]?.ratio} data-page data-chapter={l.chapter.id} data-index={i} data-total={l.pages.length}>
+          <div class="pg" class:ready={ready[src]} class:cropped={crops[src]} style:aspect-ratio={crops[src]?.ratio} style:max-width={width === 'original' && crops[src] ? crops[src].natural : null} data-page data-chapter={l.chapter.id} data-index={i} data-total={l.pages.length}>
             <img {src} alt="Página {i + 1}" loading={i < 3 || (li === 0 && i <= resumePage + 2) ? 'eager' : 'lazy'} decoding="async" style:width={crops[src]?.width} style:left={crops[src]?.left} style:top={crops[src]?.top} onload={(e) => { cropFor(e, src); pageLoaded(e, l.chapter, i, l.pages.length, src); }} />
           </div>
         {/each}
@@ -398,6 +400,9 @@
   .strip .pg { position: relative; min-height: 80vh; background: #0a0a0a; }
   .strip .pg.ready { min-height: 0; background: none; }
   .pg img { display: block; width: 100%; height: auto; }
+  .strip.w-original { max-width: none; }
+  .strip.w-original .pg { margin: 0 auto; }
+  .strip.w-original .pg:not(.cropped) img { width: auto; max-width: 100%; margin: 0 auto; }
   .pg.cropped { overflow: hidden; }
   .pg.cropped img { position: absolute; max-width: none; max-height: none; }
   .single .pg.one { position: relative; }

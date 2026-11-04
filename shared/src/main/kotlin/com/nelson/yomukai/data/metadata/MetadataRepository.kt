@@ -89,6 +89,8 @@ class MetadataRepository(
     private val openLibrary: OpenLibraryClient? = null
 ) {
     private val cache = ConcurrentHashMap<String, TitleMetadata>()
+    /** Titles no database knew, with when that was found out. */
+    private val misses = ConcurrentHashMap<String, Pair<Long, TitleMetadata>>()
 
     fun cached(media: MediaItem): TitleMetadata? = cache[SmartSearch.keyOf(media)]
 
@@ -102,19 +104,26 @@ class MetadataRepository(
             cache[key] = fresh
             return@coroutineScope fresh
         }
+        misses[key]?.takeIf { System.currentTimeMillis() - it.first < MISS_TTL_MS }?.let { return@coroutineScope it.second }
         val names = (listOf(media.title) + media.altTitles).filter { it.isNotBlank() }.distinct()
-        val malScore = async { mal?.let { client -> safely { withTimeoutOrNull(MAL_TIMEOUT_MS) { client.score(names, media.type) } } } }
+        // Every database is asked at once; the slowest one decides how long this takes, not the sum.
+        val malUsable = mal != null && System.currentTimeMillis() > malDownUntil
+        val malScore = async { if (malUsable) malLookup(names, media.type) else null }
+        val mangaUpdatesEarly = async { safely { withTimeoutOrNull(EXTRA_TIMEOUT_MS) { mangaUpdates?.score(names, media.type) } } }
+        val kitsuEarly = async { safely { withTimeoutOrNull(KITSU_TIMEOUT_MS) { kitsu.score(names, media.type) } } }
         val entry = safely { withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { aniList.lookup(names, media.type) } }
+        // With AniList's answer in hand, MAL gets only a short extra wait: its score is a bonus.
+        val first = if (entry != null) withTimeoutOrNull(MAL_GRACE_MS) { malScore.await() }.also { if (it == null) malScore.cancel() } else malScore.await()
         // MAL may only know the title by the English or romaji name AniList gives.
-        val malValue = malScore.await() ?: entry?.names?.minus(names.toSet())?.takeIf { it.isNotEmpty() }?.let { other ->
-            mal?.let { client -> safely { withTimeoutOrNull(MAL_TIMEOUT_MS) { client.score(other + names, media.type) } } }
+        val malValue = first ?: entry?.names?.minus(names.toSet())?.takeIf { it.isNotEmpty() && malUsable && System.currentTimeMillis() > malDownUntil }?.let { other ->
+            withTimeoutOrNull(MAL_GRACE_MS) { malLookup(other + names, media.type) }
         }
         // Without AniList or MAL, the other databases are asked in turn, each for what it covers best:
         // MangaUpdates (Asian comics and novels), Kitsu, then Open Library (Western comics, published novels).
         val fallback: Pair<Float, String>? = if (entry?.score == null && malValue == null) {
             val all = names + entry?.names.orEmpty()
-            safely { withTimeoutOrNull(EXTRA_TIMEOUT_MS) { mangaUpdates?.score(all, media.type) } }?.let { it to "MangaUpdates" }
-                ?: safely { withTimeoutOrNull(KITSU_TIMEOUT_MS) { kitsu.score(all, media.type) } }?.let { it to "Kitsu" }
+            mangaUpdatesEarly.await()?.let { it to "MangaUpdates" }
+                ?: kitsuEarly.await()?.let { it to "Kitsu" }
                 ?: safely { withTimeoutOrNull(EXTRA_TIMEOUT_MS) { openLibrary?.score(all, media.author, media.type) } }?.let { it to "Open Library" }
         } else null
         val result = build(media, entry, fallback?.first, malValue, fallback?.second ?: "Kitsu")
@@ -122,8 +131,24 @@ class MetadataRepository(
         if (entry != null || fallback != null || malValue != null) {
             cache[key] = result
             store?.put(key, result)
+        } else {
+            // Nothing anywhere: not asked again for a while, so the title page does not wait each visit.
+            misses[key] = System.currentTimeMillis() to result
         }
+        mangaUpdatesEarly.cancel()
+        kitsuEarly.cancel()
         result
+    }
+
+    /** When MAL (or Jikan, without a Client ID) stopped answering: it is left alone for a while. */
+    @Volatile private var malDownUntil = 0L
+
+    private suspend fun malLookup(names: List<String>, type: com.nelson.yomukai.domain.model.MediaType): Float? {
+        val client = mal ?: return null
+        val start = System.currentTimeMillis()
+        val value = safely { withTimeoutOrNull(MAL_TIMEOUT_MS) { client.score(names, type) } }
+        if (value == null && System.currentTimeMillis() - start >= MAL_TIMEOUT_MS - 200) malDownUntil = System.currentTimeMillis() + MAL_PAUSE_MS
+        return value
     }
 
     private suspend fun <T> safely(block: suspend () -> T?): T? =
@@ -136,10 +161,13 @@ class MetadataRepository(
         }
 
     companion object {
-        private const val LOOKUP_TIMEOUT_MS = 12_000L
-        private const val KITSU_TIMEOUT_MS = 6_000L
-        private const val MAL_TIMEOUT_MS = 8_000L
-        private const val EXTRA_TIMEOUT_MS = 7_000L
+        private const val LOOKUP_TIMEOUT_MS = 7_000L
+        private const val KITSU_TIMEOUT_MS = 5_000L
+        private const val MAL_TIMEOUT_MS = 5_000L
+        private const val EXTRA_TIMEOUT_MS = 5_000L
+        private const val MISS_TTL_MS = 30 * 60_000L
+        private const val MAL_GRACE_MS = 1_500L
+        private const val MAL_PAUSE_MS = 10 * 60_000L
 
         /** [saved] with its guessed genres worked out again from the title's synopsis. */
         fun withLocalGenres(saved: TitleMetadata, media: MediaItem): TitleMetadata {

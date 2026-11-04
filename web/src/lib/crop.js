@@ -58,6 +58,8 @@ export function cropStyles(img, crop) {
     ratio: (W * cw) / (H * ch),
     width: `${100 / cw}%`,
     left: `${(-crop.l / cw) * 100}%`,
-    top: `${(-crop.t / ch) * 100}%`
+    top: `${(-crop.t / ch) * 100}%`,
+    /** The cut page at its own size, for "original size" reading. */
+    natural: `${Math.round(W * cw)}px`
   };
 }

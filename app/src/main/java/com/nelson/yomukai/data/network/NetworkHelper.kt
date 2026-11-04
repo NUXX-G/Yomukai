@@ -239,7 +239,7 @@ class NetworkHelper(
         val host = request.url.host
 
         val failure: IOException = try {
-            scrapeClient.newCall(request).execute().use { response ->
+            scrapeClient.newCall(request).await().use { response ->
                 val body = response.body?.string().orEmpty()
                 val protection = detectProtection(response.code, body, response.header("cf-mitigated"))
                 when {
@@ -278,7 +278,7 @@ class NetworkHelper(
     /** Fetches [url] the way the image loader does; returns a short description or throws when it is not an image. */
     override suspend fun checkImage(url: String, headers: Map<String, String>): String = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url).apply { headers.forEach { (k, v) -> header(k, v) } }.build()
-        client.newCall(request).execute().use { response ->
+        client.newCall(request).await().use { response ->
             if (!response.isSuccessful) throw HttpException(response.code, url)
             val type = response.header("Content-Type").orEmpty()
             if (!type.startsWith("image/")) throw IOException("No es una imagen: ${type.ifBlank { "sin tipo" }} en ${response.request.url.host}")
@@ -293,7 +293,7 @@ class NetworkHelper(
             .header("Accept", "application/json")
             .header(NO_RETRY_HEADER, "1")
             .build()
-        scrapeClient.newCall(request).execute().use { response ->
+        scrapeClient.newCall(request).await().use { response ->
             if (!response.isSuccessful) throw HttpException(response.code, url)
             response.body?.string().orEmpty()
         }
@@ -304,7 +304,7 @@ class NetworkHelper(
             .post(ByteArray(0).toRequestBody(null))
             .apply { headers.forEach { (k, v) -> header(k, v) } }
             .build()
-        scrapeClient.newCall(request).execute().use { response ->
+        scrapeClient.newCall(request).await().use { response ->
             val body = response.body?.string().orEmpty()
             detectProtection(response.code, body, response.header("cf-mitigated"))?.let { throw SourceBlockedException(request.url.host, it) }
             if (!response.isSuccessful) throw HttpException(response.code, url)
