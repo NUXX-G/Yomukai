@@ -326,7 +326,7 @@ class Downloader(private val catalog: Catalog, private val proxy: MediaProxy, pr
                     val (from, to) = pieces[next++]
                     // Each piece hands its bytes over as they arrive: the piece being sent is never waited
                     // for as a whole (the connection would sit idle and be closed), the next ones fill up meanwhile.
-                    val out = kotlinx.coroutines.channels.Channel<ByteArray>(kotlinx.coroutines.channels.Channel.UNLIMITED)
+                    val out = kotlinx.coroutines.channels.Channel<ByteArray>((PIECE_BYTES / BUFFER).toInt() + 1)
                     pending += out
                     launch(Dispatchers.IO) {
                         var got = 0L
@@ -339,8 +339,9 @@ class Downloader(private val catalog: Catalog, private val proxy: MediaProxy, pr
                                         if (r.code != 206) throw IOException("HTTP ${r.code}")
                                         r.body!!.byteStream().use { input ->
                                             val buffer = ByteArray(BUFFER)
-                                            while (true) {
-                                                val read = input.read(buffer)
+                                            // Never more than the piece, whatever the site sends.
+                                            while (from + got <= to) {
+                                                val read = input.read(buffer, 0, minOf(BUFFER.toLong(), to - from - got + 1).toInt())
                                                 if (read < 0) break
                                                 out.send(buffer.copyOf(read))
                                                 got += read
@@ -420,13 +421,13 @@ class Downloader(private val catalog: Catalog, private val proxy: MediaProxy, pr
 
     private suspend fun fetchText(url: String, headers: Map<String, String>): String? = withContext(Dispatchers.IO) {
         http.streamClient.newCall(request(url, headers)).execute().use { r ->
-            if (!r.isSuccessful) null else r.body?.string()?.takeIf { it.length < MAX_PLAYLIST_CHARS && it.trimStart().startsWith("#EXTM3U") }
+            if (!r.isSuccessful) null else r.body?.let { readBounded(it, MAX_PLAYLIST_CHARS.toLong()) }?.toString(Charsets.UTF_8)?.takeIf { it.trimStart().startsWith("#EXTM3U") }
         }
     }
 
     private suspend fun fetchBytes(url: String, headers: Map<String, String>): ByteArray? = withContext(Dispatchers.IO) {
         http.streamClient.newCall(request(url, headers)).execute().use { r ->
-            if (!r.isSuccessful) null else r.body?.bytes()?.takeIf { it.size <= MAX_SEGMENT_BYTES }
+            if (!r.isSuccessful) null else r.body?.let { readBounded(it, MAX_SEGMENT_BYTES.toLong()) }
         }
     }
 
@@ -545,4 +546,25 @@ data class HlsPlan(val init: String?, val segments: List<Segment>) {
             return if (segments.isEmpty()) null else HlsPlan(init, segments)
         }
     }
+}
+
+/**
+ * A response body, or null when it is bigger than [max]: the declared length is checked first and the
+ * reading stops as soon as the limit is passed, so a huge or endless answer never fills the memory.
+ */
+fun readBounded(body: okhttp3.ResponseBody, max: Long): ByteArray? {
+    if (body.contentLength() > max) return null
+    val out = java.io.ByteArrayOutputStream(body.contentLength().takeIf { it in 1..max }?.toInt() ?: 64 * 1024)
+    body.byteStream().use { input ->
+        val buffer = ByteArray(64 * 1024)
+        var total = 0L
+        while (true) {
+            val read = input.read(buffer)
+            if (read < 0) break
+            total += read
+            if (total > max) return null
+            out.write(buffer, 0, read)
+        }
+    }
+    return out.toByteArray()
 }

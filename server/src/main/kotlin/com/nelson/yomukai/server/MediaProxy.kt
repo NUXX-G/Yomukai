@@ -98,7 +98,7 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
             http.streamClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@withContext null
                 val type = response.header("Content-Type").orEmpty()
-                val body = response.body?.bytes() ?: return@withContext null
+                val body = response.body?.let { readBounded(it, MAX_IMAGE_BYTES.toLong()) } ?: return@withContext null
                 if (body.size > MAX_IMAGE_BYTES) return@withContext null
                 body to type.ifBlank { "image/jpeg" }
             }
