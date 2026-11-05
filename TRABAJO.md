@@ -2,6 +2,95 @@
 
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
+## ENCARGO GRANDE (2026-11-05): fases 0 a 11
+Texto íntegro y detalle de cada punto: `docs/ENCARGO.md` (léelo entero antes de seguir).
+Reglas clave: fase a fase y en orden; al acabar cada fase PARAR, resumir (hecho, pendiente, decisiones propias, qué probar a mano) y esperar el OK del usuario.
+Commits convencionales pequeños, build+tests verdes antes de cada commit, `git push origin main` a menudo (se pueden acabar los tokens: subir por tramos y, si se cortó, seguir donde indique este checklist).
+Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de casa o al dispositivo. Feature flag por funcionalidad grande. Medir rendimiento antes/después de cada fase (tabla abajo).
+
+### Extra pedido por el usuario
+- [ ] Fuente Bilibili Manga (`manga.bilibili.com`, chino, para un amigo que aprende chino). Tras la Fase 0, con tests sobre JSON real capturado
+
+### Fase 0 — Limpieza y base
+- [x] 0.1 `server/data/`, `t.html` y `.idea/` fuera del repo e ignorados; `secret.key` borrado (se regenera). Nota: la clave vieja quedó en el historial; el VPS usa la suya de `/data` (o `SECRET`), así que no le afecta
+- [x] 0.2 AnimeFLV (`animeflv.or.at`) funciona → PLAN.md actualizado, no se borra
+- [ ] 0.3 Migraciones versionadas en `Database.kt` (`schema_version`, numeradas e idempotentes)
+- [ ] 0.4 Copias nocturnas de SQLite (backup en caliente, 14 días, `BACKUP_DIR`), comando de restaurar, copia opcional al worker/NAS
+- [ ] 0.5 CI: build+tests de shared, server, web y app; detekt/ktlint; svelte-check/eslint; Dependabot
+
+### Fase 1 — VPS + worker + dispositivo
+- [ ] 1.1 Docker con límite de RAM (1 GB por defecto) y CPU, JVM ajustada, cachés acotadas, medición en reposo y carga, guía de swapfile
+- [ ] 1.2 Módulo `worker/` (token revocable, capacidades, conexión saliente)
+- [ ] 1.3 Cola de trabajos en SQLite (tipos, prioridades, reintentos, caducidad, asignación), resultados cacheados con LRU
+- [ ] 1.4 Worker: nice/límites, pausa si la máquina está ocupada, descarga de modelos inactivos
+- [ ] 1.5 Estado del worker visible y funciones disponibles en web y app
+- [ ] 1.6 Medición de tráfico del proxy con tope mensual y avisos 80/100 %
+
+### Fase 2 — Seguridad
+- [ ] 2.1 Cabeceras (CSP, HSTS, etc.) y cookies seguras
+- [ ] 2.2 Rate limiting por usuario e IP; bloqueo progresivo de login
+- [ ] 2.3 Auditoría de autorización con tests (usuarios, invitados, workers)
+- [ ] 2.4 Sesiones visibles y cerrables; 2FA TOTP con códigos de recuperación
+- [ ] 2.5 Invitaciones por enlace (caducidad, un solo uso)
+- [ ] 2.6 Registro de auditoría de admin/moderación
+- [ ] 2.7 Asistente de primera configuración (sin contraseña de admin por defecto)
+
+### Fase 3 — Resistencia a cambios en las webs
+- [ ] 3.1 Canario por cron en el VPS (Discord + ntfy)
+- [ ] 3.2 Validación de resultados y fuentes degradadas ocultas solas
+- [ ] 3.3 Fuentes declarativas en JSON firmadas con Ed25519
+- [ ] 3.4 Motores genéricos Madara, WordPress, Next.js, SvelteKit
+- [ ] 3.5 Cadena de respaldo de extracción
+- [ ] 3.6 Dominios en config y seguimiento de redirecciones
+- [ ] 3.7 yt-dlp en el VPS (solo extracción) + WebView oculto de respaldo en la app
+- [ ] 3.8 Auto-reparación con Claude Code headless en el worker (abre PR, nunca merge)
+
+### Fase 4 — Obra unificada y diferenciadores
+- [ ] 4.1 Modelo OBRA (IDs AniList/MAL), capítulos unidos, migración sin pérdida, resultados progresivos
+- [ ] 4.2 Deduplicación en todas partes (marcar la duda)
+- [ ] 4.3 ¿Dónde sigo? anime ↔ manga ↔ novela, mapeo corregible con historial
+- [ ] 4.4 Escudo anti-spoilers
+- [ ] 4.5 Saltar opening/ending por huella de audio (worker)
+- [ ] 4.6 Guía de relleno
+- [ ] 4.7 Calendario de estrenos unificado
+
+### Fase 5 — Rediseño (web y app)
+- [ ] 5.0 Analizar `docs/referencias/` → `ANALISIS.md` (si no hay capturas, PARAR y pedirlas)
+- [ ] 5.1 Inicio sin fuentes  - [ ] 5.2 Tokens de diseño en shared/  - [ ] 5.3 Navegación
+- [ ] 5.4 Inicio tipo Netflix  - [ ] 5.5 Tarjetas  - [ ] 5.6 Ficha de obra
+- [ ] 5.7 Páginas Anime/Manga/Novelas con explorador  - [ ] 5.8 Búsqueda unificada
+- [ ] 5.9 Reproductor y lectores  - [ ] 5.10 Calidad/accesibilidad  - [ ] 5.11 Capturas Playwright antes/después en `docs/capturas/`
+
+### Fase 6 — Social
+- [ ] 6.1 Salas  - [ ] 6.2 Watch party WebSocket  - [ ] 6.3 Chat de sala  - [ ] 6.4 Perfiles
+- [ ] 6.5 Bibliotecas visibles con privacidad  - [ ] 6.6 Feed y presencia  - [ ] 6.7 Recomendar y valorar
+- [ ] 6.8 Foro  - [ ] 6.9 Moderación  - [ ] 6.10 Notificaciones (web, ntfy, Discord)  - [ ] 6.11 Logros
+
+### Fase 7 — Temas
+- [ ] 7.1 Tema = JSON de tokens validado  - [ ] 7.2 Temas de serie  - [ ] 7.3 Editor con contraste WCAG
+- [ ] 7.4 Galería entre amigos  - [ ] 7.5 Sin CSS libre; fondos por ImageShrinker
+
+### Fase 8 — Voces
+- [ ] 8.1 Interfaz TTS con tres niveles  - [ ] 8.2 Script de comparación de motores (worker)  - [ ] 8.3 Voces por personaje
+- [ ] 8.4 Pregeneración cacheada  - [ ] 8.5 Android con pantalla apagada (MediaSessionService)  - [ ] 8.6 Web MediaSession
+
+### Fase 9 — OCR, voz en cómics, autoscroll, traducción, idiomas
+- [ ] 9.1 Pipeline OCR  - [ ] 9.2 Cómics en voz alta  - [ ] 9.3 Autoscroll inteligente
+- [ ] 9.4 Traducción de bocadillos  - [ ] 9.5 Modo aprendizaje de idiomas
+
+### Fase 10 — Jellyfin, Kavita/Komga
+- [ ] 10.1 Config admin  - [ ] 10.2 Descargar a Jellyfin  - [ ] 10.3 Descarga automática  - [ ] 10.4 Jellyfin como fuente
+- [ ] 10.5 Progreso bidireccional  - [ ] 10.6 Salas con Jellyfin  - [ ] 10.7 CBZ + ComicInfo  - [ ] 10.8 Tests con Jellyfin falso
+
+### Fase 11 — Pulido, instalación y documentación
+- [ ] 11.1 Panel de admin  - [ ] 11.2 Releases automáticas  - [ ] 11.3 Continuar en otro dispositivo
+- [ ] 11.4 Importar/exportar  - [ ] 11.5 UX  - [ ] 11.6 Dos docker-compose + guía Tailscale  - [ ] 11.7 ARCHITECTURE.md, README
+
+### Presupuesto de rendimiento
+| Momento | RAM server reposo | RAM bajo carga | CPU | API p95 | Bundle web (JS+CSS gz) | APK release |
+|---|---|---|---|---|---|---|
+| Antes de Fase 0 (local, ver notas) | pendiente | | | | | |
+
 ## Versión web (en curso, pedida por el usuario el 2026-11-03)
 Objetivo: lo mismo que la app Android (anime, manga, manhwa, novela) en el VPS del usuario, instalable con una línea de Docker, y en GitHub para que cualquiera lo monte.
 - Cuentas con usuario y contraseña (sesión que no caduca) para amigos; el admin las crea.

@@ -3,7 +3,8 @@
 Histórico de fases. Lo que se está haciendo ahora está en `TRABAJO.md`. Cada tarea: build + tests verdes, commits convencionales, `git push origin main`.
 
 ## Fase 1 — Fuentes  ✅ (con excepciones documentadas)
-- [x] Eliminar Reaper Scans y AnimeFLV (clase, registro, tests, README). `VideoExtractors` se conserva: lo usa AnimeAV1
+- [x] Eliminar Reaper Scans y la AnimeFLV antigua (clase, registro, tests, README). `VideoExtractors` se conserva: lo usa AnimeAV1
+- [x] AnimeFLV volvió en v1.4.0 con el dominio `animeflv.or.at` (`AnimeFlvSource`). Comprobada el 2026-11-05: novedades, catálogo, búsqueda, ficha, episodios (JSON embebido) y 10 servidores por episodio responden con los selectores actuales
 - [x] TuNovelaLigera: causa = ids con `?lcp_page0=1` rompían la URL `/ajax/chapters/`. Arreglado + paginación + tests con capturas reales
 - [x] Marmota Comics (marmota.me): Madara, capturado y probado (novedades, búsqueda con títulos alternativos, detalle, capítulos AJAX, páginas http→https). Activa por defecto
 - [x] LectorTMO: el tema cambió (`a.chapter-card` → `/manga-chapter/…`, páginas en `#reader-strip`). Arreglado con tests; ya no es experimental
