@@ -9,7 +9,7 @@
   import Icon from '../components/Icon.svelte';
   import Sheet from '../components/Sheet.svelte';
   import SpeedControl from '../components/SpeedControl.svelte';
-  import { screen, canFullscreen, toggleFullscreen, enterFullscreen, enterFullscreenQuietly } from '../lib/fullscreen.svelte.js';
+  import { screen, canFullscreen, toggleFullscreen, enterFullscreen, enterFullscreenQuietly, leaveImmersive } from '../lib/fullscreen.svelte.js';
 
   const sourceId = route.params.source;
   const mediaId = route.params.id;
@@ -281,7 +281,7 @@
     }
   });
 
-  onDestroy(() => { observer?.disconnect(); clearInterval(clockTimer); cancelAnimationFrame(scrollFrame); scrolling = false; flush(); });
+  onDestroy(() => { leaveImmersive(); observer?.disconnect(); clearInterval(clockTimer); cancelAnimationFrame(scrollFrame); scrolling = false; flush(); });
 </script>
 
 <!-- With full screen chosen, the first touch in the reader enters it (browsers only allow it after one). -->
@@ -441,6 +441,9 @@
   .icon-btn.on { color: var(--primary); }
   .range { width: 100%; accent-color: var(--primary); margin: 6px 0 14px; }
   .divider { text-align: center; padding: 28px 12px; color: var(--text-dim); font-weight: 600; }
+  /* iOS immersive mode: the page uses the tallest view Safari gives once its bars shrink. */
+  :global(html.immersive) .single { height: 100lvh; }
+  :global(html.immersive) .reader { min-height: 100lvh; }
   .single { height: 100vh; height: 100dvh; display: grid; place-items: center; overflow: hidden; touch-action: pan-y pinch-zoom; }
   .single img { max-width: 100%; max-height: 100vh; max-height: 100dvh; object-fit: contain; user-select: none; -webkit-user-drag: none; }
   /* Solid bars: pages scrolling behind a see-through bar looked broken. */

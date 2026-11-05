@@ -9,8 +9,9 @@
 
 <Sheet bind:open={installGuide.open} title="Pantalla completa en {isIPhone ? 'iPhone' : 'iPad'}">
   <p class="lead">
-    {#if isIPhone}Safari no deja que las webs se pongan a pantalla completa en el iPhone.{:else}En el iPad, Safari no siempre deja ponerse a pantalla completa.{/if}
-    Lo más parecido, y mucho más cómodo, es <strong>abrir Yomukai como una app</strong>, sin las barras de Safari:
+    {#if isIPhone}Safari no deja que las webs se pongan a pantalla completa en el iPhone (solo los vídeos).{:else}En el iPad, Safari no siempre deja ponerse a pantalla completa.{/if}
+    Ya está puesto el <strong>modo inmersivo</strong> de Yomukai: sin barras de la app, solo la página.
+    Para quitar también las barras de Safari, <strong>abre Yomukai como una app</strong>:
   </p>
   <ol class="steps">
     <li><span class="badge"><Icon name="share" size={20} /></span><span>Pulsa <strong>Compartir</strong> en la barra de Safari (el cuadrado con la flecha hacia arriba; en iOS 26 está en el menú «···»).</span></li>

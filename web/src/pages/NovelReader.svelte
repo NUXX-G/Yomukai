@@ -8,7 +8,7 @@
   import Icon from '../components/Icon.svelte';
   import Sheet from '../components/Sheet.svelte';
   import SpeedControl from '../components/SpeedControl.svelte';
-  import { screen, canFullscreen, toggleFullscreen, enterFullscreen, enterFullscreenQuietly } from '../lib/fullscreen.svelte.js';
+  import { screen, canFullscreen, toggleFullscreen, enterFullscreen, enterFullscreenQuietly, leaveImmersive } from '../lib/fullscreen.svelte.js';
 
   const sourceId = route.params.source;
   const mediaId = route.params.id;
@@ -256,7 +256,7 @@
     }
   });
 
-  onDestroy(() => { clearInterval(clockTimer); cancelAnimationFrame(scrollFrame); scrolling = false; flush(); stopSpeech(); });
+  onDestroy(() => { leaveImmersive(); clearInterval(clockTimer); cancelAnimationFrame(scrollFrame); scrolling = false; flush(); stopSpeech(); });
 
   function set(key, value) { settings.novel[key] = value; saveSettings(); }
   function size(delta) { set('size', Math.min(32, Math.max(13, settings.novel.size + delta))); }
