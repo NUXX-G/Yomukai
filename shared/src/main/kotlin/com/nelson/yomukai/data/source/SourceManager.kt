@@ -12,7 +12,6 @@ import com.nelson.yomukai.data.source.manga.MarmotaComicsSource
 import com.nelson.yomukai.data.source.manga.MegaBananaSource
 import com.nelson.yomukai.data.source.manga.YskComicsSource
 import com.nelson.yomukai.data.source.manga.OlympusScansSource
-import com.nelson.yomukai.data.source.manga.LectorXdSource
 import com.nelson.yomukai.data.source.manga.NovelCoolNovelSource
 import com.nelson.yomukai.data.source.manga.NovelCoolSource
 import com.nelson.yomukai.data.source.manga.ZonaTmoSource
@@ -28,7 +27,6 @@ class SourceManager(network: HttpFetcher) {
         FlameComicsSource(network),
         LectorTmoSource(network),
         ZonaTmoSource(network),
-        LectorXdSource(network),
         NovelCoolSource(network, "es"),
         NovelCoolSource(network, "en"),
         MarmotaComicsSource(network),
