@@ -87,7 +87,9 @@ jobs:
       - name: Pruebas
         run: ./gradlew testDebugUnitTest --console=plain
       - name: Tamaño del APK
-        run: ls -l app/build/outputs/apk/debug/*.apk | awk '{printf "APK debug: %.1f MB\n", $5/1048576}' >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          ls -l app/build/outputs/apk/debug/*.apk | awk '{printf "APK debug: %.1f MB
+", $5/1048576}' >> "$GITHUB_STEP_SUMMARY"| awk '{printf "APK debug: %.1f MB\n", $5/1048576}' >> "$GITHUB_STEP_SUMMARY"
 
   web:
     name: Web (svelte-check + eslint + build)
