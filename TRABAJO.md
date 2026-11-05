@@ -14,7 +14,7 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 ### Fase 0 — Limpieza y base
 - [x] 0.1 `server/data/`, `t.html` y `.idea/` fuera del repo e ignorados; `secret.key` borrado (se regenera). Nota: la clave vieja quedó en el historial; el VPS usa la suya de `/data` (o `SECRET`), así que no le afecta
 - [x] 0.2 AnimeFLV (`animeflv.or.at`) funciona → PLAN.md actualizado, no se borra
-- [ ] 0.3 Migraciones versionadas en `Database.kt` (`schema_version`, numeradas e idempotentes)
+- [x] 0.3 Migraciones versionadas: `server/…/Migrations.kt` (`schema_version`, pasos numerados sin huecos e idempotentes, cada uno en su transacción; rechaza bases de una versión más nueva). La 1 es el esquema actual + columnas añadidas antes; lo nuevo se añade como migración 2, 3… al final de `Migrations.ALL`
 - [ ] 0.4 Copias nocturnas de SQLite (backup en caliente, 14 días, `BACKUP_DIR`), comando de restaurar, copia opcional al worker/NAS
 - [ ] 0.5 CI: build+tests de shared, server, web y app; detekt/ktlint; svelte-check/eslint; Dependabot
 

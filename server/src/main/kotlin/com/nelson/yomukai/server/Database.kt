@@ -118,45 +118,12 @@ class Database(file: File) {
             s.execute("PRAGMA synchronous=NORMAL")
             s.execute("PRAGMA foreign_keys=ON")
             s.execute("PRAGMA busy_timeout=5000")
-            SCHEMA.forEach(s::execute)
         }
-        migrate()
+        Migrations.run(connection)
     }
 
-    /** Columns added after the first version; SQLite has no ADD COLUMN IF NOT EXISTS. */
-    private fun migrate() {
-        fun columns(table: String) = connection.createStatement().use { s ->
-            s.executeQuery("PRAGMA table_info($table)").use { rs -> rs.all { getString("name") }.toSet() }
-        }
-        fun add(table: String, column: String, definition: String) {
-            if (column !in columns(table)) connection.createStatement().use { it.execute("ALTER TABLE $table ADD COLUMN $column $definition") }
-        }
-        add("library", "categories", "TEXT NOT NULL DEFAULT '[]'")
-        add("library", "updated_at", "INTEGER NOT NULL DEFAULT 0")
-        add("library", "deleted", "INTEGER NOT NULL DEFAULT 0")
-        add("library", "rev", "INTEGER NOT NULL DEFAULT 0")
-        add("progress", "rev", "INTEGER NOT NULL DEFAULT 0")
-        add("history", "updated_at", "INTEGER NOT NULL DEFAULT 0")
-        add("history", "deleted", "INTEGER NOT NULL DEFAULT 0")
-        add("history", "rev", "INTEGER NOT NULL DEFAULT 0")
-        add("settings", "shared_updated_at", "INTEGER NOT NULL DEFAULT 0")
-        add("settings", "rev", "INTEGER NOT NULL DEFAULT 0")
-        add("users", "suspended_at", "INTEGER")
-        add("users", "suspended_reason", "TEXT")
-        connection.createStatement().use { s ->
-            listOf("library", "progress", "history", "bookmarks", "categories").forEach { t ->
-                s.execute("CREATE INDEX IF NOT EXISTS ${t}_rev ON $t(user_id, rev)")
-            }
-            // Rows from before revisions existed: give them one so the first sync of a device sees them.
-            listOf("library", "progress", "history", "settings").forEach { t ->
-                s.execute("UPDATE $t SET rev = 1 WHERE rev = 0")
-            }
-            s.execute("UPDATE library SET updated_at = added_at WHERE updated_at = 0")
-            // The web used "PLAN" before it shared the app's names.
-            s.execute("UPDATE library SET reading_status = 'PLAN_TO_READ' WHERE reading_status = 'PLAN'")
-            s.execute("UPDATE history SET updated_at = read_at WHERE updated_at = 0")
-        }
-    }
+    /** The schema step this database is at; see [Migrations]. */
+    fun schemaVersion(): Int = Migrations.currentVersion(connection)
 
     /** Runs [block] on the IO threads with the connection to itself. */
     suspend fun <T> tx(block: Connection.() -> T): T = withContext(Dispatchers.IO) {
@@ -526,39 +493,6 @@ class Database(file: File) {
     companion object {
         /** Settings both the web and the Android app understand. */
         val SHARED_SETTINGS = listOf("enabledSources", "exclusions")
-
-        private val SCHEMA = listOf(
-            """CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE COLLATE NOCASE,
-               pass_hash TEXT, is_admin INTEGER NOT NULL DEFAULT 0, is_guest INTEGER NOT NULL DEFAULT 0,
-               created_at INTEGER NOT NULL, expires_at INTEGER)""",
-            "CREATE INDEX IF NOT EXISTS users_expiry ON users(is_guest, expires_at)",
-            """CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-               created_at INTEGER NOT NULL, last_seen INTEGER NOT NULL)""",
-            """CREATE TABLE IF NOT EXISTS library(user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, source_id TEXT NOT NULL,
-               media_id TEXT NOT NULL, title TEXT NOT NULL, cover TEXT NOT NULL, type TEXT NOT NULL, status TEXT NOT NULL DEFAULT '',
-               author TEXT NOT NULL DEFAULT '', genres TEXT NOT NULL DEFAULT '', added_at INTEGER NOT NULL,
-               reading_status TEXT NOT NULL DEFAULT 'NONE', PRIMARY KEY(user_id, source_id, media_id))""",
-            """CREATE TABLE IF NOT EXISTS progress(user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, source_id TEXT NOT NULL,
-               chapter_id TEXT NOT NULL, media_id TEXT NOT NULL, read INTEGER NOT NULL DEFAULT 0, page INTEGER NOT NULL DEFAULT 0,
-               total INTEGER NOT NULL DEFAULT 0, fraction REAL NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL,
-               PRIMARY KEY(user_id, source_id, chapter_id))""",
-            "CREATE INDEX IF NOT EXISTS progress_media ON progress(user_id, source_id, media_id)",
-            """CREATE TABLE IF NOT EXISTS history(user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, source_id TEXT NOT NULL,
-               media_id TEXT NOT NULL, chapter_id TEXT NOT NULL, chapter_title TEXT NOT NULL, title TEXT NOT NULL, cover TEXT NOT NULL,
-               type TEXT NOT NULL, read_at INTEGER NOT NULL, PRIMARY KEY(user_id, source_id, media_id))""",
-            "CREATE INDEX IF NOT EXISTS history_recent ON history(user_id, read_at)",
-            "CREATE TABLE IF NOT EXISTS settings(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, json TEXT NOT NULL)",
-            """CREATE TABLE IF NOT EXISTS categories(user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, name TEXT NOT NULL,
-               sort_order INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0,
-               rev INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(user_id, name))""",
-            """CREATE TABLE IF NOT EXISTS bookmarks(user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, source_id TEXT NOT NULL,
-               chapter_id TEXT NOT NULL, position INTEGER NOT NULL, media_id TEXT NOT NULL, chapter_title TEXT NOT NULL,
-               label TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0,
-               rev INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(user_id, source_id, chapter_id, position))""",
-            "CREATE INDEX IF NOT EXISTS bookmarks_media ON bookmarks(user_id, source_id, media_id)",
-            "CREATE TABLE IF NOT EXISTS counters(name TEXT PRIMARY KEY, value INTEGER NOT NULL)",
-            "INSERT OR IGNORE INTO counters(name, value) VALUES('rev', 1)"
-        )
     }
 }
 
