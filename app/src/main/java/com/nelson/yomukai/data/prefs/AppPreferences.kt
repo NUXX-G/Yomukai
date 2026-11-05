@@ -61,7 +61,13 @@ data class NovelReaderSettings(
     val ttsRate: Float = 1f,
     val infiniteScroll: Boolean = true,
     /** Auto-scroll speed, same scale as the manga reader's (3 = normal). */
-    val autoScrollSpeed: Float = 3f
+    val autoScrollSpeed: Float = 3f,
+    /** "natural" (the connected server's neural voices) or "system" (Android's own). */
+    val ttsEngine: String = "natural",
+    /** Dialogue read with the voice of who speaks (narrator, woman, man). */
+    val ttsCharacters: Boolean = true,
+    /** Chosen voices: "engine.lang.role" (e.g. "natural.es.narrator") -> voice id or name. */
+    val ttsVoices: Map<String, String> = emptyMap()
 )
 
 enum class ProxyType(val displayName: String) { NONE("Sin proxy"), HTTP("HTTP"), SOCKS("SOCKS5 (Tor/Orbot)") }
@@ -336,6 +342,9 @@ class AppPreferences(context: Context) {
             .putFloat("novel_tts_rate", value.ttsRate)
             .putBoolean("novel_infinite", value.infiniteScroll)
             .putFloat("novel_autoscroll", value.autoScrollSpeed)
+            .putString("novel_tts_engine", value.ttsEngine)
+            .putBoolean("novel_tts_characters", value.ttsCharacters)
+            .putString("novel_tts_voices", value.ttsVoices.entries.joinToString("\n") { it.key + "=" + it.value })
             .apply()
         _novel.value = value
     }
@@ -393,7 +402,12 @@ class AppPreferences(context: Context) {
         keepScreenOn = prefs.getBoolean("novel_keep_on", true),
         ttsRate = prefs.getFloat("novel_tts_rate", 1f),
         infiniteScroll = prefs.getBoolean("novel_infinite", true),
-        autoScrollSpeed = prefs.getFloat("novel_autoscroll", 3f)
+        autoScrollSpeed = prefs.getFloat("novel_autoscroll", 3f),
+        ttsEngine = prefs.getString("novel_tts_engine", null) ?: "natural",
+        ttsCharacters = prefs.getBoolean("novel_tts_characters", true),
+        ttsVoices = prefs.getString("novel_tts_voices", null).orEmpty().lines()
+            .mapNotNull { line -> line.split('=', limit = 2).takeIf { it.size == 2 && it[0].isNotBlank() }?.let { it[0] to it[1] } }
+            .toMap()
     )
 
     private inline fun <reified T : Enum<T>> enumOr(name: String?, default: T): T =

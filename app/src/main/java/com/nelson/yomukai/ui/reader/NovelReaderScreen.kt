@@ -1,5 +1,7 @@
 package com.nelson.yomukai.ui.reader
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import com.nelson.yomukai.ui.components.AppSpinner
 import java.util.Locale
 import androidx.compose.material3.OutlinedTextField
@@ -152,7 +154,10 @@ fun NovelReaderScreen(
     LaunchedEffect(viewModel.language) {
         speech.setLanguage(if (viewModel.language == "ES") Locale("es") else if (viewModel.language == "EN") Locale.ENGLISH else Locale.getDefault())
     }
-    LaunchedEffect(settings.ttsRate) { speech.setRate(settings.ttsRate) }
+    LaunchedEffect(settings) { speech.update(settings) }
+    val speechNotice by speech.notice.collectAsStateWithLifecycle()
+    val noticeContext = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(speechNotice) { speechNotice?.let { android.widget.Toast.makeText(noticeContext, it, android.widget.Toast.LENGTH_LONG).show() } }
     LaunchedEffect(items.size) { speech.onMoreContent() }
     val speechText: (Int) -> String? = { i ->
         when (val item = currentItems.getOrNull(i)) {
@@ -492,7 +497,9 @@ fun NovelReaderScreen(
     }
 
     if (showSettings) {
-        NovelSettingsSheet(settings, onUpdate = viewModel::updateSettings, onDismiss = { showSettings = false })
+        NovelSettingsSheet(settings, onUpdate = viewModel::updateSettings, onDismiss = { showSettings = false }) {
+            SpeechVoicesSection(speech, settings, if (viewModel.language == "EN") "en" else "es", viewModel::updateSettings)
+        }
     }
     if (showIndex) {
         ChapterIndexSheet(
@@ -543,12 +550,14 @@ private fun highlightMatches(text: String, query: String, color: Color): Annotat
 private fun NovelSettingsSheet(
     settings: NovelReaderSettings,
     onUpdate: ((NovelReaderSettings) -> NovelReaderSettings) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    voices: @Composable () -> Unit
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp)
         ) {
@@ -601,7 +610,9 @@ private fun NovelSettingsSheet(
             SettingSwitch("Texto justificado", settings.justify) { v -> onUpdate { it.copy(justify = v) } }
             SettingSwitch("Mantener pantalla encendida", settings.keepScreenOn) { v -> onUpdate { it.copy(keepScreenOn = v) } }
             SettingSwitch("Cargar el siguiente capítulo automáticamente", settings.infiniteScroll) { v -> onUpdate { it.copy(infiniteScroll = v) } }
-            LabeledSlider("Velocidad de lectura en voz alta", "%.1fx".format(settings.ttsRate), settings.ttsRate, 0.5f..2f) { v ->
+            HorizontalDivider(Modifier.padding(vertical = 12.dp))
+            voices()
+            LabeledSlider("Velocidad de lectura en voz alta", "%.2fx".format(settings.ttsRate), settings.ttsRate, 0.5f..2f) { v ->
                 onUpdate { it.copy(ttsRate = v) }
             }
         }

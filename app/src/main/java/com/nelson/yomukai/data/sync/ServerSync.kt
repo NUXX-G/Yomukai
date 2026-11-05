@@ -399,6 +399,37 @@ class ServerSync(context: Context, private val db: YomukaiDatabase, private val 
 
     private fun authed(builder: Request.Builder, session: String) = builder.header("Cookie", "$COOKIE=$session")
 
+    /** A natural voice of the connected server (see the web's novel reader). */
+    data class ServerVoice(val id: String, val label: String, val lang: String, val gender: String, val region: String)
+
+    /** The natural voices the connected server can read with; empty when not connected or it has none. */
+    suspend fun voices(): List<ServerVoice> = withContext(Dispatchers.IO) {
+        val server = _state.value.server ?: return@withContext emptyList()
+        val session = token ?: return@withContext emptyList()
+        runCatching {
+            client.newCall(authed(Request.Builder().url("$server/api/tts/voices"), session).build()).execute().use { r ->
+                if (!r.isSuccessful) return@use emptyList()
+                val root = JsonParser.parseString(r.body?.string().orEmpty()).asJsonObject
+                if (!root.bool("available")) return@use emptyList()
+                root.array("voices").mapNotNull { e ->
+                    val o = e.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
+                    ServerVoice(o.str("id"), o.str("label"), o.str("lang"), o.str("gender"), o.str("region"))
+                }
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    /** WAV audio of [text] read by the server's [voice]; throws when the server cannot. */
+    suspend fun speak(text: String, voice: String, rate: Float): ByteArray = withContext(Dispatchers.IO) {
+        val server = _state.value.server ?: throw IOException("Sin servidor")
+        val session = token ?: throw IOException("Sin sesión")
+        val body = obj("text" to text, "voice" to voice, "rate" to rate).toString().toRequestBody(json)
+        client.newCall(authed(Request.Builder().url("$server/api/tts").post(body), session).build()).execute().use { r ->
+            if (!r.isSuccessful) throw IOException(errorOf(r.body?.string()) ?: "El servidor respondió ${r.code}")
+            r.body?.bytes() ?: throw IOException("Sin audio")
+        }
+    }
+
     companion object {
         private const val COOKIE = "yk_session"
         private const val PROGRESS_BATCH = 5_000
