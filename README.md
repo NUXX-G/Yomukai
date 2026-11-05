@@ -24,7 +24,7 @@
 | **Red** | Limitación de peticiones, reintentos, cookies compartidas con WebView para superar desafíos de Cloudflare, **DNS sobre HTTPS** y **proxy HTTP/SOCKS5** (p. ej. Orbot/Tor) para sitios bloqueados por el operador. |
 | **Catálogo por fuente** | Desde Inicio entras en cualquier fuente y ves su catálogo completo con **scroll infinito** y **filtros propios de cada web** (orden, estado, tipo, género/editorial, idioma de capítulos, según lo que soporte cada una). |
 | **Búsqueda inteligente** | Insensible a mayúsculas, tildes y puntuación; tolera erratas y coincidencias parciales; busca en títulos alternativos; ordena por relevancia, **agrupa duplicados entre fuentes**, con historial y sugerencias. |
-| **Lectura continua** | En manga vertical, cómic y novela el capítulo siguiente se añade solo al final, con separador «Capítulo X»; el progreso y el historial siguen al capítulo visible. **Índice de capítulos** con búsqueda, **marcadores**, auto-scroll, recorte de bordes, filtros de color, bloqueo de orientación; en novelas **lectura en voz alta** y búsqueda en el capítulo. |
+| **Lectura continua** | En manga vertical, cómic y novela el capítulo siguiente se añade solo al final, con separador «Capítulo X»; el progreso y el historial siguen al capítulo visible. **Índice de capítulos** con búsqueda, **marcadores**, auto-scroll, recorte de bordes, filtros de color, bloqueo de orientación; en novelas **lectura en voz alta** con voces naturales (Piper, en tu servidor) o del sistema, a elegir, y voces por personaje (narrador, mujeres, hombres), y búsqueda en el capítulo. |
 | **Similares, relacionadas y otras fuentes** | En cada ficha, precuelas, secuelas y adaptaciones en cualquier formato, títulos parecidos (recomendaciones de AniList) y el mismo título en tus otras fuentes con cuántos capítulos tiene cada una, avisando cuando no se puede confirmar que sea la misma obra. |
 | **Descubrir** | En Inicio: recomendaciones según tu biblioteca e historial, y un título aleatorio con tipo y género opcionales. |
 | **Ficha inteligente** | Color tomado de la portada, nota de AniList y MyAnimeList (Kitsu de respaldo), géneros unificados en español (o deducidos de la sinopsis), aviso de saltos o desorden en los capítulos y de posible abandono. |
@@ -44,14 +44,15 @@
 | Olympus Scans | Manhwa | ES | API JSON del sitio |
 | Asura Scans | Manhwa | EN | API JSON del sitio |
 | Flame Comics | Manhwa | EN | Datos Next.js |
-| Royal Road | Novela | EN | HTML |
 | SkyNovels | Novela | ES | API JSON |
 | Marmota Comics | Cómic | ES | HTML (Madara) + AJAX |
 | MegaBanana | Cómic | ES | API JSON propia (WordPress) |
 | LectorTMO | Manga | ES | HTML (tema propio) |
 | ZonaTMO | Manga/Manhwa/Manhua | ES | HTML |
-| WEBTOON ES, WEBTOON EN | Manhwa | ES, EN | API JSON + HTML |
-| TuNovelaLigera | Novela | ES | HTML (Madara) + AJAX |
+| NovelCool (ES), NovelCool (EN) | Manga/Manhwa/Manhua | ES, EN | HTML |
+| NovelCool Novels (EN) | Novela | EN | HTML |
+| YSK Comics | Cómic | EN | API JSON |
+| Anitaku | Anime | EN | HTML + extractores |
 | AnimeAV1 | Anime | ES | Datos SvelteKit + extractores |
 | AnimeFLV | Anime | ES | HTML + extractores |
 | ReadAllComics | — | — | *Sin implementar*: pendiente de captura vía Tor. |
@@ -181,7 +182,7 @@ app/src/main/java/com/nelson/yomukai/
 │   ├── network/      NetworkHelper: OkHttp stack, anti-bot detection, DoH, proxy, WebView cookie bridge
 │   ├── source/       CatalogueSource / MangaSource / NovelSource / AnimeSource contracts
 │   │   ├── manga/    MangaDex, Olympus, Asura, Flame, LectorTMO, …
-│   │   ├── novel/    Royal Road, SkyNovels, TuNovelaLigera
+│   │   ├── novel/    SkyNovels (NovelCool Novels vive en manga/NovelCoolSource.kt)
 │   │   └── anime/    AnimeAV1, VideoExtractors (ok.ru, MP4Upload, YourUpload, HLS)
 │   ├── local/        Room entities, DAOs, migrations
 │   ├── repository/   LibraryRepository (single source of truth), ContentRepository (offline first)

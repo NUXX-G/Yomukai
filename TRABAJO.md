@@ -22,6 +22,18 @@ Fases:
 - [x] 4. Reproductor de anime en la web
 - [x] 5. Docker, instalación en una línea y README
 
+## Tanda v1.13.0 (release completa, pedida por el usuario el 2026-11-05)
+- [x] Web: descargas de anime (el marco oculto se borraba al primer load vacío y cancelaba la descarga a 1 s)
+- [x] iOS: botón de pantalla completa siempre; en iPhone, modo inmersivo propio (Safari no deja a las webs)
+- [x] Velocidad del desplazamiento automático a mano mientras se desplaza (web y Android; Android lo estrena en novela)
+- [x] Obras sin capítulos ocultas y las bien numeradas primero (`ChapterHealth`, `NoChaptersException`); el servidor sondea en segundo plano
+- [x] Fuentes: NovelCool ES, EN y Novels EN (UA propio: con UA de navegador da enlaces de anuncios); fuera WEBTOON ES/EN y TuNovelaLigera
+- [x] LectorXD: probado y descartado (capítulos y páginas tras Cloudflare; el usuario pidió dejarlo)
+- [x] Voces naturales: Piper en el Docker (`/api/tts`, voces descargadas a `/data/voices` al primer uso), selector de voz y voces por personaje (web y Android); sin Piper, voces del navegador/móvil
+- [x] Velocidad: precarga de páginas en servidor, una descarga por imagen, páginas enormes reducidas al ancho de pantalla, stale-while-revalidate, capítulos en paralelo (Olympus, YSK), descargas con más trozos a la vez; Android precarga 8 páginas a disco
+
+Sin probar: Piper de verdad (aquí no se pudo ejecutar el binario); si falla, la web y la app caen solas a las voces del navegador/móvil.
+
 ## Tanda v1.8.0 (release completa, autorizada por el usuario)
 - [x] Aleatorio siempre con fuente: solo obras que están en tus fuentes, «Disponible en» y abrir directo; cambiar tipo/género tira otra vez
 - [x] Reloj minimalista también en el lector de manga/manhwa y de novela
