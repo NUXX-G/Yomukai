@@ -7,7 +7,6 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import okhttp3.Request
 import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
@@ -54,7 +53,7 @@ class Speech(private val http: ServerHttp, dataDir: File, private val piper: Fil
         val voice = VOICES.firstOrNull { it.id == voiceId } ?: throw IllegalArgumentException("Voz desconocida")
         val clean = text.replace(Regex("\\s+"), " ").trim().take(MAX_CHARS)
         require(clean.isNotEmpty()) { "Texto vacío" }
-        val speed = rate.coerceIn(0.5f, 2.5f)
+        val speed = (if (rate.isFinite()) rate else 1f).coerceIn(0.5f, 2.5f)
         val key = sha("${voice.id}|$speed|$clean")
         cache.get(key)?.let { return it.first }
         if (!available) throw IOException("Este servidor no tiene voces naturales instaladas")
@@ -106,23 +105,38 @@ class Speech(private val http: ServerHttp, dataDir: File, private val piper: Fil
         )
         speaker?.let { command += listOf("--speaker", it.toString()) }
         val process = ProcessBuilder(command).directory(piper.parentFile).redirectError(ProcessBuilder.Redirect.DISCARD).start()
+        // Blocking reads ignore coroutine timeouts: a watchdog kills Piper past the deadline, which ends them.
+        val watchdog = Thread {
+            try { if (!process.waitFor(SYNTH_TIMEOUT_MS, TimeUnit.MILLISECONDS)) process.destroyForcibly() } catch (_: InterruptedException) {}
+        }.apply { isDaemon = true; start() }
         try {
-            withTimeout(SYNTH_TIMEOUT_MS) {
-                process.outputStream.use { it.write((text + "\n").toByteArray(Charsets.UTF_8)) }
-                val out = ByteArrayOutputStream()
-                process.inputStream.use { it.copyTo(out) }
-                if (!process.waitFor(5, TimeUnit.SECONDS)) throw IOException("La voz tardó demasiado")
-                if (out.size() == 0) throw IOException("La voz no devolvió audio")
-                out.toByteArray()
+            process.outputStream.use { it.write((text + "\n").toByteArray(Charsets.UTF_8)) }
+            val out = ByteArrayOutputStream()
+            process.inputStream.use { input ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val n = input.read(buffer)
+                    if (n < 0) break
+                    out.write(buffer, 0, n)
+                    if (out.size() > MAX_PCM_BYTES) throw IOException("Audio demasiado largo")
+                }
             }
+            if (!process.waitFor(5, TimeUnit.SECONDS) || !process.isAlive && process.exitValue() != 0 && out.size() == 0) {
+                throw IOException("La voz tardó demasiado")
+            }
+            if (out.size() == 0) throw IOException("La voz no devolvió audio")
+            out.toByteArray()
         } finally {
             process.destroyForcibly()
+            watchdog.interrupt()
         }
     }
 
     companion object {
         private const val MAX_CHARS = 2_000
         private const val SYNTH_TIMEOUT_MS = 90_000L
+        /** 2,000 characters are about two minutes of speech: 22 050 Hz, 16 bit. */
+        private const val MAX_PCM_BYTES = 16 * 1024 * 1024
 
         /** "es_ES-davefx-medium" -> "es/es_ES/davefx/medium/es_ES-davefx-medium". */
         fun modelPath(name: String): String {
