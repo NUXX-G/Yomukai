@@ -89,7 +89,9 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 ### Presupuesto de rendimiento
 | Momento | RAM server reposo | RAM bajo carga | CPU | API p95 | Bundle web (JS+CSS gz) | APK release |
 |---|---|---|---|---|---|---|
-| Antes de Fase 0 (local, ver notas) | pendiente | | | | | |
+| Antes de Fase 0 (2026-11-05, local Windows, JVM SerialGC) | 185 MB | 257 MB | 4,0 s de CPU en 300 peticiones + 4 novedades | 5 ms local · 575 ms novedades reales | 84 KB (JS 74,9 + CSS 9,2) + hls.js 180,5 KB aparte | 34,7 MB (v1.13.0; ~23 MB son Tor) |
+
+Cómo medir: `./gradlew :server:installDist`, `cd web && npm run build`, `bash scripts/bench.sh` (o `scripts/bench.sh https://tu-vps PID` en el VPS con `BENCH_USER`/`BENCH_PASSWORD`). En el VPS real aún no se ha medido (no tengo acceso): pendiente de que el usuario lance el script allí.
 
 ## Versión web (en curso, pedida por el usuario el 2026-11-03)
 Objetivo: lo mismo que la app Android (anime, manga, manhwa, novela) en el VPS del usuario, instalable con una línea de Docker, y en GitHub para que cualquiera lo monte.
