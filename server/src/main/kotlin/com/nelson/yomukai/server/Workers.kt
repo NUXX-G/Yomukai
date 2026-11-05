@@ -33,7 +33,9 @@ data class WorkerInfo(
     val lastSeen: Long?,
     val capabilities: JsonObject,
     val version: String,
-    val paused: Boolean
+    val paused: Boolean,
+    /** Granted by the admin only: the database copy holds every account, so not every worker gets it. */
+    val canBackup: Boolean = false
 ) {
     val engines: List<String> get() = capabilities.getAsJsonArray("engines")?.mapNotNull { e -> e.takeIf { it.isJsonPrimitive }?.asString }.orEmpty()
     val hasGpu: Boolean get() = capabilities.get("gpu")?.takeIf { it.isJsonPrimitive }?.asString?.isNotBlank() == true
@@ -58,6 +60,11 @@ class WorkerRegistry(private val db: Database, private val clock: () -> Long = S
 
     suspend fun revoke(id: Long) {
         db.tx { update("UPDATE workers SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL", clock(), id) }
+        byToken.entries.removeIf { it.value.first.id == id }
+    }
+
+    suspend fun setCanBackup(id: Long, allowed: Boolean) {
+        db.tx { update("UPDATE workers SET can_backup = ? WHERE id = ?", allowed, id) }
         byToken.entries.removeIf { it.value.first.id == id }
     }
 
@@ -97,7 +104,7 @@ class WorkerRegistry(private val db: Database, private val clock: () -> Long = S
         id = getLong("id"), name = getString("name"), createdAt = getLong("created_at"), revokedAt = longOrNull("revoked_at"),
         lastSeen = longOrNull("last_seen"),
         capabilities = runCatching { JsonParser.parseString(getString("capabilities")).asJsonObject }.getOrElse { JsonObject() },
-        version = getString("version"), paused = getInt("paused") == 1
+        version = getString("version"), paused = getInt("paused") == 1, canBackup = getInt("can_backup") == 1
     )
 
     companion object {
@@ -182,6 +189,9 @@ fun Route.workerRoutes(s: Services) {
         }
         // Latest database backup, so a home worker can keep a copy on the NAS.
         get("/backups/latest") {
+            if (!call.worker.canBackup || call.worker.paused) {
+                return@get call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Este worker no tiene permiso para copias de seguridad"))
+            }
             val file = Backups.list(s.config.backupDir).firstOrNull() ?: return@get call.respond(HttpStatusCode.NoContent)
             call.response.header(HttpHeaders.ContentDisposition, "attachment; filename=\"${file.name}\"")
             call.respondFile(file)
@@ -199,7 +209,7 @@ fun Route.workerAdminRoutes(s: Services) {
                 "workers" to s.workers.all().map {
                     mapOf(
                         "id" to it.id, "name" to it.name, "online" to it.online(now), "lastSeen" to it.lastSeen, "revoked" to (it.revokedAt != null),
-                        "paused" to it.paused, "capabilities" to it.capabilities, "version" to it.version
+                        "paused" to it.paused, "canBackup" to it.canBackup, "capabilities" to it.capabilities, "version" to it.version
                     )
                 },
                 "queue" to mapOf("queued" to stats.queued, "running" to stats.running, "lastDone" to stats.lastDone?.let { mapOf("type" to it.type, "at" to it.updatedAt) }),
@@ -215,6 +225,11 @@ fun Route.workerAdminRoutes(s: Services) {
     post("/workers/{id}/pause") {
         val body = JsonParser.parseString(call.receiveText().take(1_024)).asJsonObject
         s.workers.setPaused(call.parameters["id"]!!.toLong(), body.get("paused")?.asBoolean == true)
+        call.respond(mapOf("ok" to true))
+    }
+    post("/workers/{id}/backup") {
+        val body = JsonParser.parseString(call.receiveText().take(1_024)).asJsonObject
+        s.workers.setCanBackup(call.parameters["id"]!!.toLong(), body.get("allowed")?.asBoolean == true)
         call.respond(mapOf("ok" to true))
     }
     delete("/workers/{id}") {

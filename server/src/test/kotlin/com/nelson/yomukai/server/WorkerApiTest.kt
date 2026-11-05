@@ -84,6 +84,13 @@ class WorkerApiTest {
         assertEquals(HttpStatusCode.NotFound, ana.get("/api/jobs/$jobId/result").status)
         assertEquals("""{"text":"hola"}""", admin.get("/api/jobs/$jobId/result").bodyAsText())
 
+        // Database copies only for workers the admin allowed.
+        val wid = created.get("id").asLong
+        assertEquals(HttpStatusCode.Forbidden, client.get("/worker/backups/latest") { header("Authorization", "Bearer $token") }.status)
+        admin.post("/api/admin/workers/$wid/backup") { setBody("""{"allowed":true}""") }
+        assertEquals("allowed, but no copy made yet", HttpStatusCode.NoContent, client.get("/worker/backups/latest") { header("Authorization", "Bearer $token") }.status)
+        assertEquals(HttpStatusCode.Forbidden, ana.post("/api/admin/workers/$wid/backup") { setBody("""{"allowed":true}""") }.status)
+
         // A revoked token stops working at once.
         val revoke = admin.request("/api/admin/workers/${created.get("id").asLong}") { method = io.ktor.http.HttpMethod.Delete }
         assertEquals(HttpStatusCode.OK, revoke.status)

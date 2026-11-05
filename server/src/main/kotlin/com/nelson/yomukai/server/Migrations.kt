@@ -66,6 +66,9 @@ object Migrations {
                 """CREATE TABLE IF NOT EXISTS bandwidth(month TEXT PRIMARY KEY, bytes INTEGER NOT NULL DEFAULT 0,
                    warned80 INTEGER NOT NULL DEFAULT 0, warned100 INTEGER NOT NULL DEFAULT 0)"""
             )
+        },
+        Migration(3, "Permiso de cada worker para llevarse copias de la base de datos") {
+            addColumn("workers", "can_backup", "INTEGER NOT NULL DEFAULT 0")
         }
     )
 

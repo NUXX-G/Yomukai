@@ -30,7 +30,7 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 - [ ] 2.1 Cabeceras (CSP, HSTS, etc.) y cookies seguras
 - [ ] 2.2 Rate limiting por usuario e IP; bloqueo progresivo de login
 - [ ] 2.3 Auditoría de autorización con tests (usuarios, invitados, workers)
-- [ ] 2.4 Sesiones visibles y cerrables; 2FA TOTP con códigos de recuperación
+- [ ] 2.4 Sesiones visibles y cerrables; 2FA TOTP con códigos de recuperación. Guardar las sesiones como hash (SHA-256) para que ni la base ni las copias que se lleva un worker con `can_backup` contengan tokens usables
 - [ ] 2.5 Invitaciones por enlace (caducidad, un solo uso)
 - [ ] 2.6 Registro de auditoría de admin/moderación
 - [ ] 2.7 Asistente de primera configuración (sin contraseña de admin por defecto)

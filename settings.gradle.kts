@@ -21,3 +21,4 @@ rootProject.name = "Yomukai"
 if (System.getenv("YOMUKAI_SERVER_ONLY") != "true") include(":app")
 include(":shared")
 include(":server")
+include(":worker")

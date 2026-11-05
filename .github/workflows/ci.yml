@@ -32,7 +32,7 @@ jobs:
       - run: bash scripts/lint-kotlin.sh
 
   jvm:
-    name: shared + server
+    name: shared + server + worker
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -46,7 +46,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - run: chmod +x gradlew
       - name: Pruebas y build
-        run: ./gradlew :shared:test :server:test :server:installDist --console=plain
+        run: ./gradlew :shared:test :server:test :worker:test :server:installDist :worker:installDist --console=plain
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
