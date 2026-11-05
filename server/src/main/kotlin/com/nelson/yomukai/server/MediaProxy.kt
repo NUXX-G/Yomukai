@@ -52,6 +52,7 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
     private val shrinkLimit = Semaphore(SHRINK_PARALLEL)
     /** Widths readers asked for, and when: pages are prepared ahead at those. */
     private val recentWidths = ConcurrentHashMap<Int, Long>()
+    private val warmQueued = AtomicInteger()
 
     private fun sign(vararg parts: String): String {
         val mac = Mac.getInstance("HmacSHA256").apply { init(key) }
@@ -122,9 +123,10 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
     }
 
     private suspend fun shrinkNow(url: String, headers: Map<String, String>, width: Int, key: String): Pair<ByteArray, String>? {
-        val original = fetchImage(url, headers) ?: return null
-        val small = shrinkLimit.withPermit {
-            withContext(Dispatchers.Default) { runCatching { ImageShrinker.shrink(original.first, original.second.lowercase(), width) }.getOrNull() }
+        // The original is only held in memory while its turn to be shrunk has come.
+        val (original, small) = shrinkLimit.withPermit {
+            val fetched = fetchImage(url, headers) ?: return null
+            fetched to withContext(Dispatchers.Default) { runCatching { ImageShrinker.shrink(fetched.first, fetched.second.lowercase(), width) }.getOrNull() }
         }
         // Either way the answer is kept: the same page at the same width is never worked on twice.
         if (small != null) imageCache.put(key, small, "image/jpeg") else imageCache.put(key, ByteArray(0), SAME_AS_ORIGINAL)
@@ -138,12 +140,20 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
     fun warm(urls: List<String>, headers: Map<String, String>) {
         urls.take(WARM_MAX_PAGES).forEach { url ->
             if (imageCache.has(url) || imagesInFlight.containsKey(url)) return@forEach
+            // A bounded queue: past it, pages are simply fetched when the reader asks for them.
+            if (warmQueued.incrementAndGet() > WARM_MAX_QUEUED) { warmQueued.decrementAndGet(); return }
             imageScope.launch {
-                warmLimit.withPermit { runCatching { fetchImage(url, headers) } }
-                // Also ready at the widths readers asked for lately, so nobody waits for the shrinking.
-                val now = System.currentTimeMillis()
-                recentWidths.filterValues { now - it < RECENT_WIDTH_MS }.keys.sortedDescending().take(2).forEach { w ->
-                    runCatching { fetchShrunk(url, headers, w) }
+                try {
+                    warmLimit.withPermit {
+                        runCatching { fetchImage(url, headers) }
+                        // Also ready at the widths readers asked for lately, so nobody waits for the shrinking.
+                        val now = System.currentTimeMillis()
+                        recentWidths.filterValues { now - it < RECENT_WIDTH_MS }.keys.sortedDescending().take(2).forEach { w ->
+                            runCatching { fetchShrunk(url, headers, w) }
+                        }
+                    }
+                } finally {
+                    warmQueued.decrementAndGet()
                 }
             }
         }
@@ -283,7 +293,8 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
         private const val SAME_AS_ORIGINAL = "x-yomukai/original"
         private const val WARM_PARALLEL = 12
         private const val WARM_MAX_PAGES = 80
-        private const val SHRINK_PARALLEL = 2
+        private const val SHRINK_PARALLEL = 1
+        private const val WARM_MAX_QUEUED = 240
         private const val RECENT_WIDTH_MS = 30 * 60_000L
         private const val BUFFER = 64 * 1024
         private val URI_ATTRIBUTE = Regex("""URI="([^"]+)"""")

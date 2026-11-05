@@ -40,12 +40,15 @@ object ImageShrinker {
                 val height = reader.getHeight(0)
                 if (width <= 0 || height <= 0 || width.toLong() * height > MAX_PIXELS) return null
                 val tooWide = width > maxWidth * 1.5
-                val heavy = bytes.size > HEAVY_BYTES && ("png" in type || "bmp" in type)
+                val pixels = width.toLong() * height
+                val heavy = bytes.size > HEAVY_BYTES && ("png" in type || "bmp" in type) && pixels <= DECODE_BUDGET
                 if (!tooWide && !heavy) return null
                 // Reading every n-th pixel of a huge page saves most of the decoding; the final
                 // smooth scaling below still works from twice the target width at least.
                 val param = reader.defaultReadParam
-                val step = max(1, width / (maxWidth * 2))
+                // The decoded picture never takes more than DECODE_BUDGET pixels of memory, however big the file says it is.
+                val budgetStep = kotlin.math.ceil(kotlin.math.sqrt(pixels.toDouble() / DECODE_BUDGET)).toInt()
+                val step = max(max(1, width / (maxWidth * 2)), budgetStep)
                 if (step > 1) param.setSourceSubsampling(step, step, 0, 0)
                 val source = reader.read(0, param)
                 val targetW = if (tooWide) maxWidth else source.width
@@ -104,6 +107,7 @@ object ImageShrinker {
 
     private const val MIN_BYTES = 300 * 1024
     private const val HEAVY_BYTES = 1_500_000
-    private const val MAX_PIXELS = 90_000_000L
+    private const val MAX_PIXELS = 60_000_000L
+    private const val DECODE_BUDGET = 24_000_000L
     private const val QUALITY = 0.86f
 }

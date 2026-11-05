@@ -3,6 +3,7 @@ package com.nelson.yomukai.data.source
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import java.net.URLEncoder
+import kotlinx.coroutines.async
 
 object SourceUtils {
     private val numberAfterKeyword = Regex(
@@ -46,4 +47,19 @@ object SourceUtils {
             .map { it.trim() }
             .filter { it.isNotEmpty() }
             .joinToString("\n\n")
+}
+
+/**
+ * Pages 2..[last] of a paged listing, fetched [parallel] at a time instead of one after another; the
+ * result keeps page order. Page 1 is fetched by the caller first, since it tells how many there are.
+ */
+suspend fun <T> fetchRemainingPages(last: Int, parallel: Int = 4, fetch: suspend (Int) -> T): List<T> = kotlinx.coroutines.coroutineScope {
+    if (last < 2) return@coroutineScope emptyList()
+    val limit = kotlinx.coroutines.sync.Semaphore(parallel)
+    (2..last).map { page -> async { limit.withPermitCompat { fetch(page) } } }.map { it.await() }
+}
+
+private suspend fun <T> kotlinx.coroutines.sync.Semaphore.withPermitCompat(block: suspend () -> T): T {
+    acquire()
+    try { return block() } finally { release() }
 }

@@ -125,6 +125,10 @@ class TtlCache<K, V>(private val maxEntries: Int, private val ttlMs: Long) {
     fun get(key: K, now: Long = System.currentTimeMillis()): V? =
         map[key]?.takeIf { now - it.at < ttlMs }?.value
 
+    /** The value whatever its age, with its age in ms: for answering at once while a fresh one is fetched. */
+    @Synchronized
+    fun getAged(key: K, now: Long = System.currentTimeMillis()): Pair<V, Long>? = map[key]?.let { it.value to (now - it.at) }
+
     @Synchronized
     fun put(key: K, value: V) {
         map[key] = Entry(value, System.currentTimeMillis())

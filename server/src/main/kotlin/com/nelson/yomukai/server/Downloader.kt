@@ -468,11 +468,11 @@ class Downloader(private val catalog: Catalog, private val proxy: MediaProxy, pr
         private val log = org.slf4j.LoggerFactory.getLogger("YomukaiDownloads")
         const val MAX_CHAPTERS = 100
         const val GUEST_MAX_CHAPTERS = 3
-        private const val MAX_PARALLEL_FETCHES = 24
-        private const val PAGES_AHEAD = 4
-        private const val SEGMENTS_AHEAD = 4
+        private const val MAX_PARALLEL_FETCHES = 32
+        private const val PAGES_AHEAD = 8
+        private const val SEGMENTS_AHEAD = 8
         private const val PIECE_BYTES = 4L * 1024 * 1024
-        private const val PIECES_AHEAD = 6
+        private const val PIECES_AHEAD = 10
         private const val BUFFER = 64 * 1024
         private const val MAX_CHAPTER_BYTES = 400L * 1024 * 1024
         private const val MAX_VIDEO_BYTES = 6L * 1024 * 1024 * 1024

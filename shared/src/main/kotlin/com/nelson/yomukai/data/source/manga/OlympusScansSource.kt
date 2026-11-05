@@ -98,26 +98,24 @@ class OlympusScansSource(private val network: HttpFetcher) : MangaSource {
     }
 
     override suspend fun fetchChapterList(mediaId: String): Result<List<Chapter>> = runCatching {
-        val chapters = mutableListOf<Chapter>()
-        var page = 1
-        do {
-            val root = api("/series/$mediaId/chapters?page=$page&direction=desc&type=comic")
-            root.arr("data").objects().forEach { c ->
-                val number = c.str("name") ?: return@forEach
-                val url = chapterUrl(mediaId, number)
-                chapters += Chapter(
-                    id = url,
-                    mediaId = mediaId,
-                    title = "Capítulo $number",
-                    chapterNumber = number.toFloatOrNull() ?: 0f,
-                    url = url,
-                    dateUploaded = formatIsoDate(c.str("published_at"))
-                )
-            }
-            val lastPage = root.obj("meta")?.str("last_page")?.toIntOrNull() ?: 1
-            page++
-        } while (page <= lastPage && page <= 50)
-        chapters
+        fun parse(root: com.google.gson.JsonObject) = root.arr("data").objects().mapNotNull { c ->
+            val number = c.str("name") ?: return@mapNotNull null
+            val url = chapterUrl(mediaId, number)
+            Chapter(
+                id = url,
+                mediaId = mediaId,
+                title = "Capítulo $number",
+                chapterNumber = number.toFloatOrNull() ?: 0f,
+                url = url,
+                dateUploaded = formatIsoDate(c.str("published_at"))
+            )
+        }
+        val first = api("/series/$mediaId/chapters?page=1&direction=desc&type=comic")
+        val lastPage = (first.obj("meta")?.str("last_page")?.toIntOrNull() ?: 1).coerceAtMost(50)
+        // Long series have many pages of chapters: the rest are read at the same time.
+        parse(first) + com.nelson.yomukai.data.source.fetchRemainingPages(lastPage) { page ->
+            parse(api("/series/$mediaId/chapters?page=$page&direction=desc&type=comic"))
+        }.flatten()
     }
 
     override suspend fun fetchPageList(chapterUrl: String): Result<List<String>> = runCatching {

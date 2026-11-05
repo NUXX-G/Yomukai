@@ -149,6 +149,21 @@ class Catalog(
         }
     }
 
+    /**
+     * Stale-while-revalidate: a fresh cached answer as is; one older but within [staleMs] at once too,
+     * while a fresh one is fetched behind it for the next request; otherwise a fetch, shared by every
+     * identical request in flight.
+     */
+    private suspend fun <T> swr(cache: TtlCache<String, T>, k: String, staleMs: Long, load: suspend () -> Result<T>): Result<T> {
+        cache.get(k)?.let { return Result.success(it) }
+        val stale = cache.getAged(k)?.takeIf { it.second < staleMs }?.first
+        if (stale != null) {
+            probeScope.launch { shared(k) { load().onSuccess { cache.put(k, it) } } }
+            return Result.success(stale)
+        }
+        return shared(k) { load().onSuccess { cache.put(k, it) } }
+    }
+
     private fun remember(items: List<MediaItem>): List<MediaItem> {
         items.forEach { seen.put(key(it.sourceId, it.id), it) }
         return items
@@ -162,14 +177,14 @@ class Catalog(
     fun enabled(prefs: UserPrefs) = sources.enabled(prefs.enabledSources)
 
     /** Whether the chapter list is already in memory, so reading it costs the site nothing. */
-    fun hasCachedChapters(sourceId: String, mediaId: String) = chapters.get(key(sourceId, mediaId)) != null
+    fun hasCachedChapters(sourceId: String, mediaId: String) = chapters.get("chapters|" + key(sourceId, mediaId)) != null
 
     private fun require(id: String): CatalogueSource = sources.get(id) ?: throw NoSuchElementException("Fuente desconocida: $id")
 
     suspend fun latest(sourceId: String, page: Int, prefs: UserPrefs): Result<List<MediaDto>> {
         val source = require(sourceId)
         val k = key("latest", sourceId, page.toString())
-        val items = latest.get(k)?.let { Result.success(it) } ?: shared(k) { source.fetchLatestUpdates(page).onSuccess { latest.put(k, remember(it)) } }
+        val items = swr(latest, k, LIST_STALE_MS) { source.fetchLatestUpdates(page).onSuccess { remember(it) } }
         return items.map { list -> probe(list, PROBE_PER_LIST); health.arrange(filterFor(prefs).known(source, list)).map(dtos::media) }
     }
 
@@ -184,7 +199,7 @@ class Catalog(
             .take(max)
             .forEach { item ->
                 val k = key(item.sourceId, item.id)
-                if (chapters.get(k) != null || !probing.add(k)) return@forEach
+                if (chapters.getAged("chapters|$k") != null || !probing.add(k)) return@forEach
                 probeScope.launch {
                     try { probeLimit.withPermit { withTimeoutOrNull(PROBE_TIMEOUT_MS) { chapterList(item.sourceId, item.id) } } } finally { probing.remove(k) }
                 }
@@ -195,9 +210,8 @@ class Catalog(
     private suspend fun chapterList(sourceId: String, mediaId: String): Result<List<Chapter>> {
         val source = require(sourceId)
         val k = key(sourceId, mediaId)
-        chapters.get(k)?.let { return Result.success(it) }
-        return shared("chapters|$k") {
-            source.fetchChapterList(mediaId).onSuccess { chapters.put(k, it) }.also { health.record(sourceId, mediaId, it) }
+        return swr(chapters, "chapters|$k", CHAPTERS_STALE_MS) {
+            source.fetchChapterList(mediaId).also { health.record(sourceId, mediaId, it) }
         }
     }
 
@@ -209,7 +223,7 @@ class Catalog(
                 .mapValues { (_, v) -> v.toSet() }
         }.orEmpty()
         val k = key("browse", sourceId, page.toString(), values.toSortedMap().toString())
-        val items = latest.get(k)?.let { Result.success(it) } ?: shared(k) { source.browse(page, values).onSuccess { latest.put(k, remember(it)) } }
+        val items = swr(latest, k, LIST_STALE_MS) { source.browse(page, values).onSuccess { remember(it) } }
         return items.map { list -> probe(list, PROBE_PER_LIST); health.arrange(filterFor(prefs).known(source, list)).map(dtos::media) }
     }
 
@@ -429,6 +443,9 @@ class Catalog(
         const val SOURCE_TIMEOUT_MS = 10_000L
         const val ALTERNATIVES_TIMEOUT_MS = 18_000L
         const val MAX_GROUPS = 80
+        /** How old a list or a chapter list may be and still be shown at once while a fresh one comes. */
+        const val LIST_STALE_MS = 6 * HOUR
+        const val CHAPTERS_STALE_MS = 2 * HOUR
         const val PROBE_PER_LIST = 24
         const val PROBE_PARALLEL = 4
         const val PROBE_TIMEOUT_MS = 20_000L

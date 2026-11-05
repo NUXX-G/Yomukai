@@ -102,7 +102,7 @@ class ServerHttp(private val flareSolverrUrl: String?) : HttpFetcher {
     private val log = LoggerFactory.getLogger("YomukaiHttp")
     private val cookies = MemoryCookieJar()
     private val pool = ConnectionPool(64, 5, TimeUnit.MINUTES)
-    private val dispatcher = Dispatcher().apply { maxRequests = 256; maxRequestsPerHost = 16 }
+    private val dispatcher = Dispatcher().apply { maxRequests = 256; maxRequestsPerHost = 24 }
 
     /** Set by FlareSolverr: Cloudflare ties its clearance cookie to the browser's user agent. */
     private val agentByHost = ConcurrentHashMap<String, String>()

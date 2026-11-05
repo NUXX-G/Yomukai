@@ -56,16 +56,13 @@ class YskComicsSource(private val network: HttpFetcher) : MangaSource {
     }
 
     override suspend fun fetchChapterList(mediaId: String): Result<List<Chapter>> = runCatching {
-        val all = mutableListOf<Chapter>()
-        var page = 1
-        // Issues come twelve to a page; long runs have many pages.
-        while (page <= MAX_CHAPTER_PAGES) {
-            val data = json("$api/comics/${SourceUtils.encode(mediaId)}/chapters?page=$page").getAsJsonObject("data") ?: break
-            all += parseChapters(data.get("data_messages"), mediaId, api)
-            val total = data.getAsJsonObject("meta")?.get("total_pages")?.asInt ?: 1
-            if (page >= total) break
-            page++
-        }
+        // Issues come twelve to a page; long runs have many pages, read at the same time after the first.
+        val first = json("$api/comics/${SourceUtils.encode(mediaId)}/chapters?page=1").getAsJsonObject("data")
+        val total = (first?.getAsJsonObject("meta")?.get("total_pages")?.asInt ?: 1).coerceAtMost(MAX_CHAPTER_PAGES)
+        val all = parseChapters(first?.get("data_messages"), mediaId, api) +
+            com.nelson.yomukai.data.source.fetchRemainingPages(total) { page ->
+                parseChapters(json("$api/comics/${SourceUtils.encode(mediaId)}/chapters?page=$page").getAsJsonObject("data")?.get("data_messages"), mediaId, api)
+            }.flatten()
         all.ifEmpty { throw NoChaptersException("Sin capítulos disponibles") }
     }
 
