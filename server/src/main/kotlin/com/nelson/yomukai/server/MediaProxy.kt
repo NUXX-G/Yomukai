@@ -43,6 +43,9 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
     private val log = org.slf4j.LoggerFactory.getLogger("YomukaiMedia")
     private val imageCache = ImageCache(File(cacheDir, "images"))
     private val openStreams = ConcurrentHashMap<Long, AtomicInteger>()
+
+    /** Told every byte of video sent to a viewer (the monthly traffic meter). */
+    @Volatile var onStreamBytes: (Long) -> Unit = {}
     private val imageScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /** Images being fetched right now: a second request for one waits for the same download. */
@@ -231,6 +234,7 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
                 (type.startsWith("text/") && response.peekBody(8).string().startsWith("#EXTM3U"))
             if (playlist) {
                 val text = response.body?.string().orEmpty()
+                onStreamBytes(text.length.toLong())
                 call.response.header(HttpHeaders.CacheControl, "no-cache")
                 return call.respondText(rewritePlaylist(text, response.request.url.toString(), headers), ContentType.parse("application/vnd.apple.mpegurl"))
             }
@@ -261,6 +265,7 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
                                     val read = input.read(buffer)
                                     if (read < 0) break
                                     channel.writeFully(buffer, 0, read)
+                                    onStreamBytes(read.toLong())
                                 }
                             }
                         }

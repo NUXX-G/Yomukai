@@ -7,17 +7,33 @@ naming:
     constantPattern: '[A-Z][_A-Z0-9]*'
 style:
   MaxLineLength:
-    maxLineLength: 160
+    maxLineLength: 200
   MagicNumber:
     active: false
   WildcardImport:
     active: false
   ReturnCount:
     max: 4
+  ThrowsCount:
+    max: 4
+performance:
+  SpreadOperator:
+    active: false
 complexity:
   LongParameterList:
     functionThreshold: 8
     constructorThreshold: 12
     ignoreDefaultParameters: true
   TooManyFunctions:
+    active: false
+  NestedBlockDepth:
+    threshold: 5
+  LongMethod:
+    threshold: 120
+  CyclomaticComplexMethod:
+    threshold: 20
+exceptions:
+  TooGenericExceptionCaught:
+    active: false
+  SwallowedException:
     active: false

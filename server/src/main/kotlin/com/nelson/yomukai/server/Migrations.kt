@@ -38,6 +38,34 @@ object Migrations {
             // The web used "PLAN" before it shared the app's names.
             exec("UPDATE library SET reading_status = 'PLAN_TO_READ' WHERE reading_status = 'PLAN'")
             exec("UPDATE history SET updated_at = read_at WHERE updated_at = 0")
+        },
+        Migration(2, "Workers, cola de trabajos, resultados cacheados, flags de funcionalidad y tráfico mensual") {
+            exec("CREATE TABLE IF NOT EXISTS feature_flags(name TEXT PRIMARY KEY, enabled INTEGER NOT NULL, updated_at INTEGER NOT NULL)")
+            exec(
+                """CREATE TABLE IF NOT EXISTS workers(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE,
+                   token_hash TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, revoked_at INTEGER, last_seen INTEGER,
+                   capabilities TEXT NOT NULL DEFAULT '{}', version TEXT NOT NULL DEFAULT '', paused INTEGER NOT NULL DEFAULT 0)"""
+            )
+            exec(
+                """CREATE TABLE IF NOT EXISTS jobs(id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT NOT NULL, priority INTEGER NOT NULL,
+                   payload TEXT NOT NULL, dedup_key TEXT, status TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0,
+                   max_attempts INTEGER NOT NULL DEFAULT 3, worker_id INTEGER REFERENCES workers(id) ON DELETE SET NULL,
+                   requested_by INTEGER REFERENCES users(id) ON DELETE SET NULL, prefers_gpu INTEGER NOT NULL DEFAULT 0,
+                   created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, not_before INTEGER NOT NULL DEFAULT 0,
+                   expires_at INTEGER NOT NULL, lease_until INTEGER, error TEXT, result_key TEXT)"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS jobs_pending ON jobs(status, priority DESC, created_at)")
+            // At most one live job per piece of work: asking again joins the job already queued or running.
+            exec("CREATE UNIQUE INDEX IF NOT EXISTS jobs_dedup ON jobs(dedup_key) WHERE status IN ('queued', 'running')")
+            exec(
+                """CREATE TABLE IF NOT EXISTS results(key TEXT PRIMARY KEY, file TEXT NOT NULL, size INTEGER NOT NULL,
+                   content_type TEXT NOT NULL, created_at INTEGER NOT NULL, last_access INTEGER NOT NULL)"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS results_lru ON results(last_access)")
+            exec(
+                """CREATE TABLE IF NOT EXISTS bandwidth(month TEXT PRIMARY KEY, bytes INTEGER NOT NULL DEFAULT 0,
+                   warned80 INTEGER NOT NULL DEFAULT 0, warned100 INTEGER NOT NULL DEFAULT 0)"""
+            )
         }
     )
 

@@ -132,6 +132,13 @@ class Services(val config: Config) {
     /** Natural voices for reading novels aloud (Piper, installed in the Docker image). */
     val speech = Speech(http, config.dataDir, File(System.getenv("PIPER_PATH")?.ifBlank { null } ?: "/opt/piper/piper"))
 
+    val notifier = Notifier(config.discordWebhook, config.ntfyUrl, config.ntfyToken)
+    val features = FeatureFlags(db)
+    val workers = WorkerRegistry(db)
+    val workerLimiter = RateLimiter()
+    val jobs = JobQueue(db, ResultCache(db, File(config.dataDir, "results"), config.resultCacheBytes))
+    val bandwidth = Bandwidth(db, config.bandwidthCapBytes, notifier).also { meter -> proxy.onStreamBytes = meter::record }
+
     suspend fun prefs(user: User) = UserPrefs.parse(db.settings(user.id), sources.defaultEnabledIds)
 }
 
@@ -157,6 +164,25 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
 
     launch { services.auth.bootstrap() }
     if (config.backupsEnabled) backupsOf(config).schedule(this, services.db, config.backupHour)
+    // Every minute: job leases and expiry, the traffic meter, and a warning when every worker has gone quiet.
+    launch {
+        var workersWereOnline = false
+        while (true) {
+            delay(60_000L)
+            runCatching { services.jobs.sweep() }.onFailure { log.warn("Limpieza de la cola", it) }
+            runCatching { services.bandwidth.flush() }.onFailure { log.warn("Contador de tráfico", it) }
+            runCatching {
+                val online = services.workers.online().isNotEmpty()
+                if (workersWereOnline && !online) {
+                    services.notifier.admin(
+                        "workers-offline", "Servidor de casa apagado",
+                        "Ningún worker responde. Los trabajos pesados esperarán en la cola hasta que vuelva."
+                    )
+                }
+                workersWereOnline = online
+            }
+        }
+    }
     // Guests whose week is over go away, with all their data, once an hour.
     launch {
         while (true) {
@@ -173,7 +199,16 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 catalogRoutes(services)
                 userRoutes(services)
                 get("/img") { services.proxy.serveImage(call) }
-                get("/stream") { services.proxy.serveStream(call, call.user) }
+                get("/stream") {
+                    if (!call.user.isAdmin && services.bandwidth.blocked(services.features.isOn("bandwidth_cap"))) {
+                        return@get call.respond(
+                            HttpStatusCode.ServiceUnavailable,
+                            mapOf("error" to "Se ha llegado al tope mensual de vídeo por el servidor. Prueba un servidor directo o espera al mes que viene")
+                        )
+                    }
+                    services.proxy.serveStream(call, call.user)
+                }
+                featureRoutes(services)
                 // Files for the user's device. GET for one chapter (a plain link), POST from a form for many.
                 get("/download") {
                     val p = call.request.queryParameters
@@ -188,11 +223,21 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
             route("/admin") {
                 install(requireUser(services.auth, admin = true))
                 adminRoutes(services)
+                workerAdminRoutes(services)
+                get("/status") { call.respond(mapOf("bandwidth" to services.bandwidth.summary(), "memory" to memoryStatus())) }
             }
         }
+        workerRoutes(services)
         webApp(config.webDir)
     }
     log.info("Yomukai escuchando en el puerto {} (datos en {})", config.port, config.dataDir.absolutePath)
+}
+
+/** JVM memory as the server sees it (heap in use, heap limit, process RSS when the OS tells). */
+fun memoryStatus(): Map<String, Long?> {
+    val rt = Runtime.getRuntime()
+    val rss = runCatching { java.io.File("/proc/self/status").readLines().firstOrNull { it.startsWith("VmRSS:") }?.filter(Char::isDigit)?.toLong()?.times(1024) }.getOrNull()
+    return mapOf("heapUsed" to rt.totalMemory() - rt.freeMemory(), "heapMax" to rt.maxMemory(), "rss" to rss)
 }
 
 suspend fun ApplicationCall.fail(e: Throwable) =
