@@ -28,3 +28,13 @@ local.properties
 
 # Build output of every module (shared, server...)
 build/
+
+# Server runtime data (database, secret.key, caches, backups): never in git
+server/data/
+/data/
+
+# IDE settings
+.idea/
+
+# Stray captures
+/t.html
