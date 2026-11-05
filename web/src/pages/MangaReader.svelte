@@ -8,6 +8,7 @@
   import { detectCrop, cropStyles } from '../lib/crop.js';
   import Icon from '../components/Icon.svelte';
   import Sheet from '../components/Sheet.svelte';
+  import SpeedControl from '../components/SpeedControl.svelte';
   import { screen, canFullscreen, toggleFullscreen, enterFullscreen, enterFullscreenQuietly } from '../lib/fullscreen.svelte.js';
 
   const sourceId = route.params.source;
@@ -347,6 +348,9 @@
   {:else}
     <div class="mini-clock">{now}</div>
   {/if}
+  {#if scrolling && mode === 'vertical'}
+    <SpeedControl value={settings.reader.autoSpeed || 80} base={80} min={15} max={800} onchange={(v) => setReader('autoSpeed', v)} onstop={toggleScroll} />
+  {/if}
 </div>
 
 <Sheet bind:open={indexOpen} title="Índice">
@@ -409,7 +413,7 @@
   </div>
   {#if mode === 'vertical'}
     <div class="small muted">Velocidad del desplazamiento automático</div>
-    <input class="range" type="range" min="20" max="400" step="10" value={settings.reader.autoSpeed || 80} oninput={(e) => setReader('autoSpeed', +e.target.value)} aria-label="Velocidad" />
+    <input class="range" type="range" min="15" max="800" step="5" value={settings.reader.autoSpeed || 80} oninput={(e) => setReader('autoSpeed', +e.target.value)} aria-label="Velocidad" />
   {/if}
   <p class="small muted">Teclado: ← → para pasar página, Esc para salir. En el móvil puedes pellizcar para hacer zoom.</p>
 </Sheet>

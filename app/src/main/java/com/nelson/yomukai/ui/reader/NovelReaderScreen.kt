@@ -7,6 +7,9 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Bookmarks
@@ -134,6 +137,7 @@ fun NovelReaderScreen(
     val progress = if (currentTotal <= 1) 0f else (currentParagraph.toFloat() / (currentTotal - 1)).coerceIn(0f, 1f)
     val bookmarked = bookmarks.any { it.chapterId == currentChapterId && it.position == currentParagraph }
     var scrollTarget by remember(state.generation) { mutableStateOf<Int?>(null) }
+    var autoScroll by remember { mutableStateOf(false) }
 
     val matches = remember(items, currentChapterId, searchQuery, searchOpen) {
         if (searchOpen) NovelItems.search(items, currentChapterId, searchQuery) else emptyList()
@@ -235,6 +239,18 @@ fun NovelReaderScreen(
                 LaunchedEffect(activeMatch) {
                     activeMatch?.let { listState.scrollToItem(it) }
                 }
+                // Auto-scroll: a steady glide; a tap on the text stops it, the floating bar sets its speed.
+                LaunchedEffect(autoScroll, settings.autoScrollSpeed) {
+                    if (!autoScroll) return@LaunchedEffect
+                    var last = androidx.compose.runtime.withFrameNanos { it }
+                    while (true) {
+                        val now = androidx.compose.runtime.withFrameNanos { it }
+                        val dt = (now - last) / 1_000_000_000f
+                        last = now
+                        listState.scrollBy(settings.autoScrollSpeed * NOVEL_AUTO_SCROLL_PX_PER_SECOND * dt)
+                        if (!listState.canScrollForward && !state.isLoadingNext) { autoScroll = false; break }
+                    }
+                }
 
                 val bodyStyle = TextStyle(
                     color = textColor,
@@ -259,7 +275,7 @@ fun NovelReaderScreen(
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
-                        ) { overlayVisible = !overlayVisible }
+                        ) { if (autoScroll) autoScroll = false else overlayVisible = !overlayVisible }
                 ) {
                     itemsIndexed(items, key = { _, it -> it.key }) { index, item ->
                         when (item) {
@@ -323,6 +339,18 @@ fun NovelReaderScreen(
                     }
                 }
 
+                if (autoScroll) {
+                    AutoScrollSpeedBar(
+                        speed = settings.autoScrollSpeed,
+                        onSpeed = { v -> viewModel.updateSettings { it.copy(autoScrollSpeed = v) } },
+                        onStop = { autoScroll = false },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .navigationBarsPadding()
+                            .padding(bottom = if (overlayVisible) 80.dp else 16.dp)
+                    )
+                }
+
                 AnimatedVisibility(
                     visible = overlayVisible,
                     enter = fadeIn(),
@@ -357,6 +385,13 @@ fun NovelReaderScreen(
                                     if (spokenIndex != null) Icons.Default.Stop else Icons.Default.RecordVoiceOver,
                                     contentDescription = if (spokenIndex != null) "Detener lectura en voz alta" else "Leer en voz alta",
                                     tint = textColor.copy(alpha = if (speechReady) 1f else 0.3f)
+                                )
+                            }
+                            IconButton(onClick = { autoScroll = !autoScroll; if (autoScroll) overlayVisible = false }) {
+                                Icon(
+                                    if (autoScroll) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    contentDescription = if (autoScroll) "Detener desplazamiento automático" else "Desplazamiento automático",
+                                    tint = textColor
                                 )
                             }
                             Text(
@@ -588,3 +623,5 @@ private fun LabeledSlider(
     }
     Slider(value = value, onValueChange = onChange, valueRange = range, modifier = Modifier.fillMaxWidth())
 }
+
+private const val NOVEL_AUTO_SCROLL_PX_PER_SECOND = 12f

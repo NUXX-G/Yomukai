@@ -254,6 +254,18 @@ fun MangaReaderScreen(
             )
         }
 
+        if (autoScroll && webtoon) {
+            AutoScrollSpeedBar(
+                speed = settings.autoScrollSpeed,
+                onSpeed = { v -> viewModel.updateSettings { it.copy(autoScrollSpeed = v) } },
+                onStop = { autoScroll = false },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = if (overlayVisible) 72.dp else if (settings.showPageNumber) 36.dp else 12.dp)
+            )
+        }
+
         if (!overlayVisible && settings.showPageNumber && totalPages > 0) {
             Text(
                 "${currentPage + 1} / $totalPages",
@@ -789,14 +801,13 @@ private fun MangaReaderSettingsSheet(
 
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
             Text("Desplazamiento automático", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text("Velocidad: ${settings.autoScrollSpeed.toInt()}", style = MaterialTheme.typography.bodySmall)
-            var speed by remember { mutableFloatStateOf(settings.autoScrollSpeed) }
+            var speed by remember(settings.autoScrollSpeed) { mutableFloatStateOf(settings.autoScrollSpeed) }
+            Text("Velocidad: ${AutoScrollSpeed.label(speed)} (también con − y + mientras se desplaza)", style = MaterialTheme.typography.bodySmall)
             Slider(
                 value = speed,
                 onValueChange = { speed = it },
-                onValueChangeFinished = { onUpdate { it.copy(autoScrollSpeed = speed.toInt().toFloat().coerceIn(1f, 10f)) } },
-                valueRange = 1f..10f,
-                steps = 8
+                onValueChangeFinished = { onUpdate { it.copy(autoScrollSpeed = speed.coerceIn(AutoScrollSpeed.MIN, AutoScrollSpeed.MAX)) } },
+                valueRange = AutoScrollSpeed.MIN..AutoScrollSpeed.MAX
             )
 
             HorizontalDivider(Modifier.padding(vertical = 12.dp))

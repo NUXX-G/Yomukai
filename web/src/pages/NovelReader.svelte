@@ -7,6 +7,7 @@
   import { clock } from '../lib/format.js';
   import Icon from '../components/Icon.svelte';
   import Sheet from '../components/Sheet.svelte';
+  import SpeedControl from '../components/SpeedControl.svelte';
   import { screen, canFullscreen, toggleFullscreen, enterFullscreen, enterFullscreenQuietly } from '../lib/fullscreen.svelte.js';
 
   const sourceId = route.params.source;
@@ -321,7 +322,9 @@
   </div>
 {/if}
 
-{#if speaking || scrolling}
+{#if scrolling && !speaking}
+  <SpeedControl value={settings.novel.autoSpeed || 30} base={30} min={5} max={300} onchange={(v) => set('autoSpeed', v)} onstop={toggleScroll} />
+{:else if speaking}
   <div class="speech-bar">
     {#if speaking}
       <button class="icon-btn" onclick={toggleSpeech} aria-label={speechPaused ? 'Seguir' : 'Pausar'}><Icon name={speechPaused ? 'play' : 'pause'} /></button>
@@ -388,7 +391,7 @@
   <label class="toggle"><span class="grow">Texto justificado</span><input type="checkbox" checked={settings.novel.justify !== false} onchange={(e) => set('justify', e.target.checked)} /></label>
   <label class="toggle"><span class="grow">Seguir con el siguiente capítulo al llegar al final</span><input type="checkbox" checked={infinite} onchange={(e) => set('infinite', e.target.checked)} /></label>
   <div class="opt-row"><span class="grow">Desplazamiento automático</span><button class="btn outline" onclick={() => { options = false; toggleScroll(); }}>{scrolling ? 'Parar' : 'Empezar'}</button></div>
-  <input class="range" type="range" min="10" max="150" step="5" value={settings.novel.autoSpeed || 30} oninput={(e) => set('autoSpeed', +e.target.value)} aria-label="Velocidad del desplazamiento" />
+  <input class="range" type="range" min="5" max="300" step="5" value={settings.novel.autoSpeed || 30} oninput={(e) => set('autoSpeed', +e.target.value)} aria-label="Velocidad del desplazamiento" />
   {#if canSpeak}
     <div class="opt-row"><span class="grow">Velocidad de la voz</span>
       {#each [0.8, 1, 1.25, 1.5] as r}<button class="chip" class:on={(settings.novel.speechRate || 1) === r} onclick={() => set('speechRate', r)}>{r}x</button>{/each}

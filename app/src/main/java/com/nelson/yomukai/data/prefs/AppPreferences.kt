@@ -59,7 +59,9 @@ data class NovelReaderSettings(
     val keepScreenOn: Boolean = true,
     /** Text-to-speech rate, 0.5..2. */
     val ttsRate: Float = 1f,
-    val infiniteScroll: Boolean = true
+    val infiniteScroll: Boolean = true,
+    /** Auto-scroll speed, same scale as the manga reader's (3 = normal). */
+    val autoScrollSpeed: Float = 3f
 )
 
 enum class ProxyType(val displayName: String) { NONE("Sin proxy"), HTTP("HTTP"), SOCKS("SOCKS5 (Tor/Orbot)") }
@@ -333,6 +335,7 @@ class AppPreferences(context: Context) {
             .putBoolean("novel_keep_on", value.keepScreenOn)
             .putFloat("novel_tts_rate", value.ttsRate)
             .putBoolean("novel_infinite", value.infiniteScroll)
+            .putFloat("novel_autoscroll", value.autoScrollSpeed)
             .apply()
         _novel.value = value
     }
@@ -389,7 +392,8 @@ class AppPreferences(context: Context) {
         horizontalPadding = prefs.getFloat("novel_padding", 20f),
         keepScreenOn = prefs.getBoolean("novel_keep_on", true),
         ttsRate = prefs.getFloat("novel_tts_rate", 1f),
-        infiniteScroll = prefs.getBoolean("novel_infinite", true)
+        infiniteScroll = prefs.getBoolean("novel_infinite", true),
+        autoScrollSpeed = prefs.getFloat("novel_autoscroll", 3f)
     )
 
     private inline fun <reified T : Enum<T>> enumOr(name: String?, default: T): T =
