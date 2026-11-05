@@ -23,12 +23,30 @@ import com.nelson.yomukai.domain.model.Chapter
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
 
+/**
+ * Which chapters and titles a MangaDex source shows. [DEFAULT] is Spanish + English; [CHINESE] is for reading
+ * in Chinese (zh, zh-hk), e.g. to learn the language, and is off until the user turns it on.
+ */
+enum class MangaDexProfile(
+    val sourceId: String,
+    val displayName: String,
+    val language: String,
+    val chapterLanguages: List<String>,
+    /** Preferred title/description languages, first match wins. */
+    val textLanguages: List<String>,
+    val enabledByDefault: Boolean
+) {
+    DEFAULT("mangadex", "MangaDex", "MULTI", listOf("es", "es-la", "en"), listOf("es", "en", "ja-ro"), true),
+    CHINESE("mangadex_zh", "MangaDex 中文", "ZH", listOf("zh", "zh-hk"), listOf("zh", "zh-hk", "zh-ro", "en", "ja-ro"), false)
+}
+
 /** MangaDex public JSON API (https://api.mangadex.org/docs). */
-class MangaDexSource(private val network: HttpFetcher) : MangaSource {
-    override val id = "mangadex"
-    override val name = "MangaDex"
+class MangaDexSource(private val network: HttpFetcher, private val profile: MangaDexProfile = MangaDexProfile.DEFAULT) : MangaSource {
+    override val id = profile.sourceId
+    override val name = profile.displayName
+    override val enabledByDefault: Boolean get() = profile.enabledByDefault
     override val baseUrl = "https://api.mangadex.org"
-    override val language = "MULTI"
+    override val language = profile.language
     override val supportedTypes = setOf(MediaType.MANGA, MediaType.MANHWA, MediaType.MANHUA, MediaType.COMIC)
     override val supportsLatestPaging = true
 
@@ -36,7 +54,7 @@ class MangaDexSource(private val network: HttpFetcher) : MangaSource {
     override val imageHeaders = mapOf("Referer" to "https://mangadex.org/", "User-Agent" to "Yomukai/1.0 (Android)")
 
     private val headers = mapOf("User-Agent" to "Yomukai/1.0 (Android)")
-    private val languages = listOf("es", "es-la", "en")
+    private val languages = profile.chapterLanguages
     private val pageSize = 24
 
     private val commonQuery = buildString {
@@ -51,10 +69,10 @@ class MangaDexSource(private val network: HttpFetcher) : MangaSource {
         return root
     }
 
-    override val filters: List<SourceFilter> = FILTERS
+    override val filters: List<SourceFilter> = if (profile == MangaDexProfile.DEFAULT) FILTERS else FILTERS - LANGUAGE
 
     override suspend fun browse(page: Int, values: FilterValues): Result<List<MediaItem>> = runCatching {
-        get(catalogueRequest(page, values, pageSize)).arr("data").objects().map(::toMediaItem)
+        get(catalogueRequest(page, values, pageSize, languages)).arr("data").objects().map(::toMediaItem)
     }
 
     override suspend fun fetchLatestUpdates(page: Int): Result<List<MediaItem>> = runCatching {
@@ -130,10 +148,8 @@ class MangaDexSource(private val network: HttpFetcher) : MangaSource {
         val attrs = manga.obj("attributes") ?: JsonObject()
         val titles = attrs.obj("title")
         val altTitles = attrs.arr("altTitles").objects()
-        val title = titles?.str("es") ?: titles?.str("en") ?: titles?.str("ja-ro")
-            ?: altTitles.firstNotNullOfOrNull { it.str("es") ?: it.str("en") }
-            ?: titles?.entrySet()?.firstOrNull()?.value?.asString ?: "Sin título"
-        val description = attrs.obj("description").let { it?.str("es") ?: it?.str("es-la") ?: it?.str("en") }.orEmpty()
+        val title = pickTitle(titles, altTitles, profile.textLanguages, altFirst = profile != MangaDexProfile.DEFAULT)
+        val description = attrs.obj("description").let { d -> (profile.chapterLanguages + profile.textLanguages).firstNotNullOfOrNull { d?.str(it) } }.orEmpty()
 
         val relationships = manga.arr("relationships").objects()
         val coverFile = relationships.firstOrNull { it.str("type") == "cover_art" }?.obj("attributes")?.str("fileName")
@@ -209,10 +225,21 @@ class MangaDexSource(private val network: HttpFetcher) : MangaSource {
         )
         val FILTERS: List<SourceFilter> = listOf(SORT, STATUS, TYPE, GENRES, LANGUAGE)
 
-        private val CONTENT_LANGS = listOf("es", "es-la", "en")
+        private val CONTENT_LANGS = MangaDexProfile.DEFAULT.chapterLanguages
+
+        /**
+         * Title in the first of [langs] found. With [altFirst] each language also looks among the alternative titles
+         * before trying the next one (Chinese titles usually live there); otherwise main titles win over alternatives.
+         */
+        fun pickTitle(titles: JsonObject?, altTitles: List<JsonObject>, langs: List<String>, altFirst: Boolean = false): String {
+            fun alt(lang: String) = altTitles.firstNotNullOfOrNull { it.str(lang) }
+            val found = if (altFirst) langs.firstNotNullOfOrNull { titles?.str(it) ?: alt(it) }
+            else langs.firstNotNullOfOrNull { titles?.str(it) } ?: langs.firstNotNullOfOrNull(::alt)
+            return found ?: titles?.entrySet()?.firstOrNull()?.value?.asString ?: "Sin título"
+        }
 
         /** Request path (with query) for one catalogue page; pure so it can be unit tested. */
-        fun catalogueRequest(page: Int, values: FilterValues, pageSize: Int): String {
+        fun catalogueRequest(page: Int, values: FilterValues, pageSize: Int, chapterLanguages: List<String> = CONTENT_LANGS): String {
             val order = when (values.single(SORT)) {
                 CommonSort.POPULAR -> "order[followedCount]=desc"
                 CommonSort.RATING -> "order[rating]=desc"
@@ -222,7 +249,7 @@ class MangaDexSource(private val network: HttpFetcher) : MangaSource {
             val langs = when (values.single(LANGUAGE)) {
                 "es" -> listOf("es", "es-la")
                 "en" -> listOf("en")
-                else -> CONTENT_LANGS
+                else -> chapterLanguages
             }
             return buildString {
                 append("/manga?limit=$pageSize&offset=${(page - 1).coerceAtLeast(0) * pageSize}&$order&hasAvailableChapters=true")

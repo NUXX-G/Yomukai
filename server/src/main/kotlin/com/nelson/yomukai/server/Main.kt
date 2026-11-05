@@ -132,7 +132,7 @@ class Services(val config: Config) {
     /** Natural voices for reading novels aloud (Piper, installed in the Docker image). */
     val speech = Speech(http, config.dataDir, File(System.getenv("PIPER_PATH")?.ifBlank { null } ?: "/opt/piper/piper"))
 
-    suspend fun prefs(user: User) = UserPrefs.parse(db.settings(user.id), sources.all.map { it.id }.toSet())
+    suspend fun prefs(user: User) = UserPrefs.parse(db.settings(user.id), sources.defaultEnabledIds)
 }
 
 fun Application.yomukai(config: Config, services: Services = Services(config)) {

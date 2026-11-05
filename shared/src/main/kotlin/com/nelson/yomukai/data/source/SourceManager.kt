@@ -22,6 +22,7 @@ class SourceManager(network: HttpFetcher) {
     val all: List<CatalogueSource> = listOf(
         // Manga / manhwa
         MangaDexSource(network),
+        MangaDexSource(network, com.nelson.yomukai.data.source.manga.MangaDexProfile.CHINESE),
         OlympusScansSource(network),
         AsuraScansSource(network),
         FlameComicsSource(network),
@@ -43,7 +44,7 @@ class SourceManager(network: HttpFetcher) {
 
     private val byId = all.associateBy { it.id }
 
-    val defaultEnabledIds: Set<String> = all.filterNot { it.isExperimental }.map { it.id }.toSet()
+    val defaultEnabledIds: Set<String> = all.filter { it.enabledByDefault }.map { it.id }.toSet()
 
     fun get(id: String): CatalogueSource? = byId[id]
 

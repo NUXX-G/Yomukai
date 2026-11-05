@@ -9,7 +9,7 @@ Commits convencionales pequeños, build+tests verdes antes de cada commit, `git 
 Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de casa o al dispositivo. Feature flag por funcionalidad grande. Medir rendimiento antes/después de cada fase (tabla abajo).
 
 ### Extra pedido por el usuario
-- [ ] Fuente Bilibili Manga: BLOQUEADA a la espera del usuario. Su API (twirp) cifra las respuestas con AES y clave calculada en WASM (buvid + plataforma + id) para impedir el acceso automatizado; sin eso devuelve code 99. No se elude (misma regla que el DRM de anime.nexus). Alternativa propuesta: variante «MangaDex 中文» (~9.600 capítulos en zh/zh-hk) reutilizando MangaDexSource
+- [x] Bilibili Manga descartada por el usuario (API cifrada). En su lugar: **MangaDex 中文** (`mangadex_zh`, `MangaDexProfile.CHINESE`): capítulos zh/zh-hk, títulos en chino; desactivada por defecto (`CatalogueSource.enabledByDefault`), se activa en Ajustes › Fuentes
 
 ### Fase 0 — Limpieza y base
 - [x] 0.1 `server/data/`, `t.html` y `.idea/` fuera del repo e ignorados; `secret.key` borrado (se regenera). Nota: la clave vieja quedó en el historial; el VPS usa la suya de `/data` (o `SECRET`), así que no le afecta

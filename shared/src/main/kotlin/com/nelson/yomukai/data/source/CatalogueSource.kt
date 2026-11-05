@@ -18,6 +18,9 @@ interface CatalogueSource {
 
     /** Sources whose sites are frequently offline or heavily protected; disabled by default. */
     val isExperimental: Boolean get() = false
+
+    /** Off until the user turns it on (experimental sources, or niche ones like Chinese-only catalogues). */
+    val enabledByDefault: Boolean get() = !isExperimental
     val supportsLatestPaging: Boolean get() = false
 
     /**
