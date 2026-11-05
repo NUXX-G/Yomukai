@@ -9,14 +9,14 @@ Commits convencionales pequeños, build+tests verdes antes de cada commit, `git 
 Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de casa o al dispositivo. Feature flag por funcionalidad grande. Medir rendimiento antes/después de cada fase (tabla abajo).
 
 ### Extra pedido por el usuario
-- [ ] Fuente Bilibili Manga (`manga.bilibili.com`, chino, para un amigo que aprende chino). Tras la Fase 0, con tests sobre JSON real capturado
+- [ ] Fuente Bilibili Manga: BLOQUEADA a la espera del usuario. Su API (twirp) cifra las respuestas con AES y clave calculada en WASM (buvid + plataforma + id) para impedir el acceso automatizado; sin eso devuelve code 99. No se elude (misma regla que el DRM de anime.nexus). Alternativa propuesta: variante «MangaDex 中文» (~9.600 capítulos en zh/zh-hk) reutilizando MangaDexSource
 
 ### Fase 0 — Limpieza y base
 - [x] 0.1 `server/data/`, `t.html` y `.idea/` fuera del repo e ignorados; `secret.key` borrado (se regenera). Nota: la clave vieja quedó en el historial; el VPS usa la suya de `/data` (o `SECRET`), así que no le afecta
 - [x] 0.2 AnimeFLV (`animeflv.or.at`) funciona → PLAN.md actualizado, no se borra
 - [x] 0.3 Migraciones versionadas: `server/…/Migrations.kt` (`schema_version`, pasos numerados sin huecos e idempotentes, cada uno en su transacción; rechaza bases de una versión más nueva). La 1 es el esquema actual + columnas añadidas antes; lo nuevo se añade como migración 2, 3… al final de `Migrations.ALL`
 - [x] 0.4 Copias nocturnas: `Backups.kt` (`VACUUM INTO` en caliente + gzip, `BACKUP_HOUR`=4, 14 días, la más nueva nunca se borra, `BACKUP_DIR`), copia a `BACKUP_COPY_DIR` (carpeta del NAS montada) con reintento cada hora; comandos `server backup | backups | restore <archivo|latest>`; `ServerLock` (`data/.lock`) impide restaurar con el server en marcha. Documentado en README
-- [ ] 0.5 CI: build+tests de shared, server, web y app; detekt/ktlint; svelte-check/eslint; Dependabot
+- [x] 0.5 CI (`.github/workflows/ci.yml`): 4 trabajos en cada push/PR — detekt 1.23.8 (baseline en `config/detekt-baseline.xml`) + ktlint 1.8.0 (reglas de maquetación desactivadas en `.editorconfig`, el resto aplicado con `scripts/lint-kotlin.sh --format`), shared+server (tests + installDist), app (assembleDebug + testDebugUnitTest + APK como artefacto), web (eslint + svelte-check + build). Dependabot semanal (Gradle, npm, Actions) y mensual (Docker). Primera ejecución en verde
 
 ### Fase 1 — VPS + worker + dispositivo
 - [ ] 1.1 Docker con límite de RAM (1 GB por defecto) y CPU, JVM ajustada, cachés acotadas, medición en reposo y carga, guía de swapfile
@@ -90,6 +90,7 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 | Momento | RAM server reposo | RAM bajo carga | CPU | API p95 | Bundle web (JS+CSS gz) | APK release |
 |---|---|---|---|---|---|---|
 | Antes de Fase 0 (2026-11-05, local Windows, JVM SerialGC) | 185 MB | 257 MB | 4,0 s de CPU en 300 peticiones + 4 novedades | 5 ms local · 575 ms novedades reales | 84 KB (JS 74,9 + CSS 9,2) + hls.js 180,5 KB aparte | 34,7 MB (v1.13.0; ~23 MB son Tor) |
+| Después de Fase 0 (mismo equipo) | 181 MB | 260 MB | 5,0 s | 5 ms local · 536 ms novedades | 84 KB (sin cambios) + hls.js 180,5 KB | sin cambios de código de la app (solo formato) |
 
 Cómo medir: `./gradlew :server:installDist`, `cd web && npm run build`, `bash scripts/bench.sh` (o `scripts/bench.sh https://tu-vps PID` en el VPS con `BENCH_USER`/`BENCH_PASSWORD`). En el VPS real aún no se ha medido (no tengo acceso): pendiente de que el usuario lance el script allí.
 
