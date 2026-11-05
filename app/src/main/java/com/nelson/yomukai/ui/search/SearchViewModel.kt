@@ -16,10 +16,10 @@ import com.nelson.yomukai.ui.navigation.Routes
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -184,6 +184,7 @@ class SearchViewModel(handle: SavedStateHandle, private val container: AppContai
 
     private companion object {
         const val SOURCE_TIMEOUT_MS = 10_000L
+
         /** Results whose chapter lists are checked in the background once the search ends. */
         const val PROBE_GROUPS = 10
     }

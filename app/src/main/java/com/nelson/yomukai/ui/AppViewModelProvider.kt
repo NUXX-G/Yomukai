@@ -12,10 +12,10 @@ import com.nelson.yomukai.ui.browse.BrowseViewModel
 import com.nelson.yomukai.ui.details.DetailsViewModel
 import com.nelson.yomukai.ui.home.HomeViewModel
 import com.nelson.yomukai.ui.library.LibraryViewModel
+import com.nelson.yomukai.ui.player.AnimePlayerViewModel
 import com.nelson.yomukai.ui.reader.MangaReaderViewModel
 import com.nelson.yomukai.ui.reader.NovelReaderViewModel
 import com.nelson.yomukai.ui.search.SearchViewModel
-import com.nelson.yomukai.ui.player.AnimePlayerViewModel
 import com.nelson.yomukai.ui.settings.DiagnosticsViewModel
 import com.nelson.yomukai.ui.settings.SettingsViewModel
 

@@ -16,9 +16,9 @@ import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
 import com.nelson.yomukai.domain.model.PublicationStatus
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
 import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 
@@ -91,6 +91,7 @@ class MetadataRepository(
     private val openLibrary: OpenLibraryClient? = null
 ) {
     private val cache = ConcurrentHashMap<String, TitleMetadata>()
+
     /** Titles no database knew, with when that was found out. */
     private val misses = ConcurrentHashMap<String, Pair<Long, TitleMetadata>>()
 

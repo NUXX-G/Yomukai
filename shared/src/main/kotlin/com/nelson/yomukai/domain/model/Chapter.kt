@@ -1,6 +1,5 @@
 package com.nelson.yomukai.domain.model
 
-
 data class Chapter(
     val id: String,
     val mediaId: String,

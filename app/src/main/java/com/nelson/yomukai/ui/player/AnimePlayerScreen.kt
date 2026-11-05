@@ -1,27 +1,23 @@
 package com.nelson.yomukai.ui.player
 
-import com.nelson.yomukai.ui.components.AppSpinner
-import com.nelson.yomukai.ui.components.MiniClock
 import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.pm.ActivityInfo
 import android.net.Uri
 import android.os.Build
 import android.util.Rational
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import android.view.WindowManager
-import android.content.pm.ActivityInfo
-import androidx.compose.material.icons.filled.ScreenRotation
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -46,6 +42,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -68,6 +65,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,9 +78,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.media3.common.MediaItem
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -94,6 +92,8 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.LocalAppContainer
+import com.nelson.yomukai.ui.components.AppSpinner
+import com.nelson.yomukai.ui.components.MiniClock
 import com.nelson.yomukai.ui.reader.ChapterIndexSheet
 import kotlinx.coroutines.delay
 import java.util.Locale
@@ -586,7 +586,6 @@ fun AnimePlayerScreen(
         )
     }
 }
-
 
 private fun speedLabel(speed: Float) = if (speed % 1f == 0f) "${speed.toInt()}x" else "${speed}x"
 

@@ -37,6 +37,7 @@ class VideoOffline(context: Context, private val network: NetworkHelper) {
 
     /** Headers a server requires (Referer, cookies...), per host, registered when a download or playback starts. */
     private val headersByHost = ConcurrentHashMap<String, Map<String, String>>()
+
     @Volatile private var lastHeaders: Map<String, String> = emptyMap()
 
     fun registerHeaders(url: String, headers: Map<String, String>) {

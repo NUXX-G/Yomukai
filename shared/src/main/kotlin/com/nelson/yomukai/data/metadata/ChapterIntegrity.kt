@@ -49,9 +49,9 @@ object ChapterIntegrity {
     fun describe(issue: ChapterIssue, isAnime: Boolean): String {
         val noun = if (isAnime) "episodios" else "capítulos"
         return when (issue) {
-            is ChapterIssue.Gap -> "Faltan ${noun} entre el ${format(issue.from)} y el ${format(issue.to)}"
+            is ChapterIssue.Gap -> "Faltan $noun entre el ${format(issue.from)} y el ${format(issue.to)}"
             is ChapterIssue.Duplicate -> "El ${format(issue.number)} aparece ${issue.count} veces"
-            is ChapterIssue.OutOfOrder -> "La fuente tiene ${noun} desordenados"
+            is ChapterIssue.OutOfOrder -> "La fuente tiene $noun desordenados"
         }
     }
 

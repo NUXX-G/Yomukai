@@ -10,14 +10,14 @@ import com.nelson.yomukai.data.source.MangaSource
 import com.nelson.yomukai.data.source.MultiSelectFilter
 import com.nelson.yomukai.data.source.SelectFilter
 import com.nelson.yomukai.data.source.SourceFilter
-import com.nelson.yomukai.data.source.selected
-import com.nelson.yomukai.data.source.single
 import com.nelson.yomukai.data.source.SourceUtils
 import com.nelson.yomukai.data.source.arr
 import com.nelson.yomukai.data.source.formatIsoDate
 import com.nelson.yomukai.data.source.obj
 import com.nelson.yomukai.data.source.objects
 import com.nelson.yomukai.data.source.parseJson
+import com.nelson.yomukai.data.source.selected
+import com.nelson.yomukai.data.source.single
 import com.nelson.yomukai.data.source.str
 import com.nelson.yomukai.domain.model.Chapter
 import com.nelson.yomukai.domain.model.MediaItem
@@ -191,6 +191,7 @@ class MangaDexSource(private val network: HttpFetcher) : MangaSource {
             FilterKeys.LANGUAGE, "Idioma de capítulos",
             listOf(FilterOption("all", "Español e inglés"), FilterOption("es", "Español"), FilterOption("en", "Inglés"))
         )
+
         /** Genre tag ids from https://api.mangadex.org/manga/tag. */
         private val GENRES = MultiSelectFilter(
             FilterKeys.GENRE, "Género",

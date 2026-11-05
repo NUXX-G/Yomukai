@@ -50,7 +50,6 @@ import javax.net.ssl.SSLException
 
 private const val NO_RETRY_HEADER = "X-Yomukai-No-Retry"
 
-
 /** The site answered with a firewall/anti-bot page instead of content. */
 class SourceBlockedException(host: String, protection: String) : IOException(
     "$host bloqueó la conexión ($protection). Abre el sitio en el navegador una vez, " +
@@ -132,6 +131,7 @@ class NetworkHelper(
     val videoCallFactory = Call.Factory { request -> videoClient.newCall(request) }
 
     /** Same for the image loader, which must never store a web page as if it were the image. */
+
     /**
      * Images for the reader and covers. A few CDNs (MegaBanana's) refuse OkHttp over HTTP/2 with a 403
      * and serve the very same file over HTTP/1.1, so those hosts get an HTTP/1.1 client.

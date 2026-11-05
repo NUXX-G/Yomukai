@@ -1,8 +1,8 @@
 package com.nelson.yomukai.data.source.anime
 
-import com.nelson.yomukai.data.source.NoChaptersException
 import com.nelson.yomukai.data.network.HttpFetcher
 import com.nelson.yomukai.data.source.AnimeSource
+import com.nelson.yomukai.data.source.NoChaptersException
 import com.nelson.yomukai.data.source.SourceUtils
 import com.nelson.yomukai.data.source.objects
 import com.nelson.yomukai.data.source.parseJson

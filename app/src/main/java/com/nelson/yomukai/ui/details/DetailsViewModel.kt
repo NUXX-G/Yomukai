@@ -13,9 +13,14 @@ import com.nelson.yomukai.data.local.DownloadEntity
 import com.nelson.yomukai.data.local.DownloadStatus
 import com.nelson.yomukai.data.local.MediaEntity
 import com.nelson.yomukai.data.local.ReadingStatus
+import com.nelson.yomukai.data.metadata.Abandonment
+import com.nelson.yomukai.data.metadata.ChapterIntegrity
+import com.nelson.yomukai.data.metadata.ChapterIssue
+import com.nelson.yomukai.data.metadata.TitleMetadata
 import com.nelson.yomukai.data.repository.toDomain
 import com.nelson.yomukai.data.source.AnimeSource
 import com.nelson.yomukai.data.source.NovelSource
+import com.nelson.yomukai.domain.model.PublicationStatus
 import com.nelson.yomukai.domain.model.VideoSource
 import com.nelson.yomukai.ui.navigation.Routes
 import kotlinx.coroutines.CancellationException
@@ -27,11 +32,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
-import com.nelson.yomukai.data.metadata.Abandonment
-import com.nelson.yomukai.data.metadata.ChapterIntegrity
-import com.nelson.yomukai.data.metadata.ChapterIssue
-import com.nelson.yomukai.data.metadata.TitleMetadata
-import com.nelson.yomukai.domain.model.PublicationStatus
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch

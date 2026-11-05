@@ -1,10 +1,5 @@
 package com.nelson.yomukai.ui.settings
 
-import com.nelson.yomukai.BuildConfig
-import com.nelson.yomukai.data.network.TorPhase
-import com.nelson.yomukai.data.prefs.BrowserHome
-import com.nelson.yomukai.data.prefs.TorMode
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -61,13 +56,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.nelson.yomukai.BuildConfig
+import com.nelson.yomukai.data.network.TorPhase
+import com.nelson.yomukai.data.prefs.BrowserHome
 import com.nelson.yomukai.data.prefs.ComicFormat
 import com.nelson.yomukai.data.prefs.MangaReaderMode
-import com.nelson.yomukai.data.prefs.NovelFormat
 import com.nelson.yomukai.data.prefs.NetworkSettings
+import com.nelson.yomukai.data.prefs.NovelFormat
 import com.nelson.yomukai.data.prefs.ProxyType
 import com.nelson.yomukai.data.prefs.ThemeMode
+import com.nelson.yomukai.data.prefs.TorMode
 import com.nelson.yomukai.data.updates.LibraryUpdateWorker
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.components.LanguageTag

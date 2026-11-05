@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,11 +20,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material3.Button
 import androidx.compose.material3.AssistChip
-import com.nelson.yomukai.ui.components.LanguageTag
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -36,6 +39,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -45,15 +49,11 @@ import com.nelson.yomukai.data.discovery.RelatedTitle
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.ui.components.AppSpinner
 import com.nelson.yomukai.ui.components.CoverImage
+import com.nelson.yomukai.ui.components.LanguageTag
 import com.nelson.yomukai.ui.components.MediaCard
 import com.nelson.yomukai.ui.components.SectionHeader
 import com.nelson.yomukai.ui.components.TypeBadge
 import com.nelson.yomukai.ui.details.LocateSheet
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 
 @Composable
 fun RelatedCard(related: RelatedTitle, onOpen: (RelatedTitle) -> Unit, modifier: Modifier = Modifier, subtitle: String? = null) {

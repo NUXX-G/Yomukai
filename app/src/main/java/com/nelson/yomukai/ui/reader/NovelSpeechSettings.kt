@@ -104,5 +104,3 @@ private fun VoicePicker(label: String, value: String, options: List<Pair<String,
         IconButton(onClick = onSample) { Icon(Icons.Default.PlayArrow, contentDescription = "Probar la voz") }
     }
 }
-
-

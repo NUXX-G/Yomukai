@@ -11,6 +11,7 @@ interface CatalogueSource {
     val id: String
     val name: String
     val baseUrl: String
+
     /** "ES", "EN" or "MULTI". */
     val language: String
     val supportedTypes: Set<MediaType>

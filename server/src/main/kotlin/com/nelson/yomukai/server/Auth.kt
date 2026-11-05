@@ -1,11 +1,11 @@
 package com.nelson.yomukai.server
 
-import io.ktor.http.decodeURLPart
-import io.ktor.server.request.path
 import io.ktor.http.Cookie
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.decodeURLPart
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.createRouteScopedPlugin
+import io.ktor.server.request.path
 import io.ktor.server.response.respond
 import io.ktor.util.AttributeKey
 import org.slf4j.LoggerFactory
@@ -242,6 +242,7 @@ class Auth(private val db: Database, private val config: Config) {
         limiter.allow(user.id, if (user.isGuest) config.guestRatePerMinute else Config.ACCOUNT_RATE)
 
     private val usage = ConcurrentHashMap<String, LongArray>()
+
     /** Connections whose guest was suspended: no new guests from there for a day. */
     private val blockedAddresses = ConcurrentHashMap<String, Long>()
     private val guestsCreated = ConcurrentHashMap<String, MutableList<Long>>()

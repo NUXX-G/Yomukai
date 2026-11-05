@@ -1,0 +1,47 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+
+[*.{kt,kts}]
+indent_style = space
+indent_size = 4
+max_line_length = 160
+ktlint_code_style = intellij_idea
+# Compose: los @Composable se llaman en PascalCase.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+# Estilo del proyecto: sin coma final obligatoria, imports con comodín permitidos en tests.
+ktlint_standard_trailing-comma-on-call-site = disabled
+ktlint_standard_trailing-comma-on-declaration-site = disabled
+# Reglas de saltos de línea y maquetación que chocan con el estilo compacto del proyecto (líneas largas,
+# varias sentencias cortas con ;). Se aplican el resto (espaciado, imports, líneas en blanco, nombres...).
+ktlint_standard_argument-list-wrapping = disabled
+ktlint_standard_statement-wrapping = disabled
+ktlint_standard_function-signature = disabled
+ktlint_standard_class-signature = disabled
+ktlint_standard_multiline-if-else = disabled
+ktlint_standard_parameter-list-wrapping = disabled
+ktlint_standard_wrapping = disabled
+ktlint_standard_indent = disabled
+ktlint_standard_function-literal = disabled
+ktlint_standard_blank-line-between-when-conditions = disabled
+ktlint_standard_max-line-length = disabled
+ktlint_standard_binary-expression-wrapping = disabled
+ktlint_standard_enum-wrapping = disabled
+ktlint_standard_property-wrapping = disabled
+ktlint_standard_mixed-condition-operators = disabled
+ktlint_standard_comment-wrapping = disabled
+ktlint_standard_kdoc = disabled
+ktlint_standard_property-naming = disabled
+ktlint_standard_backing-property-naming = disabled
+ktlint_standard_no-wildcard-imports = disabled
+ktlint_standard_chain-method-continuation = disabled
+ktlint_standard_condition-wrapping = disabled
+ktlint_standard_multiline-expression-wrapping = disabled
+ktlint_standard_function-expression-body = disabled
+
+[*.{js,svelte,json,css,html}]
+indent_style = space
+indent_size = 2

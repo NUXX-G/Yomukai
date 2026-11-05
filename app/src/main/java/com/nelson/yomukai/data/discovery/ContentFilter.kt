@@ -13,7 +13,6 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
 
-
 /**
  * Hides titles of excluded genres in two steps, so lists never wait for it. [known] answers at once
  * with what is already known; [check] then reads the pages of titles whose genres nobody listed,

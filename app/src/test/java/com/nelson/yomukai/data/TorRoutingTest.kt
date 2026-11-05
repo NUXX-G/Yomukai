@@ -2,10 +2,10 @@ package com.nelson.yomukai.data
 
 import com.nelson.yomukai.data.network.TorManager
 import com.nelson.yomukai.data.network.TorPhase
-import com.nelson.yomukai.data.network.TorState
-import com.nelson.yomukai.data.prefs.TorMode
 import com.nelson.yomukai.data.network.TorProxySelector
 import com.nelson.yomukai.data.network.TorRouting
+import com.nelson.yomukai.data.network.TorState
+import com.nelson.yomukai.data.prefs.TorMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

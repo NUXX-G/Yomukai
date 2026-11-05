@@ -1,6 +1,5 @@
 package com.nelson.yomukai.ui.web
 
-import com.nelson.yomukai.ui.components.AppSpinner
 import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -122,6 +121,7 @@ import com.nelson.yomukai.data.prefs.BrowserHome
 import com.nelson.yomukai.data.prefs.BrowserPage
 import com.nelson.yomukai.data.repository.PageData
 import com.nelson.yomukai.ui.LocalAppContainer
+import com.nelson.yomukai.ui.components.AppSpinner
 import com.nelson.yomukai.ui.reader.ReaderWindowEffects
 import kotlinx.coroutines.delay
 import org.json.JSONArray
@@ -273,6 +273,7 @@ fun WebCaptureScreen(
     var pageError by remember { mutableStateOf<String?>(null) }
     var desktopMode by remember { mutableStateOf(store.browserDesktop) }
     var menuOpen by remember { mutableStateOf(false) }
+
     /** Like F11: only the page on screen, without the browser's bars or the system's. */
     var immersive by remember { mutableStateOf(false) }
     var addressFocused by remember { mutableStateOf(false) }
@@ -284,6 +285,7 @@ fun WebCaptureScreen(
     val videos = remember { mutableStateListOf<CapturedVideo>() }
     val images = remember { mutableStateListOf<String>() }
     var showVideos by remember { mutableStateOf(false) }
+
     /** Link waiting for the user's decision to hand it to another app. */
     var leaving by remember { mutableStateOf<String?>(null) }
     var webView by remember { mutableStateOf<WebView?>(null) }

@@ -1,35 +1,12 @@
 package com.nelson.yomukai.ui.reader
 
-import com.nelson.yomukai.ui.components.AppSpinner
-import androidx.compose.foundation.gestures.scrollBy
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.withFrameNanos
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
-import androidx.compose.material.icons.filled.Bookmarks
-import androidx.compose.material.icons.filled.BookmarkBorder
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.ui.graphics.ColorMatrix
-import androidx.compose.ui.graphics.ColorFilter
-import com.nelson.yomukai.data.prefs.OrientationLock
-import com.nelson.yomukai.data.prefs.ReaderColorFilter
-import com.nelson.yomukai.data.prefs.ReaderFit
-import coil3.network.httpHeaders
-import coil3.network.NetworkHeaders
-import coil3.request.ImageRequest
-import coil3.imageLoader
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,16 +23,25 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.BrokenImage
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
@@ -83,27 +69,41 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
+import coil3.imageLoader
+import coil3.network.NetworkHeaders
+import coil3.network.httpHeaders
+import coil3.request.ImageRequest
 import com.nelson.yomukai.data.local.ChapterEntity
 import com.nelson.yomukai.data.prefs.MangaReaderMode
 import com.nelson.yomukai.data.prefs.MangaReaderSettings
+import com.nelson.yomukai.data.prefs.OrientationLock
+import com.nelson.yomukai.data.prefs.ReaderColorFilter
+import com.nelson.yomukai.data.prefs.ReaderFit
 import com.nelson.yomukai.data.repository.PageData
 import com.nelson.yomukai.ui.AppViewModelProvider
+import com.nelson.yomukai.ui.components.AppSpinner
 import com.nelson.yomukai.ui.components.rememberImageRequest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -656,7 +656,6 @@ internal fun WebtoonReader(
         item { footer() }
     }
 }
-
 
 /** Legacy entry point used by the quick reader (captured pages). */
 @Composable

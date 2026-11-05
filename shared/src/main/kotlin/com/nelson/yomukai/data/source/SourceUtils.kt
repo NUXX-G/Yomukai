@@ -1,9 +1,9 @@
 package com.nelson.yomukai.data.source
 
+import kotlinx.coroutines.async
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import java.net.URLEncoder
-import kotlinx.coroutines.async
 
 object SourceUtils {
     private val numberAfterKeyword = Regex(

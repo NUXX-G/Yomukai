@@ -11,6 +11,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondOutputStream
 import io.ktor.server.response.respondText
+import io.ktor.utils.io.writeFully
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -20,7 +21,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
-import io.ktor.utils.io.writeFully
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Request
 import java.io.File
@@ -44,12 +44,16 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
     private val imageCache = ImageCache(File(cacheDir, "images"))
     private val openStreams = ConcurrentHashMap<Long, AtomicInteger>()
     private val imageScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     /** Images being fetched right now: a second request for one waits for the same download. */
     private val imagesInFlight = ConcurrentHashMap<String, Deferred<Pair<ByteArray, String>?>>()
+
     /** Downloads ahead of the reader, shared by everyone, so they never crowd out what is on screen. */
     private val warmLimit = Semaphore(WARM_PARALLEL)
+
     /** Shrinking is CPU work: a couple at a time. */
     private val shrinkLimit = Semaphore(SHRINK_PARALLEL)
+
     /** Widths readers asked for, and when: pages are prepared ahead at those. */
     private val recentWidths = ConcurrentHashMap<Int, Long>()
     private val warmQueued = AtomicInteger()

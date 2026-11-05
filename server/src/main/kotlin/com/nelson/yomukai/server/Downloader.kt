@@ -38,6 +38,7 @@ import javax.crypto.spec.SecretKeySpec
  */
 class Downloader(private val catalog: Catalog, private val proxy: MediaProxy, private val http: ServerHttp) {
     private val active = ConcurrentHashMap<Long, AtomicInteger>()
+
     /** Shared by every download: page and segment requests to the sites at the same time. */
     private val fetches = Semaphore(MAX_PARALLEL_FETCHES)
 

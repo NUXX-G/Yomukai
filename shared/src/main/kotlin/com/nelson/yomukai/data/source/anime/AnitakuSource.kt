@@ -1,9 +1,9 @@
 package com.nelson.yomukai.data.source.anime
 
-import com.nelson.yomukai.data.source.NoChaptersException
 import com.google.gson.JsonParser
 import com.nelson.yomukai.data.network.HttpFetcher
 import com.nelson.yomukai.data.source.AnimeSource
+import com.nelson.yomukai.data.source.NoChaptersException
 import com.nelson.yomukai.domain.model.Chapter
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType

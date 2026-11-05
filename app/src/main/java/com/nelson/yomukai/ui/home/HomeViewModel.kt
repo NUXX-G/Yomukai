@@ -1,7 +1,7 @@
 package com.nelson.yomukai.ui.home
 
-import androidx.compose.runtime.Immutable
 import android.util.Log
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nelson.yomukai.AppContainer

@@ -41,6 +41,7 @@ class Speech(private val http: ServerHttp, dataDir: File, private val piper: Fil
     private val voicesDir = File(dataDir, "voices").apply { mkdirs() }
     private val cache = ImageCache(File(dataDir, "cache/tts"), maxBytes = 1024L * 1024 * 1024)
     private val downloading = ConcurrentHashMap<String, Mutex>()
+
     /** Piper uses every core it gets: a couple at a time keeps the server answering everyone else. */
     private val synthLimit = Semaphore(maxOf(1, minOf(2, Runtime.getRuntime().availableProcessors() - 1)))
 
@@ -135,6 +136,7 @@ class Speech(private val http: ServerHttp, dataDir: File, private val piper: Fil
     companion object {
         private const val MAX_CHARS = 2_000
         private const val SYNTH_TIMEOUT_MS = 90_000L
+
         /** 2,000 characters are about two minutes of speech: 22 050 Hz, 16 bit. */
         private const val MAX_PCM_BYTES = 16 * 1024 * 1024
 

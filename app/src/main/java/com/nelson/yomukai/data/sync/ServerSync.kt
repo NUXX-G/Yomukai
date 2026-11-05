@@ -378,7 +378,6 @@ class ServerSync(context: Context, private val db: YomukaiDatabase, private val 
                 ))
             }
         }
-
     }
 
     /** The shared settings, outside the database transaction (they live in the preferences). */

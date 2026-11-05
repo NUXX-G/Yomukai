@@ -1,11 +1,11 @@
 package com.nelson.yomukai.data.source.manga
 
-import com.nelson.yomukai.data.source.NoChaptersException
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.nelson.yomukai.data.network.HttpFetcher
 import com.nelson.yomukai.data.source.MangaSource
+import com.nelson.yomukai.data.source.NoChaptersException
 import com.nelson.yomukai.data.source.SourceUtils
 import com.nelson.yomukai.domain.model.Chapter
 import com.nelson.yomukai.domain.model.MediaItem

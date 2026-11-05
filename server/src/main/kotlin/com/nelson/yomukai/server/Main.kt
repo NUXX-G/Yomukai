@@ -1,6 +1,5 @@
 package com.nelson.yomukai.server
 
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
@@ -55,8 +54,9 @@ import io.ktor.sse.ServerSentEvent
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withPermit
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.slf4j.LoggerFactory
 import java.io.File
 
@@ -128,6 +128,7 @@ class Services(val config: Config) {
     val proxy = MediaProxy(http, config.secret, File(config.dataDir, "cache"), config.guestStreams)
     val catalog = Catalog(sources, aniList, metadata, proxy)
     val downloads = Downloader(catalog, proxy, http)
+
     /** Natural voices for reading novels aloud (Piper, installed in the Docker image). */
     val speech = Speech(http, config.dataDir, File(System.getenv("PIPER_PATH")?.ifBlank { null } ?: "/opt/piper/piper"))
 
@@ -643,6 +644,7 @@ private const val MAX_PROGRESS_ROWS = 5_000
 private const val MAX_ROW_CHARS = 64 * 1024
 private const val MAX_CATEGORIES = 200
 private const val MAX_DOWNLOAD_IDS = 200
+
 /** Per sync call; the app sends bigger change sets in several calls. */
 private const val MAX_SYNC_ROWS = 20_000
 private const val MIN_PASSWORD = 8

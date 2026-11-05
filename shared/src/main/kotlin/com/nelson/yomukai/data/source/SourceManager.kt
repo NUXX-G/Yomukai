@@ -10,10 +10,10 @@ import com.nelson.yomukai.data.source.manga.LectorTmoSource
 import com.nelson.yomukai.data.source.manga.MangaDexSource
 import com.nelson.yomukai.data.source.manga.MarmotaComicsSource
 import com.nelson.yomukai.data.source.manga.MegaBananaSource
-import com.nelson.yomukai.data.source.manga.YskComicsSource
-import com.nelson.yomukai.data.source.manga.OlympusScansSource
 import com.nelson.yomukai.data.source.manga.NovelCoolNovelSource
 import com.nelson.yomukai.data.source.manga.NovelCoolSource
+import com.nelson.yomukai.data.source.manga.OlympusScansSource
+import com.nelson.yomukai.data.source.manga.YskComicsSource
 import com.nelson.yomukai.data.source.manga.ZonaTmoSource
 import com.nelson.yomukai.data.source.novel.SkyNovelsSource
 

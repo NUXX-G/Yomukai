@@ -179,6 +179,7 @@ class DiscoveryRepository(
 
     /** Places already found for recommended titles in this session, so opening one again is instant. */
     private val located = java.util.concurrent.ConcurrentHashMap<String, List<Alternative>>()
+
     /** Recommended titles none of the user's sources has, already checked this session. */
     private val nowhere = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
@@ -227,7 +228,7 @@ class DiscoveryRepository(
     suspend fun randomAvailable(kind: RandomKind, requestedGenre: String?): Pair<RelatedTitle, List<Alternative>>? {
         // Only the genres the app offers: anything else would be a new key with its own background work.
         val genre = requestedGenre?.takeIf { it in RANDOM_GENRES }
-        val key ="${kind.name}|${genre.orEmpty()}"
+        val key = "${kind.name}|${genre.orEmpty()}"
         // A pick found ahead of time answers at once; the next ones are looked for meanwhile.
         val ready = synchronized(prefetched) { prefetched[key]?.removeFirstOrNull() }
         refill(kind, genre, key)
@@ -384,6 +385,7 @@ class DiscoveryRepository(
             "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"
         )
         private const val MAX_PREFETCH_KEYS = 4
+
         /** Background random searches running at once, across every user of the process. */
         private val prefetchSlots = Semaphore(2)
         private const val ALIAS_TIMEOUT_MS = 3_000L

@@ -1,11 +1,11 @@
 package com.nelson.yomukai.data.source.manga
 
-import com.nelson.yomukai.data.source.NoChaptersException
 import com.nelson.yomukai.data.network.HttpFetcher
 import com.nelson.yomukai.data.source.FilterKeys
 import com.nelson.yomukai.data.source.FilterOption
 import com.nelson.yomukai.data.source.FilterValues
 import com.nelson.yomukai.data.source.MangaSource
+import com.nelson.yomukai.data.source.NoChaptersException
 import com.nelson.yomukai.data.source.NovelSource
 import com.nelson.yomukai.data.source.SelectFilter
 import com.nelson.yomukai.data.source.SourceFilter

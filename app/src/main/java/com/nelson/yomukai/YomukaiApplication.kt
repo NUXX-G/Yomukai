@@ -12,9 +12,6 @@ import coil3.disk.directory
 import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
-import kotlinx.coroutines.sync.withPermit
-import org.conscrypt.Conscrypt
-import java.security.Security
 import com.nelson.yomukai.data.discovery.AniListClient
 import com.nelson.yomukai.data.discovery.ContentFilter
 import com.nelson.yomukai.data.discovery.DiscoveryRepository
@@ -37,6 +34,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withPermit
+import org.conscrypt.Conscrypt
+import java.security.Security
 
 /** Manual dependency container; one instance per process. */
 class AppContainer(context: Context) {
@@ -94,6 +94,7 @@ class AppContainer(context: Context) {
     val contentRepository = ContentRepository(sourceManager, downloadManager)
     val captureStore = CaptureStore()
     val homeCache = HomeCache(context)
+
     /** First catalogue page of each source opened in this session. */
     val browseMemory = android.util.LruCache<String, List<com.nelson.yomukai.domain.model.MediaItem>>(16)
     val contentFilter = ContentFilter(preferences, libraryRepository)

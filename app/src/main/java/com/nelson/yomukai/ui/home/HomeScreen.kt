@@ -1,7 +1,5 @@
 package com.nelson.yomukai.ui.home
 
-import com.nelson.yomukai.ui.components.AppSpinner
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,32 +38,33 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.material.icons.filled.Shuffle
-import com.nelson.yomukai.ui.discover.DiscoverViewModel
-import com.nelson.yomukai.ui.discover.ForYouSection
-import com.nelson.yomukai.ui.discover.LocateHandler
-import com.nelson.yomukai.ui.discover.ShuffleSheet
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.nelson.yomukai.data.local.HistoryWithMedia
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.ui.AppViewModelProvider
+import com.nelson.yomukai.ui.components.AppSpinner
 import com.nelson.yomukai.ui.components.CoverImage
 import com.nelson.yomukai.ui.components.LanguageTag
 import com.nelson.yomukai.ui.components.MediaCard
 import com.nelson.yomukai.ui.components.RefreshSpinner
 import com.nelson.yomukai.ui.components.SectionHeader
 import com.nelson.yomukai.ui.components.SkeletonRow
+import com.nelson.yomukai.ui.discover.DiscoverViewModel
+import com.nelson.yomukai.ui.discover.ForYouSection
+import com.nelson.yomukai.ui.discover.LocateHandler
+import com.nelson.yomukai.ui.discover.ShuffleSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

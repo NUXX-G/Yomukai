@@ -35,13 +35,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
 
@@ -214,7 +214,6 @@ class Catalog(
             source.fetchChapterList(mediaId).also { health.record(sourceId, mediaId, it) }
         }
     }
-
 
     suspend fun browse(sourceId: String, page: Int, filtersJson: String?, prefs: UserPrefs): Result<List<MediaDto>> {
         val source = require(sourceId)
@@ -439,10 +438,12 @@ class Catalog(
     private companion object {
         const val MINUTE = 60_000L
         const val HOUR = 60 * MINUTE
+
         /** A source slower than this is left out of the search (marked as such): the rest are not held up. */
         const val SOURCE_TIMEOUT_MS = 10_000L
         const val ALTERNATIVES_TIMEOUT_MS = 18_000L
         const val MAX_GROUPS = 80
+
         /** How old a list or a chapter list may be and still be shown at once while a fresh one comes. */
         const val LIST_STALE_MS = 6 * HOUR
         const val CHAPTERS_STALE_MS = 2 * HOUR

@@ -30,8 +30,7 @@ data class MediaEntity(
     /** Whether the background update check should notify about new chapters of this title. */
     @ColumnInfo(defaultValue = "1") val notifyUpdates: Boolean = true,
     /** Other names of the title, separated by '|'; they help to find it in other sources. */
-    @ColumnInfo(defaultValue = "''") val altTitles: String = ""
-,
+    @ColumnInfo(defaultValue = "''") val altTitles: String = "",
     /** Sync: when the library state (saved, status, categories) last changed, and whether the server lacks it. */
     @ColumnInfo(defaultValue = "0") val libraryUpdatedAt: Long = 0L,
     @ColumnInfo(defaultValue = "0") val libraryDirty: Boolean = false

@@ -1,9 +1,9 @@
 package com.nelson.yomukai.data.source.anime
 
 import com.nelson.yomukai.data.network.HttpFetcher
+import com.nelson.yomukai.data.source.arr
 import com.nelson.yomukai.data.source.obj
 import com.nelson.yomukai.data.source.objects
-import com.nelson.yomukai.data.source.arr
 import com.nelson.yomukai.data.source.parseJson
 import com.nelson.yomukai.data.source.str
 import com.nelson.yomukai.domain.model.VideoSource
