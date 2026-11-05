@@ -104,7 +104,7 @@ export function splitDialogue(paragraph) {
 /** Text as it should be heard: no invisible watermark characters, no markdown escapes, no "***". */
 export function speakable(text) {
   return (text || '')
-    .replace(/[​-‏⁠-⁤﻿]/g, '')
+    .replace(/[\u200B-\u200F\u2060-\u2064\uFEFF]/g, '')
     .replace(/\\([[\]()*_~`#>-])/g, '$1')
     .replace(/[*_~#=]{3,}/g, ' ')
     .replace(/\s+/g, ' ')

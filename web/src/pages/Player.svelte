@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { api } from '../lib/api.js';
   import { route, back, navigate, media as mediaHref, reader } from '../lib/router.svelte.js';
-  import { settings, saveSettings, notify } from '../lib/store.svelte.js';
+  import { settings, saveSettings } from '../lib/store.svelte.js';
   import { track, markThrough, flush, progressMap } from '../lib/progress.js';
   import { clock, time } from '../lib/format.js';
   import Icon from '../components/Icon.svelte';
@@ -297,7 +297,7 @@
 </Sheet>
 
 <Sheet bind:open={serversOpen} title="Servidores">
-  {#each servers as s, i}
+  {#each servers as s}
     {#if s.direct}
       <button class="list-item srv" class:current={order(servers)[serverIndex] === s} onclick={() => { serversOpen = false; play(order(servers).indexOf(s)); }}>
         <Icon name="play" /> <span class="grow">{s.server} <span class="small muted">{s.quality}</span></span>

@@ -148,7 +148,7 @@ function errorFrame(onError) {
     // A download never loads the frame; an error answer does. The empty page a new frame starts with
     // also fires "load": removing the frame then cancelled any download slower than a second to
     // start, which is every anime episode (the server first has to find a video server that works).
-    let href = '';
+    let href;
     try { href = frame.contentWindow?.location?.href || ''; } catch { href = 'cross-origin'; }
     if (!href || href === 'about:blank') return;
     try {

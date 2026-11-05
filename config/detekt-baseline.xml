@@ -1,0 +1,241 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:Auth.kt$Auth$!byUser &amp;&amp; user.isGuest &amp;&amp; address.isNotEmpty() &amp;&amp; over("ip:$address")</ID>
+    <ID>ComplexCondition:DetailsScreen.kt$!loading &amp;&amp; relations.isEmpty() &amp;&amp; !similar.loading &amp;&amp; similar.items.isEmpty()</ID>
+    <ID>ComplexCondition:LiveSourcesTest.kt$LiveSourcesTest$row != null &amp;&amp; row.status != com.nelson.yomukai.data.local.DownloadStatus.COMPLETED &amp;&amp; row.status != com.nelson.yomukai.data.local.DownloadStatus.FAILED &amp;&amp; System.currentTimeMillis() - start &lt; 200_000</ID>
+    <ID>ComplexCondition:ServerHttp.kt$ServerHttp$cloudflareFallback &amp;&amp; protection == "Cloudflare" &amp;&amp; flareSolverrUrl != null &amp;&amp; solverAllows(request.url.host)</ID>
+    <ID>ComplexCondition:Speech.kt$Speech$!process.waitFor(5, TimeUnit.SECONDS) || !process.isAlive &amp;&amp; process.exitValue() != 0 &amp;&amp; out.size() == 0</ID>
+    <ID>ComplexCondition:SyncSettings.kt$host == "localhost" || host.endsWith(".local") || host.endsWith(".lan") || host.endsWith(".home") || !host.contains('.')</ID>
+    <ID>ComplexCondition:TorRouting.kt$TorRouting$h.isEmpty() || h.all { it.isDigit() || it == '.' || it == ':' }</ID>
+    <ID>CyclomaticComplexMethod:Abandonment.kt$ChapterDates$fun parse(text: String, now: Long = System.currentTimeMillis()): Long?</ID>
+    <ID>CyclomaticComplexMethod:AnimePlayerScreen.kt$@OptIn(UnstableApi::class) @Composable fun AnimePlayerScreen( onBackClick: () -&gt; Unit = {}, onOpenWeb: (String) -&gt; Unit = {}, viewModel: AnimePlayerViewModel = viewModel(factory = AppViewModelProvider.Factory) )</ID>
+    <ID>CyclomaticComplexMethod:BorderCrop.kt$BorderCrop$fun contentBounds(pixels: IntArray, width: Int, height: Int, minTrimFraction: Float = 0.02f): IntArray?</ID>
+    <ID>CyclomaticComplexMethod:BrowseScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BrowseScreen( onBack: () -&gt; Unit, onMediaClick: (MediaItem) -&gt; Unit, viewModel: BrowseViewModel = viewModel(factory = AppViewModelProvider.Factory) )</ID>
+    <ID>CyclomaticComplexMethod:Catalog.kt$Catalog$suspend fun search( query: String, types: Set&lt;MediaType&gt;?, language: String?, prefs: UserPrefs, onUpdate: suspend (SearchUpdateDto) -&gt; Unit )</ID>
+    <ID>CyclomaticComplexMethod:ChapterLabel.kt$ChapterLabels$fun of(title: String, number: Float, isAnime: Boolean, mediaTitle: String = ""): ChapterLabel</ID>
+    <ID>CyclomaticComplexMethod:Config.kt$Config.Companion$fun fromEnv(env: Map&lt;String, String&gt; = System.getenv()): Config</ID>
+    <ID>CyclomaticComplexMethod:DetailsScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable private fun ChapterRow( chapter: ChapterEntity, mediaTitle: String, download: DownloadEntity?, isNovel: Boolean, isAnime: Boolean, onClick: () -&gt; Unit, onToggleRead: () -&gt; Unit, onMarkPrevious: () -&gt; Unit, onUnmarkPrevious: () -&gt; Unit, onDownload: () -&gt; Unit, onDeleteDownload: () -&gt; Unit )</ID>
+    <ID>CyclomaticComplexMethod:DetailsScreen.kt$@OptIn(ExperimentalLayoutApi::class) @Composable private fun Header(state: DetailsUiState, metadata: TitleMetadata?, insights: ChapterInsights, onToggleLibrary: () -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:DetailsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable private fun DetailsContent( state: DetailsUiState, viewModel: DetailsViewModel, onBack: () -&gt; Unit, onOpenChapter: (ChapterEntity) -&gt; Unit, onOpenMedia: (MediaItem) -&gt; Unit, onSearchTitle: (String) -&gt; Unit )</ID>
+    <ID>CyclomaticComplexMethod:DownloadManager.kt$DownloadManager$private suspend fun downloadInChunks(download: DownloadEntity, url: String, headers: Map&lt;String, String&gt;, part: File): Boolean</ID>
+    <ID>CyclomaticComplexMethod:DownloadManager.kt$DownloadManager$private suspend fun downloadMp4(download: DownloadEntity, url: String, headers: Map&lt;String, String&gt;, dir: File, server: String)</ID>
+    <ID>CyclomaticComplexMethod:DownloadManager.kt$DownloadManager$private suspend fun exportChapter(download: DownloadEntity, settings: AppSettings)</ID>
+    <ID>CyclomaticComplexMethod:Downloader.kt$Downloader$private suspend fun hls(call: ApplicationCall, server: VideoSource, name: String, committed: java.util.concurrent.atomic.AtomicBoolean): Boolean</ID>
+    <ID>CyclomaticComplexMethod:Downloader.kt$Downloader$private suspend fun mp4(call: ApplicationCall, server: VideoSource, name: String, committed: java.util.concurrent.atomic.AtomicBoolean): Boolean</ID>
+    <ID>CyclomaticComplexMethod:Downloader.kt$Downloader$suspend fun serve(call: ApplicationCall, user: User, sourceId: String, mediaId: String, chapterIds: List&lt;String&gt;, nameHint: String? = null)</ID>
+    <ID>CyclomaticComplexMethod:Downloader.kt$HlsPlan.Companion$fun parse(text: String, base: String): HlsPlan?</ID>
+    <ID>CyclomaticComplexMethod:ImageShrinker.kt$ImageShrinker$fun shrink(bytes: ByteArray, type: String, maxWidth: Int): ByteArray?</ID>
+    <ID>CyclomaticComplexMethod:LibraryScreen.kt$@Composable private fun DownloadsTab( downloads: List&lt;DownloadEntity&gt;, onOpen: (DownloadEntity) -&gt; Unit, onRetry: (DownloadEntity) -&gt; Unit, onDelete: (DownloadEntity) -&gt; Unit )</ID>
+    <ID>CyclomaticComplexMethod:LibraryScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun LibraryScreen( onMediaClick: (MediaItem) -&gt; Unit, onHistoryClick: (HistoryWithMedia) -&gt; Unit, onDownloadClick: (DownloadEntity) -&gt; Unit, modifier: Modifier = Modifier, viewModel: LibraryViewModel = viewModel(factory = AppViewModelProvider.Factory) )</ID>
+    <ID>CyclomaticComplexMethod:Main.kt$fun runCommand(config: Config, args: List&lt;String&gt;): Int</ID>
+    <ID>CyclomaticComplexMethod:Main.kt$private fun Route.catalogRoutes(s: Services)</ID>
+    <ID>CyclomaticComplexMethod:Main.kt$private fun Route.userRoutes(s: Services)</ID>
+    <ID>CyclomaticComplexMethod:MainActivity.kt$@Composable fun YomukaiApp( container: AppContainer, pendingDetails: Pair&lt;String, String&gt;? = null, onDeepLinkHandled: () -&gt; Unit = {} )</ID>
+    <ID>CyclomaticComplexMethod:MangaDexSource.kt$MangaDexSource$private fun toMediaItem(manga: JsonObject): MediaItem</ID>
+    <ID>CyclomaticComplexMethod:MangaReaderScreen.kt$@Composable fun MangaReaderScreen( onBack: () -&gt; Unit, viewModel: MangaReaderViewModel = viewModel(factory = AppViewModelProvider.Factory) )</ID>
+    <ID>CyclomaticComplexMethod:MangaReaderScreen.kt$@Composable internal fun ReaderPageImage( page: PageData, index: Int, fit: ReaderFit, fitScreen: Boolean, colorFilter: ColorFilter?, cropBorders: Boolean )</ID>
+    <ID>CyclomaticComplexMethod:MangaReaderScreen.kt$@Composable private fun ContinuousPaged( pages: List&lt;ReaderItem.Page&gt;, rtl: Boolean, settings: MangaReaderSettings, startChapterId: String, startPage: Int, jumpTo: Int?, onJumpHandled: () -&gt; Unit, onLocation: (String, Int) -&gt; Unit, onNearEnd: () -&gt; Unit, onToggleOverlay: () -&gt; Unit, footer: @Composable () -&gt; Unit )</ID>
+    <ID>CyclomaticComplexMethod:MediaProxy.kt$MediaProxy$suspend fun serveStream(call: ApplicationCall, user: User)</ID>
+    <ID>CyclomaticComplexMethod:MetadataRepository.kt$MetadataRepository$suspend fun load(media: MediaItem): TitleMetadata</ID>
+    <ID>CyclomaticComplexMethod:NetworkHelper.kt$NetworkHelper$private suspend fun fetchString(url: String, headers: Map&lt;String, String&gt;, cloudflareFallback: Boolean): String</ID>
+    <ID>CyclomaticComplexMethod:NovelReaderScreen.kt$@OptIn(FlowPreview::class, ExperimentalLayoutApi::class) @Composable fun NovelReaderScreen( onBack: () -&gt; Unit, viewModel: NovelReaderViewModel = viewModel(factory = AppViewModelProvider.Factory) )</ID>
+    <ID>CyclomaticComplexMethod:ServerSync.kt$ServerSync$private suspend fun apply(answer: JsonObject)</ID>
+    <ID>CyclomaticComplexMethod:ServerSync.kt$ServerSync$private suspend fun run(server: String, session: String)</ID>
+    <ID>CyclomaticComplexMethod:SettingsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun SettingsScreen( onOpenDiagnostics: () -&gt; Unit, modifier: Modifier = Modifier, viewModel: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory) )</ID>
+    <ID>CyclomaticComplexMethod:SourceDiagnostics.kt$SourceDiagnostics$suspend fun run( source: CatalogueSource, checkImage: (suspend (String, Map&lt;String, String&gt;) -&gt; String)? = null ): List&lt;DiagnosticStep&gt;</ID>
+    <ID>CyclomaticComplexMethod:Speech.kt$Speech$private suspend fun run(model: File, text: String, speed: Float, speaker: Int?): ByteArray</ID>
+    <ID>CyclomaticComplexMethod:SyncSettings.kt$internal fun isLocalHost(host: String): Boolean</ID>
+    <ID>CyclomaticComplexMethod:WebCaptureScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @SuppressLint("SetJavaScriptEnabled") @Composable fun WebCaptureScreen( initialUrl: String, onBack: () -&gt; Unit, onReadImages: () -&gt; Unit, onPlayVideo: (CapturedVideo) -&gt; Unit )</ID>
+    <ID>EmptyElseBlock:NovelSpeech.kt$NovelSpeech$if (cont.isActive) cont.resumeWithException(IllegalStateException("No se pudo reproducir la voz"))</ID>
+    <ID>EmptyElseBlock:NovelSpeech.kt$NovelSpeech$if (player === it) player = null</ID>
+    <ID>EmptyElseBlock:NovelSpeech.kt$NovelSpeech$if (player === p) player = null</ID>
+    <ID>ExplicitItLambdaParameter:NovelReaderScreen.kt${ _, it -&gt; it.key }</ID>
+    <ID>ForEachOnRange:SettingsScreen.kt$1..4</ID>
+    <ID>InstanceOfCheckForException:NetworkHelper.kt$ConnectRetryInterceptor$e is ConnectException</ID>
+    <ID>InstanceOfCheckForException:NetworkHelper.kt$ConnectRetryInterceptor$e is SocketTimeoutException</ID>
+    <ID>InstanceOfCheckForException:NovelSpeech.kt$NovelSpeech$e is kotlinx.coroutines.CancellationException</ID>
+    <ID>LongMethod:AnimePlayerScreen.kt$@OptIn(UnstableApi::class) @Composable fun AnimePlayerScreen( onBackClick: () -&gt; Unit = {}, onOpenWeb: (String) -&gt; Unit = {}, viewModel: AnimePlayerViewModel = viewModel(factory = AppViewModelProvider.Factory) )</ID>
+    <ID>LongMethod:BrowseScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BrowseScreen( onBack: () -&gt; Unit, onMediaClick: (MediaItem) -&gt; Unit, viewModel: BrowseViewModel = viewModel(factory = AppViewModelProvider.Factory) )</ID>
+    <ID>LongMethod:DetailsScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable private fun ChapterRow( chapter: ChapterEntity, mediaTitle: String, download: DownloadEntity?, isNovel: Boolean, isAnime: Boolean, onClick: () -&gt; Unit, onToggleRead: () -&gt; Unit, onMarkPrevious: () -&gt; Unit, onUnmarkPrevious: () -&gt; Unit, onDownload: () -&gt; Unit, onDeleteDownload: () -&gt; Unit )</ID>
+    <ID>LongMethod:DetailsScreen.kt$@OptIn(ExperimentalLayoutApi::class) @Composable private fun Header(state: DetailsUiState, metadata: TitleMetadata?, insights: ChapterInsights, onToggleLibrary: () -&gt; Unit)</ID>
+    <ID>LongMethod:DetailsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable private fun DetailsContent( state: DetailsUiState, viewModel: DetailsViewModel, onBack: () -&gt; Unit, onOpenChapter: (ChapterEntity) -&gt; Unit, onOpenMedia: (MediaItem) -&gt; Unit, onSearchTitle: (String) -&gt; Unit )</ID>
+    <ID>LongMethod:DiscoverScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun ShuffleSheet(viewModel: DiscoverViewModel, onOpenMedia: (MediaItem) -&gt; Unit, onDismiss: () -&gt; Unit)</ID>
+    <ID>LongMethod:DownloadManager.kt$DownloadManager$private suspend fun downloadInChunks(download: DownloadEntity, url: String, headers: Map&lt;String, String&gt;, part: File): Boolean</ID>
+    <ID>LongMethod:DownloadManager.kt$DownloadManager$private suspend fun downloadMp4(download: DownloadEntity, url: String, headers: Map&lt;String, String&gt;, dir: File, server: String)</ID>
+    <ID>LongMethod:HomeScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun HomeScreen( onMediaClick: (MediaItem) -&gt; Unit, onContinueClick: (HistoryWithMedia) -&gt; Unit, onBrowseSource: (String) -&gt; Unit, onSearchClick: () -&gt; Unit, onOpenWeb: () -&gt; Unit, onSearchTitle: (String) -&gt; Unit = {}, modifier: Modifier = Modifier, viewModel: HomeViewModel = viewModel(factory = AppViewModelProvider.Factory), discoverViewModel: DiscoverViewModel = viewModel(factory = AppViewModelProvider.Factory) )</ID>
+    <ID>LongMethod:LibraryScreen.kt$@Composable private fun DownloadsTab( downloads: List&lt;DownloadEntity&gt;, onOpen: (DownloadEntity) -&gt; Unit, onRetry: (DownloadEntity) -&gt; Unit, onDelete: (DownloadEntity) -&gt; Unit )</ID>
+    <ID>LongMethod:LibraryScreen.kt$@Composable private fun FavoritesTab( state: LibraryUiState, gridMode: Boolean, typeFilter: TypeFilter, onMediaClick: (MediaItem) -&gt; Unit, onManageCategories: () -&gt; Unit )</ID>
+    <ID>LongMethod:LibraryScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun LibraryScreen( onMediaClick: (MediaItem) -&gt; Unit, onHistoryClick: (HistoryWithMedia) -&gt; Unit, onDownloadClick: (DownloadEntity) -&gt; Unit, modifier: Modifier = Modifier, viewModel: LibraryViewModel = viewModel(factory = AppViewModelProvider.Factory) )</ID>
+    <ID>LongMethod:Main.kt$private fun Route.catalogRoutes(s: Services)</ID>
+    <ID>LongMethod:Main.kt$private fun Route.userRoutes(s: Services)</ID>
+    <ID>LongMethod:MainActivity.kt$@Composable fun YomukaiApp( container: AppContainer, pendingDetails: Pair&lt;String, String&gt;? = null, onDeepLinkHandled: () -&gt; Unit = {} )</ID>
+    <ID>LongMethod:MangaReaderScreen.kt$@Composable fun MangaReaderScreen( onBack: () -&gt; Unit, viewModel: MangaReaderViewModel = viewModel(factory = AppViewModelProvider.Factory) )</ID>
+    <ID>LongMethod:MangaReaderScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable private fun MangaReaderSettingsSheet( settings: MangaReaderSettings, onUpdate: ((MangaReaderSettings) -&gt; MangaReaderSettings) -&gt; Unit, onDismiss: () -&gt; Unit )</ID>
+    <ID>LongMethod:NovelReaderScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable private fun NovelSettingsSheet( settings: NovelReaderSettings, onUpdate: ((NovelReaderSettings) -&gt; NovelReaderSettings) -&gt; Unit, onDismiss: () -&gt; Unit, voices: @Composable () -&gt; Unit )</ID>
+    <ID>LongMethod:NovelReaderScreen.kt$@OptIn(FlowPreview::class, ExperimentalLayoutApi::class) @Composable fun NovelReaderScreen( onBack: () -&gt; Unit, viewModel: NovelReaderViewModel = viewModel(factory = AppViewModelProvider.Factory) )</ID>
+    <ID>LongMethod:SearchScreen.kt$@Composable fun SearchScreen( onMediaClick: (MediaItem) -&gt; Unit, onOpenUrl: (String) -&gt; Unit, modifier: Modifier = Modifier, viewModel: SearchViewModel = viewModel(factory = AppViewModelProvider.Factory) )</ID>
+    <ID>LongMethod:ServerSync.kt$ServerSync$private suspend fun apply(answer: JsonObject)</ID>
+    <ID>LongMethod:ServerSync.kt$ServerSync$private suspend fun run(server: String, session: String)</ID>
+    <ID>LongMethod:SettingsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun SettingsScreen( onOpenDiagnostics: () -&gt; Unit, modifier: Modifier = Modifier, viewModel: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory) )</ID>
+    <ID>LongMethod:SyncSettings.kt$@Composable private fun ConnectDialog(onConnect: suspend (String, String, String) -&gt; String?, onDismiss: () -&gt; Unit)</ID>
+    <ID>LongMethod:WebCaptureScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @SuppressLint("SetJavaScriptEnabled") @Composable fun WebCaptureScreen( initialUrl: String, onBack: () -&gt; Unit, onReadImages: () -&gt; Unit, onPlayVideo: (CapturedVideo) -&gt; Unit )</ID>
+    <ID>LongParameterList:Database.kt$Database$( userId: Long, since: Long, library: List&lt;LibraryRow&gt;, categories: List&lt;CategoryRow&gt;, progress: List&lt;ProgressRow&gt;, history: List&lt;HistoryRow&gt;, bookmarks: List&lt;BookmarkRow&gt;, shared: com.google.gson.JsonObject? )</ID>
+    <ID>LongParameterList:DetailsScreen.kt$( chapter: ChapterEntity, mediaTitle: String, download: DownloadEntity?, isNovel: Boolean, isAnime: Boolean, onClick: () -&gt; Unit, onToggleRead: () -&gt; Unit, onMarkPrevious: () -&gt; Unit, onUnmarkPrevious: () -&gt; Unit, onDownload: () -&gt; Unit, onDeleteDownload: () -&gt; Unit )</ID>
+    <ID>LongParameterList:MangaReaderScreen.kt$( items: List&lt;ReaderItem&gt;, startIndex: Int, jumpIndex: Int?, onJumpHandled: () -&gt; Unit, settings: MangaReaderSettings, autoScroll: Boolean, onLocation: (String, Int) -&gt; Unit, onNearEnd: () -&gt; Unit, onTap: () -&gt; Unit, footer: @Composable () -&gt; Unit )</ID>
+    <ID>LongParameterList:MangaReaderScreen.kt$( pages: List&lt;ReaderItem.Page&gt;, rtl: Boolean, settings: MangaReaderSettings, startChapterId: String, startPage: Int, jumpTo: Int?, onJumpHandled: () -&gt; Unit, onLocation: (String, Int) -&gt; Unit, onNearEnd: () -&gt; Unit, onToggleOverlay: () -&gt; Unit, footer: @Composable () -&gt; Unit )</ID>
+    <ID>LoopWithTooManyJumpStatements:CoverPalette.kt$CoverPalette$for</ID>
+    <ID>LoopWithTooManyJumpStatements:DownloadManager.kt$DownloadManager$while</ID>
+    <ID>LoopWithTooManyJumpStatements:LiveSourcesTest.kt$LiveSourcesTest$for</ID>
+    <ID>MatchingDeclarationName:AutoScrollSpeedBar.kt$AutoScrollSpeed</ID>
+    <ID>MatchingDeclarationName:Zoomable.kt$ZoomState</ID>
+    <ID>MaxLineLength:AnimeAv1Source.kt$AnimeAv1Source.Companion$listOf(FilterOption("latest_released", "Recientes"), FilterOption("score", "Mejor valorados"), FilterOption("popular", "Populares"), FilterOption("title", "A-Z"))</ID>
+    <ID>MaxLineLength:Auth.kt$Auth$blockedAddresses[address]?.let { until -&gt; if (until &gt; now) return "Desde esta conexión no se pueden crear invitados durante un tiempo" else blockedAddresses.remove(address) }</ID>
+    <ID>MaxLineLength:Catalog.kt$Catalog$return texts.get(k)?.let { Result.success(it) } ?: shared("text|$k") { source.fetchChapterText(chapterUrl).map(::withoutBrokenSurrogates).onSuccess { texts.put(k, it) } }</ID>
+    <ID>MaxLineLength:ChapterHealthTest.kt$ChapterHealthTest$val groups = listOf(SearchGroup(item("a"), listOf(item("x", "t")), 1.0), SearchGroup(item("b"), emptyList(), 0.9), SearchGroup(item("c"), emptyList(), 0.8))</ID>
+    <ID>MaxLineLength:ChapterLabel.kt$ChapterLabels$"""^\s*(?:cap[ií]tulo|capitulo|chapter|chap|cap|ch|episodio|episode|ep|vol(?:umen|ume)?\.?\s*\d+\s*(?:cap[ií]tulo|chapter|cap|ch)?)\.?\s*#?\s*(\d+(?:[.,]\d+)?)\s*"""</ID>
+    <ID>MaxLineLength:ComicArchive.kt$ComicArchive$"""&lt;?xml version="1.0" encoding="utf-8"?&gt;&lt;html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"&gt;&lt;head&gt;&lt;title&gt;${x(title)}&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;nav epub:type="toc"&gt;&lt;ol&gt;&lt;li&gt;&lt;a href="chapter.xhtml"&gt;${x(chapterTitle)}&lt;/a&gt;&lt;/li&gt;&lt;/ol&gt;&lt;/nav&gt;&lt;/body&gt;&lt;/html&gt;"""</ID>
+    <ID>MaxLineLength:ComicArchive.kt$ComicArchive$"""&lt;?xml version="1.0" encoding="utf-8"?&gt;&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;&lt;head&gt;&lt;title&gt;${x(chapterTitle)}&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;h1&gt;${x(chapterTitle)}&lt;/h1&gt;$body&lt;/body&gt;&lt;/html&gt;"""</ID>
+    <ID>MaxLineLength:ComicArchive.kt$ComicArchive$"""&lt;?xml version="1.0" encoding="utf-8"?&gt;&lt;package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id"&gt;&lt;metadata xmlns:dc="http://purl.org/dc/elements/1.1/"&gt;&lt;dc:identifier id="id"&gt;${x(title)}&lt;/dc:identifier&gt;&lt;dc:title&gt;${x(title)}&lt;/dc:title&gt;&lt;dc:creator&gt;${x(author)}&lt;/dc:creator&gt;&lt;dc:language&gt;es&lt;/dc:language&gt;&lt;meta property="dcterms:modified"&gt;2026-01-01T00:00:00Z&lt;/meta&gt;&lt;/metadata&gt;&lt;manifest&gt;&lt;item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/&gt;&lt;item id="c" href="chapter.xhtml" media-type="application/xhtml+xml"/&gt;&lt;/manifest&gt;&lt;spine&gt;&lt;itemref idref="c"/&gt;&lt;/spine&gt;&lt;/package&gt;"""</ID>
+    <ID>MaxLineLength:ComicArchive.kt$ComicArchive$"""&lt;?xml version="1.0"?&gt;&lt;container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"&gt;&lt;rootfiles&gt;&lt;rootfile full-path="book.opf" media-type="application/oebps-package+xml"/&gt;&lt;/rootfiles&gt;&lt;/container&gt;"""</ID>
+    <ID>MaxLineLength:Daos.kt$ChapterDao$c.copy(read = p.read, lastPageRead = p.page, totalPages = p.total, progress = p.fraction, progressUpdatedAt = p.updatedAt, progressDirty = false)</ID>
+    <ID>MaxLineLength:Database.kt$LibraryRow$author = clip(author, TEXT_MAX)</ID>
+    <ID>MaxLineLength:DetailsScreen.kt$Icon(Icons.Default.Download, contentDescription = "Descargar", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f))</ID>
+    <ID>MaxLineLength:DetailsScreen.kt$Icon(Icons.Default.DownloadDone, contentDescription = "Borrar descarga", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f))</ID>
+    <ID>MaxLineLength:DetailsScreen.kt$Text("• " + ChapterIntegrity.describe(it, isAnime), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)</ID>
+    <ID>MaxLineLength:Dialogue.kt$Dialogue$"(?&lt;!$L)(ella|ellas|la\\s+(?:chica|mujer|joven|niña|muchacha|señora|señorita|princesa|reina|madre|hermana|maga|doncella|dama|anciana|emperatriz|santa|bruja|diosa|maestra|profesora|doctora|capitana)|she|her|the\\s+(?:girl|woman|lady|princess|queen|mother|sister|witch|goddess|maid))(?!$L)"</ID>
+    <ID>MaxLineLength:Dialogue.kt$Dialogue$"(?&lt;!$L)(él|ellos|el\\s+(?:chico|hombre|joven|niño|muchacho|señor|príncipe|rey|padre|hermano|mago|caballero|anciano|emperador|santo|brujo|dios|maestro|profesor|doctor|capitán|duque)|he|him|his|the\\s+(?:boy|man|lord|prince|king|father|brother|wizard|god|knight))(?!$L)"</ID>
+    <ID>MaxLineLength:DialogueTest.kt$DialogueTest$listOf(Triple("No lo sé", true, Gender.FEMALE), Triple("dijo ella, mirando por la ventana", false, Gender.UNKNOWN), Triple(". Quizá mañana.", true, Gender.FEMALE))</ID>
+    <ID>MaxLineLength:DiscoverScreen.kt$Text("Buscando uno que esté en tus fuentes...", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)</ID>
+    <ID>MaxLineLength:DiscoverViewModel.kt$DiscoverViewModel$?:</ID>
+    <ID>MaxLineLength:DiscoveryRepository.kt$DiscoveryRepository$.</ID>
+    <ID>MaxLineLength:DiscoveryRepository.kt$DiscoveryRepository$async { limiter.withPermit { withTimeoutOrNull(FOR_YOU_LOOKUP_MS) { runCatching { aniList.lookup(listOf(seed.title) + seed.altTitles, seed.type) }.getOrNull() } } }</ID>
+    <ID>MaxLineLength:DiscoveryTest.kt$DiscoveryTest$assertEquals(MatchConfidence.NONE, TitleMatcher.compare(listOf("Solo Leveling"), "", MediaType.MANHWA, item("Solo Leveling: Ragnarok", MediaType.MANHWA)))</ID>
+    <ID>MaxLineLength:DiscoveryTest.kt$DiscoveryTest$assertEquals(MatchConfidence.SAME_WORK, TitleMatcher.compare(names, "Lee", MediaType.MANHWA, item("LEVIATHÁN (2020)", MediaType.MANHWA, author = "LEE")))</ID>
+    <ID>MaxLineLength:Downloader.kt$Downloader$if (!r.isSuccessful) null else r.body?.let { readBounded(it, MAX_PLAYLIST_CHARS.toLong()) }?.toString(Charsets.UTF_8)?.takeIf { it.trimStart().startsWith("#EXTM3U") }</ID>
+    <ID>MaxLineLength:Downloader.kt$Downloader$if (ordered.isEmpty()) return call.respond(HttpStatusCode.Conflict, mapOf("error" to "Este episodio solo se puede ver en la web del servidor; no se puede descargar"))</ID>
+    <ID>MaxLineLength:Downloader.kt$Downloader$plan.init?.let { init -&gt; fetchBytes(init, headers)?.let { withContext(Dispatchers.IO) { write(it) } } ?: throw IOException("Sin cabecera de vídeo") }</ID>
+    <ID>MaxLineLength:Downloader.kt$Downloader$return call.respond(HttpStatusCode.BadRequest, mapOf("error" to if (kind == "anime") "Los episodios se descargan de uno en uno" else "Como mucho $max capítulos por descarga"))</ID>
+    <ID>MaxLineLength:Downloader.kt$Downloader$val coverItem = coverExt?.let { "&lt;item id=\"cover\" href=\"cover.$it\" media-type=\"image/${if (it == "png") "png" else "jpeg"}\" properties=\"cover-image\"/&gt;" }.orEmpty()</ID>
+    <ID>MaxLineLength:Downloader.kt$Downloader$val key = segment.keyUrl?.let { url -&gt; keys[url] ?: (fetchBytes(url, headers)?.also { keys[url] = it } ?: throw IOException("Sin clave del vídeo")) }</ID>
+    <ID>MaxLineLength:Downloader.kt$Downloader$val name = if (chapters.size == 1) "$title - ${chapterName(chapters.single())}" else "$title (${chapterName(chapters.first())} - ${chapterName(chapters.last())})"</ID>
+    <ID>MaxLineLength:Downloader.kt$HlsPlan.Companion$val iv = explicitIv ?: ByteArray(16).also { b -&gt; var n = sequence; for (i in 15 downTo 8) { b[i] = (n and 0xff).toByte(); n = n shr 8 } }</ID>
+    <ID>MaxLineLength:EpisodeServersTest.kt$EpisodeServersTest$"""{server:"Byse",url:"https://byselapuix.com/e/l9oi771whzkq"},{server:"MP4Upload",url:"https://www.mp4upload.com/embed-anp74eb29ltk.html"}]},downloads:{}"""</ID>
+    <ID>MaxLineLength:EpisodeServersTest.kt$EpisodeServersTest$private val hls = VideoSource("Sub español • HLS", "https://player.zilla-networks.com/m3u8/abc", "HLS", true, mapOf("Referer" to "https://player.zilla-networks.com/"))</ID>
+    <ID>MaxLineLength:EpisodeServersTest.kt$EpisodeServersTest$private val mp4 = VideoSource("Sub español • MP4", "https://a4.mp4upload.com:183/d/x/video.mp4", "MP4Upload", true, mapOf("Referer" to "https://www.mp4upload.com/"))</ID>
+    <ID>MaxLineLength:ExclusionsDialog.kt$"Muchas webs no indican los géneros en sus listas: Yomukai los consulta título a título, así que con exclusiones activas esas listas tardan algo más."</ID>
+    <ID>MaxLineLength:FlameComicsSource.kt$FlameComicsSource$listOf(FilterOption("", "Todos"), FilterOption("Ongoing", "En emisión"), FilterOption("Completed", "Completado"), FilterOption("Hiatus", "En pausa"), FilterOption("Dropped", "Abandonado"))</ID>
+    <ID>MaxLineLength:HomeScreen.kt$Text("Yomukai", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)</ID>
+    <ID>MaxLineLength:KeywordTagger.kt$KeywordTagger$Rule("Acción", listOf("batalla", "battle", "pelea", "fight", "combate", "combat", "guerra", "war"), listOf("enemigo", "enemy", "arma", "weapon", "matar", "kill"))</ID>
+    <ID>MaxLineLength:KeywordTagger.kt$KeywordTagger$Rule("Apocalíptico", listOf("apocalip", "apocalyp", "fin del mundo", "end of the world", "zombi", "zombie", "supervivencia", "survival"), listOf("ruinas", "ruins"))</ID>
+    <ID>MaxLineLength:KeywordTagger.kt$KeywordTagger$Rule("Artes marciales", listOf("murim", "wuxia", "cultivo", "cultivation", "artes marciales", "martial arts", "secta", "sect"), listOf("maestro", "master", "dantian", "qi"))</ID>
+    <ID>MaxLineLength:KeywordTagger.kt$KeywordTagger$Rule("Ciencia ficción", listOf("nave espacial", "spaceship", "galaxia", "galaxy", "robot", "cyborg", "androide", "android"), listOf("tecnologia", "technology", "planeta", "planet", "futuro", "future"))</ID>
+    <ID>MaxLineLength:KeywordTagger.kt$KeywordTagger$Rule("Deportes", listOf("futbol", "soccer", "football", "baloncesto", "basketball", "voleibol", "volleyball", "beisbol", "baseball", "tenis", "tennis", "boxeo", "boxing"), listOf("equipo", "team", "torneo", "tournament", "partido"))</ID>
+    <ID>MaxLineLength:KeywordTagger.kt$KeywordTagger$Rule("Escolar", listOf("instituto", "high school", "academia", "academy", "escuela", "school", "estudiante", "student"), listOf("clase", "class", "profesor", "teacher"))</ID>
+    <ID>MaxLineLength:KeywordTagger.kt$KeywordTagger$Rule("Fantasía", listOf("magia", "magic", "dragon", "hechicer", "sorcer", "reino", "kingdom", "elfo", "elf"), listOf("espada", "sword", "caballero", "knight", "mago", "mage", "wizard"))</ID>
+    <ID>MaxLineLength:KeywordTagger.kt$KeywordTagger$Rule("Histórico", listOf("dinastia", "dynasty", "emperador", "emperor", "imperio", "empire", "edad media", "medieval", "samurai"), listOf("palacio", "palace", "princes", "corte"))</ID>
+    <ID>MaxLineLength:KeywordTagger.kt$KeywordTagger$Rule("Isekai", listOf("isekai", "otro mundo", "another world", "reencarn", "reincarnat", "transmigr", "invocado a otro"), listOf("summoned", "invocad"))</ID>
+    <ID>MaxLineLength:KeywordTagger.kt$KeywordTagger$Rule("Juegos", listOf("videojuego", "video game", "vrmmo", "mmorpg", "level up", "mazmorra", "dungeon", "status window"), listOf("jugador", "player", "nivel", "sistema", "system", "quest", "mision"))</ID>
+    <ID>MaxLineLength:KeywordTagger.kt$KeywordTagger$Rule("Romance", listOf("enamor", "fall in love", "falls in love", "romance", "amor", "love story", "prometid", "fiance", "boda", "wedding"), listOf("corazon", "heart", "beso", "kiss", "novio", "novia", "boyfriend", "girlfriend"))</ID>
+    <ID>MaxLineLength:KeywordTagger.kt$KeywordTagger$Rule("Sobrenatural", listOf("fantasma", "ghost", "espiritu", "spirit", "demonio", "demon", "maldicion", "curse", "vampir"), listOf("poder", "power", "alma", "soul"))</ID>
+    <ID>MaxLineLength:KeywordTagger.kt$KeywordTagger$Rule("Terror", listOf("terror", "horror", "pesadilla", "nightmare", "aterrador", "terrifying"), listOf("miedo", "fear", "sangre", "blood", "monstruo", "monster"))</ID>
+    <ID>MaxLineLength:LectorTmoSource.kt$LectorTmoSource$title = doc.selectFirst("h1.font-extrabold, h1")?.text()?.trim()?.ifBlank { null } ?: meta("og:title").substringBefore(" – ").ifBlank { media.title }</ID>
+    <ID>MaxLineLength:LectorTmoSource.kt$LectorTmoSource.Companion$"bestias" to "Bestias"</ID>
+    <ID>MaxLineLength:LibraryRepository.kt$LibraryRepository$bookmarkDao.insert(BookmarkEntity(0, chapter.sourceId, chapter.mediaId, chapter.chapterId, chapter.title, position, label, now, updatedAt = now, dirty = true))</ID>
+    <ID>MaxLineLength:LiveSourcesTest.kt$LiveSourcesTest$Log.i("YomukaiLive", "$sourceId ${chapter.title}: ${row?.status} ${row?.progress}/${row?.total} ${(System.currentTimeMillis() - start) / 1000}s ${row?.videoServer} ${row?.error?.take(120)}")</ID>
+    <ID>MaxLineLength:Main.kt$fun &lt;T&gt; list(key: String, type: Class&lt;T&gt;): List&lt;T&gt;</ID>
+    <ID>MaxLineLength:Main.kt$if</ID>
+    <ID>MaxLineLength:Main.kt$return@get call.respond(HttpStatusCode.Forbidden, mapOf("error" to SUSPENDED_MESSAGE, "suspended" to true, "guestsEnabled" to s.config.guestsEnabled, "guestDays" to s.config.guestDays))</ID>
+    <ID>MaxLineLength:Main.kt$val</ID>
+    <ID>MaxLineLength:Main.kt$val progress = list("progress", ProgressRow::class.java).filter { !it.sourceId.isNullOrBlank() &amp;&amp; !it.chapterId.isNullOrBlank() &amp;&amp; !it.mediaId.isNullOrBlank() }</ID>
+    <ID>MaxLineLength:MalAndStoreTest.kt$MalAndStoreTest$relations = listOf(RelatedTitle("Solo Leveling", listOf("Ore dake Level Up na Ken"), "https://x/c.png", MediaType.ANIME, listOf("Action"), relation = "Adaptación", format = "Anime", tags = listOf("Gore")))</ID>
+    <ID>MaxLineLength:MetadataRepository.kt$MetadataRepository$val</ID>
+    <ID>MaxLineLength:MigrationsTest.kt$MigrationsTest$c.exec("INSERT INTO library(user_id, source_id, media_id, title, cover, type, added_at, reading_status) VALUES(1, 's', 'm', 'Obra', '', 'MANGA', 42, 'PLAN')")</ID>
+    <ID>MaxLineLength:NovelCoolSource.kt$NovelCoolSite.Companion$tags.any { it.equals("Manhwa", true) || it.equals("Webtoon", true) || it.equals("Webtoons", true) || it.equals("Webcomic", true) } -&gt; MediaType.MANHWA</ID>
+    <ID>MaxLineLength:NovelCoolSource.kt$listOf(FilterOption("latest", "Actualizados"), FilterOption("popular", "Populares"), FilterOption("new_list", "Nuevos"), FilterOption("completed", "Finalizados"))</ID>
+    <ID>MaxLineLength:NovelReaderScreen.kt$IconButton</ID>
+    <ID>MaxLineLength:NovelSpeech.kt$NovelSpeech$mp.setOnErrorListener { p, _, _ -&gt; p.release(); if (player === p) player = null; if (cont.isActive) cont.resumeWithException(IllegalStateException("No se pudo reproducir la voz")); true }</ID>
+    <ID>MaxLineLength:NovelSpeech.kt$NovelSpeech$runCatching { play(fetchAudio(text, voice)) }.onFailure { if (it !is kotlinx.coroutines.CancellationException) _notice.value = "No se pudo probar la voz: ${it.message}" }</ID>
+    <ID>MaxLineLength:NovelSpeechSettings.kt$else</ID>
+    <ID>MaxLineLength:OlympusScansSource.kt$OlympusScansSource.Companion$listOf(FilterOption("", "Todos"), FilterOption("1", "Activo"), FilterOption("4", "Finalizado"), FilterOption("3", "En pausa"), FilterOption("5", "Cancelado"))</ID>
+    <ID>MaxLineLength:Routes.kt$Routes$const val ANIME_PLAYER = "anime_player?url={url}&amp;title={title}&amp;referer={referer}&amp;sourceId={sourceId}&amp;mediaId={mediaId}&amp;chapterId={chapterId}&amp;server={server}&amp;local={local}"</ID>
+    <ID>MaxLineLength:SearchViewModel.kt$SearchViewModel$val groups = synchronized(found) { health.arrangeGroups(SmartSearch.rankAndGroup(query, found.values.flatten(), trusted = trusted.toSet())) }</ID>
+    <ID>MaxLineLength:SearchViewModel.kt$SearchViewModel$val updated = synchronized(found) { health.arrangeGroups(SmartSearch.rankAndGroup(query, found.values.flatten(), trusted = trusted.toSet())) }</ID>
+    <ID>MaxLineLength:ServerLogicTest.kt$ServerLogicTest$val second = db.sync(u.id, first.rev, listOf(lib("1", 50, "DROPPED"), lib("2", 200, "COMPLETED")), emptyList(), emptyList(), emptyList(), emptyList(), null)</ID>
+    <ID>MaxLineLength:ServerSync.kt$ServerSync$tombstones.filter { it.kind == TOMBSTONE_CATEGORY }.forEach { add(obj("name" to it.key, "sortOrder" to 0, "updatedAt" to it.deletedAt, "deleted" to true)) }</ID>
+    <ID>MaxLineLength:ServerSync.kt$ServerSync$val enabled = s.get("enabledSources")?.takeIf { it.isJsonArray }?.asJsonArray?.mapNotNull { it.takeIf { j -&gt; j.isJsonPrimitive }?.asString }?.toSet()</ID>
+    <ID>MaxLineLength:ServerSync.kt$ServerSync$val ids = wanted.map { name -&gt; known[name]?.id ?: dao.insertCategory(CategoryEntity(name = name, updatedAt = at)).also { id -&gt; known[name] = CategoryEntity(id, name, 0, at) } }</ID>
+    <ID>MaxLineLength:SettingsScreen.kt$Text("Página de inicio y buscador del navegador", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))</ID>
+    <ID>MaxLineLength:SettingsScreen.kt$Text("Usar Tor en cada fuente", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))</ID>
+    <ID>MaxLineLength:SkyNovelsSource.kt$SkyNovelsSource$"27" to "Psicológico"</ID>
+    <ID>MaxLineLength:SkyNovelsSource.kt$SkyNovelsSource$private val STATUS = SelectFilter(FilterKeys.STATUS, "Estado", listOf(FilterOption("", "Todos"), FilterOption("Active", "En emisión"), FilterOption("Finished", "Finalizado")))</ID>
+    <ID>MaxLineLength:SyncLiveTest.kt$SyncLiveTest$web(session, "POST", "/api/progress", """{"rows":[{"sourceId":"mangadex","chapterId":"c-$stamp","mediaId":"$phoneTitle","read":false,"page":7,"total":20,"fraction":0,"updatedAt":${System.currentTimeMillis() + 1000}}]}""")</ID>
+    <ID>MaxLineLength:SyncSettings.kt$"La dirección de tu web de Yomukai y tu usuario y contraseña de allí. Lo que ya tienes en este móvil se junta con lo del servidor; no se borra nada."</ID>
+    <ID>MaxLineLength:SyncSettings.kt$else</ID>
+    <ID>MaxLineLength:TorRoutingTest.kt$TorRoutingTest$assertEquals(setOf("asurascans.com", "imagesolymp.xyz"), TorRouting.domainsOf(listOf("https://api.asurascans.com/api", "https://media.imagesolymp.xyz/x")))</ID>
+    <ID>MaxLineLength:YomukaiApplication.kt$AppContainer$kotlinx.coroutines.withTimeoutOrNull(20_000) { libraryRepository.chapterHealth.record(item.sourceId, item.id, source.fetchChapterList(item.id)) }</ID>
+    <ID>MaxLineLength:YskComicsSource.kt$YskComicsSource$parseChapters(json("$api/comics/${SourceUtils.encode(mediaId)}/chapters?page=$page").getAsJsonObject("data")?.get("data_messages"), mediaId, api)</ID>
+    <ID>MaxLineLength:YskComicsSourceTest.kt$YskComicsSourceTest$"""[{"id":1265,"image":"https://cdn/c.webp","full_name":"American Caper (2025)","slug":"american-caper-2025","writer":"Dan Houser","genres":[{"name":"Crime"}]},{"id":1,"full_name":"sin slug"}]"""</ID>
+    <ID>MaxLineLength:ZonaTmoParsingTest.kt$ZonaTmoParsingTest$com.nelson.yomukai.data.source.anime.AnimeAv1Source.catalogueRequest(1, mapOf(FilterKeys.SORT to setOf("score"), FilterKeys.GENRE to setOf("mecha")))</ID>
+    <ID>NestedBlockDepth:DownloadManager.kt$DownloadManager$private suspend fun downloadMp4(download: DownloadEntity, url: String, headers: Map&lt;String, String&gt;, dir: File, server: String)</ID>
+    <ID>NestedBlockDepth:Downloader.kt$HlsPlan.Companion$fun parse(text: String, base: String): HlsPlan?</ID>
+    <ID>NestedBlockDepth:Main.kt$fun runCommand(config: Config, args: List&lt;String&gt;): Int</ID>
+    <ID>NestedBlockDepth:SmartSearch.kt$SmartSearch$private fun tokenScore(queryToken: String, candidateTokens: List&lt;String&gt;, isLast: Boolean): Double</ID>
+    <ID>NestedBlockDepth:TorManager.kt$TorManager$private suspend fun monitorEmbedded()</ID>
+    <ID>ReturnCount:Abandonment.kt$ChapterDates$fun parse(text: String, now: Long = System.currentTimeMillis()): Long?</ID>
+    <ID>ReturnCount:AniListClient.kt$AniListClient$suspend fun lookup(names: List&lt;String&gt;, type: MediaType): AniListEntry?</ID>
+    <ID>ReturnCount:Auth.kt$Auth$suspend fun userFor(token: String?): User?</ID>
+    <ID>ReturnCount:ChapterHealth.kt$ChapterHealth.Companion$fun of(numbers: List&lt;Float&gt;): ChapterHealth</ID>
+    <ID>ReturnCount:CoverPalette.kt$CoverPalette$fun dominant(pixels: IntArray): Int?</ID>
+    <ID>ReturnCount:DownloadManager.kt$DownloadManager$private suspend fun downloadInChunks(download: DownloadEntity, url: String, headers: Map&lt;String, String&gt;, part: File): Boolean</ID>
+    <ID>ReturnCount:Downloader.kt$Downloader$private suspend fun hls(call: ApplicationCall, server: VideoSource, name: String, committed: java.util.concurrent.atomic.AtomicBoolean): Boolean</ID>
+    <ID>ReturnCount:Downloader.kt$Downloader$private suspend fun mp4(call: ApplicationCall, server: VideoSource, name: String, committed: java.util.concurrent.atomic.AtomicBoolean): Boolean</ID>
+    <ID>ReturnCount:Downloader.kt$Downloader$suspend fun serve(call: ApplicationCall, user: User, sourceId: String, mediaId: String, chapterIds: List&lt;String&gt;, nameHint: String? = null)</ID>
+    <ID>ReturnCount:Downloader.kt$HlsPlan.Companion$fun parse(text: String, base: String): HlsPlan?</ID>
+    <ID>ReturnCount:ImageShrinker.kt$ImageShrinker$fun shrink(bytes: ByteArray, type: String, maxWidth: Int): ByteArray?</ID>
+    <ID>ReturnCount:MediaProxy.kt$MediaProxy$private fun verified(kind: String, call: ApplicationCall): Pair&lt;String, Map&lt;String, String&gt;&gt;?</ID>
+    <ID>ReturnCount:MediaProxy.kt$MediaProxy$suspend fun serveStream(call: ApplicationCall, user: User)</ID>
+    <ID>ReturnCount:VideoExtractors.kt$VideoExtractors.Companion$fun okru(html: String): String?</ID>
+    <ID>SwallowedException:DownloadManager.kt$DownloadManager$e: Exception</ID>
+    <ID>SwallowedException:DownloadManager.kt$DownloadManager$e: HttpException</ID>
+    <ID>SwallowedException:DownloadSecurity.kt$DownloadSecurity$e: Exception</ID>
+    <ID>SwallowedException:DownloadSecurity.kt$DownloadSecurity$e: java.io.IOException</ID>
+    <ID>SwallowedException:SourceDiagnostics.kt$SourceDiagnostics$e: TimeoutCancellationException</ID>
+    <ID>SwallowedException:TorManager.kt$TorManager$e: Exception</ID>
+    <ID>SwallowedException:WebViewProxy.kt$WebViewProxy$e: Exception</ID>
+    <ID>SwallowedException:WebViewProxy.kt$WebViewProxy$e: Throwable</ID>
+    <ID>ThrowsCount:DownloadManager.kt$DownloadManager$private fun downloadPage(url: String, index: Int, dir: File, headers: Map&lt;String, String&gt;)</ID>
+    <ID>ThrowsCount:DownloadManager.kt$DownloadManager$private fun exportSeriesInfo(base: String, title: String, media: MediaEntity?, row: DownloadEntity)</ID>
+    <ID>ThrowsCount:DownloadManager.kt$DownloadManager$private fun probeHls(url: String, headers: Map&lt;String, String&gt;)</ID>
+    <ID>ThrowsCount:DownloadManager.kt$DownloadManager$private suspend fun downloadEpisode(download: DownloadEntity, source: AnimeSource, dir: File)</ID>
+    <ID>ThrowsCount:DownloadManager.kt$DownloadManager$private suspend fun downloadInChunks(download: DownloadEntity, url: String, headers: Map&lt;String, String&gt;, part: File): Boolean</ID>
+    <ID>ThrowsCount:DownloadManager.kt$DownloadManager$private suspend fun downloadMp4(download: DownloadEntity, url: String, headers: Map&lt;String, String&gt;, dir: File, server: String)</ID>
+    <ID>ThrowsCount:DownloadSecurity.kt$DownloadSecurity$fun requireSecureUrl(url: String): String</ID>
+    <ID>ThrowsCount:NetworkHelper.kt$NetworkHelper$private suspend fun fetchString(url: String, headers: Map&lt;String, String&gt;, cloudflareFallback: Boolean): String</ID>
+    <ID>ThrowsCount:ServerHttp.kt$ServerHttp$private suspend fun solve(url: String): String</ID>
+    <ID>TooGenericExceptionCaught:Backups.kt$Backups.Companion$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Catalog.kt$Catalog$e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:CloudflareResolver.kt$CloudflareResolver$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Database.kt$Database$e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:DiagnosticsViewModel.kt$DiagnosticsViewModel$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:DownloadManager.kt$DownloadManager$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:DownloadSecurity.kt$DownloadSecurity$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Main.kt$e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:Migrations.kt$Migrations$e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:NovelSpeech.kt$NovelSpeech$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:PublicExporter.kt$PublicExporter$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:TorManager.kt$TorManager$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:TorManager.kt$TorManager$e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:WebViewProxy.kt$WebViewProxy$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:WebViewProxy.kt$WebViewProxy$e: Throwable</ID>
+    <ID>UnusedPrivateProperty:LiveSourcesTest.kt$LiveSourcesTest$val hidden = container.contentFilter.check(zona, all)</ID>
+    <ID>UseRequire:Main.kt$throw IllegalArgumentException("Demasiados capítulos de una vez")</ID>
+    <ID>VariableNaming:AppPreferences.kt$AppPreferences$private val BLACK_THEME_MIGRATED = "black_theme_v1"</ID>
+    <ID>VariableNaming:FlameComicsSource.kt$FlameComicsSource$private val SORT = SelectFilter(FilterKeys.SORT, "Orden", listOf(FilterOption("site", "Del sitio"), FilterOption("title", "A-Z")))</ID>
+    <ID>VariableNaming:FlameComicsSource.kt$FlameComicsSource$private val STATUS = SelectFilter( FilterKeys.STATUS, "Estado", listOf(FilterOption("", "Todos"), FilterOption("Ongoing", "En emisión"), FilterOption("Completed", "Completado"), FilterOption("Hiatus", "En pausa"), FilterOption("Dropped", "Abandonado")) )</ID>
+    <ID>VariableNaming:ReaderViewModels.kt$BaseReaderViewModel$protected val _state = MutableStateFlow(ReaderUiState&lt;T&gt;())</ID>
+    <ID>VariableNaming:SkyNovelsSource.kt$SkyNovelsSource$private val GENRE = SelectFilter( FilterKeys.GENRE, "Género", listOf( "" to "Todos", "9" to "Acción", "3" to "Artes marciales", "2" to "Aventura", "40" to "BL", "7" to "Comedia", "19" to "Cultivación", "8" to "Drama", "21" to "Ecchi", "4" to "Fantasía", "41" to "GL", "12" to "Harem", "39" to "Horror", "16" to "Magia", "22" to "Misterio", "27" to "Psicológico", "23" to "Reencarnación", "5" to "Romance", "17" to "Ciencia ficción", "20" to "Sobrenatural", "24" to "Transmigración", "6" to "Xianxia" ).map { FilterOption(it.first, it.second) } )</ID>
+    <ID>VariableNaming:SkyNovelsSource.kt$SkyNovelsSource$private val STATUS = SelectFilter(FilterKeys.STATUS, "Estado", listOf(FilterOption("", "Todos"), FilterOption("Active", "En emisión"), FilterOption("Finished", "Finalizado")))</ID>
+  </CurrentIssues>
+</SmellBaseline>
