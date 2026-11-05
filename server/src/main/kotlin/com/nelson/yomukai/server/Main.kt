@@ -39,6 +39,7 @@ import io.ktor.server.request.receiveParameters
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondFile
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
@@ -82,6 +83,8 @@ class Services(val config: Config) {
     val proxy = MediaProxy(http, config.secret, File(config.dataDir, "cache"), config.guestStreams)
     val catalog = Catalog(sources, aniList, metadata, proxy)
     val downloads = Downloader(catalog, proxy, http)
+    /** Natural voices for reading novels aloud (Piper, installed in the Docker image). */
+    val speech = Speech(http, config.dataDir, File(System.getenv("PIPER_PATH")?.ifBlank { null } ?: "/opt/piper/piper"))
 
     suspend fun prefs(user: User) = UserPrefs.parse(db.settings(user.id), sources.all.map { it.id }.toSet())
 }
@@ -306,6 +309,25 @@ private fun Route.catalogRoutes(s: Services) {
     }
     get("/pages") { call.reply(s.catalog.pages(call.q("s"), call.q("c"))) }
     get("/text") { call.reply(s.catalog.text(call.q("s"), call.q("c")).map { mapOf("text" to it) }) }
+    get("/tts/voices") {
+        call.respond(mapOf(
+            "available" to s.speech.available,
+            "voices" to s.speech.voices().map { mapOf("id" to it.id, "label" to it.label, "lang" to it.lang, "gender" to it.gender, "region" to it.region) }
+        ))
+    }
+    // A piece of text read aloud by a natural voice, as WAV. The same text and voice is cached.
+    post("/tts") {
+        val body = JsonParser.parseString(call.receiveText()).asJsonObject
+        val text = body.get("text")?.asString.orEmpty()
+        val voice = body.get("voice")?.asString.orEmpty()
+        val rate = body.get("rate")?.takeIf { it.isJsonPrimitive }?.asFloat ?: 1f
+        val audio = runCatching { s.speech.synthesize(text, voice, rate) }.getOrElse { e ->
+            if (e is IllegalArgumentException) throw e
+            return@post call.respond(HttpStatusCode.ServiceUnavailable, mapOf("error" to (e.message ?: "No se pudo leer en voz alta")))
+        }
+        call.response.header(HttpHeaders.CacheControl, "private, max-age=86400")
+        call.respondBytes(audio, ContentType.parse("audio/wav"))
+    }
     get("/videos") { call.reply(s.catalog.videos(call.q("s"), call.q("c"))) }
     get("/metadata") { call.reply(s.catalog.metadata(call.q("s"), call.q("id"))) }
     get("/similar") { call.reply(s.catalog.similar(call.user, s.prefs(call.user), call.q("s"), call.q("id"))) }

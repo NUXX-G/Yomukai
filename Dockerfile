@@ -19,15 +19,22 @@ COPY shared/ shared/
 COPY server/ server/
 RUN ./gradlew :server:installDist --console=plain -q
 
-# 3. Runtime
+# 3. Natural voices for reading novels aloud: Piper (open source, runs offline on this machine).
+#    The voice models are downloaded by the server the first time each one is used.
+FROM eclipse-temurin:21-jre AS piper
+ARG TARGETARCH
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*  && case "$TARGETARCH" in arm64) ARCH=aarch64 ;; arm) ARCH=armv7l ;; *) ARCH=x86_64 ;; esac  && curl -fsSL "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_$ARCH.tar.gz" | tar -xz -C /opt
+
+# 4. Runtime
 FROM eclipse-temurin:21-jre
 RUN useradd --system --create-home --uid 10001 yomukai && mkdir -p /data && chown yomukai /data
 WORKDIR /app
 COPY --from=server /src/server/build/install/server/ /app/
 COPY --from=web /web/dist/ /app/web/
+COPY --from=piper /opt/piper/ /opt/piper/
 # The build stages leave files readable by root only; the app runs as its own user.
-RUN chmod -R a+rX /app
-ENV PORT=8080 DATA_DIR=/data WEB_DIR=/app/web JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+UseSerialGC"
+RUN chmod -R a+rX /app /opt/piper
+ENV PORT=8080 DATA_DIR=/data WEB_DIR=/app/web PIPER_PATH=/opt/piper/piper JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+UseSerialGC"
 USER yomukai
 VOLUME /data
 EXPOSE 8080

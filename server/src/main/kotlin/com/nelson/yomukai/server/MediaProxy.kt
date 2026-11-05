@@ -305,7 +305,7 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
  * Images kept on disk, a few GB at most, the oldest dropped first. Covers are asked for by
  * everyone and pages often by friends reading the same series, so most hits never touch the site.
  */
-private class ImageCache(private val dir: File, private val maxBytes: Long = 2L * 1024 * 1024 * 1024) {
+internal class ImageCache(private val dir: File, private val maxBytes: Long = 2L * 1024 * 1024 * 1024) {
     init { dir.mkdirs() }
 
     @Volatile private var approxSize = dir.listFiles()?.sumOf { it.length() } ?: 0L

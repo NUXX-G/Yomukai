@@ -38,11 +38,14 @@ object SourceUtils {
         doc.select("script, style, ins, .ads, .adsbygoogle").remove()
         val blocks = doc.select("p, h1, h2, h3, h4, blockquote, li")
         if (blocks.isEmpty()) return normalizeParagraphs(doc.body().wholeText())
-        return blocks.map { it.text().trim() }.filter { it.isNotEmpty() }.joinToString("\n\n")
+        return blocks.map { it.text().replace(invisible, "").trim() }.filter { it.isNotEmpty() }.joinToString("\n\n")
     }
 
+    /** Invisible characters some sites hide in their text as a watermark (thousands per chapter). */
+    private val invisible = Regex("[\\u200B\\u200C\\u200E\\u200F\\u2060-\\u2064\\uFEFF]")
+
     fun normalizeParagraphs(text: String): String =
-        text.replace("\r\n", "\n")
+        text.replace(invisible, "").replace("\r\n", "\n")
             .split('\n')
             .map { it.trim() }
             .filter { it.isNotEmpty() }

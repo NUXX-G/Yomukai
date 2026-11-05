@@ -8,6 +8,7 @@
   import Icon from '../components/Icon.svelte';
   import Sheet from '../components/Sheet.svelte';
   import SpeedControl from '../components/SpeedControl.svelte';
+  import { SpeechReader, speechVoices, loadVoices, voiceSettings, setVoice } from '../lib/speech.svelte.js';
   import { screen, canFullscreen, toggleFullscreen, enterFullscreen, enterFullscreenQuietly, leaveImmersive } from '../lib/fullscreen.svelte.js';
 
   const sourceId = route.params.source;
@@ -44,7 +45,10 @@
 
   const infinite = $derived(settings.novel.infinite !== false);
   const colors = $derived(THEMES[settings.novel.theme] || THEMES.dark);
-  const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window;
+  const canSpeak = typeof window !== 'undefined' && ('speechSynthesis' in window || 'Audio' in window);
+  const voice = new SpeechReader();
+  voice.onFallback = (msg) => notify('Voces naturales no disponibles ahora (' + msg + '): sigo con las del navegador');
+  const speechLang = $derived(sourceById(sourceId)?.language === 'EN' ? 'en' : 'es');
   const nextOf = (c) => c && chapters.find((x) => x.index === c.index + 1);
   const prevOf = (c) => c && chapters.find((x) => x.index === c.index - 1);
   const indexList = $derived.by(() => {
@@ -113,6 +117,7 @@
 
   // Reading aloud, paragraph by paragraph, on into the next chapters.
   function speak(c, i) {
+    voice.stop();
     const l = loaded[c];
     if (!l) { speaking = null; return; }
     if (i >= l.paragraphs.length) {
@@ -126,28 +131,40 @@
       return;
     }
     speaking = { c, i };
-    const u = new SpeechSynthesisUtterance(l.paragraphs[i]);
-    const lang = sourceById(sourceId)?.language === 'EN' ? 'en' : 'es';
-    u.lang = lang === 'en' ? 'en-US' : 'es-ES';
-    u.voice = speechSynthesis.getVoices().find((v) => v.lang.toLowerCase().startsWith(lang)) || null;
-    u.rate = settings.novel.speechRate || 1;
-    u.onend = () => { if (speaking?.c === c && speaking?.i === i) speak(c, i + 1); };
-    speechSynthesis.speak(u);
+    const lang = speechLang;
+    voice.read(l.paragraphs[i], lang).then(
+      () => { if (speaking?.c === c && speaking?.i === i) speak(c, i + 1); },
+      (e) => { if (e.message !== 'stopped' && speaking?.c === c && speaking?.i === i) speak(c, i + 1); }
+    );
+    // The next two paragraphs are prepared while this one is read: no silence between them.
+    [l.paragraphs[i + 1], l.paragraphs[i + 2] ?? loaded[c + 1]?.paragraphs[0]].forEach((p) => voice.prepare(p, lang));
     article?.querySelector(`p[data-c="${c}"][data-i="${i}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
 
   function toggleSpeech() {
-    if (!speaking) { speechSynthesis.cancel(); speechPaused = false; const v = visibleParagraph(); speak(v?.c ?? 0, v?.i ?? 0); return; }
-    if (speechPaused) { speechSynthesis.resume(); speechPaused = false; }
-    else { speechSynthesis.pause(); speechPaused = true; }
+    if (!speaking) { speechPaused = false; loadVoices().then(() => { const v = visibleParagraph(); speak(v?.c ?? 0, v?.i ?? 0); }); return; }
+    if (speechPaused) { voice.resume(); speechPaused = false; }
+    else { voice.pause(); speechPaused = true; }
   }
 
   function stopSpeech() {
     if (!canSpeak) return;
     speaking = null;
     speechPaused = false;
-    speechSynthesis.cancel();
+    voice.stop();
   }
+
+  /** A short sample of a voice, from the settings. */
+  async function tryVoice(id) {
+    stopSpeech();
+    const sample = speechLang === 'en' ? 'This is how I will read your novels. Do you like my voice?' : 'Así leeré tus novelas. ¿Te gusta mi voz?';
+    try {
+      voice.naturalFailed = false;
+      await voice.playNatural({ text: sample, voice: id }, voice.token);
+    } catch (e) { if (e.message !== 'stopped') notify('No se pudo probar la voz: ' + e.message); }
+  }
+  const genderName = (g) => (g === 'f' ? 'mujer' : g === 'm' ? 'hombre' : '');
+  const voiceLabel = (v) => v.label + ' · ' + v.region + (v.gender ? ' · ' + genderName(v.gender) : '');
 
   // Auto-scroll: a steady glide, stopped by a tap.
   function toggleScroll() {
@@ -229,6 +246,7 @@
   }
 
   onMount(async () => {
+    loadVoices();
     clockTimer = setInterval(() => (now = clock()), 15_000);
     try {
       const [m, list, progress] = await Promise.all([api.media(sourceId, mediaId), api.chapters(sourceId, mediaId), progressMap(sourceId, mediaId)]);
@@ -393,8 +411,43 @@
   <div class="opt-row"><span class="grow">Desplazamiento automático</span><button class="btn outline" onclick={() => { options = false; toggleScroll(); }}>{scrolling ? 'Parar' : 'Empezar'}</button></div>
   <input class="range" type="range" min="5" max="300" step="5" value={settings.novel.autoSpeed || 30} oninput={(e) => set('autoSpeed', +e.target.value)} aria-label="Velocidad del desplazamiento" />
   {#if canSpeak}
+    <div class="small muted" style="margin-top:12px">Leer en voz alta</div>
+    {#if speechVoices.natural}
+      <div class="opt-row wrap">
+        <button class="chip" class:on={settings.novel.ttsEngine !== 'browser'} onclick={() => { set('ttsEngine', 'natural'); voice.naturalFailed = false; }}>Voces naturales</button>
+        <button class="chip" class:on={settings.novel.ttsEngine === 'browser'} onclick={() => set('ttsEngine', 'browser')}>Voces del navegador</button>
+      </div>
+    {/if}
+    {#if speechVoices.natural && settings.novel.ttsEngine !== 'browser'}
+      {@const mine = speechVoices.server.filter((v) => v.lang === speechLang)}
+      {@const vs = voiceSettings(speechLang)}
+      {#each [['narrator', 'Narrador'], ['female', 'Personajes femeninos'], ['male', 'Personajes masculinos']] as [role, label]}
+        <div class="voice-row">
+          <span class="small grow">{label}</span>
+          <select class="field voice-select" value={vs[role]} onchange={(e) => { setVoice(speechLang, role, e.target.value); saveSettings(); }}>
+            {#each mine as v (v.id)}<option value={v.id}>{voiceLabel(v)}</option>{/each}
+          </select>
+          <button class="icon-btn" onclick={() => tryVoice(vs[role])} aria-label="Probar la voz" title="Probar"><Icon name="play" size={20} /></button>
+        </div>
+      {/each}
+      <p class="small muted">Voces neuronales que funcionan en tu servidor. La primera vez que se usa una, el servidor la descarga (unos segundos).</p>
+    {:else}
+      {@const mine = speechVoices.browser.filter((v) => v.lang.toLowerCase().startsWith(speechLang))}
+      {@const bv = settings.novel.browserVoices?.[speechLang] || {}}
+      {#each [['narrator', 'Narrador'], ['dialogue', 'Diálogos']] as [role, label]}
+        <div class="voice-row">
+          <span class="small grow">{label}</span>
+          <select class="field voice-select" value={bv[role] || ''} onchange={(e) => { settings.novel.browserVoices = { ...(settings.novel.browserVoices || {}), [speechLang]: { ...bv, [role]: e.target.value } }; saveSettings(); }}>
+            <option value="">{role === 'narrator' ? 'La mejor disponible' : 'La misma que el narrador'}</option>
+            {#each mine as v (v.name)}<option value={v.name}>{v.name}</option>{/each}
+          </select>
+        </div>
+      {/each}
+      <p class="small muted">Las más naturales salen primero. En Edge, las «Natural»; en iPhone, descarga voces «Mejorada» o «Premium» en Ajustes › Accesibilidad › Contenido leído.</p>
+    {/if}
+    <label class="toggle"><span class="grow">Voces por personaje (los diálogos con otra voz, de mujer o de hombre según quién habla)</span><input type="checkbox" checked={settings.novel.ttsCharacters !== false} onchange={(e) => set('ttsCharacters', e.target.checked)} /></label>
     <div class="opt-row"><span class="grow">Velocidad de la voz</span>
-      {#each [0.8, 1, 1.25, 1.5] as r}<button class="chip" class:on={(settings.novel.speechRate || 1) === r} onclick={() => set('speechRate', r)}>{r}x</button>{/each}
+      {#each [0.8, 1, 1.15, 1.3, 1.5, 1.75] as r}<button class="chip" class:on={(settings.novel.speechRate || 1) === r} onclick={() => set('speechRate', r)}>{r}x</button>{/each}
     </div>
     <label class="toggle"><span class="grow">Seguir leyendo en voz alta el siguiente capítulo</span><input type="checkbox" checked={!!settings.novel.speechNext} onchange={(e) => set('speechNext', e.target.checked)} /></label>
   {/if}
@@ -422,6 +475,8 @@
   .find { position: fixed; top: calc(var(--safe-top) + 60px); left: 50%; transform: translateX(-50%); z-index: 25; width: min(560px, calc(100vw - 24px)); display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 14px; border-radius: 16px; background: #111e; color: #fff; box-shadow: 0 6px 20px #0008; }
   .find input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: #fff; font-size: 1rem; height: 40px; }
   .find .icon-btn { color: #fff; font-size: 1.4rem; }
+  .voice-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .voice-select { flex: 0 1 60%; min-width: 0; margin: 0; }
   .speech-bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--safe-bottom) + 12px); z-index: 25; width: min(560px, calc(100vw - 24px)); display: flex; align-items: center; gap: 8px; padding: 4px 8px 4px 12px; border-radius: 16px; background: #111d; color: #fff; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 6px 20px #0008; }
   .speech-bar .icon-btn { color: #fff; }
   .grow { flex: 1; min-width: 0; }
