@@ -85,12 +85,12 @@ fun CatalogueSource.toDto(enabled: Boolean) = SourceDto(
 /** Converts with covers already pointing at the proxy. */
 class Dtos(private val proxy: MediaProxy, private val headersOf: (String) -> Map<String, String>) {
     fun media(item: MediaItem) = MediaDto(
-        item.id, item.sourceId, item.title, proxy.image(item.coverUrl, headersOf(item.sourceId)), item.type.name,
+        item.id, item.sourceId, item.title, proxy.cover(item.coverUrl, headersOf(item.sourceId)), item.type.name,
         item.status, item.description, item.author, item.genres, item.altTitles
     )
 
     fun related(r: RelatedTitle) = RelatedDto(
-        r.title, r.names, proxy.image(r.coverUrl, r.item?.let { headersOf(it.sourceId) } ?: emptyMap()), r.type.name, r.genres,
+        r.title, r.names, proxy.cover(r.coverUrl, r.item?.let { headersOf(it.sourceId) } ?: emptyMap()), r.type.name, r.genres,
         r.relation, r.format, r.tags, r.item?.let(::media)
     )
 

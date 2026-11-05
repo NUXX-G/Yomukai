@@ -11,7 +11,14 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondOutputStream
 import io.ktor.server.response.respondText
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import io.ktor.utils.io.writeFully
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -36,6 +43,15 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
     private val log = org.slf4j.LoggerFactory.getLogger("YomukaiMedia")
     private val imageCache = ImageCache(File(cacheDir, "images"))
     private val openStreams = ConcurrentHashMap<Long, AtomicInteger>()
+    private val imageScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    /** Images being fetched right now: a second request for one waits for the same download. */
+    private val imagesInFlight = ConcurrentHashMap<String, Deferred<Pair<ByteArray, String>?>>()
+    /** Downloads ahead of the reader, shared by everyone, so they never crowd out what is on screen. */
+    private val warmLimit = Semaphore(WARM_PARALLEL)
+    /** Shrinking is CPU work: a couple at a time. */
+    private val shrinkLimit = Semaphore(SHRINK_PARALLEL)
+    /** Widths readers asked for, and when: pages are prepared ahead at those. */
+    private val recentWidths = ConcurrentHashMap<Int, Long>()
 
     private fun sign(vararg parts: String): String {
         val mac = Mac.getInstance("HmacSHA256").apply { init(key) }
@@ -61,6 +77,10 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
         return "/api/img?u=${enc(url)}&h=$h&k=${sign("img", url, h)}"
     }
 
+    /** A cover: never shown wider than a card or the title page, so huge ones come shrunk. */
+    fun cover(url: String, headers: Map<String, String>): String =
+        image(url, headers).let { if (it.startsWith("/api/img?")) "$it&w=$COVER_WIDTH" else it }
+
     /** Link to a video or playlist at [url] with [headers]. */
     fun stream(url: String, headers: Map<String, String>): String {
         val h = encodeHeaders(headers)
@@ -78,7 +98,10 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
 
     suspend fun serveImage(call: ApplicationCall) {
         val (url, headers) = verified("img", call) ?: return call.respond(HttpStatusCode.Forbidden)
-        val (bytes, type) = fetchImage(url, headers) ?: return call.respond(HttpStatusCode.BadGateway)
+        // "w": the reader's width in pixels. Pages much wider than it come shrunk (and stay cached so).
+        val width = ImageShrinker.bucket(call.request.queryParameters["w"])
+        val (bytes, type) = (if (width != null) fetchShrunk(url, headers, width) else fetchImage(url, headers))
+            ?: return call.respond(HttpStatusCode.BadGateway)
         // Proxied links never change for the same address: the browser may keep the image for a month.
         call.response.header(HttpHeaders.CacheControl, "public, max-age=2592000, immutable")
         // Whatever the site claims, only a raster image type goes out: a page or an SVG served from
@@ -87,8 +110,55 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
         call.respondBytes(bytes, ContentType.parse(safeImageType(type)))
     }
 
-    /** An image's bytes and type, from the disk cache or the site. */
+    /** The image no wider than [width] (see [ImageShrinker]); the original when shrinking gains nothing. */
+    private suspend fun fetchShrunk(url: String, headers: Map<String, String>, width: Int): Pair<ByteArray, String>? {
+        recentWidths[width] = System.currentTimeMillis()
+        val key = "$url#w=$width"
+        imageCache.get(key)?.let { (bytes, type) -> return if (type == SAME_AS_ORIGINAL) fetchImage(url, headers) else bytes to type }
+        val mine = imageScope.async(start = kotlinx.coroutines.CoroutineStart.LAZY) { shrinkNow(url, headers, width, key) }
+        val running = imagesInFlight.putIfAbsent(key, mine)
+        if (running != null) { mine.cancel(); return running.await() }
+        return try { mine.await() } finally { imagesInFlight.remove(key, mine) }
+    }
+
+    private suspend fun shrinkNow(url: String, headers: Map<String, String>, width: Int, key: String): Pair<ByteArray, String>? {
+        val original = fetchImage(url, headers) ?: return null
+        val small = shrinkLimit.withPermit {
+            withContext(Dispatchers.Default) { runCatching { ImageShrinker.shrink(original.first, original.second.lowercase(), width) }.getOrNull() }
+        }
+        // Either way the answer is kept: the same page at the same width is never worked on twice.
+        if (small != null) imageCache.put(key, small, "image/jpeg") else imageCache.put(key, ByteArray(0), SAME_AS_ORIGINAL)
+        return if (small != null) small to "image/jpeg" else original
+    }
+
+    /**
+     * Starts downloading a chapter's pages before the browser asks for them, a few at a time, so they
+     * come from this server's disk (or a download already halfway) instead of the far-away site.
+     */
+    fun warm(urls: List<String>, headers: Map<String, String>) {
+        urls.take(WARM_MAX_PAGES).forEach { url ->
+            if (imageCache.has(url) || imagesInFlight.containsKey(url)) return@forEach
+            imageScope.launch {
+                warmLimit.withPermit { runCatching { fetchImage(url, headers) } }
+                // Also ready at the widths readers asked for lately, so nobody waits for the shrinking.
+                val now = System.currentTimeMillis()
+                recentWidths.filterValues { now - it < RECENT_WIDTH_MS }.keys.sortedDescending().take(2).forEach { w ->
+                    runCatching { fetchShrunk(url, headers, w) }
+                }
+            }
+        }
+    }
+
+    /** An image's bytes and type, from the disk cache or the site; one download however many ask at once. */
     suspend fun fetchImage(url: String, headers: Map<String, String>): Pair<ByteArray, String>? {
+        imageCache.get(url)?.let { return it }
+        val mine = imageScope.async(start = kotlinx.coroutines.CoroutineStart.LAZY) { download(url, headers) }
+        val running = imagesInFlight.putIfAbsent(url, mine)
+        if (running != null) { mine.cancel(); return running.await() }
+        return try { mine.await() } finally { imagesInFlight.remove(url, mine) }
+    }
+
+    private suspend fun download(url: String, headers: Map<String, String>): Pair<ByteArray, String>? {
         val cached = imageCache.get(url)
         return cached ?: withContext(Dispatchers.IO) {
             val request = Request.Builder().url(url)
@@ -209,6 +279,12 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
         fun safeImageType(type: String): String = type.substringBefore(';').trim().lowercase().takeIf { it in RASTER } ?: "image/jpeg"
 
         private const val MAX_IMAGE_BYTES = 20 * 1024 * 1024
+        private const val COVER_WIDTH = 720
+        private const val SAME_AS_ORIGINAL = "x-yomukai/original"
+        private const val WARM_PARALLEL = 12
+        private const val WARM_MAX_PAGES = 80
+        private const val SHRINK_PARALLEL = 2
+        private const val RECENT_WIDTH_MS = 30 * 60_000L
         private const val BUFFER = 64 * 1024
         private val URI_ATTRIBUTE = Regex("""URI="([^"]+)"""")
     }
@@ -227,6 +303,8 @@ private class ImageCache(private val dir: File, private val maxBytes: Long = 2L 
         val hash = MessageDigest.getInstance("SHA-256").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
         return File(dir, hash.take(2) + "/" + hash)
     }
+
+    fun has(url: String): Boolean = fileFor(url).exists()
 
     fun get(url: String): Pair<ByteArray, String>? {
         val file = fileFor(url)

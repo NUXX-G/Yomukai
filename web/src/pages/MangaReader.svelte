@@ -117,14 +117,46 @@
     return q ? all.filter((c) => (c.label + ' ' + (c.name || '')).toLowerCase().includes(q) || String(c.number) === q.replace(/[^\d.]/g, '')) : all;
   });
 
+  /**
+   * Pages come at the width they are shown at (the server shrinks 3000 px scans for a phone), unless
+   * the reader asked for original quality. Width buckets are few, so pages are shared in caches.
+   */
+  function sized(src) {
+    if (settings.reader.quality === 'original' || !src.startsWith('/api/img?')) return src;
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    const css = mode === 'paged' ? innerWidth : Math.min(innerWidth, { narrow: 620, normal: 900, wide: 1240, full: innerWidth }[width] ?? 1000);
+    return src + '&w=' + Math.round(css * dpr);
+  }
+
+  /** Pages already asked for ahead of the reader. */
+  const preloaded = new Set();
+  /**
+   * Keeps the next pages coming: the one after the current at high priority, then a few more, so a
+   * page is there when the reader gets to it even when the pages are big.
+   */
+  function preloadFrom(chapterId, index) {
+    const at = flat.findIndex((p) => p.chapter.id === chapterId && p.i === index);
+    if (at < 0) return;
+    flat.slice(at, at + PRELOAD_AHEAD + 1).forEach((p, k) => {
+      if (preloaded.has(p.src) || ready[p.src]) return;
+      preloaded.add(p.src);
+      const img = new Image();
+      img.decoding = 'async';
+      if (k <= 2) img.fetchPriority = 'high';
+      img.src = p.src;
+    });
+  }
+  const PRELOAD_AHEAD = 8;
+
   async function loadChapter(chapter) {
     const entry = { chapter, pages: [], error: '' };
     loaded = [...loaded, entry];
     try {
-      const pages = await api.pages(sourceId, chapter.url);
+      const pages = (await api.pages(sourceId, chapter.url)).map(sized);
       loaded = loaded.map((l) => (l.chapter.id === chapter.id ? { ...l, pages } : l));
-      // The next pages are fetched ahead, so turning them never waits.
-      pages.slice(0, 4).forEach((src) => { const img = new Image(); img.src = src; });
+      // The first pages are fetched at once, so the chapter opens without waiting page by page.
+      await tick();
+      preloadFrom(chapter.id, chapter.id === startId ? resumePage : 0);
     } catch (e) {
       loaded = loaded.map((l) => (l.chapter.id === chapter.id ? { ...l, error: e.message } : l));
     }
@@ -153,6 +185,7 @@
       history.replaceState({}, '', reader('manga', sourceId, mediaId, chapter.id));
     }
     page = index;
+    preloadFrom(chapter.id, index);
     if (item) track(item, chapter, { page: index, total, read: false });
     if (index >= total - 2) finished(chapter);
     // Past the middle, the next chapter's page list is fetched ahead: "Siguiente" then opens at once.
@@ -227,7 +260,7 @@
     const p = flat[pagedIndex];
     if (!p) return;
     seen(p.chapter, p.i, p.total);
-    flat.slice(pagedIndex + 1, pagedIndex + 4).forEach((n) => { const img = new Image(); img.src = n.src; });
+    preloadFrom(p.chapter.id, p.i);
   }
 
   function key(e) {
@@ -404,6 +437,7 @@
   {/if}
   <label class="toggle"><span class="grow">Pasar solo al siguiente capítulo</span><input type="checkbox" checked={settings.reader.infinite} onchange={(e) => setReader('infinite', e.target.checked)} /></label>
   {#if canFullscreen}<label class="toggle"><span class="grow">Pantalla completa al leer (oculta las barras del navegador y del móvil)</span><input type="checkbox" checked={!!settings.reader.fullscreen} onchange={(e) => { setReader('fullscreen', e.target.checked); if (e.target.checked) enterFullscreen(); }} /></label>{/if}
+  <label class="toggle"><span class="grow">Calidad original (más lenta; si no, las páginas enormes llegan al tamaño de tu pantalla)</span><input type="checkbox" checked={settings.reader.quality === 'original'} onchange={(e) => setReader('quality', e.target.checked ? 'original' : 'fast')} /></label>
   <label class="toggle"><span class="grow">Recortar bordes blancos o negros</span><input type="checkbox" checked={!!settings.reader.crop} onchange={(e) => setReader('crop', e.target.checked)} /></label>
   <div class="small muted" style="margin-top:12px">Brillo</div>
   <input class="range" type="range" min="0.2" max="1" step="0.05" value={brightness} oninput={(e) => setReader('brightness', +e.target.value)} aria-label="Brillo" />

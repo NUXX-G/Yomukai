@@ -311,6 +311,8 @@ class Catalog(
         val source = require(sourceId) as? MangaSource ?: return Result.failure(IllegalArgumentException("No es una fuente de imágenes"))
         val k = key(sourceId, chapterUrl)
         val list = pages.get(k)?.let { Result.success(it) } ?: shared("pages|$k") { source.fetchPageList(chapterUrl).onSuccess { pages.put(k, it) } }
+        // The pages start coming to this server now, ahead of the reader.
+        list.onSuccess { proxy.warm(it, source.imageHeaders) }
         return list.map { urls -> urls.map { proxy.image(it, source.imageHeaders) } }
     }
 

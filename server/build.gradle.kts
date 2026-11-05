@@ -30,6 +30,8 @@ dependencies {
     implementation(libs.okhttp.dnsoverhttps)
     implementation("org.xerial:sqlite-jdbc:3.50.3.0")
     implementation("ch.qos.logback:logback-classic:1.5.18")
+    // Reads WebP pages, so oversized ones can be shrunk to the reader's screen like JPEG and PNG.
+    implementation("com.twelvemonkeys.imageio:imageio-webp:3.12.0")
     testImplementation(libs.junit)
     testImplementation("io.ktor:ktor-server-test-host:$ktor")
 }

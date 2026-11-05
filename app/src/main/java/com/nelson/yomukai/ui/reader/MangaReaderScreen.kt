@@ -141,18 +141,25 @@ fun MangaReaderScreen(
     val totalPages = segments.firstOrNull { it.chapter.chapterId == currentChapterId }?.content?.size ?: 0
     val bookmarked = bookmarks.any { it.chapterId == currentChapterId && it.position == currentPage }
 
-    // Warm Coil's caches for the next pages so they are ready before the reader scrolls to them.
+    // Downloads the next pages ahead (to the disk cache, not decoded: that would fill the memory with
+    // bitmaps never shown), so a page is already on the phone when the reader scrolls to it. Pages
+    // already asked for are not asked again on every page turn.
     val appContext = LocalContext.current
+    val prefetched = remember(state.generation) { HashSet<Any>() }
     LaunchedEffect(location, items) {
         val here = location?.let { ReaderItems.indexOf(items, it.first, it.second) } ?: return@LaunchedEffect
         val loader = appContext.imageLoader
         items.drop(here + 1).filterIsInstance<ReaderItem.Page>().take(PREFETCH_AHEAD).forEach { item ->
+            if (!prefetched.add(item.data.model)) return@forEach
             loader.enqueue(
-                ImageRequest.Builder(appContext).data(item.data.model).apply {
-                    if (item.data.headers.isNotEmpty()) {
-                        httpHeaders(NetworkHeaders.Builder().apply { item.data.headers.forEach { (k, v) -> set(k, v) } }.build())
-                    }
-                }.build()
+                ImageRequest.Builder(appContext).data(item.data.model)
+                    .memoryCachePolicy(coil3.request.CachePolicy.DISABLED)
+                    .size(1, 1)
+                    .apply {
+                        if (item.data.headers.isNotEmpty()) {
+                            httpHeaders(NetworkHeaders.Builder().apply { item.data.headers.forEach { (k, v) -> set(k, v) } }.build())
+                        }
+                    }.build()
             )
         }
     }
@@ -862,5 +869,5 @@ internal fun SettingSwitch(label: String, checked: Boolean, onChange: (Boolean) 
     }
 }
 
-private const val PREFETCH_AHEAD = 3
+private const val PREFETCH_AHEAD = 8
 private const val AUTO_SCROLL_PX_PER_SECOND = 40f
