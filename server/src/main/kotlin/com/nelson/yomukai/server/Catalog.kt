@@ -116,7 +116,9 @@ class Catalog(
     private val details = TtlCache<String, MediaItem>(5_000, 30 * MINUTE)
     private val chapters = TtlCache<String, List<Chapter>>(5_000, 15 * MINUTE)
     private val pages = TtlCache<String, List<String>>(5_000, HOUR)
-    private val texts = TtlCache<String, String>(2_000, HOUR)
+
+    // Novel chapters can be 100 KB each: fewer of them.
+    private val texts = TtlCache<String, String>(400, HOUR)
     private val videos = TtlCache<String, List<com.nelson.yomukai.domain.model.VideoSource>>(2_000, 10 * MINUTE)
     private val alternativesCache = TtlCache<String, List<AlternativeDto>>(2_000, 30 * MINUTE)
     private val searches = TtlCache<String, com.nelson.yomukai.data.search.SourceSearchResult>(2_000, 15 * MINUTE)

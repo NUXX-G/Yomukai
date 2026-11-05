@@ -98,7 +98,19 @@ export const api = {
   adminCreate: (name, password, admin) => request('POST', '/api/admin/users', { name, password, admin }),
   adminReset: (id) => request('POST', `/api/admin/users/${id}/password`),
   adminDelete: (id) => request('DELETE', `/api/admin/users/${id}`),
-  adminReactivate: (id) => request('POST', `/api/admin/users/${id}/reactivate`)
+  adminReactivate: (id) => request('POST', `/api/admin/users/${id}/reactivate`),
+
+  features: () => request('GET', '/api/features'),
+  job: (id) => request('GET', `/api/jobs/${id}`),
+  adminStatus: () => request('GET', '/api/admin/status'),
+  adminWorkers: () => request('GET', '/api/admin/workers'),
+  adminCreateWorker: (name) => request('POST', '/api/admin/workers', { name }),
+  adminPauseWorker: (id, paused) => request('POST', `/api/admin/workers/${id}/pause`, { paused }),
+  adminWorkerBackup: (id, allowed) => request('POST', `/api/admin/workers/${id}/backup`, { allowed }),
+  adminRevokeWorker: (id) => request('DELETE', `/api/admin/workers/${id}`),
+  adminTestWorker: () => request('POST', '/api/admin/jobs/echo'),
+  adminFeatures: () => request('GET', '/api/admin/features'),
+  adminSetFeature: (name, enabled) => request('PUT', `/api/admin/features/${encodeURIComponent(name)}`, { enabled })
 };
 
 /**

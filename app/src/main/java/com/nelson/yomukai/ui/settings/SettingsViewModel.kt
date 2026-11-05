@@ -27,7 +27,16 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     suspend fun connectServer(server: String, user: String, password: String): String? =
         container.serverSync.connect(server, user, password)
 
-    fun syncNow() { viewModelScope.launch { container.serverSync.sync() } }
+    private val _features = MutableStateFlow<com.nelson.yomukai.data.sync.ServerFeatures?>(null)
+
+    /** The connected server's switches and home-worker status; null when not connected. */
+    val features: StateFlow<com.nelson.yomukai.data.sync.ServerFeatures?> = _features.asStateFlow()
+
+    fun refreshFeatures() { viewModelScope.launch { _features.value = container.serverSync.features() } }
+
+    init { refreshFeatures() }
+
+    fun syncNow() { viewModelScope.launch { container.serverSync.sync(); refreshFeatures() } }
 
     fun disconnectServer() { viewModelScope.launch { container.serverSync.disconnect() } }
 

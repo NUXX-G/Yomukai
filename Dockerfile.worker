@@ -1,0 +1,28 @@
+# Yomukai worker: the heavy jobs, on the home server (or the GPU laptop). Connects out to the VPS; exposes nothing.
+#   docker compose -f docker-compose.worker.yml up -d
+# Engines are optional: the worker announces only the ones it finds installed.
+
+FROM eclipse-temurin:21-jdk AS build
+WORKDIR /src
+ENV YOMUKAI_SERVER_ONLY=true GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.configuration-cache=false"
+COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
+COPY gradle/ gradle/
+RUN ./gradlew --version --console=plain -q
+COPY shared/ shared/
+COPY server/ server/
+COPY worker/ worker/
+RUN ./gradlew :worker:installDist --console=plain -q
+
+FROM eclipse-temurin:21-jre
+# ffmpeg (HLS to MKV, audio for whisper), chromaprint (opening/ending fingerprints), util-linux (ionice).
+ARG WITH_MEDIA=true
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates util-linux \
+ && if [ "$WITH_MEDIA" = "true" ]; then apt-get install -y --no-install-recommends ffmpeg libchromaprint-tools; fi \
+ && rm -rf /var/lib/apt/lists/*
+RUN useradd --system --create-home --uid 10002 worker && mkdir -p /work /backups && chown worker /work /backups
+COPY --from=build /src/worker/build/install/worker/ /app/
+RUN chmod -R a+rX /app
+ENV WORKER_WORK_DIR=/work JAVA_OPTS="-XX:+UseSerialGC -XX:MaxRAMPercentage=40 -XX:+ExitOnOutOfMemoryError"
+USER worker
+CMD ["/app/bin/worker"]

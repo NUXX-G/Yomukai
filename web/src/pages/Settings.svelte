@@ -3,7 +3,7 @@
   import { installGuide } from '../lib/fullscreen.svelte.js';
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
-  import { session, settings, sources, saveSettings, notify, resetUserState, loadUserData } from '../lib/store.svelte.js';
+  import { session, settings, sources, saveSettings, notify, resetUserState, loadUserData, features } from '../lib/store.svelte.js';
   import Icon from '../components/Icon.svelte';
   import Sheet from '../components/Sheet.svelte';
 
@@ -221,6 +221,20 @@
     </section>
   {/if}
 
+  {#if features.loaded && features.flags.worker_jobs && !session.user.guest}
+    <h2 class="h">Servidor de casa</h2>
+    <section class="card row-flex">
+      <span class="home-dot" class:on={features.worker.online}></span>
+      <span class="grow small">
+        {#if features.worker.online}
+          Encendido{features.worker.gpu ? ' (con GPU)' : ''}: voces de calidad, OCR y subtítulos disponibles.
+        {:else}
+          Apagado ahora mismo: lo que necesite el servidor de casa se hará cuando vuelva, o con tu dispositivo.
+        {/if}
+      </span>
+    </section>
+  {/if}
+
   <h2 class="h">Lectura</h2>
   <section class="card">
     <div class="small muted">Manga, manhwa y cómics</div>
@@ -259,6 +273,7 @@
         </div>
       {/each}
     </section>
+    {#await import('../components/AdminPanel.svelte') then m}<m.default />{/await}
   {/if}
 </div>
 
@@ -290,6 +305,8 @@
   .check.fail { color: var(--error, #ff8a80); }
   .diag { padding: 12px 0; }
   .susp { display: block; }
+  .home-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text-dim); flex: none; }
+  .home-dot.on { background: #6fcf8a; }
   .sync-box { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin: 6px 0; border-radius: 10px; background: var(--surface-high); }
   .sync-box code { flex: 1; min-width: 0; overflow-wrap: anywhere; user-select: all; }
   .add { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }

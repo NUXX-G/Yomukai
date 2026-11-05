@@ -11,20 +11,20 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 ### Extra pedido por el usuario
 - [x] Bilibili Manga descartada por el usuario (API cifrada). En su lugar: **MangaDex 中文** (`mangadex_zh`, `MangaDexProfile.CHINESE`): capítulos zh/zh-hk, títulos en chino; desactivada por defecto (`CatalogueSource.enabledByDefault`), se activa en Ajustes › Fuentes
 
-### Fase 0 — Limpieza y base
+### Fase 0 — Limpieza y base ✅
 - [x] 0.1 `server/data/`, `t.html` y `.idea/` fuera del repo e ignorados; `secret.key` borrado (se regenera). Nota: la clave vieja quedó en el historial; el VPS usa la suya de `/data` (o `SECRET`), así que no le afecta
 - [x] 0.2 AnimeFLV (`animeflv.or.at`) funciona → PLAN.md actualizado, no se borra
 - [x] 0.3 Migraciones versionadas: `server/…/Migrations.kt` (`schema_version`, pasos numerados sin huecos e idempotentes, cada uno en su transacción; rechaza bases de una versión más nueva). La 1 es el esquema actual + columnas añadidas antes; lo nuevo se añade como migración 2, 3… al final de `Migrations.ALL`
 - [x] 0.4 Copias nocturnas: `Backups.kt` (`VACUUM INTO` en caliente + gzip, `BACKUP_HOUR`=4, 14 días, la más nueva nunca se borra, `BACKUP_DIR`), copia a `BACKUP_COPY_DIR` (carpeta del NAS montada) con reintento cada hora; comandos `server backup | backups | restore <archivo|latest>`; `ServerLock` (`data/.lock`) impide restaurar con el server en marcha. Documentado en README
 - [x] 0.5 CI (`.github/workflows/ci.yml`): 4 trabajos en cada push/PR — detekt 1.23.8 (baseline en `config/detekt-baseline.xml`) + ktlint 1.8.0 (reglas de maquetación desactivadas en `.editorconfig`, el resto aplicado con `scripts/lint-kotlin.sh --format`), shared+server (tests + installDist), app (assembleDebug + testDebugUnitTest + APK como artefacto), web (eslint + svelte-check + build). Dependabot semanal (Gradle, npm, Actions) y mensual (Docker). Primera ejecución en verde
 
-### Fase 1 — VPS + worker + dispositivo
-- [ ] 1.1 Docker con límite de RAM (1 GB por defecto) y CPU, JVM ajustada, cachés acotadas, medición en reposo y carga, guía de swapfile
-- [ ] 1.2 Módulo `worker/` (token revocable, capacidades, conexión saliente). Incluir: el worker se trae las copias de seguridad del VPS al NAS (endpoint autenticado), como alternativa a `BACKUP_COPY_DIR`
-- [ ] 1.3 Cola de trabajos en SQLite (tipos, prioridades, reintentos, caducidad, asignación), resultados cacheados con LRU
-- [ ] 1.4 Worker: nice/límites, pausa si la máquina está ocupada, descarga de modelos inactivos
-- [ ] 1.5 Estado del worker visible y funciones disponibles en web y app
-- [ ] 1.6 Medición de tráfico del proxy con tope mensual y avisos 80/100 %
+### Fase 1 — VPS + worker + dispositivo ✅
+- [x] 1.1 `docker-compose.yml`: `YOMUKAI_MEMORY` (1g), `YOMUKAI_CPUS` (1.0), memswap 1,5g, pids 512, `oom_score_adj` 500 (FlareSolverr 512m/0,5 CPU/800), logs 3×10 MB, no-new-privileges. JVM: SerialGC, heap 55 % del límite, metaspace 160m, ExitOnOutOfMemoryError. Cachés en memoria escaladas al heap (`MemoryBudget`); disco con tope (`IMAGE_CACHE_MB`, `RESULT_CACHE_MB`). Guía con swapfile en `docs/VPS.md`. Medido en Docker con 1 GB: 107 MB reposo / 165 MB tras carga
+- [x] 1.2 `worker/` (Kotlin, reutiliza shared): `WorkerConfig` (YOMUKAI_URL, WORKER_TOKEN; http solo a Tailscale/LAN), `Capabilities` (CPU, RAM, GPU por nvidia-smi, motores instalados), `VpsClient`, bucle con huecos, latido, subida y fallos. Trae copias de la base solo con permiso `can_backup`. `Dockerfile.worker`, `docker-compose.worker.yml` (GPU opcional), `install-worker.sh`. Los motores reales (TTS, OCR...) se añaden como `JobHandler` en sus fases
+- [x] 1.3 `Jobs.kt`: `JobQueue` (SQLite, prioridades INTERACTIVE/NEXT/BACKGROUND, dedup_key que une trabajos iguales y reutiliza resultados, GPU primero durante 60 s para tts/whisper, concesión de 10 min con latido, reintentos con espera creciente, caducidad, limpieza a 7 días) y `ResultCache` (disco con tope y LRU). API `/worker/*` (token Bearer, SHA-256 en BD, revocable). Tipos: tts, ocr, translate, whisper, audio_fingerprint, jellyfin_download, cbz_export, echo
+- [x] 1.4 Procesos externos con `nice -n 19` + `ionice -c3`, sin shell; pausa si carga/núcleo > `WORKER_MAX_LOAD` (0,85) o existe `WORKER_PAUSE_FILE`, o si el admin lo pausa; `IdleResource` descarga modelos tras `WORKER_IDLE_UNLOAD_MIN` (10)
+- [x] 1.5 `/api/features` (flags + worker online/GPU + tipos disponibles). Web: panel de admin (`AdminPanel.svelte`, trozo aparte: estado, workers con crear/pausar/revocar/copias/probar, flags) y «Servidor de casa» en Ajustes. App: lo mismo en Ajustes › Sincronizar (`ServerSync.features`). Flags en `Features.kt` (`FeatureCatalog`): cada fase añade los suyos
+- [x] 1.6 `Bandwidth.kt`: cuenta /api/stream por mes (tabla bandwidth), `BANDWIDTH_CAP_GB`, avisos 80/100 % por `Notifier` (Discord/ntfy, sin repetir), corte a no-admins al 100 % (flag `bandwidth_cap`). Aviso también si todos los workers se apagan
 
 ### Fase 2 — Seguridad
 - [ ] 2.1 Cabeceras (CSP, HSTS, etc.) y cookies seguras
@@ -91,6 +91,7 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 |---|---|---|---|---|---|---|
 | Antes de Fase 0 (2026-11-05, local Windows, JVM SerialGC) | 185 MB | 257 MB | 4,0 s de CPU en 300 peticiones + 4 novedades | 5 ms local · 575 ms novedades reales | 84 KB (JS 74,9 + CSS 9,2) + hls.js 180,5 KB aparte | 34,7 MB (v1.13.0; ~23 MB son Tor) |
 | Después de Fase 0 (mismo equipo) | 181 MB | 260 MB | 5,0 s | 5 ms local · 536 ms novedades | 84 KB (sin cambios) + hls.js 180,5 KB | sin cambios de código de la app (solo formato) |
+| Después de Fase 1 (Docker local, límite 1 GB / 1 CPU) | 107 MB | 165 MB | 21 % de 1 CPU en el pico | 8 ms local · 925 ms novedades | 85 KB + AdminPanel 3,9 KB (solo admins) | ~igual (+1 pantalla de texto) |
 
 Cómo medir: `./gradlew :server:installDist`, `cd web && npm run build`, `bash scripts/bench.sh` (o `scripts/bench.sh https://tu-vps PID` en el VPS con `BENCH_USER`/`BENCH_PASSWORD`). En el VPS real aún no se ha medido (no tengo acceso): pendiente de que el usuario lance el script allí.
 

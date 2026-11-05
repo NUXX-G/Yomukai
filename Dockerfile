@@ -34,7 +34,10 @@ COPY --from=web /web/dist/ /app/web/
 COPY --from=piper /opt/piper/ /opt/piper/
 # The build stages leave files readable by root only; the app runs as its own user.
 RUN chmod -R a+rX /app /opt/piper
-ENV PORT=8080 DATA_DIR=/data WEB_DIR=/app/web PIPER_PATH=/opt/piper/piper JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+UseSerialGC"
+# JVM sized for a small VPS: the heap takes 55 % of the container limit (the rest is metaspace, threads, Netty
+# buffers and Piper), Serial GC (least memory), and the process exits on OutOfMemory so Docker restarts it clean.
+ENV PORT=8080 DATA_DIR=/data WEB_DIR=/app/web PIPER_PATH=/opt/piper/piper \
+    JAVA_OPTS="-XX:+UseSerialGC -XX:MaxRAMPercentage=55 -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=64m -Xss512k -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication"
 USER yomukai
 VOLUME /data
 EXPOSE 8080

@@ -37,6 +37,14 @@ GUEST_DAYS=1
 TRUST_PROXY=false
 # Optional MyAnimeList Client ID (https://myanimelist.net/apiconfig, type "android").
 MAL_CLIENT_ID=
+# Límites en el VPS (es compartido): memoria y núcleos máximos de Yomukai.
+YOMUKAI_MEMORY=1g
+YOMUKAI_CPUS=1.0
+# Tope mensual de vídeo que pasa por el VPS, en GB (0 = solo medir).
+BANDWIDTH_CAP_GB=0
+# Avisos al admin (opcional): webhook de Discord y/o tema de ntfy.
+DISCORD_WEBHOOK_URL=
+NTFY_URL=
 EOF
   chmod 600 .env
   NEW=1

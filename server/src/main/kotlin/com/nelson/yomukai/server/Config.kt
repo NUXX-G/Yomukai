@@ -42,6 +42,8 @@ data class Config(
     val backupsEnabled: Boolean = true,
     /** Disk for finished worker results (audio, OCR, subtitles...); least recently used go first. */
     val resultCacheBytes: Long = 2L * 1024 * 1024 * 1024,
+    /** Disk for page and cover images already fetched. */
+    val imageCacheBytes: Long = 2L * 1024 * 1024 * 1024,
     /** Monthly cap for video through the VPS; 0 = only measure. */
     val bandwidthCapBytes: Long = 0,
     /** Admin warnings: Discord webhook and/or ntfy topic URL (with optional token). */
@@ -77,6 +79,7 @@ data class Config(
                 backupCopyDir = env["BACKUP_COPY_DIR"]?.ifBlank { null }?.let(::File),
                 backupsEnabled = env["BACKUPS_ENABLED"]?.lowercase() != "false",
                 resultCacheBytes = (env["RESULT_CACHE_MB"]?.toLongOrNull()?.coerceIn(64, 1_000_000) ?: 2048) * 1024 * 1024,
+                imageCacheBytes = (env["IMAGE_CACHE_MB"]?.toLongOrNull()?.coerceIn(64, 1_000_000) ?: 2048) * 1024 * 1024,
                 bandwidthCapBytes = ((env["BANDWIDTH_CAP_GB"]?.toDoubleOrNull()?.coerceIn(0.0, 1_000_000.0) ?: 0.0) * 1_073_741_824).toLong(),
                 discordWebhook = env["DISCORD_WEBHOOK_URL"]?.trim()?.takeIf { it.startsWith("https://") },
                 ntfyUrl = env["NTFY_URL"]?.trim()?.takeIf { it.startsWith("https://") || it.startsWith("http://") },

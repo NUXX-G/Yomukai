@@ -37,7 +37,8 @@ fun ServerSyncItem(
     state: SyncState,
     onConnect: suspend (server: String, user: String, password: String) -> String?,
     onSyncNow: () -> Unit,
-    onDisconnect: () -> Unit
+    onDisconnect: () -> Unit,
+    features: com.nelson.yomukai.data.sync.ServerFeatures? = null
 ) {
     var connecting by remember { mutableStateOf(false) }
     var confirmDisconnect by remember { mutableStateOf(false) }
@@ -57,6 +58,14 @@ fun ServerSyncItem(
             val last = if (state.lastSyncAt > 0) "Última vez: " + ago(state.lastSyncAt) else "Aún no se ha sincronizado"
             Text(last, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             state.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+            if (features != null && features.on("worker_jobs")) {
+                val home = if (features.workerOnline) {
+                    "Servidor de casa encendido" + (if (features.workerGpu) " (con GPU)" else "") + ": voces de calidad, OCR y subtítulos disponibles"
+                } else {
+                    "Servidor de casa apagado: lo pesado se hará cuando vuelva, o con este móvil"
+                }
+                Text(home, style = MaterialTheme.typography.bodySmall, color = if (features.workerOnline) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 OutlinedButton(onClick = onSyncNow, enabled = !state.running) { Text(if (state.running) "Sincronizando..." else "Sincronizar ahora") }
                 TextButton(onClick = { confirmDisconnect = true }) { Text("Desconectar") }

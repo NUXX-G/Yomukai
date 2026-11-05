@@ -10,7 +10,7 @@ kotlin {
 
 application {
     mainClass.set("com.nelson.yomukai.server.MainKt")
-    applicationDefaultJvmArgs = listOf("-XX:+UseSerialGC", "-Xss512k", "-XX:MaxRAMPercentage=75")
+    applicationDefaultJvmArgs = listOf("-XX:+UseSerialGC", "-Xss512k", "-XX:MaxRAMPercentage=55", "-XX:+ExitOnOutOfMemoryError")
 }
 
 val ktor = "3.2.3"

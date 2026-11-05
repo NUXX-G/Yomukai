@@ -125,6 +125,10 @@ Opciones en `~/yomukai/.env` (aplícalas con `docker compose up -d`):
 | `BACKUP_HOUR` / `BACKUP_KEEP_DAYS` | `4` / `14` | Hora de la copia (zona `TZ` del contenedor) y días que se guardan |
 | `BACKUP_COPY_DIR` | vacío | Segunda carpeta (NAS o worker montado por Tailscale) donde copiar cada copia cuando esté accesible |
 | `BACKUPS_ENABLED` | `true` | `false` desactiva las copias automáticas |
+| `YOMUKAI_MEMORY` / `YOMUKAI_CPUS` | `1g` / `1.0` | Límites del contenedor en el VPS (ver [docs/VPS.md](docs/VPS.md)) |
+| `IMAGE_CACHE_MB` / `RESULT_CACHE_MB` | `2048` / `2048` | Disco para imágenes y para resultados del worker (se borra lo menos usado) |
+| `BANDWIDTH_CAP_GB` | `0` | Tope mensual de vídeo que pasa por el VPS (0 = solo medir); avisos al 80 y 100 % |
+| `DISCORD_WEBHOOK_URL` / `NTFY_URL` / `NTFY_TOKEN` | vacío | Avisos al admin (worker apagado, tope de tráfico, fuentes rotas) |
 
 Detrás de nginx o Caddy con HTTPS, apunta el proxy a `http://127.0.0.1:8080`, pon `TRUST_PROXY=true` y desactiva el buffering para que la búsqueda en vivo y el vídeo fluyan (`proxy_buffering off;` en nginx).
 
@@ -137,6 +141,16 @@ yomukai.tudominio.com {
     }
 }
 ```
+
+### Servidor de casa (worker)
+
+Lo pesado (voces de calidad, OCR, subtítulos, huellas de audio, descargas a Jellyfin) no se hace en el VPS sino en un **worker**: un programa que corre en tu servidor de casa (o en un portátil con GPU), se conecta él al VPS y va pidiendo trabajos. Crea un worker en Ajustes › Administración › Workers y usa su token:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/NUXX-G/Yomukai/main/install-worker.sh | \n  YOMUKAI_URL=https://yomukai.tudominio.com WORKER_TOKEN=ykw_... bash
+```
+
+Si el worker está apagado, esos trabajos esperan en la cola y la web y la app lo indican. Guía completa (límites de memoria, swap, Tailscale): [docs/VPS.md](docs/VPS.md).
 
 ### Copias de seguridad
 

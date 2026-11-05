@@ -1,4 +1,17 @@
-# Yomukai web. Settings live in .env next to this file (the install script writes it).
+# Yomukai en el VPS. Ajustes en .env junto a este fichero (el instalador lo crea).
+# Ligero a propósito: lo pesado (voces, OCR, subtítulos, descargas) lo hace el worker de casa (docker-compose.worker.yml).
+#
+# Límites: el VPS es compartido (p. ej. con un portfolio) y Yomukai nunca debe dejarlo sin memoria.
+#   YOMUKAI_MEMORY  memoria máxima del contenedor (1g por defecto; la JVM usa el 55 % para el heap)
+#   YOMUKAI_CPUS    núcleos como máximo (1.0 por defecto)
+# Si aun así faltara memoria, oom_score_adj hace que el kernel mate antes a Yomukai que a otro servicio,
+# y Docker lo vuelve a arrancar solo.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   yomukai:
     image: ${YOMUKAI_IMAGE:-ghcr.io/nuxx-g/yomukai:latest}
@@ -10,6 +23,14 @@ services:
       - yomukai-data:/data
       # Copia de las copias de seguridad en el NAS (montado en el VPS por Tailscale/NFS/SSHFS):
       # - /mnt/nas/yomukai-backups:/backups-nas   y en .env: BACKUP_COPY_DIR=/backups-nas
+    mem_limit: ${YOMUKAI_MEMORY:-1g}
+    memswap_limit: ${YOMUKAI_MEMORY_SWAP:-1500m}
+    cpus: ${YOMUKAI_CPUS:-1.0}
+    pids_limit: 512
+    oom_score_adj: 500
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
     environment:
       ADMIN_USER: ${ADMIN_USER:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
@@ -21,18 +42,31 @@ services:
       GUEST_ABUSE_LIMIT: ${GUEST_ABUSE_LIMIT:-300}
       MAL_CLIENT_ID: ${MAL_CLIENT_ID:-}
       TRUST_PROXY: ${TRUST_PROXY:-false}
+      PUBLIC_URL: ${PUBLIC_URL:-}
       TZ: ${TZ:-Europe/Madrid}
       BACKUP_HOUR: ${BACKUP_HOUR:-4}
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
       BACKUP_COPY_DIR: ${BACKUP_COPY_DIR:-}
+      RESULT_CACHE_MB: ${RESULT_CACHE_MB:-2048}
+      IMAGE_CACHE_MB: ${IMAGE_CACHE_MB:-2048}
+      BANDWIDTH_CAP_GB: ${BANDWIDTH_CAP_GB:-0}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      NTFY_URL: ${NTFY_URL:-}
+      NTFY_TOKEN: ${NTFY_TOKEN:-}
       FLARESOLVERR_URL: http://flaresolverr:8191
     depends_on:
       - flaresolverr
 
-  # A real browser for the few sites behind Cloudflare challenges (Royal Road). Reachable only by Yomukai.
+  # Un navegador real para las pocas webs con desafío de Cloudflare. Solo lo ve Yomukai.
+  # Chrome es lo que más memoria gasta: con límite propio y reinicio automático si se pasa.
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:v3.3.21
     restart: unless-stopped
+    mem_limit: ${FLARESOLVERR_MEMORY:-512m}
+    cpus: ${FLARESOLVERR_CPUS:-0.5}
+    pids_limit: 256
+    oom_score_adj: 800
+    logging: *logging
     environment:
       LOG_LEVEL: warning
 

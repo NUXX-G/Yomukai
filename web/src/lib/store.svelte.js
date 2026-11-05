@@ -16,6 +16,21 @@ export const settings = $state(structuredClone(DEFAULT_SETTINGS));
 export const library = $state({ items: [], loaded: false });
 export const sources = $state({ list: [], loaded: false });
 export const toast = $state({ text: '', at: 0 });
+/** What the server has switched on and what the home worker can do right now (see /api/features). */
+export const features = $state({ flags: {}, worker: { online: false, gpu: false }, available: {}, loaded: false });
+
+/** Asks the server again; never fails (an old server without /api/features just means everything off). */
+export async function loadFeatures() {
+  try {
+    const f = await api.features();
+    Object.assign(features, f, { loaded: true });
+  } catch {
+    features.loaded = true;
+  }
+}
+
+/** True when [name] is on (unknown flags count as off). */
+export const featureOn = (name) => features.flags?.[name] === true;
 /** What the home page showed: coming back to it shows the same at once, in place, instead of loading it all again. */
 export const home = $state({ sections: {}, history: null, forYou: null });
 
@@ -62,6 +77,7 @@ export async function loadSession(attempt = 0) {
 }
 
 export async function loadUserData() {
+  loadFeatures();
   const [s, lib, src] = await Promise.all([api.settings().catch(() => ({})), api.library().catch(() => []), api.sources().catch(() => [])]);
   Object.assign(settings, structuredClone(DEFAULT_SETTINGS), s, {
     reader: { ...DEFAULT_SETTINGS.reader, ...(s.reader || {}) },

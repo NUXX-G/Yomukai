@@ -125,7 +125,7 @@ class Services(val config: Config) {
         aniList, KitsuClient(http), MalClient(http, config.malClientId), MetadataStore(config.dataDir),
         MangaUpdatesClient(http), OpenLibraryClient(http)
     )
-    val proxy = MediaProxy(http, config.secret, File(config.dataDir, "cache"), config.guestStreams)
+    val proxy = MediaProxy(http, config.secret, File(config.dataDir, "cache"), config.guestStreams, config.imageCacheBytes)
     val catalog = Catalog(sources, aniList, metadata, proxy)
     val downloads = Downloader(catalog, proxy, http)
 

@@ -84,6 +84,7 @@ fun SettingsScreen(
     val manga by viewModel.manga.collectAsStateWithLifecycle()
     val storage by viewModel.storage.collectAsStateWithLifecycle()
     val network by viewModel.network.collectAsStateWithLifecycle()
+    val serverFeatures by viewModel.features.collectAsStateWithLifecycle()
     val tor by viewModel.tor.collectAsStateWithLifecycle()
     val sync by viewModel.sync.collectAsStateWithLifecycle()
     var confirmHistory by remember { mutableStateOf(false) }
@@ -118,7 +119,7 @@ fun SettingsScreen(
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
             item { GroupTitle("Sincronizar con servidor") }
-            item { ServerSyncItem(sync, viewModel::connectServer, viewModel::syncNow, viewModel::disconnectServer) }
+            item { ServerSyncItem(sync, viewModel::connectServer, viewModel::syncNow, viewModel::disconnectServer, serverFeatures) }
 
             item { GroupTitle("Apariencia") }
             item {

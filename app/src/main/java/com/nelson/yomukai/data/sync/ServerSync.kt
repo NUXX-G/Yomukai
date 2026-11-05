@@ -51,6 +51,18 @@ data class SyncState(
  * connected, every change here is stamped and sent; the server keeps the newest of each row and hands
  * back what other devices changed since the last time ("revision"), deletions included.
  */
+
+/** See [ServerSync.features]. */
+data class ServerFeatures(
+    val flags: Map<String, Boolean> = emptyMap(),
+    val workerOnline: Boolean = false,
+    val workerGpu: Boolean = false,
+    /** Job types a worker can do right now (tts, ocr, whisper...). */
+    val available: Set<String> = emptySet()
+) {
+    fun on(flag: String) = flags[flag] == true
+}
+
 class ServerSync(context: Context, private val db: YomukaiDatabase, private val preferences: AppPreferences) {
     private val prefs = context.getSharedPreferences("yomukai_sync", Context.MODE_PRIVATE)
     private val dao = db.syncDao()
@@ -398,6 +410,17 @@ class ServerSync(context: Context, private val db: YomukaiDatabase, private val 
 
     private fun authed(builder: Request.Builder, session: String) = builder.header("Cookie", "$COOKIE=$session")
 
+    /** What the connected server has switched on and whether its home worker is up (GET /api/features). */
+    suspend fun features(): ServerFeatures? = withContext(Dispatchers.IO) {
+        val server = _state.value.server ?: return@withContext null
+        val session = token ?: return@withContext null
+        runCatching {
+            client.newCall(authed(Request.Builder().url("$server/api/features"), session).build()).execute().use { r ->
+                if (r.isSuccessful) parseFeatures(r.body?.string().orEmpty()) else null
+            }
+        }.getOrNull()
+    }
+
     /** A natural voice of the connected server (see the web's novel reader). */
     data class ServerVoice(val id: String, val label: String, val lang: String, val gender: String, val region: String)
 
@@ -434,6 +457,16 @@ class ServerSync(context: Context, private val db: YomukaiDatabase, private val 
         private const val PROGRESS_BATCH = 5_000
 
         /** "yomukai.example.com" or "https://yomukai.example.com/" -> "https://yomukai.example.com". */
+
+        /** Never throws: an unknown or old answer means everything off. */
+        fun parseFeatures(text: String): ServerFeatures = runCatching {
+            val root = JsonParser.parseString(text).asJsonObject
+            val flags = root.getAsJsonObject("flags")?.entrySet()?.associate { (k, v) -> k to (v.takeIf { it.isJsonPrimitive }?.asBoolean == true) }.orEmpty()
+            val worker = root.getAsJsonObject("worker") ?: JsonObject()
+            val available = root.getAsJsonObject("available")?.entrySet()?.filter { (_, v) -> v.takeIf { it.isJsonPrimitive }?.asBoolean == true }?.map { it.key }?.toSet().orEmpty()
+            ServerFeatures(flags, worker.bool("online"), worker.bool("gpu"), available)
+        }.getOrDefault(ServerFeatures())
+
         fun normalizeServer(input: String): String? {
             val trimmed = input.trim().trimEnd('/')
             if (trimmed.isEmpty()) return null

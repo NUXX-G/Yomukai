@@ -63,3 +63,18 @@ class NetworkLogicTest {
         assertEquals(2, secure.calls)
     }
 }
+
+class ServerFeaturesTest {
+    @org.junit.Test
+    fun parsesTheServerAnswerAndNeverThrows() {
+        val f = com.nelson.yomukai.data.sync.ServerSync.parseFeatures(
+            """{"flags":{"worker_jobs":true,"bandwidth_cap":false},"worker":{"online":true,"gpu":false},"available":{"tts":true,"ocr":false}}"""
+        )
+        org.junit.Assert.assertTrue(f.on("worker_jobs"))
+        org.junit.Assert.assertFalse(f.on("bandwidth_cap"))
+        org.junit.Assert.assertFalse(f.on("desconocido"))
+        org.junit.Assert.assertTrue(f.workerOnline)
+        org.junit.Assert.assertEquals(setOf("tts"), f.available)
+        org.junit.Assert.assertEquals(com.nelson.yomukai.data.sync.ServerFeatures(), com.nelson.yomukai.data.sync.ServerSync.parseFeatures("<html>"))
+    }
+}

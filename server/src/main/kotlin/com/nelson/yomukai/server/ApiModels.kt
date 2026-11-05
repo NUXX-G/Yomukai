@@ -114,7 +114,21 @@ class Dtos(private val proxy: MediaProxy, private val headersOf: (String) -> Map
 }
 
 /** Small LRU with expiry for answers that many people ask for (latest lists, details, chapters). */
-class TtlCache<K, V>(private val maxEntries: Int, private val ttlMs: Long) {
+
+/**
+ * Sizes in-memory caches to the heap the JVM was given: a 1 GB container gets smaller caches than a big server, so
+ * Yomukai stays inside its memory limit instead of growing until the kernel kills something.
+ */
+object MemoryBudget {
+    /** 1.0 for a 768 MB heap; between 0.25 and 2. */
+    val cacheScale: Double = scaleFor(Runtime.getRuntime().maxMemory())
+    fun scaleFor(maxHeap: Long): Double = (maxHeap / (768.0 * 1024 * 1024)).coerceIn(0.25, 2.0)
+    fun entries(base: Int): Int = (base * cacheScale).toInt().coerceAtLeast(16)
+}
+
+class TtlCache<K, V>(maxEntries: Int, private val ttlMs: Long) {
+    private val maxEntries = MemoryBudget.entries(maxEntries)
+
     private class Entry<V>(val value: V, val at: Long)
 
     private val map = object : LinkedHashMap<K, Entry<V>>(64, 0.75f, true) {

@@ -1,0 +1,47 @@
+# Worker de Yomukai para el servidor de casa (y, si quieres, el portátil con GPU).
+# Hace lo pesado: voces, OCR, subtítulos, huellas de audio, descargas a Jellyfin y CBZ.
+# Se conecta él al VPS (no abre ningún puerto en tu red). Ajustes en .env.worker:
+#   YOMUKAI_URL   dirección del VPS (https://… o http://100.x.y.z:8080 por Tailscale)
+#   WORKER_TOKEN  el token que da Ajustes › Administración › Workers › Nuevo worker
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  worker:
+    image: ${YOMUKAI_WORKER_IMAGE:-ghcr.io/nuxx-g/yomukai-worker:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    env_file: .env.worker
+    # Nunca le quita la máquina a nadie: CPU y memoria limitadas y prioridad baja frente a Jellyfin y el resto.
+    mem_limit: ${WORKER_MEMORY:-4g}
+    cpus: ${WORKER_CPUS:-2.0}
+    cpu_shares: 256
+    pids_limit: 1024
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
+    volumes:
+      - worker-work:/work
+      # Copias de la base de datos del VPS en el NAS (solo si el admin da permiso al worker):
+      # - /mnt/nas/yomukai/backups:/backups      y en .env.worker: WORKER_BACKUP_DIR=/backups
+      # Bibliotecas de Jellyfin y carpeta de cómics (Fase 10), tal como las ve esta máquina:
+      # - /mnt/nas/anime:/media/anime
+      # - /mnt/nas/series:/media/series
+      # - /mnt/nas/peliculas:/media/movies
+      # - /mnt/nas/comics:/media/comics
+    # Con GPU NVIDIA (portátil RTX): instala nvidia-container-toolkit y descomenta.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+volumes:
+  worker-work:

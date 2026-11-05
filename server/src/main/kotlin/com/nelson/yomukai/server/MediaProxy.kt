@@ -37,11 +37,11 @@ import javax.crypto.spec.SecretKeySpec
  * Referer, and browsers cannot set it. Every proxied link is signed with the server's key, so the
  * server never fetches an address it did not hand out itself.
  */
-class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File, private val guestStreams: Int) {
+class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File, private val guestStreams: Int, imageCacheBytes: Long = 2L * 1024 * 1024 * 1024) {
     private val key = SecretKeySpec(secret, "HmacSHA256")
     private val gson = Gson()
     private val log = org.slf4j.LoggerFactory.getLogger("YomukaiMedia")
-    private val imageCache = ImageCache(File(cacheDir, "images"))
+    private val imageCache = ImageCache(File(cacheDir, "images"), imageCacheBytes)
     private val openStreams = ConcurrentHashMap<Long, AtomicInteger>()
 
     /** Told every byte of video sent to a viewer (the monthly traffic meter). */

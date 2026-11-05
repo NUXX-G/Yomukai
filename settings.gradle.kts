@@ -21,4 +21,5 @@ rootProject.name = "Yomukai"
 if (System.getenv("YOMUKAI_SERVER_ONLY") != "true") include(":app")
 include(":shared")
 include(":server")
-include(":worker")
+// The VPS image copies only shared/ and server/: the worker joins the build only where its folder exists.
+if (file("worker").isDirectory) include(":worker")
