@@ -33,7 +33,13 @@ data class Config(
     /** Read the visitor address from the proxy's X-Forwarded-For entry; set only behind nginx, Caddy or Traefik. */
     val trustProxy: Boolean,
     /** Public address, for links in the export file; optional. */
-    val publicUrl: String?
+    val publicUrl: String?,
+    /** Nightly SQLite copies: folder, days kept, hour (server time zone), and an optional second folder (NAS/worker). */
+    val backupDir: File = File(dataDir, "backups"),
+    val backupKeepDays: Int = 14,
+    val backupHour: Int = 4,
+    val backupCopyDir: File? = null,
+    val backupsEnabled: Boolean = true
 ) {
     companion object {
         const val ACCOUNT_RATE = 600
@@ -56,7 +62,12 @@ data class Config(
                 guestAbuseLimit = env["GUEST_ABUSE_LIMIT"]?.toIntOrNull()?.coerceAtLeast(50) ?: 300,
                 guestStreams = env["GUEST_STREAMS"]?.toIntOrNull() ?: 2,
                 trustProxy = env["TRUST_PROXY"]?.lowercase() == "true",
-                publicUrl = env["PUBLIC_URL"]?.trimEnd('/')?.ifBlank { null }
+                publicUrl = env["PUBLIC_URL"]?.trimEnd('/')?.ifBlank { null },
+                backupDir = env["BACKUP_DIR"]?.ifBlank { null }?.let(::File) ?: File(dataDir, "backups"),
+                backupKeepDays = env["BACKUP_KEEP_DAYS"]?.toIntOrNull()?.coerceIn(1, 365) ?: 14,
+                backupHour = env["BACKUP_HOUR"]?.toIntOrNull()?.coerceIn(0, 23) ?: 4,
+                backupCopyDir = env["BACKUP_COPY_DIR"]?.ifBlank { null }?.let(::File),
+                backupsEnabled = env["BACKUPS_ENABLED"]?.lowercase() != "false"
             )
         }
 

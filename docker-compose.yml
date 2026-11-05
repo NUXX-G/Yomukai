@@ -8,6 +8,8 @@ services:
       - "${PORT:-8080}:8080"
     volumes:
       - yomukai-data:/data
+      # Copia de las copias de seguridad en el NAS (montado en el VPS por Tailscale/NFS/SSHFS):
+      # - /mnt/nas/yomukai-backups:/backups-nas   y en .env: BACKUP_COPY_DIR=/backups-nas
     environment:
       ADMIN_USER: ${ADMIN_USER:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
@@ -19,6 +21,10 @@ services:
       GUEST_ABUSE_LIMIT: ${GUEST_ABUSE_LIMIT:-300}
       MAL_CLIENT_ID: ${MAL_CLIENT_ID:-}
       TRUST_PROXY: ${TRUST_PROXY:-false}
+      TZ: ${TZ:-Europe/Madrid}
+      BACKUP_HOUR: ${BACKUP_HOUR:-4}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_COPY_DIR: ${BACKUP_COPY_DIR:-}
       FLARESOLVERR_URL: http://flaresolverr:8191
     depends_on:
       - flaresolverr

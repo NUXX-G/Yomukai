@@ -125,6 +125,18 @@ class Database(file: File) {
     /** The schema step this database is at; see [Migrations]. */
     fun schemaVersion(): Int = Migrations.currentVersion(connection)
 
+    fun close() = connection.close()
+
+    /**
+     * A consistent copy of the whole database into [target] (which must not exist) while the server keeps running:
+     * SQLite's VACUUM INTO reads one snapshot, so writes made meanwhile are either fully in the copy or not at all.
+     */
+    suspend fun backupTo(target: File) = withContext(Dispatchers.IO) {
+        lock.withLock {
+            connection.createStatement().use { it.execute("VACUUM INTO '${target.absolutePath.replace("'", "''")}'") }
+        }
+    }
+
     /** Runs [block] on the IO threads with the connection to itself. */
     suspend fun <T> tx(block: Connection.() -> T): T = withContext(Dispatchers.IO) {
         lock.withLock {

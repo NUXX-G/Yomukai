@@ -15,12 +15,12 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 - [x] 0.1 `server/data/`, `t.html` y `.idea/` fuera del repo e ignorados; `secret.key` borrado (se regenera). Nota: la clave vieja quedó en el historial; el VPS usa la suya de `/data` (o `SECRET`), así que no le afecta
 - [x] 0.2 AnimeFLV (`animeflv.or.at`) funciona → PLAN.md actualizado, no se borra
 - [x] 0.3 Migraciones versionadas: `server/…/Migrations.kt` (`schema_version`, pasos numerados sin huecos e idempotentes, cada uno en su transacción; rechaza bases de una versión más nueva). La 1 es el esquema actual + columnas añadidas antes; lo nuevo se añade como migración 2, 3… al final de `Migrations.ALL`
-- [ ] 0.4 Copias nocturnas de SQLite (backup en caliente, 14 días, `BACKUP_DIR`), comando de restaurar, copia opcional al worker/NAS
+- [x] 0.4 Copias nocturnas: `Backups.kt` (`VACUUM INTO` en caliente + gzip, `BACKUP_HOUR`=4, 14 días, la más nueva nunca se borra, `BACKUP_DIR`), copia a `BACKUP_COPY_DIR` (carpeta del NAS montada) con reintento cada hora; comandos `server backup | backups | restore <archivo|latest>`; `ServerLock` (`data/.lock`) impide restaurar con el server en marcha. Documentado en README
 - [ ] 0.5 CI: build+tests de shared, server, web y app; detekt/ktlint; svelte-check/eslint; Dependabot
 
 ### Fase 1 — VPS + worker + dispositivo
 - [ ] 1.1 Docker con límite de RAM (1 GB por defecto) y CPU, JVM ajustada, cachés acotadas, medición en reposo y carga, guía de swapfile
-- [ ] 1.2 Módulo `worker/` (token revocable, capacidades, conexión saliente)
+- [ ] 1.2 Módulo `worker/` (token revocable, capacidades, conexión saliente). Incluir: el worker se trae las copias de seguridad del VPS al NAS (endpoint autenticado), como alternativa a `BACKUP_COPY_DIR`
 - [ ] 1.3 Cola de trabajos en SQLite (tipos, prioridades, reintentos, caducidad, asignación), resultados cacheados con LRU
 - [ ] 1.4 Worker: nice/límites, pausa si la máquina está ocupada, descarga de modelos inactivos
 - [ ] 1.5 Estado del worker visible y funciones disponibles en web y app

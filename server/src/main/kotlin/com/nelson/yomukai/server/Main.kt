@@ -63,9 +63,54 @@ import java.io.File
 private val log = LoggerFactory.getLogger("Yomukai")
 private val gson: Gson = GsonBuilder().disableHtmlEscaping().create()
 
-fun main() {
+fun main(args: Array<String>) {
     val config = Config.fromEnv()
+    if (args.isNotEmpty()) kotlin.system.exitProcess(runCommand(config, args.toList()))
+    val lock = ServerLock.tryAcquire(config.dataDir)
+        ?: error("Ya hay un servidor de Yomukai usando ${config.dataDir} (o una restauración en curso)")
+    Runtime.getRuntime().addShutdownHook(Thread { lock.close() })
     embeddedServer(Netty, port = config.port, host = "0.0.0.0") { yomukai(config) }.start(wait = true)
+}
+
+private fun backupsOf(config: Config) =
+    Backups(File(config.dataDir, "yomukai.db"), config.backupDir, config.backupKeepDays, config.backupCopyDir)
+
+/** `server backup`, `server backups`, `server restore <archivo|latest>`: maintenance from the command line. */
+fun runCommand(config: Config, args: List<String>): Int {
+    val dbFile = File(config.dataDir, "yomukai.db")
+    return when (args.first()) {
+        "backup" -> {
+            val file = kotlinx.coroutines.runBlocking { backupsOf(config).backup(Database(dbFile)) }
+            println("Copia hecha: ${file.absolutePath}")
+            0
+        }
+        "backups" -> {
+            Backups.list(config.backupDir).forEach { println("${it.name}  ${it.length() / 1024} KB") }
+            0
+        }
+        "restore" -> {
+            val arg = args.getOrNull(1) ?: run {
+                System.err.println("Uso: server restore <archivo .db.gz | latest>")
+                return 2
+            }
+            val backup = if (arg == "latest") Backups.list(config.backupDir).firstOrNull()
+                ?: run { System.err.println("No hay copias en ${config.backupDir}"); return 1 }
+            else File(arg).let { if (it.isFile) it else File(config.backupDir, arg) }
+            val lock = ServerLock.tryAcquire(config.dataDir) ?: run {
+                System.err.println("El servidor está en marcha: páralo antes de restaurar (docker compose stop yomukai)")
+                return 1
+            }
+            lock.use {
+                val previous = Backups.restore(backup, dbFile)
+                println("Restaurada ${backup.name}." + (previous?.let { " La base anterior queda en ${it.name}" } ?: ""))
+            }
+            0
+        }
+        else -> {
+            System.err.println("Comandos: backup | backups | restore <archivo|latest>")
+            2
+        }
+    }
 }
 
 class Services(val config: Config) {
@@ -110,6 +155,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
     }
 
     launch { services.auth.bootstrap() }
+    if (config.backupsEnabled) backupsOf(config).schedule(this, services.db, config.backupHour)
     // Guests whose week is over go away, with all their data, once an hour.
     launch {
         while (true) {

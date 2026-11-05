@@ -121,6 +121,10 @@ Opciones en `~/yomukai/.env` (aplícalas con `docker compose up -d`):
 | `ABUSE_LIMIT` / `GUEST_ABUSE_LIMIT` | `1500` / `300` | Peticiones a las fuentes en 10 minutos antes de suspender la cuenta |
 | `MAL_CLIENT_ID` | vacío | Client ID de MyAnimeList (opcional) |
 | `TRUST_PROXY` | `false` | Ponlo a `true` solo si hay un proxy inverso delante (nginx, Caddy) |
+| `BACKUP_DIR` | `/data/backups` | Carpeta de las copias nocturnas de la base de datos |
+| `BACKUP_HOUR` / `BACKUP_KEEP_DAYS` | `4` / `14` | Hora de la copia (zona `TZ` del contenedor) y días que se guardan |
+| `BACKUP_COPY_DIR` | vacío | Segunda carpeta (NAS o worker montado por Tailscale) donde copiar cada copia cuando esté accesible |
+| `BACKUPS_ENABLED` | `true` | `false` desactiva las copias automáticas |
 
 Detrás de nginx o Caddy con HTTPS, apunta el proxy a `http://127.0.0.1:8080`, pon `TRUST_PROXY=true` y desactiva el buffering para que la búsqueda en vivo y el vídeo fluyan (`proxy_buffering off;` en nginx).
 
@@ -133,6 +137,21 @@ yomukai.tudominio.com {
     }
 }
 ```
+
+### Copias de seguridad
+
+Cada noche se hace una copia en caliente de la base de datos (`yomukai-AAAAMMDD-HHMMSS.db.gz`, sin parar el servidor) y se borran las de más de 14 días (la más reciente nunca se borra). Si `BACKUP_COPY_DIR` apunta a una carpeta del NAS montada, cada copia se replica allí; si la carpeta no está, se reintenta cada hora.
+
+```bash
+cd ~/yomukai
+docker compose exec yomukai /app/bin/server backup          # copia ahora
+docker compose exec yomukai /app/bin/server backups         # lista las copias
+docker compose stop yomukai                                   # para restaurar, el servidor tiene que estar parado
+docker compose run --rm --no-deps yomukai /app/bin/server restore latest   # o el nombre de una copia
+docker compose start yomukai
+```
+
+La restauración comprueba la copia antes de usarla y deja la base anterior al lado (`yomukai.db.antes-de-restaurar-…`), así que se puede deshacer.
 
 Para desarrollar sin Docker: `./gradlew :server:installDist` (con `YOMUKAI_SERVER_ONLY=true` no hace falta el SDK de Android), `cd web && npm install && npm run dev`, y arranca `server/build/install/server/bin/server` con `PORT=8099`.
 
