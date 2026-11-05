@@ -22,6 +22,9 @@ Fases:
 - [x] 4. Reproductor de anime en la web
 - [x] 5. Docker, instalación en una línea y README
 
+## Cosas que mejorar (sin prioridad, el usuario lo dirá)
+- Voces de las novelas: Piper suena robótico y las voces no gustan. Opciones: Kokoro/XTTS en el servidor (más CPU) o un servicio de pago con estilos (ElevenLabs, Azure). También falta un control de volumen propio.
+
 ## Tanda v1.13.0 (release completa, pedida por el usuario el 2026-11-05)
 - [x] Web: descargas de anime (el marco oculto se borraba al primer load vacío y cancelaba la descarga a 1 s)
 - [x] iOS: botón de pantalla completa siempre; en iPhone, modo inmersivo propio (Safari no deja a las webs)
