@@ -13,7 +13,7 @@ application {
     applicationDefaultJvmArgs = listOf("-XX:+UseSerialGC", "-Xss512k", "-XX:MaxRAMPercentage=75")
 }
 
-val ktor = "3.2.3"
+val ktor = "3.6.1"
 
 dependencies {
     implementation(project(":shared"))
@@ -28,10 +28,10 @@ dependencies {
     implementation("io.ktor:ktor-server-sse:$ktor")
     implementation(libs.okhttp)
     implementation(libs.okhttp.dnsoverhttps)
-    implementation("org.xerial:sqlite-jdbc:3.50.3.0")
-    implementation("ch.qos.logback:logback-classic:1.5.18")
+    implementation("org.xerial:sqlite-jdbc:3.54.1.0")
+    implementation("ch.qos.logback:logback-classic:1.6.6")
     // Reads WebP pages, so oversized ones can be shrunk to the reader's screen like JPEG and PNG.
-    implementation("com.twelvemonkeys.imageio:imageio-webp:3.12.0")
+    implementation("com.twelvemonkeys.imageio:imageio-webp:3.15.3")
     testImplementation(libs.junit)
     testImplementation("io.ktor:ktor-server-test-host:$ktor")
 }

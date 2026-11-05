@@ -16,6 +16,6 @@ java {
 dependencies {
     api(libs.jsoup)
     api(libs.gson)
-    api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
     testImplementation(libs.junit)
 }
