@@ -3,8 +3,12 @@
   import { searchStream } from '../lib/api.js';
   import { settings, rememberSearch, saveSettings, rememberItems, sourceById } from '../lib/store.svelte.js';
   import { route, navigate, media } from '../lib/router.svelte.js';
-  import { TYPE_FILTERS, LANGUAGES, TYPE_NAMES, TYPE_COLORS } from '../lib/format.js';
+  import { TYPE_FILTERS, LANGUAGES } from '../lib/format.js';
   import Icon from '../components/Icon.svelte';
+  import MediaCard from '../components/MediaCard.svelte';
+
+  /** Results grouped by kind, anime first, then the comics, then novels. */
+  const SECTIONS = [['Anime', ['ANIME']], ['Manga', ['MANGA']], ['Manhwa y manhua', ['MANHWA', 'MANHUA']], ['Cómics', ['COMIC']], ['Novelas', ['NOVEL']]];
 
   let query = $state(route.query.get('q') || '');
   let typeKey = $state('ALL');
@@ -37,6 +41,10 @@
   function setType(k) { typeKey = k; if (searched) run(false); }
   function setLang(k) { lang = k; if (searched) run(false); }
   function clear() { query = ''; groups = []; searched = false; stop?.(); searching = false; }
+  const sections = $derived(SECTIONS.map(([title, types]) => [title, groups.filter((g) => types.includes(g.primary.type))]).filter(([, list]) => list.length));
+  const sourceName = (id) => sourceById(id)?.name ?? id;
+  const line = (g) => [sourceName(g.primary.sourceId), g.others.length ? `+${g.others.length} ${g.others.length === 1 ? 'fuente' : 'fuentes'}` : ''].filter(Boolean).join(' · ');
+  const allSources = (g) => [g.primary, ...g.others].map((x) => sourceName(x.sourceId)).join(', ');
   function forget(q) { settings.searchHistory = settings.searchHistory.filter((x) => x !== q); saveSettings(); }
 </script>
 
@@ -69,25 +77,20 @@
     {#if !searching && !groups.length}
       <p class="muted" style="margin-top:24px">Sin resultados para «{query}».</p>
     {/if}
-    <div class="results">
-    {#each groups as g, i (i)}
-      <div class="result">
-        <a href={media(g.primary.sourceId, g.primary.id)} class="hit">
-          <img src={g.primary.cover} alt="" loading="lazy" />
-          <div class="info">
-            <div class="title">{g.primary.title}</div>
-            <div class="small muted type"><span class="dot" style:background={TYPE_COLORS[g.primary.type]}></span>{TYPE_NAMES[g.primary.type]} · {sourceById(g.primary.sourceId)?.name ?? g.primary.sourceId}{g.primary.status ? ' · ' + g.primary.status : ''}</div>
-          </div>
-        </a>
-        {#if g.others.length}
-          <div class="small muted also">También en:</div>
-          <div class="chips">
-            {#each g.others as o}<a class="chip" href={media(o.sourceId, o.id)}>{sourceById(o.sourceId)?.name ?? o.sourceId}</a>{/each}
-          </div>
-        {/if}
-      </div>
+    {#each sections as [title, list] (title)}
+      <section class="kind" aria-label={title}>
+        <h2>{title} <span class="count">{list.length}</span></h2>
+        <div class="grid results">
+          {#each list as g (g.primary.sourceId + g.primary.id)}
+            <MediaCard
+              title={g.primary.title} cover={g.primary.cover} href={media(g.primary.sourceId, g.primary.id)}
+              subtitle={line(g)} doubt={g.doubt} detail={g.others.length ? 'En ' + allSources(g) : ''}
+              badges={g.others.length ? [{ text: `${g.others.length + 1} fuentes`, tone: 'dark' }] : []}
+            />
+          {/each}
+        </div>
+      </section>
     {/each}
-    </div>
     {#if Object.keys(errors).length && !searching}
       <p class="small muted">Sin respuesta de: {Object.keys(errors).join(', ')}</p>
     {/if}
@@ -100,26 +103,15 @@
   .grow { flex: 1; } .left { text-align: left; }
   .status { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
   .tiny { width: 14px; height: 14px; border-width: 2px; }
-  .result { padding: 12px 0; border-bottom: 1px solid var(--outline-variant); }
-  .hit { display: flex; gap: 12px; align-items: center; }
-  .hit img { width: 56px; height: 80px; border-radius: 6px; object-fit: cover; background: var(--surface-variant); flex: none; }
-  .info { min-width: 0; }
-  .title { font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .type { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
-  .dot { width: 6px; height: 6px; border-radius: 50%; }
-  .also { margin: 8px 0 4px 68px; }
-  .result .chips { margin-left: 68px; }
+  .kind { margin-top: 28px; }
+  .kind h2 { font-size: var(--fs-section); font-weight: 750; margin: 0 0 14px; }
+  .count { color: var(--c-text-faint); font-weight: 600; font-size: 0.9rem; margin-left: 6px; }
+  .results { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 18px 10px; }
+  @media (min-width: 900px) { .results { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 26px 16px; } }
   .filters { display: flex; flex-direction: column; gap: 8px; }
   @media (min-width: 1024px) {
     .searchbar { max-width: 760px; height: 56px; margin: 4px 0 16px; }
     .filters { flex-direction: row; align-items: center; gap: 12px; }
     .filters .chips + .chips { padding-left: 12px; border-left: 1px solid var(--outline-variant); }
-    /* Results as cards in columns, not a phone list stretched across the screen. */
-    .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 12px; margin-top: 16px; }
-    .result { padding: 12px; border: 0; border-radius: 14px; background: var(--surface); transition: background 0.15s; }
-    .result:hover { background: var(--surface-high); }
-    .hit img { width: 72px; height: 102px; }
-    .also { margin-left: 84px; }
-    .result .chips { margin-left: 84px; flex-wrap: wrap; }
   }
 </style>
