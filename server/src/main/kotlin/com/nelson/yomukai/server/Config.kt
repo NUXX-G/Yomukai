@@ -50,6 +50,8 @@ data class Config(
     val discordWebhook: String? = null,
     val ntfyUrl: String? = null,
     val ntfyToken: String? = null,
+    /** ntfy server for users' phone notifications (each user gets a private random topic). */
+    val pushUrl: String = "https://ntfy.sh",
     /** Per address and minute: login/guest/invitation/setup attempts, and API requests. */
     val authRatePerMinute: Int = 30,
     val ipRatePerMinute: Int = 1200,
@@ -91,6 +93,7 @@ data class Config(
                 discordWebhook = env["DISCORD_WEBHOOK_URL"]?.trim()?.takeIf { it.startsWith("https://") },
                 ntfyUrl = env["NTFY_URL"]?.trim()?.takeIf { it.startsWith("https://") || it.startsWith("http://") },
                 ntfyToken = env["NTFY_TOKEN"]?.trim()?.ifBlank { null },
+                pushUrl = env["NTFY_PUSH_URL"]?.trim()?.trimEnd('/')?.takeIf { it.startsWith("https://") || it.startsWith("http://") } ?: "https://ntfy.sh",
                 authRatePerMinute = env["AUTH_RATE"]?.toIntOrNull()?.coerceIn(5, 1_000) ?: 30,
                 ipRatePerMinute = env["IP_RATE"]?.toIntOrNull()?.coerceIn(60, 100_000) ?: 1200,
                 canaryPauseMs = (env["CANARY_PAUSE_S"]?.toLongOrNull()?.coerceIn(0, 600) ?: 20) * 1000,

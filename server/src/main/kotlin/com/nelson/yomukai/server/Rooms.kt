@@ -39,7 +39,13 @@ import java.util.concurrent.atomic.AtomicLong
  * server's clock (PartySync). Video is never relayed here: each client plays its own stream (through /api/stream
  * only when the stream is tied to an address), so a room costs the VPS a few small messages a second at most.
  */
-class Rooms(private val db: Database, private val events: Events, private val clock: () -> Long = System::currentTimeMillis) {
+class Rooms(
+    private val db: Database,
+    private val events: Events,
+    private val clock: () -> Long = System::currentTimeMillis,
+    /** Told when a room starts playing something (for the group's Discord). */
+    private val onOpen: (who: String, what: String) -> Unit = { _, _ -> }
+) {
     private val log = LoggerFactory.getLogger("Rooms")
     private val gson = Gson()
     private val live = ConcurrentHashMap<String, LiveRoom>()
@@ -205,6 +211,7 @@ class Rooms(private val db: Database, private val events: Events, private val cl
             room.loading.clear()
             room.waitingSince = null
             if (room.hostedBy.add(me.user.id)) events.record(me.user.id, "room_hosted", mapOf("room" to room.row.code))
+            if (previous == null) onOpen(me.user.name, listOf(next.title, next.episode).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { room.row.name })
         }
         room.state = if (room.loading.isNotEmpty() && next.playing) {
             room.resumeAfterWait = true
@@ -259,6 +266,8 @@ class Rooms(private val db: Database, private val events: Events, private val cl
     private suspend fun chat(room: LiveRoom, me: Member, msg: JsonObject) {
         val text = ChatGuard.clean(msg.get("text")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty())
         if (text.isBlank()) return
+        val muted = db.tx { queryOne("SELECT muted_until FROM users WHERE id = ?", me.user.id) { getLong(1) } } ?: 0
+        if (muted > clock()) return send(me, mapOf("t" to "notice", "text" to "Estás silenciado por un administrador"))
         if (!guard.allowMessage(me.user.id, clock())) return send(me, mapOf("t" to "notice", "text" to "Más despacio: espera unos segundos"))
         val spoiler = msg.get("spoiler")?.asBoolean == true
         val now = clock()

@@ -174,10 +174,12 @@ class Services(val config: Config) {
         catalog.dtos.betterCover = w::betterCover
     }
     val events = Events(db)
-    val rooms = Rooms(db, events)
+    val notifications = Notifications(db, notifier, config.pushUrl, config.publicUrl)
+    val rooms = Rooms(db, events, onOpen = { who, title -> notifications.discord("$who ha abierto una sala: $title") })
+    val forum = Forum(db, events, notifications, config.dataDir)
     private val animeCheck: (String) -> Boolean = { id -> sources.get(id) is com.nelson.yomukai.data.source.AnimeSource }
-    val social by lazy { Social(db, events, config.dataDir, animeCheck, works::keyOf) }
-    val achievements = Achievements(db, events, animeCheck).also { a -> events.onEvent = { user, kind -> a.check(user, kind) } }
+    val social by lazy { Social(db, events, config.dataDir, animeCheck, works::keyOf, notifications::send) }
+    val achievements = Achievements(db, events, animeCheck, notifications::send).also { a -> events.onEvent = { user, kind -> a.check(user, kind) } }
     val discover = Discover(com.nelson.yomukai.data.discovery.AniListDiscover(http), db, catalog, works) { proxy.cover(it, emptyMap()) }
     val ytdlp = YtDlp(
         File(System.getenv("YTDLP_PATH")?.ifBlank { null } ?: "/opt/yt-dlp"),
@@ -257,7 +259,7 @@ private fun Application.startBackgroundJobs(config: Config, services: Services) 
     launch {
         while (true) {
             runCatching { services.auth.cleanUpGuests() }.onFailure { log.warn("Limpieza de invitados", it) }
-            runCatching { services.rooms.cleanup(); services.events.cleanup() }.onFailure { log.warn("Limpieza de salas", it) }
+            runCatching { services.rooms.cleanup(); services.events.cleanup(); services.notifications.cleanup() }.onFailure { log.warn("Limpieza de salas", it) }
             delay(60 * 60_000L)
         }
     }
@@ -316,6 +318,8 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 roomRoutes(services) { clientAddress(it, config) }
                 socialRoutes(services)
                 achievementRoutes(services)
+                forumRoutes(services)
+                notificationRoutes(services)
                 // Files for the user's device. GET for one chapter (a plain link), POST from a form for many.
                 get("/download") {
                     val p = call.request.queryParameters
@@ -333,6 +337,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 adminRoutes(services)
                 accountAdminRoutes(services)
                 workerAdminRoutes(services)
+                forumAdminRoutes(services)
                 get("/status") { call.respond(mapOf("bandwidth" to services.bandwidth.summary(), "memory" to memoryStatus())) }
             }
         }

@@ -188,6 +188,34 @@ object Migrations {
                    unlocked_at INTEGER NOT NULL, notified INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(user_id, id))"""
             )
             exec("CREATE TABLE IF NOT EXISTS achievement_scans(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, at INTEGER NOT NULL)")
+        },
+        Migration(9, "Foro, moderación y notificaciones") {
+            exec(
+                """CREATE TABLE IF NOT EXISTS forum_threads(id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT NOT NULL, work_key TEXT,
+                   title TEXT NOT NULL, author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, created_at INTEGER NOT NULL,
+                   last_post_at INTEGER NOT NULL, pinned INTEGER NOT NULL DEFAULT 0, locked INTEGER NOT NULL DEFAULT 0, deleted INTEGER NOT NULL DEFAULT 0)"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS forum_threads_list ON forum_threads(category, deleted, pinned, last_post_at)")
+            exec("CREATE INDEX IF NOT EXISTS forum_threads_work ON forum_threads(work_key)")
+            exec(
+                """CREATE TABLE IF NOT EXISTS forum_posts(id INTEGER PRIMARY KEY AUTOINCREMENT, thread_id INTEGER NOT NULL REFERENCES forum_threads(id) ON DELETE CASCADE,
+                   author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, body TEXT NOT NULL, spoiler_until REAL, quote_id INTEGER,
+                   created_at INTEGER NOT NULL, edited_at INTEGER, deleted INTEGER NOT NULL DEFAULT 0)"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS forum_posts_thread ON forum_posts(thread_id, id)")
+            exec(
+                """CREATE TABLE IF NOT EXISTS forum_reactions(post_id INTEGER NOT NULL REFERENCES forum_posts(id) ON DELETE CASCADE,
+                   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, emoji TEXT NOT NULL, PRIMARY KEY(post_id, user_id, emoji))"""
+            )
+            exec("CREATE TABLE IF NOT EXISTS forum_images(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, created_at INTEGER NOT NULL)")
+            exec(
+                """CREATE TABLE IF NOT EXISTS notifications(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                   kind TEXT NOT NULL, text TEXT NOT NULL, link TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL, read INTEGER NOT NULL DEFAULT 0)"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS notifications_user ON notifications(user_id, id)")
+            addColumn("users", "muted_until", "INTEGER NOT NULL DEFAULT 0")
+            addColumn("users", "muted_reason", "TEXT NOT NULL DEFAULT ''")
+            addColumn("users", "ntfy_topic", "TEXT")
         }
     )
 

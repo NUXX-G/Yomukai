@@ -40,6 +40,7 @@ class Social(
     private val dataDir: File,
     private val isAnime: (String) -> Boolean,
     private val workKeyOf: (String, String) -> String?,
+    private val notify: suspend (userId: Long, kind: String, text: String, link: String) -> Unit = { _, _, _, _ -> },
     private val clock: () -> Long = System::currentTimeMillis
 ) {
     private val gson = Gson()
@@ -330,6 +331,7 @@ class Social(
             )
         }
         events.record(from.id, "recommended", mapOf("to" to toName.take(60)))
+        notify(to, "recommendation", "${from.name} te recomienda «${body.text("title", 200)}»", "/obra/${enc(sourceId)}/${enc(mediaId)}")
     }
 
     suspend fun inbox(user: User): List<Map<String, Any?>> = db.tx {

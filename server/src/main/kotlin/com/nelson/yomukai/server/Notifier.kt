@@ -52,6 +52,13 @@ class Notifier(
         }
     }
 
+    /** A message for the group's Discord channel (rooms, new threads); repeats within [quietMs] are dropped. */
+    fun public(key: String, message: String, now: Long = System.currentTimeMillis()) {
+        val url = discordWebhook ?: return
+        if (!shouldSend(key, now)) return
+        scope.launch { post(url, JsonObject().apply { addProperty("content", clip(message, 1800)) }.toString(), "application/json") }
+    }
+
     internal fun shouldSend(key: String, now: Long): Boolean {
         val previous = lastSent[key]
         if (previous != null && now - previous < quietMs) return false

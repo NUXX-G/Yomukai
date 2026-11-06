@@ -23,6 +23,7 @@ class Achievements(
     private val db: Database,
     private val events: Events,
     private val isAnime: (String) -> Boolean,
+    private val notify: suspend (userId: Long, kind: String, text: String, link: String) -> Unit = { _, _, _, _ -> },
     private val clock: () -> Long = System::currentTimeMillis
 ) {
     data class Rule(val metric: String, val atLeast: Int)
@@ -82,6 +83,7 @@ class Achievements(
         } > 0
         // Shown in the feed only when it happened now (not when found in old history).
         if (inserted && !quiet) {
+            notify(user.id, "achievement", "Logro desbloqueado: ${a.emoji} ${a.name}", "/u/" + java.net.URLEncoder.encode(user.name, Charsets.UTF_8))
             db.tx {
                 update(
                     "INSERT INTO events(user_id, kind, data, created_at) VALUES(?,?,?,?)",
