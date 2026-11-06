@@ -44,7 +44,23 @@
   let resumeAt = 0;
   let watched = false;
 
-  const next = $derived(episode && chapters.find((c) => c.index === episode.index + 1));
+  /** Episode number -> 'FILLER' | 'MIXED', from AnimeFillerList through the server (empty when unknown). */
+  let fillers = $state({});
+  /** Opening/ending marks of this episode, worked out by the home worker from the audio; null while unknown. */
+  let marks = $state(null);
+  /** Seconds left before the next episode starts by itself; null when not counting. */
+  let countdown = $state(null);
+  let countdownTimer;
+  const isFiller = (c) => c?.number != null && fillers[Math.floor(c.number)] === 'FILLER';
+  const following = $derived(episode && chapters.find((c) => c.index === episode.index + 1));
+  /** With "skip filler" on, the next episode that is not filler (the plain next one otherwise). */
+  const next = $derived.by(() => {
+    if (!following || !settings.player.skipFiller) return following;
+    return chapters.filter((c) => c.index > episode.index).sort((a, b) => a.index - b.index).find((c) => !isFiller(c)) || following;
+  });
+  const skipped = $derived(next && following && next !== following ? next.index - following.index : 0);
+  const inOpening = $derived(marks?.openingEnd > 0 && current >= (marks.openingStart ?? 0) && current < marks.openingEnd - 1);
+  const inEnding = $derived(marks?.endingStart > 0 && current >= marks.endingStart && current < (marks.endingEnd || duration) - 1);
   const direct = $derived(servers.filter((s) => s.direct));
 
   // Plain MP4 first: the HLS servers some sites use refuse to serve their segments to anyone but them.
@@ -99,11 +115,45 @@
   }
 
   function onEnded() {
-    if (next && settings.player.autoNext) go(next);
+    if (next && settings.player.autoNext) startCountdown();
     else ui = true;
   }
 
-  function go(target) { flush(); navigate(reader('anime', sourceId, mediaId, target.id), { replace: true }); }
+  function startCountdown() {
+    clearInterval(countdownTimer);
+    countdown = 5;
+    countdownTimer = setInterval(() => {
+      countdown -= 1;
+      if (countdown <= 0) { cancelCountdown(); go(next); }
+    }, 1000);
+  }
+  function cancelCountdown() { clearInterval(countdownTimer); countdown = null; }
+
+  function skipOpening() { video.currentTime = marks.openingEnd; showFlash('Opening saltado'); }
+  function skipEnding() {
+    if (next) { go(next); return; }
+    video.currentTime = Math.max(0, (marks.endingEnd || duration) - 0.5);
+  }
+
+  /** Marks are asked for once; the first time, the worker may still be working them out (they come next time). */
+  async function loadMarks() {
+    const other = following?.url || chapters.find((c) => c.index === episode.index - 1)?.url;
+    if (!other) return;
+    try {
+      const r = await api.skip(sourceId, episode.url, other);
+      if (r && typeof r.openingEnd === 'number') marks = r;
+      else if (r && typeof r.endingStart === 'number') marks = r;
+    } catch { /* no worker, or the feature is off: the +85 s button stays */ }
+  }
+
+  async function loadFillers() {
+    try {
+      const w = await api.work(sourceId, mediaId);
+      if (w?.title) fillers = (await api.fillers(w.title)) || {};
+    } catch { /* unknown: nothing is marked */ }
+  }
+
+  function go(target) { cancelCountdown(); flush(); navigate(reader('anime', sourceId, mediaId, target.id), { replace: true }); }
 
   function toggle() { video.paused ? video.play() : video.pause(); }
   function seek(delta) { video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + delta)); poke(); }
@@ -195,6 +245,8 @@
     if (e.key === 'm') toggleMute();
     if (e.key === 'f') fullscreen();
     if (e.key === 'n' && next) go(next);
+    if (e.key === 's' && inOpening) skipOpening();
+    if (e.key === 'Escape' && countdown != null) { cancelCountdown(); return; }
     if (e.key === 'Escape' && !document.fullscreenElement) back(mediaHref(sourceId, mediaId));
   }
 
@@ -213,6 +265,8 @@
       if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({ title: `${m.title} · ${episode.label}`, artwork: m.cover ? [{ src: m.cover, sizes: '512x512' }] : [] });
       }
+      loadMarks();
+      loadFillers();
       if (!direct.length) { loading = false; serversOpen = true; error = 'Este episodio solo se puede ver en la web del servidor.'; return; }
       play(0);
     } catch (e) {
@@ -222,7 +276,7 @@
   });
 
   onDestroy(() => {
-    clearInterval(clockTimer); clearTimeout(hideTimer); clearTimeout(tapTimer); clearTimeout(flashTimer); hls?.destroy();
+    clearInterval(clockTimer); clearInterval(countdownTimer); clearTimeout(hideTimer); clearTimeout(tapTimer); clearTimeout(flashTimer); hls?.destroy();
     if (document.pictureInPictureElement) document.exitPictureInPicture().catch(() => {}); keepAwake(false); flush();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     screen.orientation?.unlock?.();
@@ -242,6 +296,21 @@
     onloadedmetadata={onLoaded} ontimeupdate={onTime} onended={onEnded} onerror={onError}
   ></video>
 
+  {#if inOpening}
+    <button class="skip" onclick={skipOpening}><Icon name="skip" size={20} /> Saltar opening</button>
+  {:else if inEnding}
+    <button class="skip" onclick={skipEnding}><Icon name="skip" size={20} /> {next ? 'Siguiente episodio' : 'Saltar ending'}</button>
+  {/if}
+  {#if countdown != null && next}
+    <div class="upnext" role="status" aria-live="polite">
+      <div class="small">Siguiente episodio en {countdown} s{#if skipped} · saltando {skipped} de relleno{/if}</div>
+      <div class="upnext-title">{next.label}{#if next.name} · {next.name}{/if}</div>
+      <div class="upnext-actions">
+        <button class="btn primary" onclick={() => go(next)}><Icon name="play" size={18} /> Ver ahora</button>
+        <button class="btn text light" onclick={cancelCountdown}>Cancelar</button>
+      </div>
+    </div>
+  {/if}
   {#if loading && !error}<div class="spin"><div class="spinner big"></div></div>{/if}
   {#if flash}<div class="flash">{flash}</div>{/if}
   {#if error}
@@ -272,13 +341,18 @@
         <div class="times"><span>{time(current)}</span><span>{time(duration)}</span></div>
         <input type="range" min="0" max={duration || 0} step="1" value={current} oninput={(e) => { video.currentTime = +e.target.value; poke(); }} style="--p:{duration ? (current / duration) * 100 : 0}%" aria-label="Progreso" />
         <div class="actions">
-          <button class="btn text light" onclick={() => seek(85)}>+85 s</button>
+          {#if !marks?.openingEnd}<button class="btn text light" onclick={() => seek(85)} title="Saltar el opening (85 s)">+85 s</button>{/if}
           <span class="volume">
             <button class="icon-btn" onclick={toggleMute} aria-label={muted ? 'Activar sonido' : 'Silenciar'}><Icon name={muted || volume === 0 ? 'mute' : 'volume'} /></button>
             <input class="vol" type="range" min="0" max="1" step="0.05" value={muted ? 0 : volume} oninput={(e) => setVolume(+e.target.value)} style="--p:{(muted ? 0 : volume) * 100}%" aria-label="Volumen" />
           </span>
           <span class="grow"></span>
-          {#if next}<button class="btn primary" onclick={() => go(next)}><Icon name="next" size={18} /> Siguiente</button>{/if}
+          {#if Object.keys(fillers).length}
+            <button class="btn text light" aria-pressed={!!settings.player.skipFiller} onclick={() => { settings.player.skipFiller = !settings.player.skipFiller; saveSettings(); }}>
+              {settings.player.skipFiller ? 'Saltando relleno' : 'Saltar relleno'}
+            </button>
+          {/if}
+          {#if next}<button class="btn primary" onclick={() => go(next)}><Icon name="next" size={18} /> Siguiente{#if skipped} (sin relleno){/if}</button>{/if}
         </div>
       </div>
     </div>
@@ -290,7 +364,7 @@
 <Sheet bind:open={episodesOpen} title="Episodios">
   {#each [...chapters].reverse() as c (c.id)}
     <button class="list-item srv" class:current={c.id === episode?.id} onclick={() => { episodesOpen = false; if (c.id !== episode?.id) go(c); }}>
-      <span class="grow" class:seen={watchedIds[c.id]}>{c.label}{#if c.name} <span class="small muted">{c.name}</span>{/if}</span>
+      <span class="grow" class:seen={watchedIds[c.id]}>{c.label}{#if c.name} <span class="small muted">{c.name}</span>{/if}{#if isFiller(c)} <span class="filler">Relleno</span>{/if}</span>
       {#if watchedIds[c.id]}<Icon name="check" size={18} />{/if}
     </button>
   {/each}
@@ -331,6 +405,22 @@
   .grow { flex: 1; }
   .mini-clock { position: absolute; top: calc(var(--safe-top) + 12px); right: 18px; color: #fff9; font-size: 0.8rem; font-weight: 500; text-shadow: 0 0 6px #000; pointer-events: none; }
   .srv { width: 100%; text-align: left; gap: 12px; }
+  .filler { font-size: 0.7rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: color-mix(in srgb, var(--tertiary) 22%, transparent); color: var(--tertiary); }
+  .skip {
+    position: absolute; right: 24px; bottom: calc(var(--safe-bottom) + 120px); z-index: 4; display: flex; align-items: center; gap: 8px;
+    height: 48px; padding: 0 20px; border-radius: 999px; color: #fff; font-weight: 700;
+    background: rgb(20 20 20 / 0.72); border: 1px solid rgb(255 255 255 / 0.35); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    animation: in 0.2s ease-out;
+  }
+  .skip:hover, .skip:focus-visible { background: rgb(255 255 255 / 0.92); color: #000; }
+  .upnext {
+    position: absolute; right: 24px; bottom: calc(var(--safe-bottom) + 120px); z-index: 5; width: min(360px, calc(100% - 48px)); padding: 16px;
+    border-radius: 16px; background: rgb(15 15 15 / 0.9); color: #fff; box-shadow: 0 10px 40px #000a; animation: in 0.2s ease-out;
+  }
+  .upnext-title { font-weight: 700; margin: 4px 0 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .upnext-actions { display: flex; gap: 8px; }
+  @media (max-width: 600px) { .skip, .upnext { right: 16px; bottom: calc(var(--safe-bottom) + 96px); } }
+  @media (prefers-reduced-motion: reduce) { .skip, .upnext { animation: none; } }
   .srv.current { color: var(--primary); }
   .seen { opacity: 0.55; }
   .flash { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 3; padding: 10px 18px; border-radius: 14px; background: #000a; color: #fff; font-weight: 600; pointer-events: none; animation: in 0.15s; }
