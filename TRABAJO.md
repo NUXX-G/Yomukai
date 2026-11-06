@@ -54,12 +54,22 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 - [x] 4.6 `FillerGuide` (AnimeFillerList, probado con la página real de Bleach: 366 episodios, 163 de relleno) + /api/fillers (caché 7 días en `fillers`). Marcas y «saltar relleno» en la UI de la Fase 5
 - [x] 4.7 /api/calendar: anime de la biblioteca con el próximo episodio de AniList; manga/novela con `ReleaseCadence` (fechas reales de capítulos, solo si el ritmo es regular). Vista semanal en la sección Calendario del rediseño (Fase 5); avisos con las notificaciones de la Fase 6
 
-### Fase 5 — Rediseño (web y app)
-- [ ] 5.0 Analizar `docs/referencias/` → `ANALISIS.md` (si no hay capturas, PARAR y pedirlas)
-- [ ] 5.1 Inicio sin fuentes  - [ ] 5.2 Tokens de diseño en shared/  - [ ] 5.3 Navegación
-- [ ] 5.4 Inicio tipo Netflix  - [ ] 5.5 Tarjetas  - [ ] 5.6 Ficha de obra
-- [ ] 5.7 Páginas Anime/Manga/Novelas con explorador  - [ ] 5.8 Búsqueda unificada
-- [ ] 5.9 Reproductor y lectores  - [ ] 5.10 Calidad/accesibilidad  - [ ] 5.11 Capturas Playwright antes/después en `docs/capturas/`
+### Fase 5 — Rediseño (web y app) — casi ✅ (falta la ficha de obra con banner en la app Android)
+- [x] 5.0 `docs/referencias/ANALISIS.md` (10 capturas de Seanime analizadas: rail, héroe con degradado, pósters 2:3, tipografía tipo Inter, acento contenido). Seanime es GPLv3: no se ha copiado código ni recursos, solo ideas de composición
+- [x] 5.1 Inicio útil sin fuentes: héroe y filas de AniList (tendencias, temporada, géneros) aunque no haya biblioteca
+- [x] 5.2 Tokens en `shared/src/main/resources/design/tokens.json` → `web/src/tokens.css` (`web/scripts/tokens.mjs`) y `DesignTokens.kt` (`scripts/tokens-android.mjs`, test `DesignTokensTest` que impide que se desincronicen). Fuente Inter (OFL) empaquetada
+- [x] 5.3 Navegación: rail con etiquetas (se pliega entre 1024 y 1279 px), barra superior con buscador (Ctrl K / ⌘K en Apple), campana y avatar; en móvil pestañas Inicio/Anime/Manga/Novelas/Biblioteca. Páginas cargadas bajo demanda
+- [x] 5.4 Inicio tipo Netflix: héroe rotatorio (8 s, se para con el ratón/foco y con movimiento reducido), filas configurables (Seguir viendo, Seguir leyendo, Nuevo en tu biblioteca, Temporada, Tendencias, Para ti, Novedades unificadas, géneros)
+- [x] 5.5 Tarjetas: póster 2:3, insignias, barra de progreso, nota, info al pasar el ratón (pulsación larga en móvil), aviso «¿Misma obra?»; tarjeta ancha 16:9 para episodios
+- [x] 5.6 Ficha de obra (web): banner de AniList difuminado, títulos alternativos, «En N fuentes», «¿Dónde sigo?» (con corrección por cualquier usuario), marcas de relleno/mixto y «Ocultar relleno», anti-spoilers (títulos difuminados de lo que aún no has visto; se revelan al pasar o enfocar). En móvil la ficha usa su propia barra
+- [x] 5.7 Anime / Manga y manhwa / Novelas con explorador (género, año, estado, formato, origen, nota, orden, «solo lo que está en mis fuentes»)
+- [x] 5.8 Búsqueda unificada: pósters agrupados por tipo, «+N fuentes» y aviso de posible misma obra
+- [x] 5.9 Reproductor: «Saltar opening/ending» con las marcas de audio del worker (si no hay, +85 s), cuenta atrás de 5 s al siguiente episodio con cancelar, «Saltar relleno». Lectores sin cambios visuales grandes (ya eran de pantalla completa)
+- [x] 5.10 Calidad: esqueletos de carga, imágenes perezosas y a su tamaño (DPR), foco visible, movimiento reducido, sin desbordes horizontales (comprobado en Chromium y WebKit, iPhone y Mac). PWA con accesos directos (Seguir, Biblioteca, Calendario, Anime) para Android, Windows, macOS e iOS
+- [x] 5.11 Capturas antes (`docs/capturas/antes`) y después (`docs/capturas/despues`: inicio, ficha, búsqueda y reproductor en escritorio y móvil, WebKit, Android)
+- [x] Portadas nítidas: las miniaturas de las fuentes (200-300 px) se cambian por la portada extraLarge de AniList cuando la página ya está unida a una obra (listas, búsqueda, biblioteca); lo que sale en las listas se identifica poco a poco en segundo plano (4 cada 2 min, cola acotada a 300)
+- [x] App Android: mismos colores y radios (tokens), inicio con destacado de AniList y filas de tendencias/temporada
+- [ ] App Android: ficha de obra con banner, relleno y anti-spoilers como en la web (pendiente)
 
 ### Fase 6 — Social
 - [ ] 6.1 Salas  - [ ] 6.2 Watch party WebSocket  - [ ] 6.3 Chat de sala  - [ ] 6.4 Perfiles
@@ -93,6 +103,7 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 | Después de Fase 0 (mismo equipo) | 181 MB | 260 MB | 5,0 s | 5 ms local · 536 ms novedades | 84 KB (sin cambios) + hls.js 180,5 KB | sin cambios de código de la app (solo formato) |
 | Después de Fase 1 (Docker local, límite 1 GB / 1 CPU) | 107 MB | 165 MB | 21 % de 1 CPU en el pico | 8 ms local · 925 ms novedades | 85 KB + AdminPanel 3,9 KB (solo admins) | ~igual (+1 pantalla de texto) |
 | Después de Fase 2 (local) | sin cambio apreciable (las comprobaciones son hashes y buckets en memoria) | — | — | 5-8 ms local | 77 KB + paneles de admin (4,4 KB) y seguridad (2,3 KB) bajo demanda | ~igual |
+| Después de Fase 5 (local, servidor de pruebas que llevaba horas en marcha y sin límite de memoria: la JVM crece hasta lo que le dejan; en Docker con 1 GB lo limita MaxRAMPercentage) | 472 MB | 491 MB | 2,0 s en 300 peticiones | 5 ms local | 99,6 KB (JS 86,7 + CSS 12,9) + Inter (woff2 latin, ~48 KB, en caché) + hls.js 178 KB solo en el reproductor; Explorar 2,8 KB, Calendario 1,6 KB bajo demanda | 55 MB debug (release sin medir) |
 
 Cómo medir: `./gradlew :server:installDist`, `cd web && npm run build`, `bash scripts/bench.sh` (o `scripts/bench.sh https://tu-vps PID` en el VPS con `BENCH_USER`/`BENCH_PASSWORD`). En el VPS real aún no se ha medido (no tengo acceso): pendiente de que el usuario lance el script allí.
 
