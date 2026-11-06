@@ -158,4 +158,24 @@ class RoomsTest {
         s.features.set("rooms", false)
         assertEquals(HttpStatusCode.NotFound, admin.get("/api/rooms/mine").status)
     }
+
+    @Test
+    fun loggingOutClosesTheRoomSocket() = testApplication {
+        val c = config()
+        val s = Services(c)
+        s.rooms.sessionCheckMs = 200
+        application { yomukai(c, s) }
+        val admin = session().also { it.login("admin", "admin-password-1") }
+        val code = json(admin.get("/api/rooms/mine").bodyAsText())["code"].asString
+        admin.webSocket("/api/rooms/$code/ws") {
+            next("welcome")
+            admin.post("/auth/logout")
+            val end = withTimeout(5_000) {
+                var f = incoming.receiveCatching()
+                while (f.getOrNull() != null && f.getOrNull() !is Frame.Close) f = incoming.receiveCatching()
+                f
+            }
+            assertTrue(end.isClosed || end.getOrNull() is Frame.Close)
+        }
+    }
 }

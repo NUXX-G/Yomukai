@@ -310,7 +310,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 workRoutes(services)
                 discoverRoutes(services)
                 playbackRoutes(services)
-                roomRoutes(services)
+                roomRoutes(services) { clientAddress(it, config) }
                 // Files for the user's device. GET for one chapter (a plain link), POST from a form for many.
                 get("/download") {
                     val p = call.request.queryParameters

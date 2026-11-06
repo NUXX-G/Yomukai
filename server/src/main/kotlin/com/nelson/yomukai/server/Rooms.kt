@@ -47,6 +47,10 @@ class Rooms(private val db: Database, private val events: Events, private val cl
     private val guard = ChatGuard()
     private val ids = AtomicLong()
 
+    /** How often a live socket re-checks its session (shorter in tests). */
+    @Volatile
+    var sessionCheckMs = SESSION_CHECK_MS
+
     data class RoomRow(val code: String, val ownerId: Long, val ownerName: String, val name: String, val persistent: Boolean)
 
     private class Member(val id: Long, val user: User, val session: DefaultWebSocketServerSession, val joinedAt: Long)
@@ -119,7 +123,11 @@ class Rooms(private val db: Database, private val events: Events, private val cl
 
     // ---------- Live connection ----------
 
-    suspend fun connect(session: DefaultWebSocketServerSession, user: User, code: String) {
+    /**
+     * One person in a room until the socket closes. [stillValid] is asked every [SESSION_CHECK_MS]: a session closed
+     * from the sessions list, a logout or a suspended account ends the socket too, not only new requests.
+     */
+    suspend fun connect(session: DefaultWebSocketServerSession, user: User, code: String, stillValid: suspend () -> Boolean = { true }) {
         val row = get(code) ?: return session.close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Sala desconocida"))
         val room = live.computeIfAbsent(code) { LiveRoom(row) }
         val me = Member(ids.incrementAndGet(), user, session, clock())
@@ -133,6 +141,15 @@ class Rooms(private val db: Database, private val events: Events, private val cl
         }
         db.tx { update("UPDATE rooms SET last_active = ? WHERE code = ?", clock(), code) }
         val limiter = FrameLimiter()
+        val watchdog = session.launch {
+            while (true) {
+                delay(sessionCheckMs)
+                if (!runCatching { stillValid() }.getOrDefault(false)) {
+                    session.close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "La sesión ya no es válida"))
+                    break
+                }
+            }
+        }
         try {
             for (frame in session.incoming) {
                 val allowed = limiter.allow(clock())
@@ -142,6 +159,7 @@ class Rooms(private val db: Database, private val events: Events, private val cl
                 if (msg != null) runCatching { handle(room, me, msg) }.onFailure { log.debug("Mensaje de sala no válido: {}", it.message) }
             }
         } finally {
+            watchdog.cancel()
             leave(room, me)
         }
     }
@@ -352,6 +370,7 @@ class Rooms(private val db: Database, private val events: Events, private val cl
         const val MAX_FRAMES_PER_WINDOW = 60
         const val MAX_POSITION = 24 * 3_600.0
         const val EPISODE_GUESS_S = 24 * 60.0
+        const val SESSION_CHECK_MS = 30_000L
     }
 }
 
@@ -381,7 +400,7 @@ fun sameOrigin(call: ApplicationCall): Boolean {
     return runCatching { URI(origin).authority.equals(host, ignoreCase = true) }.getOrDefault(false)
 }
 
-fun Route.roomRoutes(s: Services) {
+fun Route.roomRoutes(s: Services, addressOf: (ApplicationCall) -> String) {
     suspend fun ApplicationCall.roomsOn(): Boolean {
         if (s.features.isOn("rooms")) return true
         respond(HttpStatusCode.NotFound, mapOf("error" to "Las salas están desactivadas"))
@@ -404,6 +423,11 @@ fun Route.roomRoutes(s: Services) {
         if (code == null || !sameOrigin(call) || !s.features.isOn("rooms")) {
             return@webSocket close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "No permitido"))
         }
-        s.rooms.connect(this, call.user, code)
+        val token = call.request.cookies[Auth.COOKIE]
+        val userId = call.user.id
+        val address = addressOf(call)
+        s.rooms.connect(this, call.user, code) {
+            s.auth.userFor(token, address)?.let { it.id == userId && it.suspendedAt == null } == true
+        }
     }
 }
