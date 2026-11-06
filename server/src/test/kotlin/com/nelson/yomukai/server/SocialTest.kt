@@ -95,13 +95,19 @@ class SocialTest {
         repeat(3) { ana.postJson("/api/progress", progress("m1", "c$it", "Berserk", "Cap. ${it + 1}")) }
         val bulk = (10..20).joinToString(",") { """{"sourceId":"mangadex","chapterId":"x$it","mediaId":"m1","read":true,"page":0,"total":1,"fraction":1,"updatedAt":1}""" }
         ana.postJson("/api/progress", """{"rows":[$bulk]}""")
+        // Reading something kept in a private category is not shown to friends (nor as "watching now").
+        ana.postJson("/api/progress", progress("m2", "p1", "Diario íntimo", "Cap. 1"))
+        ana.postJson("/api/presence", """{"kind":"reading","title":"Diario íntimo","sourceId":"mangadex","mediaId":"m2"}""")
+        assertTrue(beto.json("/api/users/ana")["now"]?.isJsonNull ?: true)
+        assertTrue(ana.array("/api/feed").any { it.asJsonObject["title"].asString == "Diario íntimo" })
         val feed = beto.array("/api/feed").map { it.asJsonObject }
+        assertTrue(feed.none { it["title"].asString == "Diario íntimo" })
         val entry = feed.single { it["kind"].asString == "chapter" }
         assertEquals(3, entry["count"].asInt)
         assertEquals("Cap. 1", entry["first"].asString)
         assertEquals("Cap. 3", entry["last"].asString)
         val stats = beto.json("/api/users/ana")["stats"].asJsonObject
-        assertEquals(14, stats["chapters"].asInt)
+        assertEquals(15, stats["chapters"].asInt)
         assertEquals(1, stats["streak"].asInt)
 
         // Who else has it, and how far; hiding the library hides that too.

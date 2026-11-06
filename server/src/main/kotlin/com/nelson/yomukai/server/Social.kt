@@ -153,10 +153,29 @@ class Social(
 
     private val presence = ConcurrentHashMap<Long, Presence>()
 
-    fun setPresence(user: User, body: JsonObject) {
+    suspend fun setPresence(user: User, body: JsonObject) {
         if (user.isGuest) return
         val kind = body.text("kind", 10).takeIf { it == "watching" || it == "reading" } ?: return presence.remove(user.id).let { }
-        presence[user.id] = Presence(kind, body.text("title", 200), body.text("label", 100), body.text("sourceId", 60), body.text("mediaId", 2_000), clock())
+        val sourceId = body.text("sourceId", 60)
+        val mediaId = body.text("mediaId", 2_000)
+        // Something kept in a private category is not announced as "watching now" either.
+        if (isPrivate(user.id, sourceId, mediaId)) return presence.remove(user.id).let { }
+        presence[user.id] = Presence(kind, body.text("title", 200), body.text("label", 100), sourceId, mediaId, clock())
+    }
+
+    /** True when [userId] keeps this title in one of their private categories. */
+    suspend fun isPrivate(userId: Long, sourceId: String, mediaId: String): Boolean {
+        if (sourceId.isBlank() || mediaId.isBlank()) return false
+        return db.tx {
+            queryOne(
+                "SELECT u.private_categories, l.categories FROM library l JOIN users u ON u.id = l.user_id WHERE l.user_id = ? AND l.source_id = ? AND l.media_id = ? AND l.deleted = 0",
+                userId, sourceId, mediaId
+            ) {
+                val private = runCatching { gson.fromJson<List<String>>(getString(1), listType) }.getOrDefault(emptyList())
+                val cats = runCatching { gson.fromJson<List<String>>(getString(2), listType) }.getOrDefault(emptyList())
+                cats.any { it in private }
+            }
+        } == true
     }
 
     fun presenceOf(userId: Long): Presence? = presence[userId]?.takeIf { clock() - it.at < PRESENCE_MS }
@@ -203,7 +222,14 @@ class Social(
                    WHERE e.created_at > ? AND e.kind IN ('episode','chapter','rated','achievement') ORDER BY e.created_at DESC LIMIT 2000""",
                 since
             ) { Row(getLong(1), getString(2), getInt(3) == 1, getString(4), runCatching { JsonParser.parseString(getString(5)).asJsonObject }.getOrDefault(JsonObject()), getLong(6)) }
-        }.filter { !it.hidden || it.userId == viewer.id }
+        }.filter { !it.hidden || it.userId == viewer.id }.let { list ->
+            // Titles in someone's private categories never reach the others' feed.
+            val cache = HashMap<Triple<Long, String, String>, Boolean>()
+            list.filter { r ->
+                r.userId == viewer.id || r.kind == "achievement" ||
+                    !cache.getOrPut(Triple(r.userId, r.data.str("s"), r.data.str("m"))) { isPrivate(r.userId, r.data.str("s"), r.data.str("m")) }
+            }
+        }
         val avatars = HashMap<Long, String?>()
         suspend fun avatar(id: Long) = avatars.getOrPut(id) { profile(id)?.avatar }
         val out = mutableListOf<FeedEntry>()
