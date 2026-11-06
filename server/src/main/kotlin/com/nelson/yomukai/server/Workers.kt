@@ -110,6 +110,8 @@ class WorkerRegistry(private val db: Database, private val clock: () -> Long = S
     companion object {
         const val ONLINE_MS = 90_000L
         private const val CACHE_MS = 15_000L
+        private val VOICE_ID = Regex("[a-z0-9_-]{1,40}")
+
         fun hash(token: String): String = MessageDigest.getInstance("SHA-256").digest(token.toByteArray()).joinToString("") { "%02x".format(it) }
 
         /** Only known, bounded fields are kept from what a worker says about itself. */
@@ -123,6 +125,18 @@ class WorkerRegistry(private val db: Database, private val clock: () -> Long = S
             add("engines", com.google.gson.JsonArray().also { arr ->
                 input.getAsJsonArray("engines")?.mapNotNull { e -> e.takeIf { it.isJsonPrimitive }?.asString }
                     ?.filter { it in JobTypes.ALL }?.distinct()?.forEach(arr::add)
+            })
+            // Voices of the worker's TTS engine: short safe ids and labels only.
+            add("voices", com.google.gson.JsonArray().also { arr ->
+                input.getAsJsonArray("voices")?.mapNotNull { it as? JsonObject }?.take(50)?.forEach { v ->
+                    val id = v.get("id")?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { VOICE_ID.matches(it) } ?: return@forEach
+                    arr.add(JsonObject().apply {
+                        addProperty("id", id)
+                        addProperty("lang", v.get("lang")?.takeIf { it.isJsonPrimitive }?.asString?.take(2)?.lowercase().orEmpty())
+                        addProperty("gender", v.get("gender")?.takeIf { it.isJsonPrimitive }?.asString?.take(1)?.lowercase().orEmpty())
+                        addProperty("label", v.get("label")?.takeIf { it.isJsonPrimitive }?.asString?.take(60) ?: id)
+                    })
+                }
             })
         }
     }
@@ -148,11 +162,12 @@ fun requireWorker(registry: WorkerRegistry, limiter: RateLimiter) = createRouteS
 private const val WORKER_RATE = 600
 
 /** What each job type needs to be offered to users right now. */
-data class Availability(val workersOnline: Int, val gpu: Boolean, val engines: Set<String>)
+data class Availability(val workersOnline: Int, val gpu: Boolean, val engines: Set<String>, val voices: List<JsonObject> = emptyList())
 
 suspend fun WorkerRegistry.availability(): Availability {
     val online = online()
-    return Availability(online.size, online.any { it.hasGpu }, online.flatMap { it.engines }.toSet())
+    val voices = online.flatMap { w -> w.capabilities.getAsJsonArray("voices")?.mapNotNull { it as? JsonObject }.orEmpty() }.distinctBy { it.get("id")?.asString }
+    return Availability(online.size, online.any { it.hasGpu }, online.flatMap { it.engines }.toSet(), voices)
 }
 
 /** The API the workers call. They connect out to the VPS: nothing at home is ever exposed. */

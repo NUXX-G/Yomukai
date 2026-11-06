@@ -10,6 +10,7 @@ import io.ktor.client.request.put
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.readRawBytes
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
@@ -112,5 +113,36 @@ class WorkerApiTest {
         assertEquals(HttpStatusCode.OK, guest.post("/auth/guest").status)
         assertEquals(HttpStatusCode.Forbidden, guest.get("/api/admin/status").status)
         assertEquals(HttpStatusCode.OK, guest.get("/api/features").status)
+    }
+
+    @Test
+    fun highQualityVoicesComeFromTheWorkerAndAreShared() = testApplication {
+        val config = config()
+        val services = Services(config)
+        application { yomukai(config, services) }
+        val admin = login("admin", "admin-password-1")
+        val token = json(admin.post("/api/admin/workers") { setBody("""{"name":"casa"}""") }.bodyAsText()).get("token").asString
+        suspend fun worker(path: String, body: String = "{}") = client.post(path) { header("Authorization", "Bearer $token"); setBody(body) }
+        // Only well-formed voice ids are kept from what the worker says.
+        worker("/worker/hello", """{"version":"1","capabilities":{"engines":["tts"],"voices":[{"id":"alba","lang":"en","gender":"f","label":"Alba"},{"id":"../x","label":"mala"}]}}""")
+        val voices = json(admin.get("/api/tts/voices").bodyAsText())
+        val ids = voices.getAsJsonArray("voices").map { it.asJsonObject.get("id").asString }
+        assertTrue(ids.contains("w:alba"))
+        assertTrue(ids.none { it.contains("..") })
+        assertEquals("worker", voices.getAsJsonArray("tiers").first().asString)
+
+        // Prefetching the same paragraph twice queues one job; when the worker answers, reading it is instant (and shared).
+        val queued = json(admin.post("/api/tts/prefetch") { setBody("""{"voice":"w:alba","texts":["Hola mundo.","Hola mundo."]}""") }.bodyAsText())
+        assertEquals(1, queued.get("queued").asInt)
+        val claimed = json(worker("/worker/claim").bodyAsText())
+        assertEquals("tts", claimed.get("type").asString)
+        assertEquals("Hola mundo.", claimed.getAsJsonObject("payload").get("text").asString)
+        val wav = ByteArray(2_000) { 1 }
+        client.put("/worker/jobs/${claimed.get("id").asLong}/result") { header("Authorization", "Bearer $token"); contentType(ContentType.parse("audio/wav")); setBody(wav) }
+        val audio = admin.post("/api/tts") { setBody("""{"voice":"w:alba","text":"Hola   mundo."}""") }
+        assertEquals(HttpStatusCode.OK, audio.status)
+        assertEquals(2_000, audio.readRawBytes().size)
+        // A voice the worker does not have is refused.
+        assertEquals(HttpStatusCode.BadRequest, admin.post("/api/tts") { setBody("""{"voice":"w:nadie","text":"hola"}""") }.status)
     }
 }

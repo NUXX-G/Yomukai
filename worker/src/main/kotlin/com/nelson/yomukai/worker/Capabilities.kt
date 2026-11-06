@@ -42,6 +42,7 @@ object Capabilities {
         addProperty("busy", busy)
         addProperty("maxConcurrent", concurrency)
         add("engines", JsonArray().also { a -> handlers.map { it.type }.distinct().forEach(a::add) })
+        handlers.filterIsInstance<TtsHandler>().firstOrNull()?.let { add("voices", it.info()) }
     }
 
     /** True when [command] can be started (it is on the PATH or is an existing file). */

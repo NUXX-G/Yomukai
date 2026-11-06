@@ -178,6 +178,7 @@ class Services(val config: Config) {
     val rooms = Rooms(db, events, onOpen = { who, title -> notifications.discord("$who ha abierto una sala: $title") })
     val forum = Forum(db, events, notifications, config.dataDir)
     val themes = ThemesService(db, events, config.dataDir)
+    val voices by lazy { VoiceRouter(this) }
     private val animeCheck: (String) -> Boolean = { id -> sources.get(id) is com.nelson.yomukai.data.source.AnimeSource }
     val social by lazy { Social(db, events, config.dataDir, animeCheck, works::keyOf, notifications::send) }
     val achievements = Achievements(db, events, animeCheck, notifications::send).also { a -> events.onEvent = { user, kind -> a.check(user, kind) } }
@@ -526,25 +527,7 @@ private fun Route.catalogRoutes(s: Services) {
     }
     get("/pages") { call.reply(s.catalog.pages(call.q("s"), call.q("c"))) }
     get("/text") { call.reply(s.catalog.text(call.q("s"), call.q("c")).map { mapOf("text" to it) }) }
-    get("/tts/voices") {
-        call.respond(mapOf(
-            "available" to s.speech.available,
-            "voices" to s.speech.voices().map { mapOf("id" to it.id, "label" to it.label, "lang" to it.lang, "gender" to it.gender, "region" to it.region) }
-        ))
-    }
-    // A piece of text read aloud by a natural voice, as WAV. The same text and voice is cached.
-    post("/tts") {
-        val body = JsonParser.parseString(call.receiveText()).asJsonObject
-        val text = body.get("text")?.asString.orEmpty()
-        val voice = body.get("voice")?.asString.orEmpty()
-        val rate = body.get("rate")?.takeIf { it.isJsonPrimitive }?.asFloat ?: 1f
-        val audio = runCatching { s.speech.synthesize(text, voice, rate) }.getOrElse { e ->
-            if (e is IllegalArgumentException) throw e
-            return@post call.respond(HttpStatusCode.ServiceUnavailable, mapOf("error" to (e.message ?: "No se pudo leer en voz alta")))
-        }
-        call.response.header(HttpHeaders.CacheControl, "private, max-age=86400")
-        call.respondBytes(audio, ContentType.parse("audio/wav"))
-    }
+    voiceRoutes(s)
     get("/videos") { call.reply(s.catalog.videos(call.q("s"), call.q("c"))) }
     get("/metadata") { call.reply(s.catalog.metadata(call.q("s"), call.q("id"))) }
     get("/similar") { call.reply(s.catalog.similar(call.user, s.prefs(call.user), call.q("s"), call.q("id"))) }
