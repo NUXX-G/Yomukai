@@ -177,6 +177,7 @@ class Services(val config: Config) {
     val notifications = Notifications(db, notifier, config.pushUrl, config.publicUrl)
     val rooms = Rooms(db, events, onOpen = { who, title -> notifications.discord("$who ha abierto una sala: $title") })
     val forum = Forum(db, events, notifications, config.dataDir)
+    val themes = ThemesService(db, events, config.dataDir)
     private val animeCheck: (String) -> Boolean = { id -> sources.get(id) is com.nelson.yomukai.data.source.AnimeSource }
     val social by lazy { Social(db, events, config.dataDir, animeCheck, works::keyOf, notifications::send) }
     val achievements = Achievements(db, events, animeCheck, notifications::send).also { a -> events.onEvent = { user, kind -> a.check(user, kind) } }
@@ -320,6 +321,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 achievementRoutes(services)
                 forumRoutes(services)
                 notificationRoutes(services)
+                themeRoutes(services)
                 // Files for the user's device. GET for one chapter (a plain link), POST from a form for many.
                 get("/download") {
                     val p = call.request.queryParameters

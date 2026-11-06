@@ -216,6 +216,19 @@ object Migrations {
             addColumn("users", "muted_until", "INTEGER NOT NULL DEFAULT 0")
             addColumn("users", "muted_reason", "TEXT NOT NULL DEFAULT ''")
             addColumn("users", "ntfy_topic", "TEXT")
+        },
+        Migration(10, "Temas personalizados, su galería y el tema de cada usuario") {
+            exec(
+                """CREATE TABLE IF NOT EXISTS themes(id INTEGER PRIMARY KEY AUTOINCREMENT, owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                   json TEXT NOT NULL, published INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS themes_owner ON themes(owner_id)")
+            exec(
+                """CREATE TABLE IF NOT EXISTS theme_uses(theme_id INTEGER NOT NULL REFERENCES themes(id) ON DELETE CASCADE,
+                   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, PRIMARY KEY(theme_id, user_id))"""
+            )
+            exec("CREATE TABLE IF NOT EXISTS theme_backgrounds(id INTEGER PRIMARY KEY AUTOINCREMENT, owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, created_at INTEGER NOT NULL)")
+            addColumn("users", "theme", "TEXT")
         }
     )
 
