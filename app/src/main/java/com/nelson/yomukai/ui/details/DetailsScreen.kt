@@ -583,6 +583,8 @@ private fun Header(state: DetailsUiState, metadata: TitleMetadata?, insights: Ch
                 }
             }
 
+            WorkSocialSection(media.sourceId, media.mediaId, media.title, cover = "", anime = type == MediaType.ANIME)
+
             val genres = metadata?.genres?.takeIf { it.isNotEmpty() } ?: media.genres.split('|').filter { it.isNotBlank() }
             if (genres.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))

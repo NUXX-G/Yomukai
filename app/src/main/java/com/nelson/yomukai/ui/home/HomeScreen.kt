@@ -103,6 +103,7 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    NotificationsButton()
                     IconButton(onClick = { shuffle = true }) { Icon(Icons.Default.Shuffle, contentDescription = "Descubrir al azar") }
                     IconButton(onClick = onOpenWeb) { Icon(Icons.Default.Public, contentDescription = "Abrir enlace en el navegador integrado") }
                     IconButton(onClick = onSearchClick) { Icon(Icons.Default.Search, contentDescription = "Buscar") }

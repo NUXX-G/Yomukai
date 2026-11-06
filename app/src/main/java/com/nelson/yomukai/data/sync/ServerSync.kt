@@ -454,6 +454,25 @@ class ServerSync(
         }.getOrNull()
     }
 
+    /** The connected server's address (for opening its web pages, e.g. a room), or null. */
+    val serverUrl: String? get() = _state.value.server
+
+    /**
+     * A JSON call to the connected server's API with the session (social features); null when not connected,
+     * throws with the server's message when it refuses.
+     */
+    suspend fun api(method: String, path: String, body: JsonObject? = null): JsonElement? = withContext(Dispatchers.IO) {
+        val server = _state.value.server ?: return@withContext null
+        val session = token ?: return@withContext null
+        require(path.startsWith("/api/")) { "Ruta no válida" }
+        val request = Request.Builder().url(server + path).method(method, body?.toString()?.toRequestBody(json) ?: if (method == "GET") null else ByteArray(0).toRequestBody(json))
+        client.newCall(authed(request, session).build()).execute().use { r ->
+            val text = r.body?.string().orEmpty()
+            if (!r.isSuccessful) throw IOException(errorOf(text) ?: "El servidor respondió ${r.code}")
+            if (text.isBlank()) null else JsonParser.parseString(text)
+        }
+    }
+
     /** A natural voice of the connected server (see the web's novel reader). */
     data class ServerVoice(val id: String, val label: String, val lang: String, val gender: String, val region: String)
 
