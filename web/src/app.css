@@ -35,6 +35,8 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 16px; }
 body { overscroll-behavior-y: contain; -webkit-font-smoothing: antialiased; }
+/* A theme's background image (uploaded and re-drawn by the server), under a veil of the canvas colour so text stays readable. */
+html.has-bg body { background: linear-gradient(color-mix(in srgb, var(--c-canvas) 84%, transparent), color-mix(in srgb, var(--c-canvas) 92%, transparent)), var(--bg-image) center / cover fixed; }
 a { color: inherit; text-decoration: none; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
 input, select, textarea { font: inherit; color: var(--text); }

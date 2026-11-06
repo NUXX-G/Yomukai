@@ -176,6 +176,18 @@ export const api = {
   pushStatus: () => request('GET', '/api/notifications/push'),
   pushEnable: () => request('POST', '/api/notifications/push'),
   pushDisable: () => request('DELETE', '/api/notifications/push'),
+  themes: () => request('GET', '/api/themes'),
+  currentTheme: () => request('GET', '/api/themes/current'),
+  checkTheme: (theme) => request('POST', '/api/themes/check', theme),
+  saveTheme: (id, theme, published) => (id ? request('PUT', `/api/themes/${id}`, { theme, published }) : request('POST', '/api/themes', { theme, published })),
+  deleteTheme: (id) => request('DELETE', `/api/themes/${id}`),
+  useTheme: (body) => request('PUT', '/api/themes/use', body),
+  uploadBackground: async (file) => {
+    const res = await fetch('/api/themes/backgrounds', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(data.error || 'No se pudo subir la imagen', res.status);
+    return data.id;
+  },
   skip: (s, c, other) => request('GET', `/api/skip?${qs({ s, c, other })}`),
   job: (id) => request('GET', `/api/jobs/${id}`),
   adminStatus: () => request('GET', '/api/admin/status'),

@@ -14,6 +14,7 @@
   import Row from '../components/Row.svelte';
   import WorkSocial from '../components/WorkSocial.svelte';
   import ForumThread from '../components/ForumThread.svelte';
+  import { themeState } from '../lib/theme.svelte.js';
 
   const sourceId = route.params.source;
   const mediaId = route.params.id;
@@ -251,7 +252,7 @@
 
 <svelte:window onscroll={onScroll} />
 
-<div class="details" class:has-banner={!!work?.banner} style={styleOf(theme)}>
+<div class="details" class:has-banner={!!work?.banner} style={themeState.coverAccent ? styleOf(theme) : ''}>
   {#if work?.banner}
     <div class="banner"><img src={work.banner} alt="" decoding="async" /></div>
   {:else if item?.cover}<div class="backdrop" style:background-image="url('{item.cover}')"></div>{/if}
@@ -461,7 +462,7 @@
 </div>
 
 {#if target && item}
-  <button class="fab" style={styleOf(theme)} onclick={() => open(target.chapter)}>
+  <button class="fab" style={themeState.coverAccent ? styleOf(theme) : ''} onclick={() => open(target.chapter)}>
     <Icon name="play" />
     {target.started ? 'Continuar' : anime ? 'Empezar a ver' : 'Empezar a leer'} · {target.chapter.label}
   </button>

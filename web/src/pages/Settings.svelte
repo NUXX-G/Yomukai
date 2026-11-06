@@ -252,6 +252,11 @@
     {#await import('../components/SecurityPanel.svelte') then m}<m.default />{/await}
   {/if}
 
+  {#if !session.user.guest && features.flags.themes !== false}
+    <h2 class="h">Temas</h2>
+    {#await import('../components/ThemesPanel.svelte') then m}<m.default />{/await}
+  {/if}
+
   {#if !session.user.guest}
     <h2 class="h">Avisos en el móvil</h2>
     {#await import('../components/PushPanel.svelte') then m}<m.default />{/await}

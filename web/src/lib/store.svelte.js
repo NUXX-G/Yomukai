@@ -1,5 +1,6 @@
 // What the whole app shares: who is logged in, their settings (kept on the server) and the library.
 import { api, clearMemo } from './api.js';
+import { applyTheme, rememberTheme } from './theme.svelte.js';
 
 export const session = $state({ user: null, ready: false, offline: false, suspended: '', guestsEnabled: false, guestDays: 1, setupNeeded: false });
 
@@ -46,6 +47,10 @@ export async function loadSession(attempt = 0) {
     const me = await api.me();
     session.user = me.user;
     session.guestsEnabled = me.guestsEnabled;
+    // The account's theme (the same one the app uses); the browser remembers it for the next visit.
+    if (me.user && !me.user.guest) {
+      api.currentTheme().then((r) => { applyTheme(r?.theme || null); rememberTheme(r?.theme || null); }, () => {});
+    }
     session.guestDays = me.guestDays;
   } catch (e) {
     // The server is restarting or the connection dropped: the session is still good, so wait and retry

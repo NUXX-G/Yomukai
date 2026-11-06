@@ -2,6 +2,9 @@
 import '@fontsource-variable/inter/wght.css';
 import './tokens.css';
 import './app.css';
+import { bootTheme } from './lib/theme.svelte.js';
+
+bootTheme();
 import { mount } from 'svelte';
 import App from './App.svelte';
 import { adaptToIOS } from './lib/platform.js';
