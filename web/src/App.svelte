@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { route, define, startRouter } from './lib/router.svelte.js';
-  import { session, toast, sources, loadSession, resetUserState, updates } from './lib/store.svelte.js';
+  import { session, toast, sources, loadSession, resetUserState, updates, features, notify } from './lib/store.svelte.js';
   import { api, setUnauthorizedHandler, setSuspendedHandler } from './lib/api.js';
   import Icon from './components/Icon.svelte';
   import Login from './pages/Login.svelte';
@@ -25,6 +25,7 @@
   const Room = () => import('./pages/Room.svelte');
   const Profile = () => import('./pages/Profile.svelte');
   const Friends = () => import('./pages/Friends.svelte');
+  const ForumPage = () => import('./pages/Forum.svelte');
 
   define('home', '/');
   define('anime', '/anime');
@@ -41,6 +42,8 @@
   define('room', '/sala/:code');
   define('profile', '/u/:name');
   define('friends', '/amigos');
+  define('forum', '/foro');
+  define('forumThread', '/foro/:id');
   startRouter();
 
   /** The site's sections: rail on computers, bottom bar on phones (the first five). */
@@ -73,6 +76,43 @@
   }
 
   const newCount = $derived(Object.values(updates.byKey || {}).filter((u) => u?.unread > 0).length);
+
+  // ---------- Notifications: the bell's list, live over SSE while the page is open ----------
+  let notes = $state({ items: [], unread: 0 });
+  let bellOpen = $state(false);
+  let stream = null;
+  const bellCount = $derived(notes.unread + newCount);
+
+  async function loadNotes() {
+    try { notes = await api.notifications(); } catch { /* offline: try later */ }
+  }
+  function openStream() {
+    stream?.close();
+    if (!session.user || session.user.guest || typeof EventSource === 'undefined') return;
+    stream = new EventSource('/api/notifications/stream');
+    stream.addEventListener('notification', (e) => {
+      try {
+        const n = JSON.parse(e.data);
+        notes = { items: [n, ...notes.items].slice(0, 50), unread: notes.unread + 1 };
+        notify(n.text);
+      } catch { /* bad event */ }
+    });
+  }
+  $effect(() => {
+    if (session.user && !session.user.guest) { loadNotes(); openStream(); }
+    return () => stream?.close();
+  });
+  async function toggleBell() {
+    bellOpen = !bellOpen;
+    if (bellOpen && notes.unread) {
+      await api.notificationsRead().catch(() => {});
+      notes = { items: notes.items.map((n) => ({ ...n, read: true })), unread: 0 };
+    }
+  }
+  const ago = (at) => {
+    const m = Math.round((Date.now() - at) / 60_000);
+    return m < 60 ? (m <= 1 ? 'ahora' : m + ' min') : m < 1440 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' d';
+  };
   const initial = $derived((session.user?.guest ? 'I' : session.user?.name || '?').slice(0, 1).toUpperCase());
 
   const Page = $derived.by(() => {
@@ -87,7 +127,7 @@
       default: return Home;
     }
   });
-  const lazyPage = $derived(route.name === 'anime' || route.name === 'manga' || route.name === 'novels' ? Explore : route.name === 'calendar' ? Calendar : route.name === 'room' ? Room : route.name === 'profile' ? Profile : route.name === 'friends' ? Friends : null);
+  const lazyPage = $derived(route.name === 'anime' || route.name === 'manga' || route.name === 'novels' ? Explore : route.name === 'calendar' ? Calendar : route.name === 'room' ? Room : route.name === 'profile' ? Profile : route.name === 'friends' ? Friends : route.name === 'forum' || route.name === 'forumThread' ? ForumPage : null);
 
   async function logout() {
     menu = false;
@@ -168,9 +208,21 @@
         <span class="grow"></span>
         <button class="icon-btn mobile-only" onclick={() => (palette = true)} aria-label="Buscar"><Icon name="search" /></button>
         <a class="icon-btn mobile-only" href="/calendario" aria-label="Calendario"><Icon name="calendar" /></a>
-        <a class="icon-btn bell" href="/biblioteca" aria-label={newCount ? `${newCount} obras con novedades` : 'Novedades'}>
-          <Icon name="bell" />{#if newCount}<span class="count">{newCount > 9 ? '9+' : newCount}</span>{/if}
-        </a>
+        <div class="bell-wrap">
+          <button class="icon-btn bell" onclick={toggleBell} aria-haspopup="true" aria-expanded={bellOpen} aria-label={bellCount ? `${bellCount} avisos` : 'Avisos'}>
+            <Icon name="bell" />{#if bellCount}<span class="count">{bellCount > 9 ? '9+' : bellCount}</span>{/if}
+          </button>
+          {#if bellOpen}
+            <div class="menu notes" role="dialog" aria-label="Avisos">
+              {#if newCount}<a class="note lib" href="/biblioteca" onclick={() => (bellOpen = false)}><b>{newCount}</b> {newCount === 1 ? 'obra' : 'obras'} de tu biblioteca con capítulos nuevos</a>{/if}
+              {#each notes.items as n (n.id)}
+                <a class="note" class:unread={!n.read} href={n.link || '/'} onclick={() => (bellOpen = false)}><span>{n.text}</span><span class="when">{ago(n.at)}</span></a>
+              {:else}
+                {#if !newCount}<p class="empty">Nada nuevo por aquí.</p>{/if}
+              {/each}
+            </div>
+          {/if}
+        </div>
         <div class="account">
           <button class="avatar" onclick={() => (menu = !menu)} aria-haspopup="menu" aria-expanded={menu} aria-label="Tu cuenta">{initial}</button>
           {#if menu}
@@ -179,6 +231,7 @@
               {#if !session.user.guest}
                 <a role="menuitem" href="/u/{encodeURIComponent(session.user.name)}" onclick={() => (menu = false)}><Icon name="library" size={18} /> Mi perfil</a>
                 <a role="menuitem" href="/amigos" onclick={() => (menu = false)}><Icon name="explore" size={18} /> Amigos</a>
+                {#if features.flags.forum !== false}<a role="menuitem" href="/foro" onclick={() => (menu = false)}><Icon name="list" size={18} /> Foro</a>{/if}
               {/if}
               <a role="menuitem" href="/ajustes" onclick={() => (menu = false)}><Icon name="settings" size={18} /> Ajustes</a>
               <a role="menuitem" href="/calendario" onclick={() => (menu = false)}><Icon name="calendar" size={18} /> Calendario</a>
@@ -317,4 +370,11 @@
   @keyframes trophy-in { from { transform: translate(-50%, -140%); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
   @keyframes trophy-pop { from { transform: scale(0.2) rotate(-30deg); } 70% { transform: scale(1.25) rotate(8deg); } to { transform: none; } }
   @media (prefers-reduced-motion: reduce) { .trophy, .t-emoji { animation: none; } }
+  .bell-wrap { position: relative; }
+  .notes { width: min(360px, calc(100vw - 24px)); max-height: 70vh; overflow-y: auto; right: -40px; }
+  .note { display: flex !important; justify-content: space-between; gap: 10px; align-items: flex-start; font-size: 0.88rem !important; }
+  .note.unread { background: color-mix(in srgb, var(--c-accent) 10%, transparent); }
+  .note.lib { color: var(--c-accent); }
+  .note .when { color: var(--c-text-faint); font-size: var(--fs-tiny); white-space: nowrap; }
+  .empty { margin: 10px; color: var(--c-text-dim); font-size: var(--fs-small); }
 </style>

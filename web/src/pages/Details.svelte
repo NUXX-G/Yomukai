@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
   import { route, navigate, back, media as mediaHref, reader } from '../lib/router.svelte.js';
-  import { session, sourceById, inLibrary, toggleLibrary, notify, seenItem, READING_STATUSES, setReadingStatus, statusOf, categories, setCategories, editCategory } from '../lib/store.svelte.js';
+  import { features, session, sourceById, inLibrary, toggleLibrary, notify, seenItem, READING_STATUSES, setReadingStatus, statusOf, categories, setCategories, editCategory } from '../lib/store.svelte.js';
   import { downloadChapters } from '../lib/api.js';
   import { coverSeed, themeFor, styleOf } from '../lib/cover.js';
   import { TYPE_NAMES, TYPE_COLORS, parseStatus, statusName, score, monthYear, chapterNoun } from '../lib/format.js';
@@ -13,6 +13,7 @@
   import Sheet from '../components/Sheet.svelte';
   import Row from '../components/Row.svelte';
   import WorkSocial from '../components/WorkSocial.svelte';
+  import ForumThread from '../components/ForumThread.svelte';
 
   const sourceId = route.params.source;
   const mediaId = route.params.id;
@@ -27,7 +28,13 @@
   let meta = $state(null);
   let metaLoading = $state(true);
   let similar = $state(null);
-  let tab = $state(sessionStorage.getItem('details.tab') === '1' ? 1 : 0);
+  let tab = $state(Number(sessionStorage.getItem('details.tab')) || 0);
+  /** The work's forum thread: undefined while unknown, null when nobody has written yet. */
+  let forumThread = $state(undefined);
+  $effect(() => {
+    if (tab !== 2 || forumThread !== undefined || !work?.key) return;
+    api.forumWork(sourceId, mediaId).then((r) => (forumThread = r.thread ?? null), () => (forumThread = null));
+  });
   let descending = $state(true);
   let expanded = $state(false);
   let theme = $state({});
@@ -332,6 +339,9 @@
     <div class="tabs" role="tablist">
       <button role="tab" class:on={tab === 0} aria-selected={tab === 0} onclick={() => (tab = 0)}>{anime ? 'Episodios' : 'Capítulos'} · {list.chapters.length}</button>
       <button role="tab" class:on={tab === 1} aria-selected={tab === 1} onclick={() => (tab = 1)}>Relacionadas</button>
+      {#if features.flags.forum !== false && session.user && !session.user.guest}
+        <button role="tab" class:on={tab === 2} aria-selected={tab === 2} onclick={() => (tab = 2)}>Foro</button>
+      {/if}
     </div>
 
     {#if tab === 0}
@@ -405,6 +415,16 @@
           {#if !descending && gapAfter[c.id]}<li class="gap"><span>{gapAfter[c.id].text}</span></li>{/if}
         {/each}
       </ol>
+    {:else if tab === 2}
+      <div class="forum-tab">
+        {#if !work?.key || forumThread === undefined}
+          <div class="spinner"></div>
+        {:else if forumThread}
+          <ForumThread threadId={forumThread.id} upTo={lastDone} {anime} />
+        {:else}
+          <ForumThread newFor={{ sourceId, mediaId, title: item.title }} upTo={lastDone} {anime} />
+        {/if}
+      </div>
     {:else}
       <div class="related">
         {#if metaLoading}
@@ -643,6 +663,8 @@
   .gap { display: flex; align-items: center; gap: 8px; padding: 2px 16px; color: var(--tertiary); font-size: 0.74rem; }
   .gap::before, .gap::after { content: ''; flex: 1; height: 1px; background: color-mix(in srgb, var(--tertiary) 35%, transparent); }
   .related { padding: 0 16px; }
+  .forum-tab { padding: 14px 16px; }
+  @media (min-width: 1024px) { .forum-tab { padding: 14px 0; } }
   .fab { position: fixed; right: max(16px, calc((100vw - 960px) / 2 + 16px)); bottom: calc(16px + var(--layout-bottom-bar) + var(--safe-bottom)); z-index: 30; height: 56px; padding: 0 22px 0 18px; border-radius: 18px; display: flex; align-items: center; gap: 10px; background: var(--primary-container); color: var(--on-primary-container); font-weight: 600; box-shadow: 0 6px 20px #0008; }
   .opt { width: 100%; text-align: left; gap: 14px; }
   .cats { position: relative; display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 0.82rem; color: var(--text-dim); text-align: left; }

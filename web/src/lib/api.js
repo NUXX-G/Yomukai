@@ -154,6 +154,28 @@ export const api = {
   achievements: () => request('GET', '/api/achievements'),
   newAchievements: () => request('GET', '/api/achievements/new'),
   achievementEvent: (kind) => request('POST', '/api/achievements/event', { kind }),
+  forumCategories: () => request('GET', '/api/forum/categories'),
+  forumList: (c, page = 0) => request('GET', `/api/forum?${qs({ c, page })}`),
+  forumWork: (s, id) => request('GET', `/api/forum/work?${qs({ s, id })}`),
+  forumThread: (id, upTo, page = 0) => request('GET', `/api/forum/${id}?${qs({ upTo, page })}`),
+  forumNew: (body) => request('POST', '/api/forum', body),
+  forumReply: (id, body) => request('POST', `/api/forum/${id}/posts`, body),
+  forumEdit: (postId, body) => request('PUT', `/api/forum/posts/${postId}`, { body }),
+  forumDelete: (postId) => request('DELETE', `/api/forum/posts/${postId}`),
+  forumReact: (postId, emoji) => request('POST', `/api/forum/posts/${postId}/react`, { emoji }),
+  forumImage: async (file) => {
+    const res = await fetch('/api/forum/images', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(data.error || 'No se pudo subir la imagen', res.status);
+    return data.id;
+  },
+  adminThread: (id, body) => request('PUT', `/api/admin/forum/threads/${id}`, body),
+  adminMute: (name, minutes, reason) => request('POST', '/api/admin/mute', { name, minutes, reason }),
+  notifications: () => request('GET', '/api/notifications'),
+  notificationsRead: () => request('POST', '/api/notifications/read'),
+  pushStatus: () => request('GET', '/api/notifications/push'),
+  pushEnable: () => request('POST', '/api/notifications/push'),
+  pushDisable: () => request('DELETE', '/api/notifications/push'),
   skip: (s, c, other) => request('GET', `/api/skip?${qs({ s, c, other })}`),
   job: (id) => request('GET', `/api/jobs/${id}`),
   adminStatus: () => request('GET', '/api/admin/status'),

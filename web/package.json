@@ -12,7 +12,8 @@
     "tokens": "node scripts/tokens.mjs",
     "predev": "node scripts/tokens.mjs",
     "prebuild": "node scripts/tokens.mjs",
-    "precheck": "node scripts/tokens.mjs"
+    "precheck": "node scripts/tokens.mjs",
+    "test": "node --test \"tests/**/*.test.mjs\""
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

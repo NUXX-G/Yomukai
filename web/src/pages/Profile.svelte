@@ -81,7 +81,7 @@
         <div class="who">
           <h1>{p.name}</h1>
           {#if shown}<div class="title">{shown.emoji} {shown.name}</div>{/if}
-          <div class="small muted">En Yomukai desde {since(p.since)}{#if p.admin}{' · admin'}{/if}</div>
+          <div class="small muted">En Yomukai desde {since(p.since)}{#if p.admin}&nbsp;· admin{/if}</div>
           {#if data.now}<div class="now"><span class="dot"></span> {data.now.kind === 'watching' ? 'Viendo' : 'Leyendo'} {data.now.title}{#if data.now.label} · {data.now.label}{/if}</div>{/if}
         </div>
         {#if mine}<button class="btn tonal" onclick={edit}><Icon name="text" size={18} /> Editar perfil</button>{/if}
