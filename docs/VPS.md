@@ -108,7 +108,8 @@ YOMUKAI_URL=https://tu-vps WORKER_TOKEN=ykw_... WORKER_ENGINES=source_repair WOR
 ## Vídeo: yt-dlp
 
 La imagen del VPS trae yt-dlp (solo para encontrar la URL del vídeo detrás de un reproductor; nunca descarga). Se
-prueba antes que los extractores propios; un host que yt-dlp no entiende se salta un día tras dos fallos. Se apaga con
+prueba antes que los extractores propios; un host que yt-dlp no entiende se salta un día tras dos fallos. Solo se usa con hosts de vídeo conocidos (lista en `YtDlp.DEFAULT_HOSTS`, ampliable con
+`YTDLP_HOSTS=host1.com,host2.net`), sin su extractor genérico y si el host resuelve a IPs públicas. Se apaga con
 el flag «yt-dlp para los vídeos».
 
 ## Tailscale (VPS ↔ casa)

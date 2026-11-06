@@ -27,10 +27,10 @@ class YtDlpTest {
         assertNull(y.resolve(VideoSource("HD", "--exec=rm -rf /", "Malo")))
         assertNull(y.resolve(VideoSource("HD", "https://a.com/x y", "Espacios")))
         assertTrue("nothing ran for bad input", commands.isEmpty())
-        val found = y.resolve(VideoSource("HD", "https://host.com/e/abc", "Host"))!!
+        val found = y.resolve(VideoSource("HD", "https://ok.ru/videoembed/abc", "Ok"))!!
         assertTrue(found.isDirect)
         assertEquals("--", commands.single()[commands.single().size - 2])
-        assertEquals("https://host.com/e/abc", commands.single().last())
+        assertEquals("https://ok.ru/videoembed/abc", commands.single().last())
         assertTrue("--ignore-config" in commands.single())
     }
 
@@ -43,6 +43,13 @@ class YtDlpTest {
         assertNull(y.resolve(VideoSource("HD", "http://localhost/e/1", "Local")))
         assertEquals(0, runs)
         assertTrue(YtDlp(File("yt-dlp")).command("https://x.com/e/1").containsAll(listOf("--use-extractors", "default,-generic")))
+        // User info tricks and hosts outside the list never reach yt-dlp.
+        val strict = YtDlp(File("yt-dlp"), hostIsPublic = { true }, runner = { _, _ -> runs++; ok })
+        assertNull(strict.resolve(VideoSource("HD", "https://ok.ru@10.0.0.1/x", "Truco")))
+        assertNull(strict.resolve(VideoSource("HD", "https://desconocido.com/e/1", "Otro")))
+        assertNull(YtDlp.hostOf("https://ok.ru@10.0.0.1/x"))
+        assertEquals("www.ok.ru", YtDlp.hostOf("https://www.ok.ru/videoembed/1"))
+        assertEquals(0, runs)
     }
 
     @Test
@@ -50,7 +57,7 @@ class YtDlpTest {
         var now = 0L
         var runs = 0
         val y = YtDlp(File("yt-dlp"), clock = { now }, hostIsPublic = { true }, runner = { _, _ -> runs++; null })
-        val video = VideoSource("HD", "https://raro.com/e/1", "Raro")
+        val video = VideoSource("HD", "https://streamtape.com/e/1", "Raro")
         repeat(5) { y.resolve(video) }
         assertEquals("two failures, then skipped", 2, runs)
         now += 25 * 3_600_000L

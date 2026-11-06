@@ -85,9 +85,18 @@ if [ -n "$BAD" ]; then
   exit 1
 fi
 
-# The tests run the edited code: do it in a throwaway container without network or credentials.
+# The tests run the edited code: on a COPY of the working tree without .git, with a throwaway Gradle home (the wrapper
+# copied in, the dependency cache read-only), as an unprivileged user, without network. Nothing it does reaches the repo.
 TESTS=ok
-docker run --rm --network none -v "$REPO":/src -v "$HOME/.gradle":/root/.gradle -w /src -e YOMUKAI_SERVER_ONLY=true \
+SANDBOX="$(mktemp -d)"
+trap 'rm -rf "$SANDBOX"' EXIT
+mkdir -p "$SANDBOX/src" "$SANDBOX/gradle-home"
+git ls-files -co --exclude-standard | grep -v -E '^repair-' | tar -cf - -T - | tar -xf - -C "$SANDBOX/src"
+[ -d "$HOME/.gradle/wrapper" ] && cp -r "$HOME/.gradle/wrapper" "$SANDBOX/gradle-home/"
+chmod -R a+rwX "$SANDBOX"
+docker run --rm --network none --user 65534:65534 \
+  -v "$SANDBOX/src":/src -v "$SANDBOX/gradle-home":/gradle-home -v "$HOME/.gradle/caches/modules-2":/ro-cache/modules-2:ro \
+  -e GRADLE_USER_HOME=/gradle-home -e GRADLE_RO_DEP_CACHE=/ro-cache -e YOMUKAI_SERVER_ONLY=true -w /src \
   eclipse-temurin:21-jdk ./gradlew --offline :shared:test --console=plain -q > "repair-$ID-tests.log" 2>&1 || TESTS=fail
 
 if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --others --exclude-standard -- sources shared)" ]; then
@@ -95,11 +104,13 @@ if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --other
   exit 1
 fi
 
-git add sources shared
-git commit --quiet -m "fix(fuentes): reparar $ID (auto-reparación)
+# Git with hooks and fsmonitor off: nothing in the checkout can run code during commit or push.
+SAFE_GIT=(git -c core.hooksPath=/dev/null -c core.fsmonitor=false)
+"${SAFE_GIT[@]}" add sources shared
+"${SAFE_GIT[@]}" commit --quiet -m "fix(fuentes): reparar $ID (auto-reparación)
 
 Propuesto automáticamente tras un fallo del canario. Revisar antes de fusionar."
-git push --quiet -u origin "$BRANCH"
+"${SAFE_GIT[@]}" push --quiet -u origin "$BRANCH"
 
 BODY="Arreglo propuesto automáticamente para **$ID** tras un fallo del canario.
 

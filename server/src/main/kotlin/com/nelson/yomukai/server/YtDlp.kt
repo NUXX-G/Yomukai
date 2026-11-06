@@ -24,7 +24,9 @@ class YtDlp(
     private val clock: () -> Long = System::currentTimeMillis,
     private val runner: suspend (List<String>, Long) -> String? = ::run,
     /** True when every address of the host is public: a scraped page must never make the VPS reach its own network. */
-    private val hostIsPublic: suspend (String) -> Boolean = ::resolvesOnlyToPublic
+    private val hostIsPublic: suspend (String) -> Boolean = ::resolvesOnlyToPublic,
+    /** Only these video hosts (and their subdomains) are ever given to yt-dlp. */
+    private val allowedHosts: Set<String> = DEFAULT_HOSTS
 ) {
     private val log = LoggerFactory.getLogger("YtDlp")
     private val permits = Semaphore(concurrency)
@@ -37,6 +39,7 @@ class YtDlp(
         val url = source.videoUrl.trim()
         if (source.isDirect || !SAFE_URL.matches(url)) return null
         val host = hostOf(url) ?: return null
+        if (allowedHosts.none { host == it || host.endsWith(".$it") }) return null
         val record = hosts.getOrPut(host) { HostRecord() }
         if (record.skipUntil > clock()) return null
         if (!hostIsPublic(host)) return null
@@ -75,7 +78,25 @@ class YtDlp(
             runCatching { java.net.InetAddress.getAllByName(host).let { all -> all.isNotEmpty() && all.all(PublicAddresses::isPublic) } }.getOrDefault(false)
         }
 
-        fun hostOf(url: String): String? = Regex("^https?://([^/:?#]+)").find(url)?.groupValues?.get(1)?.lowercase()?.removePrefix("www.")
+/**
+         * The host exactly as an HTTP client sees it, parsed with [java.net.URI]; null for anything odd (user info such as
+         * "https://ok.ru@10.0.0.1/", no host, other schemes), so the address checked is the address fetched.
+         */
+        fun hostOf(url: String): String? = runCatching {
+            val uri = java.net.URI(url)
+            if (uri.scheme !in setOf("http", "https") || uri.rawUserInfo != null) return null
+            uri.host?.lowercase()?.takeIf { it.isNotBlank() }
+        }.getOrNull()
+
+        /**
+         * Video hosts with their own yt-dlp extractor. Kept short on purpose: yt-dlp follows redirects and resolves names
+         * itself, so it only talks to sites known to be video hosts. Extend with YTDLP_HOSTS.
+         */
+        val DEFAULT_HOSTS = setOf(
+            "ok.ru", "streamtape.com", "streamtape.to", "dood.watch", "dood.to", "doodstream.com", "d000d.com",
+            "mixdrop.co", "mixdrop.ag", "filemoon.sx", "filemoon.to", "uqload.com", "uqload.to", "vidmoly.to",
+            "streamwish.to", "dailymotion.com", "vimeo.com", "youtube.com", "youtu.be"
+        )
 
         /** The stream URL and the headers it needs, from `yt-dlp -j` output; null when there is none. */
         fun parse(output: String): Pair<String, Map<String, String>>? = runCatching {

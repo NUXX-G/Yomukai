@@ -169,7 +169,10 @@ class Services(val config: Config) {
             jobs.enqueue(JobQueue.Request(JobTypes.SOURCE_REPAIR, payload, JobPriority.BACKGROUND, dedupKey = "repair:${source.id}:$day", ttlMs = Auth.DAY_MS, maxAttempts = 1))
         }
     })
-    val ytdlp = YtDlp(File(System.getenv("YTDLP_PATH")?.ifBlank { null } ?: "/opt/yt-dlp"))
+    val ytdlp = YtDlp(
+        File(System.getenv("YTDLP_PATH")?.ifBlank { null } ?: "/opt/yt-dlp"),
+        allowedHosts = YtDlp.DEFAULT_HOSTS + System.getenv("YTDLP_HOSTS").orEmpty().split(',').map { it.trim().lowercase() }.filter { it.contains('.') }
+    )
 
     init {
         bundles.current()?.let(sources::apply)
