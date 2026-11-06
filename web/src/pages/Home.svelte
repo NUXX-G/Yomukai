@@ -23,7 +23,7 @@
 
   const typeFilter = $derived(TYPE_FILTERS.find((f) => f.key === typeKey));
   const visible = $derived(
-    sources.list.filter((s) => s.enabled)
+    sources.list.filter((s) => s.enabled && !s.degraded)
       .filter((s) => !lang || s.language === 'MULTI' || s.language === lang)
       .filter((s) => !typeFilter.types || s.types.some((t) => typeFilter.types.includes(t)))
   );

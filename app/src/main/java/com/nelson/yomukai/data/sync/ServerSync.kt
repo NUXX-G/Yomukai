@@ -63,7 +63,13 @@ data class ServerFeatures(
     fun on(flag: String) = flags[flag] == true
 }
 
-class ServerSync(context: Context, private val db: YomukaiDatabase, private val preferences: AppPreferences) {
+class ServerSync(
+    context: Context,
+    private val db: YomukaiDatabase,
+    private val preferences: AppPreferences,
+    /** Told which sources the server's canary found broken (id to why), so the app hides them too. */
+    private val onSourceHealth: (Map<String, String>) -> Unit = {}
+) {
     private val prefs = context.getSharedPreferences("yomukai_sync", Context.MODE_PRIVATE)
     private val dao = db.syncDao()
     private val lock = Mutex()
@@ -177,6 +183,7 @@ class ServerSync(context: Context, private val db: YomukaiDatabase, private val 
         lock.withLock {
             _state.value = _state.value.copy(running = true)
             val result = runCatching { run(server, session) }
+            runCatching { fetchSourceHealth(server, session) }
             val error = result.exceptionOrNull()?.let { it.message ?: "Error al sincronizar" }
             prefs.edit().apply {
                 if (error == null) putLong("last_sync", System.currentTimeMillis()).remove("error") else putString("error", error)
@@ -430,6 +437,12 @@ class ServerSync(context: Context, private val db: YomukaiDatabase, private val 
 
     private fun authed(builder: Request.Builder, session: String) = builder.header("Cookie", "$COOKIE=$session")
 
+    private fun fetchSourceHealth(server: String, session: String) {
+        client.newCall(authed(Request.Builder().url("$server/api/sources"), session).build()).execute().use { r ->
+            if (r.isSuccessful) onSourceHealth(parseDegraded(r.body?.string().orEmpty()))
+        }
+    }
+
     /** What the connected server has switched on and whether its home worker is up (GET /api/features). */
     suspend fun features(): ServerFeatures? = withContext(Dispatchers.IO) {
         val server = _state.value.server ?: return@withContext null
@@ -477,6 +490,15 @@ class ServerSync(context: Context, private val db: YomukaiDatabase, private val 
         private const val PROGRESS_BATCH = 5_000
 
         /** "yomukai.example.com" or "https://yomukai.example.com/" -> "https://yomukai.example.com". */
+
+        /** Broken sources (id to reason) from the server's source list; never throws. */
+        fun parseDegraded(text: String): Map<String, String> = runCatching {
+            JsonParser.parseString(text).asJsonArray.mapNotNull { e ->
+                val o = e.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
+                val reason = o.get("degraded")?.takeIf { it.isJsonPrimitive }?.asString ?: return@mapNotNull null
+                o.str("id").takeIf { it.isNotBlank() }?.let { it to reason }
+            }.toMap()
+        }.getOrDefault(emptyMap())
 
         /** Never throws: an unknown or old answer means everything off. */
         fun parseFeatures(text: String): ServerFeatures = runCatching {

@@ -171,6 +171,7 @@
       <label class="toggle">
         <span class="grow">
           {s.name} <span class="tag">{s.language}</span>{#if s.experimental} <span class="small muted">experimental</span>{/if}
+          {#if s.degraded}<span class="small error-text block-note">Caída ahora mismo, oculta hasta que vuelva: {s.degraded}</span>{/if}
           {#if checks[s.id]}
             {@const c = checks[s.id]}
             <span class="small check {c.state}">
@@ -310,6 +311,7 @@
   .check.fail { color: var(--error, #ff8a80); }
   .diag { padding: 12px 0; }
   .susp { display: block; }
+  .block-note { display: block; }
   .home-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text-dim); flex: none; }
   .home-dot.on { background: #6fcf8a; }
   .sync-box { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin: 6px 0; border-radius: 10px; background: var(--surface-high); }

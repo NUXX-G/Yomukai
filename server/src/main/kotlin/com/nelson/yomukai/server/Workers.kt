@@ -247,6 +247,23 @@ fun Route.workerAdminRoutes(s: Services) {
         val job = s.jobs.enqueue(JobQueue.Request(JobTypes.ECHO, JsonObject().apply { addProperty("text", "hola") }, requestedBy = call.user.id, ttlMs = 10 * 60_000L))
         call.respond(mapOf("id" to job.id))
     }
+    get("/canary") {
+        val health = s.health.all().associateBy { it.sourceId }
+        call.respond(s.sources.all.map { src ->
+            val h = health[src.id]
+            mapOf(
+                "id" to src.id, "name" to src.name, "status" to (h?.status?.name ?: "UNKNOWN"), "summary" to h?.summary,
+                "checkedAt" to h?.checkedAt, "failingSince" to h?.failingSince, "steps" to s.health.steps(src.id)
+            )
+        })
+    }
+    post("/canary/{id}") {
+        val source = s.sources.get(call.parameters["id"].orEmpty()) ?: throw NoSuchElementException("Fuente desconocida")
+        val outcome = s.canary.check(source)
+        refreshDegraded(s.health, s.sources)
+        call.auditDetail("canario " + source.id)
+        call.respond(mapOf("status" to outcome.status.name, "summary" to outcome.summary))
+    }
     get("/features") {
         call.respond(FeatureCatalog.ALL.map { f -> mapOf("name" to f.name, "title" to f.title, "description" to f.description, "enabled" to s.features.isOn(f.name)) })
     }

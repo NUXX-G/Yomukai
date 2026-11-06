@@ -224,7 +224,14 @@ fun SettingsScreen(
                     },
                     supportingContent = {
                         val types = source.supportedTypes.joinToString(", ") { it.displayName }
-                        Text(if (source.isExperimental) "$types • Experimental: el sitio puede no responder" else types)
+                        val broken = viewModel.degradedReason(source.id)
+                        Text(
+                            when {
+                                broken != null -> "$types • Caída ahora mismo, oculta hasta que vuelva: $broken"
+                                source.isExperimental -> "$types • Experimental: el sitio puede no responder"
+                                else -> types
+                            }
+                        )
                     },
                     trailingContent = {
                         Switch(

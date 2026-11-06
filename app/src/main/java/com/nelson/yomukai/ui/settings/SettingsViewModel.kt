@@ -43,6 +43,8 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     private val _storage = MutableStateFlow(0L to 0L) // image cache bytes, download bytes
     val storage: StateFlow<Pair<Long, Long>> = _storage.asStateFlow()
 
+    fun degradedReason(id: String): String? = container.sourceManager.degraded[id]
+
     fun isSourceEnabled(settings: AppSettings, id: String) =
         id in (settings.enabledSources ?: container.sourceManager.defaultEnabledIds)
 

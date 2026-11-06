@@ -52,7 +52,9 @@ data class Config(
     val ntfyToken: String? = null,
     /** Per address and minute: login/guest/invitation/setup attempts, and API requests. */
     val authRatePerMinute: Int = 30,
-    val ipRatePerMinute: Int = 1200
+    val ipRatePerMinute: Int = 1200,
+    /** Pause between sources in a canary run, to stay gentle with the sites. */
+    val canaryPauseMs: Long = 20_000
 ) {
     companion object {
         const val ACCOUNT_RATE = 600
@@ -88,7 +90,8 @@ data class Config(
                 ntfyUrl = env["NTFY_URL"]?.trim()?.takeIf { it.startsWith("https://") || it.startsWith("http://") },
                 ntfyToken = env["NTFY_TOKEN"]?.trim()?.ifBlank { null },
                 authRatePerMinute = env["AUTH_RATE"]?.toIntOrNull()?.coerceIn(5, 1_000) ?: 30,
-                ipRatePerMinute = env["IP_RATE"]?.toIntOrNull()?.coerceIn(60, 100_000) ?: 1200
+                ipRatePerMinute = env["IP_RATE"]?.toIntOrNull()?.coerceIn(60, 100_000) ?: 1200,
+                canaryPauseMs = (env["CANARY_PAUSE_S"]?.toLongOrNull()?.coerceIn(0, 600) ?: 20) * 1000
             )
         }
 

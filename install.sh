@@ -65,6 +65,14 @@ say ""
 PORT_IN_USE="${PORT_IN_USE:-8080}"
 case "$PORT_IN_USE" in *:*) ADDRESS="$PORT_IN_USE" ;; *) ADDRESS="localhost:$PORT_IN_USE" ;; esac
 say "Yomukai está en marcha: http://$ADDRESS"
+# The source canary: every 6 hours, from this machine (GitHub's addresses are blocked by Cloudflare).
+if command -v crontab >/dev/null 2>&1; then
+  CRON="17 */6 * * * cd $DIR && docker compose exec -T -e JAVA_OPTS=-Xmx200m yomukai /app/bin/server canary >/dev/null 2>&1 # yomukai-canary"
+  ( crontab -l 2>/dev/null | grep -v "# yomukai-canary" || true; echo "$CRON" ) | crontab - && say "Canario de fuentes programado cada 6 horas (crontab)."
+else
+  say "Sin crontab: programa a mano el canario de fuentes (ver docs/VPS.md)."
+fi
+
 # First run: wait for the setup code and print the page that creates the admin.
 TOKEN=""
 for _ in $(seq 60); do

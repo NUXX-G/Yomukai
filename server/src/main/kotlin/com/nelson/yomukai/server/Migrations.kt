@@ -106,6 +106,12 @@ object Migrations {
                    ip TEXT NOT NULL DEFAULT '')"""
             )
             exec("CREATE INDEX IF NOT EXISTS audit_at ON audit_log(at)")
+        },
+        Migration(5, "Salud de las fuentes según el canario") {
+            exec(
+                """CREATE TABLE IF NOT EXISTS source_health(source_id TEXT PRIMARY KEY, status TEXT NOT NULL, summary TEXT NOT NULL DEFAULT '',
+                   steps TEXT NOT NULL DEFAULT '', checked_at INTEGER NOT NULL, failing_since INTEGER, last_ok_at INTEGER)"""
+            )
         }
     )
 

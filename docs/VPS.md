@@ -72,6 +72,23 @@ se cuenta por mes. Con `BANDWIDTH_CAP_GB` > 0 llega un aviso al 80 % y al 100 % 
 proxy deja de servir vídeo a quien no es admin hasta el mes siguiente; los servidores directos siguen funcionando.
 Se puede desactivar el corte con el flag «Tope de tráfico de vídeo» del panel.
 
+## Canario de fuentes
+
+Cada 6 horas el VPS prueba cada fuente como lo haría un lector (novedades, búsqueda, ficha, capítulos y
+páginas/texto/vídeo) y valida lo que devuelve (número de resultados, títulos, direcciones, capítulos > 0). Una fuente
+rota se **oculta sola** en la web y en la app (con el motivo en Ajustes › Fuentes) y vuelve cuando el canario la ve
+bien. Cada caída y recuperación avisa por Discord/ntfy. Se ejecuta desde el propio VPS porque Cloudflare bloquea las IP
+de GitHub Actions. El instalador lo programa en el crontab; a mano:
+
+```bash
+# crontab -e
+17 */6 * * * cd ~/yomukai && docker compose exec -T -e JAVA_OPTS=-Xmx200m yomukai /app/bin/server canary >/dev/null 2>&1
+# Una sola fuente, ahora:
+docker compose exec yomukai /app/bin/server canary asura
+```
+
+Entre fuente y fuente espera `CANARY_PAUSE_S` segundos (20). También se puede probar una fuente desde el panel de admin.
+
 ## Tailscale (VPS ↔ casa)
 
 El worker se conecta **hacia fuera** al VPS: no hace falta abrir puertos en casa. Puede usar la dirección pública

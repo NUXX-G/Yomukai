@@ -36,8 +36,8 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 - [x] 2.7 Sin contraseña por defecto: sin `ADMIN_PASSWORD` el servidor genera un código de un uso (`data/setup-token`, permisos 600, y en el log) y la web muestra «Primera configuración» en `/configurar?token=…`. `install.sh` ya no genera contraseña e imprime ese enlace. Invitados desactivados por defecto (`GUESTS_ENABLED=false`; el VPS actual conserva su .env)
 
 ### Fase 3 — Resistencia a cambios en las webs
-- [ ] 3.1 Canario por cron en el VPS (Discord + ntfy)
-- [ ] 3.2 Validación de resultados y fuentes degradadas ocultas solas
+- [x] 3.1 `server canary [fuente...]` (`Canary.kt`): recorre cada fuente con `SourceDiagnostics`, una a una con `CANARY_PAUSE_S` (20 s) entre ellas, guarda el resultado (migración 5, `source_health`) y avisa por Discord/ntfy al caer y al recuperarse. Cron en el VPS cada 6 h (lo instala `install.sh`, con -Xmx200m). Probado contra 4 fuentes reales: OK
+- [x] 3.2 `SourceValidation` (shared, puro, con HTML real): ≥3 novedades, títulos no vacíos ni de relleno, sin duplicados, URLs http(s), capítulos > 0, imágenes válidas, texto ≥200 caracteres, servidores > 0. Paso crítico fallido → DEGRADED → `SourceManager.degraded` la quita de todas las listas en server, web (Inicio) y app (recibe la lista al sincronizar); Ajustes › Fuentes muestra el motivo; vuelve sola. Búsqueda/imagen fallida → solo aviso. Panel de admin: salud y «Probar»
 - [ ] 3.3 Fuentes declarativas en JSON firmadas con Ed25519
 - [ ] 3.4 Motores genéricos Madara, WordPress, Next.js, SvelteKit
 - [ ] 3.5 Cadena de respaldo de extracción

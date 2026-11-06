@@ -18,7 +18,9 @@ data class SourceDto(
     val id: String, val name: String, val language: String, val types: List<String>,
     /** "manga", "novel" or "anime": which reader opens its chapters. */
     val kind: String,
-    val experimental: Boolean, val enabled: Boolean, val filters: List<FilterDto>
+    val experimental: Boolean, val enabled: Boolean, val filters: List<FilterDto>,
+    /** Why the canary hid it, when it is broken; null while it works. */
+    val degraded: String? = null
 )
 
 data class MediaDto(
@@ -72,14 +74,15 @@ fun CatalogueSource.kind(): String = when (this) {
     else -> "manga"
 }
 
-fun CatalogueSource.toDto(enabled: Boolean) = SourceDto(
+fun CatalogueSource.toDto(enabled: Boolean, degraded: String? = null) = SourceDto(
     id, name, language, supportedTypes.map { it.name }, kind(), isExperimental, enabled,
     filters.map { f ->
         FilterDto(
             f.key, f.label, f is MultiSelectFilter, f.options.map { OptionDto(it.value, it.label) },
             (f as? SelectFilter)?.default
         )
-    }
+    },
+    degraded
 )
 
 /** Converts with covers already pointing at the proxy. */

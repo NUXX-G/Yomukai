@@ -84,6 +84,17 @@ fun runCommand(config: Config, args: List<String>): Int {
             println("Copia hecha: ${file.absolutePath}")
             0
         }
+        // Run by cron on the VPS (never on GitHub: Cloudflare blocks its addresses). See docs/VPS.md.
+        "canary" -> {
+            val services = Services(config)
+            val wanted = args.drop(1).toSet()
+            val targets = services.sources.all.filter { wanted.isEmpty() || it.id in wanted }
+            val results = kotlinx.coroutines.runBlocking { services.canary.checkAll(targets) }
+            results.forEach { println("${it.source}: ${it.status} — ${it.summary}") }
+            // Give the notifier a moment to send what it queued.
+            Thread.sleep(3_000)
+            if (results.any { it.status == com.nelson.yomukai.data.source.SourceHealth.DEGRADED }) 3 else 0
+        }
         "backups" -> {
             Backups.list(config.backupDir).forEach { println("${it.name}  ${it.length() / 1024} KB") }
             0
@@ -107,7 +118,7 @@ fun runCommand(config: Config, args: List<String>): Int {
             0
         }
         else -> {
-            System.err.println("Comandos: backup | backups | restore <archivo|latest>")
+            System.err.println("Comandos: backup | backups | restore <archivo|latest> | canary [fuente...]")
             2
         }
     }
@@ -142,6 +153,8 @@ class Services(val config: Config) {
     val audit = AuditLog(db)
     val setup = SetupWizard(db, config.dataDir)
     val addressLimiter = KeyedRateLimiter()
+    val health = SourceHealthStore(db)
+    val canary = Canary(health, notifier, pauseMs = config.canaryPauseMs)
 
     suspend fun prefs(user: User) = UserPrefs.parse(db.settings(user.id), sources.defaultEnabledIds)
 }
@@ -165,6 +178,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
         }
     }
 
+    launch { runCatching { refreshDegraded(services.health, services.sources) } }
     launch {
         services.auth.bootstrap()
         services.setup.prepare(config.publicUrl)
@@ -176,6 +190,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
         while (true) {
             delay(60_000L)
             runCatching { services.jobs.sweep() }.onFailure { log.warn("Limpieza de la cola", it) }
+            runCatching { refreshDegraded(services.health, services.sources) }.onFailure { log.warn("Salud de las fuentes", it) }
             runCatching { services.bandwidth.flush() }.onFailure { log.warn("Contador de tráfico", it) }
             runCatching {
                 val online = services.workers.online().isNotEmpty()
@@ -392,8 +407,9 @@ private operator fun UserDto.plus(extra: Map<String, Any?>): Map<String, Any?> =
 private fun Route.catalogRoutes(s: Services) {
     get("/sources") {
         val prefs = s.prefs(call.user)
-        val enabled = s.sources.enabled(prefs.enabledSources).map { it.id }.toSet()
-        call.respond(s.sources.all.map { it.toDto(it.id in enabled) })
+        // "enabled" is what the user chose; broken sources are flagged so lists hide them and Settings says why.
+        val chosen = prefs.enabledSources ?: s.sources.defaultEnabledIds
+        call.respond(s.sources.all.map { it.toDto(it.id in chosen, s.sources.degraded[it.id]) })
     }
     get("/sources/{id}/latest") {
         val page = call.request.queryParameters["page"]?.toIntOrNull() ?: 1

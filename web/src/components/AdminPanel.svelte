@@ -15,6 +15,9 @@
   let inviteNote = $state('');
   let inviteLink = $state('');
   let showAudit = $state(false);
+  let health = $state([]);
+  let testing = $state('');
+  const statusText = { OK: 'bien', WARNING: 'con avisos', DEGRADED: 'caída', UNKNOWN: 'sin probar' };
   let createdToken = $state(null);
 
   const mb = (b) => (b == null ? '—' : `${Math.round(b / 1048576)} MB`);
@@ -43,6 +46,7 @@
     workers = w;
     flags = f;
     invites = await api.adminInvites().catch(() => []);
+    health = await api.adminCanary().catch(() => []);
     if (showAudit) audit = await api.adminAudit().catch(() => []);
   }
   async function invite(e) {
@@ -54,6 +58,14 @@
       try { await navigator.clipboard.writeText(inviteLink); notify('Enlace copiado'); } catch {}
       load();
     } catch (err) { notify(err.message); }
+  }
+  async function runCanary(id) {
+    testing = id;
+    try {
+      const r = await api.adminRunCanary(id);
+      notify(`${id}: ${statusText[r.status] || r.status}`);
+      health = await api.adminCanary().catch(() => health);
+    } catch (err) { notify(err.message); } finally { testing = ''; }
   }
   async function toggleAudit() {
     showAudit = !showAudit;
@@ -170,6 +182,24 @@
 </section>
 
 <section class="card">
+  <h3 class="sub">Salud de las fuentes</h3>
+  <p class="small muted" style="margin-top:0">
+    El canario prueba cada fuente de vez en cuando (cron en el servidor, ver <code>docs/VPS.md</code>). Las caídas se ocultan solas
+    y vuelven cuando funcionan.
+  </p>
+  {#each health as h (h.id)}
+    <div class="list-item">
+      <span class="dot" class:on={h.status === 'OK'} class:warn-dot={h.status === 'WARNING'} class:bad={h.status === 'DEGRADED'}></span>
+      <span class="grow">
+        <span class="block">{h.name} <span class="small muted">· {statusText[h.status] || h.status}{h.checkedAt ? `, ${ago(h.checkedAt)}` : ''}</span></span>
+        {#if h.status !== 'OK' && h.summary}<span class="small muted block">{h.summary}</span>{/if}
+      </span>
+      <button class="btn tonal small-btn" onclick={() => runCanary(h.id)} disabled={!!testing}>{testing === h.id ? 'Probando…' : 'Probar'}</button>
+    </div>
+  {/each}
+</section>
+
+<section class="card">
   <h3 class="sub">Invitaciones</h3>
   <p class="small muted" style="margin-top:0">Un enlace para que un amigo cree su cuenta: sirve una sola vez y caduca.</p>
   <form class="add" onsubmit={invite}>
@@ -224,6 +254,9 @@
   .worker { align-items: flex-start; gap: 10px; }
   .dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; background: var(--text-dim); flex: none; }
   .dot.on { background: #6fcf8a; }
+  .dot.warn-dot { background: #e8c26a; }
+  .dot.bad { background: var(--error, #ff8a80); }
+  .small-btn { padding: 4px 12px; min-height: 0; }
   .mini { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
   .add { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
   .add .field { flex: 1; min-width: 140px; }

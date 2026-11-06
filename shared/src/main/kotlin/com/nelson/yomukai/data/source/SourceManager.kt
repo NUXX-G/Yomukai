@@ -55,10 +55,18 @@ class SourceManager(network: HttpFetcher) {
                 .filter { it.isNotBlank() }
         )
 
-    /** [enabledIds] null means "user never customised the list". */
+    /**
+     * Sources the canary found broken, with why: hidden from every list (home, search, catalogues) until they work
+     * again, instead of showing errors or garbage. Titles already in a library still open.
+     */
+    @Volatile
+    var degraded: Map<String, String> = emptyMap()
+
+    /** [enabledIds] null means "user never customised the list". Broken sources are left out. */
     fun enabled(enabledIds: Set<String>?): List<CatalogueSource> {
         val ids = enabledIds ?: defaultEnabledIds
-        return all.filter { it.id in ids }
+        val broken = degraded
+        return all.filter { it.id in ids && it.id !in broken }
     }
 
     fun require(id: String): CatalogueSource = byId[id] ?: error("Fuente desconocida: $id")

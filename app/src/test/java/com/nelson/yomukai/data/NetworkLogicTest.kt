@@ -76,5 +76,10 @@ class ServerFeaturesTest {
         org.junit.Assert.assertTrue(f.workerOnline)
         org.junit.Assert.assertEquals(setOf("tts"), f.available)
         org.junit.Assert.assertEquals(com.nelson.yomukai.data.sync.ServerFeatures(), com.nelson.yomukai.data.sync.ServerSync.parseFeatures("<html>"))
+        org.junit.Assert.assertEquals(
+            mapOf("asura" to "Capítulos: Sin capítulos"),
+            com.nelson.yomukai.data.sync.ServerSync.parseDegraded("""[{"id":"asura","degraded":"Capítulos: Sin capítulos"},{"id":"mangadex","degraded":null}]""")
+        )
+        org.junit.Assert.assertEquals(emptyMap<String, String>(), com.nelson.yomukai.data.sync.ServerSync.parseDegraded("{}"))
     }
 }
