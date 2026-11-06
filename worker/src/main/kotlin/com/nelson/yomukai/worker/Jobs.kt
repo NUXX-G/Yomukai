@@ -23,7 +23,12 @@ interface JobHandler {
 }
 
 /** Per-job helpers: a private folder and the shared HTTP client for fetching inputs. */
-class JobContext(val workDir: File, val http: okhttp3.OkHttpClient) {
+class JobContext(
+    val workDir: File,
+    val http: okhttp3.OkHttpClient,
+    /** Asks the VPS for a fresh, direct video of an episode (addresses expire while a job waits). */
+    val freshVideo: (sourceId: String, episodeUrl: String) -> JsonObject? = { _, _ -> null }
+) {
     fun newFile(suffix: String): File = File.createTempFile("job-", suffix, workDir)
 }
 
@@ -68,7 +73,8 @@ class SourceRepairHandler(private val repo: java.io.File?) : JobHandler {
 
 /** The handlers this build knows; later phases add theirs here. */
 fun allHandlers(config: WorkerConfig): List<JobHandler> = listOf(
-    EchoHandler(), SourceRepairHandler(config.repairRepo), FingerprintHandler(), TtsHandler(), OcrHandler(), WhisperHandler(), TranslateHandler()
+    EchoHandler(), SourceRepairHandler(config.repairRepo), FingerprintHandler(), TtsHandler(), OcrHandler(), WhisperHandler(), TranslateHandler(),
+    JellyfinDownloadHandler(), CbzExportHandler()
 )
     .filter { config.onlyEngines.isEmpty() || it.type in config.onlyEngines || it.type == "echo" }
     .filter { it.available() }

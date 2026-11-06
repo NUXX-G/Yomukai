@@ -98,4 +98,19 @@ class IntegrationsTest {
             assertFalse(JsonParser.parseString(moved).asJsonObject["jellyfinKeySet"].asBoolean)
         }
     }
+
+    @Test
+    fun onlyAdminsQueueDownloadsAndOnlyWorkersGetVideos() = testApplication {
+        val c = config()
+        val s = Services(c)
+        application { yomukai(c, s) }
+        val admin = session().also { it.login("admin", "admin-password-1") }
+        admin.post("/api/admin/users") { setBody("""{"name":"ana","password":"ana-password-1"}""") }
+        val ana = session().also { it.login("ana", "ana-password-1") }
+        val body = """{"sourceId":"animeflv","mediaId":"x","chapterIds":["1"]}"""
+        assertEquals(HttpStatusCode.Forbidden, ana.post("/api/admin/jellyfin/download") { contentType(ContentType.Application.Json); setBody(body) }.status)
+        // Without the library folder configured the admin is told what is missing.
+        assertTrue(admin.post("/api/admin/jellyfin/download") { contentType(ContentType.Application.Json); setBody(body) }.bodyAsText().contains("carpeta de anime"))
+        assertEquals(HttpStatusCode.Unauthorized, ana.post("/worker/videos") { contentType(ContentType.Application.Json); setBody("""{"sourceId":"animeflv","url":"x"}""") }.status)
+    }
 }

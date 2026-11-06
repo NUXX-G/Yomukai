@@ -39,6 +39,14 @@ class VpsClient(private val baseUrl: String, private val token: String, val http
     }
 
     /** False when the VPS no longer considers the job ours (it was reassigned): stop working on it. */
+
+    /** A direct video for an episode, resolved by the VPS right now: { url, headers, hls }, or null. */
+    fun freshVideo(sourceId: String, episodeUrl: String): JsonObject? {
+        val body = JsonObject().apply { addProperty("sourceId", sourceId); addProperty("url", episodeUrl) }
+        val (code, text) = call(request("/worker/videos").post(body.toString().toRequestBody(json)).build())
+        return if (code == 200) runCatching { com.google.gson.JsonParser.parseString(text).asJsonObject }.getOrNull() else null
+    }
+
     fun heartbeat(jobId: Long): Boolean = call(request("/worker/jobs/$jobId/heartbeat").post("{}".toRequestBody(json)).build()).first == 200
 
     fun upload(jobId: Long, output: JobOutput) {

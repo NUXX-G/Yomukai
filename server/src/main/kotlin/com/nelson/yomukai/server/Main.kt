@@ -348,10 +348,12 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 workerAdminRoutes(services)
                 forumAdminRoutes(services)
                 integrationAdminRoutes(services)
+                mediaLibraryAdminRoutes(services)
                 get("/status") { call.respond(mapOf("bandwidth" to services.bandwidth.summary(), "memory" to memoryStatus())) }
             }
         }
         workerRoutes(services)
+        workerMediaRoutes(services)
         webApp(config.webDir)
     }
     log.info("Yomukai escuchando en el puerto {} (datos en {})", config.port, config.dataDir.absolutePath)

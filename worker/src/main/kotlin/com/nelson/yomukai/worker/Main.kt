@@ -105,7 +105,7 @@ class Worker(
         val work = launch(Dispatchers.Default) {
             var output: JobOutput? = null
             try {
-                output = handler.run(job, JobContext(config.workDir, vps.http))
+                output = handler.run(job, JobContext(config.workDir, vps.http, vps::freshVideo))
                 withContext(Dispatchers.IO) { vps.upload(job.id, output) }
                 log.info("Trabajo {} terminado", job.id)
             } catch (e: CancellationException) {
