@@ -25,7 +25,7 @@
   --nav-h: 64px;
   /* Height of the computer's top bar (none on phones) and the widest a page gets. */
   --top-h: 0px;
-  --page-max: 1280px;
+  --page-max: var(--layout-page-max);
   /* --ios-top: a minimum set on iPhones/iPads whose Safari hides the status bar area without reporting it. */
   --safe-top: max(env(safe-area-inset-top, 0px), var(--ios-top, 0px));
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -41,20 +41,22 @@ input, select, textarea { font: inherit; color: var(--text); }
 img { display: block; }
 :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 6px; }
 
-.page { padding: calc(var(--safe-top) + 8px) 16px calc(var(--nav-h) + var(--safe-bottom) + 24px); max-width: var(--page-max); margin: 0 auto; }
+.page { padding: 8px var(--page-pad, 16px) 32px; max-width: var(--layout-page-max); margin: 0 auto; }
 .page.full { padding-left: 0; padding-right: 0; }
 .topbar { display: flex; align-items: center; gap: 8px; min-height: 56px; }
 .topbar h1 { font-size: 1.35rem; margin: 0; flex: 1; font-weight: 700; }
 .brand { color: var(--primary); font-weight: 900; font-size: 1.6rem; letter-spacing: -0.02em; }
 .section-title { display: flex; align-items: center; justify-content: space-between; margin: 22px 0 8px; }
-.section-title h2 { font-size: 1.05rem; margin: 0; font-weight: 700; }
+.section-title h2 { font-size: var(--fs-section); margin: 0; font-weight: 750; letter-spacing: -0.01em; }
 .muted { color: var(--text-dim); }
 .small { font-size: 0.8rem; }
 .error-text { color: var(--error); }
 
 .icon-btn { width: 44px; height: 44px; display: inline-grid; place-items: center; border-radius: 50%; color: var(--text); }
 .icon-btn:hover { background: var(--surface-high); }
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 22px; font-weight: 600; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: var(--r-pill); font-weight: 650; transition: background var(--motion-fast), transform var(--motion-fast); }
+.btn:active { transform: scale(0.98); }
+.btn.primary:hover { background: color-mix(in srgb, var(--primary) 88%, white); }
 .btn.primary { background: var(--primary); color: var(--on-primary); }
 .btn.tonal { background: var(--primary-container); color: var(--on-primary-container); }
 .btn.outline { border: 1px solid var(--outline); color: var(--primary); }
