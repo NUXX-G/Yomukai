@@ -166,16 +166,19 @@ class Social(
     /** True when [userId] keeps this title in one of their private categories. */
     suspend fun isPrivate(userId: Long, sourceId: String, mediaId: String): Boolean {
         if (sourceId.isBlank() || mediaId.isBlank()) return false
+        // The same work read from another source counts too: match the page and every page of its work.
+        val key = workKeyOf(sourceId, mediaId)
         return db.tx {
-            queryOne(
-                "SELECT u.private_categories, l.categories FROM library l JOIN users u ON u.id = l.user_id WHERE l.user_id = ? AND l.source_id = ? AND l.media_id = ? AND l.deleted = 0",
-                userId, sourceId, mediaId
+            query(
+                """SELECT u.private_categories, l.categories FROM library l JOIN users u ON u.id = l.user_id
+                   WHERE l.user_id = ? AND l.deleted = 0 AND ((l.source_id = ? AND l.media_id = ?) OR (? IS NOT NULL AND l.work_key = ?))""",
+                userId, sourceId, mediaId, key, key
             ) {
                 val private = runCatching { gson.fromJson<List<String>>(getString(1), listType) }.getOrDefault(emptyList())
                 val cats = runCatching { gson.fromJson<List<String>>(getString(2), listType) }.getOrDefault(emptyList())
                 cats.any { it in private }
             }
-        } == true
+        }.any { it }
     }
 
     fun presenceOf(userId: Long): Presence? = presence[userId]?.takeIf { clock() - it.at < PRESENCE_MS }
