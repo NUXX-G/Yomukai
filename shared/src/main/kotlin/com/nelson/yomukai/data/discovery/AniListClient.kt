@@ -57,7 +57,16 @@ data class AniListEntry(
     /** AniList's biggest cover (about 460 px wide), sharper than what most anime sites give. */
     val cover: String = "",
     /** Prequels, sequels, adaptations and spin-offs, in any format. */
-    val relations: List<RelatedTitle> = emptyList()
+    val relations: List<RelatedTitle> = emptyList(),
+    val malId: Int? = null,
+    /** Wide banner for title pages and the home hero. */
+    val banner: String = "",
+    val episodes: Int? = null,
+    val chapters: Int? = null,
+    val volumes: Int? = null,
+    /** Next episode to air and when (epoch seconds), while an anime is airing. */
+    val nextEpisode: Int? = null,
+    val nextAiringAt: Long? = null
 )
 
 /**
@@ -211,7 +220,8 @@ class AniListClient(private val network: HttpFetcher) {
         private const val FIELDS = "title{romaji english native} synonyms coverImage{large} type format countryOfOrigin genres tags{name rank}"
         private val LOOKUP = """
             query(${'$'}s:String,${'$'}t:MediaType,${'$'}f:MediaFormat,${'$'}n:MediaFormat){Page(perPage:5){media(search:${'$'}s,type:${'$'}t,format:${'$'}f,format_not:${'$'}n,sort:SEARCH_MATCH){
-            $FIELDS id averageScore meanScore status description(asHtml:false) siteUrl poster:coverImage{extraLarge}
+            $FIELDS id idMal averageScore meanScore status description(asHtml:false) siteUrl poster:coverImage{extraLarge} bannerImage
+            episodes chapters volumes nextAiringEpisode{episode airingAt}
             relations{edges{relationType node{$FIELDS}}}
             recommendations(sort:RATING_DESC,perPage:24){nodes{rating mediaRecommendation{$FIELDS}}}}}}
         """.trimIndent()
@@ -324,7 +334,14 @@ class AniListClient(private val network: HttpFetcher) {
                     relations = media.obj("relations")?.arr("edges").objects().mapNotNull { edge ->
                         val label = relationLabel(edge.str("relationType")) ?: return@mapNotNull null
                         edge.obj("node")?.let(::toRelated)?.copy(relation = label)
-                    }.sortedBy { relationRank(it.relation) }
+                    }.sortedBy { relationRank(it.relation) },
+                    malId = media.str("idMal")?.toIntOrNull(),
+                    banner = media.str("bannerImage").orEmpty(),
+                    episodes = media.str("episodes")?.toIntOrNull(),
+                    chapters = media.str("chapters")?.toIntOrNull(),
+                    volumes = media.str("volumes")?.toIntOrNull(),
+                    nextEpisode = media.obj("nextAiringEpisode")?.str("episode")?.toIntOrNull(),
+                    nextAiringAt = media.obj("nextAiringEpisode")?.str("airingAt")?.toLongOrNull()
                 )
             }
     }
