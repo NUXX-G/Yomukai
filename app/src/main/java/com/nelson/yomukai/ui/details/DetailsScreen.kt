@@ -422,8 +422,28 @@ private fun Header(state: DetailsUiState, metadata: TitleMetadata?, insights: Ch
 
     val background = MaterialTheme.colorScheme.background
     val imageHeaders = LocalAppContainer.current.sourceManager.get(media.sourceId)?.imageHeaders.orEmpty()
+    // Older saved metadata has no banner field at all (null despite the type), hence the safe call.
+    val banner = metadata?.banner.orEmpty()
+    // AniList's large cover is sharper than the 200-300 px thumbnails many sources give.
+    val poster = metadata?.cover?.takeIf { it.startsWith("https://") } ?: media.coverUrl
     Box {
-        if (media.coverUrl.isNotBlank()) {
+        if (banner.isNotBlank()) {
+            AsyncImage(
+                model = rememberImageRequest(banner, emptyMap()),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                alpha = 0.75f,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(260.dp)
+            )
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(260.dp)
+                    .background(Brush.verticalGradient(0f to background.copy(alpha = 0.25f), 0.5f to background.copy(alpha = 0.35f), 1f to background))
+            )
+        } else if (media.coverUrl.isNotBlank()) {
             AsyncImage(
                 model = rememberImageRequest(media.coverUrl, imageHeaders),
                 contentDescription = null,
@@ -441,10 +461,10 @@ private fun Header(state: DetailsUiState, metadata: TitleMetadata?, insights: Ch
                     .background(Brush.verticalGradient(0f to background.copy(alpha = 0.15f), 1f to background))
             )
         }
-        Column(Modifier.padding(horizontal = 16.dp).padding(top = 8.dp)) {
+        Column(Modifier.padding(horizontal = 16.dp).padding(top = if (banner.isNotBlank()) 110.dp else 8.dp)) {
             Row(verticalAlignment = Alignment.Bottom) {
                 CoverImage(
-                    media.coverUrl, media.sourceId, media.title,
+                    poster, if (poster == media.coverUrl) media.sourceId else "", media.title,
                     Modifier
                         .width(116.dp)
                         .height(166.dp)

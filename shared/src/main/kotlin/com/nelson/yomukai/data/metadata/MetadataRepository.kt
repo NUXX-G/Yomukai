@@ -42,7 +42,9 @@ data class TitleMetadata(
     val relations: List<RelatedTitle> = emptyList(),
     val siteUrl: String = "",
     /** The database's large cover, for title pages whose source only has a small one. */
-    val cover: String = ""
+    val cover: String = "",
+    /** AniList's wide banner for the top of the title page (may be missing in data saved by older versions). */
+    val banner: String = ""
 ) {
     /** True when some database answered; false when only the local layers (taxonomy, keywords) did. */
     val fromNetwork: Boolean
@@ -214,7 +216,8 @@ class MetadataRepository(
                 inferredGenres = inferred,
                 relations = entry?.relations.orEmpty(),
                 siteUrl = entry?.siteUrl.orEmpty(),
-                cover = entry?.cover.orEmpty()
+                cover = entry?.cover.orEmpty(),
+                banner = entry?.banner.orEmpty()
             )
         }
 

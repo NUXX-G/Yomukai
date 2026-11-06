@@ -69,7 +69,8 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 - [x] 5.11 Capturas antes (`docs/capturas/antes`) y después (`docs/capturas/despues`: inicio, ficha, búsqueda y reproductor en escritorio y móvil, WebKit, Android)
 - [x] Portadas nítidas: las miniaturas de las fuentes (200-300 px) se cambian por la portada extraLarge de AniList cuando la página ya está unida a una obra (listas, búsqueda, biblioteca); lo que sale en las listas se identifica poco a poco en segundo plano (4 cada 2 min, cola acotada a 300)
 - [x] App Android: mismos colores y radios (tokens), inicio con destacado de AniList y filas de tendencias/temporada
-- [ ] App Android: ficha de obra con banner, relleno y anti-spoilers como en la web (pendiente)
+- [x] App Android: ficha con banner de AniList y portada nítida
+- [ ] App Android: relleno, anti-spoilers y «¿Dónde sigo?» en la ficha (la lógica ya está en shared; falta la pantalla)
 
 ### Fase 6 — Social
 - [ ] 6.1 Salas  - [ ] 6.2 Watch party WebSocket  - [ ] 6.3 Chat de sala  - [ ] 6.4 Perfiles
