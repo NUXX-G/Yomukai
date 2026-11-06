@@ -77,4 +77,18 @@ class WorksTest {
         works.choose(user, "al:1", "12", null)
         assertEquals(0, s.db.tx { queryOne("SELECT COUNT(*) FROM work_choices") { getInt(1) } })
     }
+
+    @Test
+    fun sharpCoversOnlyComeFromAniListForKnownWorks() = runBlocking {
+        s.db.tx {
+            update("INSERT INTO works(key, anilist_id, type, title, cover, updated_at) VALUES(?,?,?,?,?,?)", "al:5", 5, "ANIME", "Obra", "https://s4.anilist.co/file/c.png", 1L)
+            update("INSERT INTO works(key, type, title, cover, updated_at) VALUES(?,?,?,?,?)", "t:anime:x", "ANIME", "Otra", "https://fuente/x.jpg", 1L)
+        }
+        works.link("al:5", "animeflv", "a5", "id")
+        works.link("t:anime:x", "animeflv", "ax", "name")
+        works.loadKnown()
+        assertEquals("https://s4.anilist.co/file/c.png", works.betterCover("animeflv", "a5"))
+        assertEquals(null, works.betterCover("animeflv", "ax"))
+        assertEquals(null, works.betterCover("animeflv", "desconocida"))
+    }
 }

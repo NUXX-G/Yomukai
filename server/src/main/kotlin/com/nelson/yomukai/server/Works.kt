@@ -52,6 +52,7 @@ class Works(
     private val gson = Gson()
     private val listType = object : TypeToken<List<String>>() {}.type
     private val known = ConcurrentHashMap<String, String>()
+
     /** Work key → AniList's large cover, for works AniList knows: sources often only give 200-300 px thumbnails. */
     private val covers = ConcurrentHashMap<String, String>()
 
@@ -59,7 +60,26 @@ class Works(
     fun betterCover(sourceId: String, mediaId: String): String? = known[WorkKey.itemKey(sourceId, mediaId)]?.let(covers::get)
 
     /** Item key ("source|media") → work key, for what is already resolved (used to group search and lists). */
-    fun knownKeys(items: List<MediaItem>): Map<String, String> = items.mapNotNull { i -> known[WorkKey.itemKey(i)]?.let { WorkKey.itemKey(i) to it } }.toMap()
+    fun knownKeys(items: List<MediaItem>): Map<String, String> {
+        // What is shown but not yet known is queued, so its card gets grouped and a sharp cover a little later.
+        items.asSequence().filter { known[WorkKey.itemKey(it)] == null }.take(WANTED_MAX).forEach { want(it.sourceId, it.id) }
+        return items.mapNotNull { i -> known[WorkKey.itemKey(i)]?.let { WorkKey.itemKey(i) to it } }.toMap()
+    }
+
+    /** Source pages seen in lists and waiting to be resolved, newest last; bounded so it never grows. */
+    private val wanted = java.util.LinkedHashSet<Pair<String, String>>()
+
+    private fun want(sourceId: String, mediaId: String) = synchronized(wanted) {
+        val p = sourceId to mediaId
+        wanted.remove(p)
+        wanted.add(p)
+        while (wanted.size > WANTED_MAX) wanted.remove(wanted.first())
+    }
+
+    private fun takeWanted(n: Int): List<Pair<String, String>> = synchronized(wanted) {
+        // Newest first: what is on screen now matters more than what was seen an hour ago.
+        wanted.reversed().filter { known[WorkKey.itemKey(it.first, it.second)] == null }.take(n).also { wanted.removeAll(it.toSet()) }
+    }
 
     suspend fun loadKnown() {
         db.tx { query("SELECT source_id, media_id, work_key FROM work_sources") { WorkKey.itemKey(getString(1), getString(2)) to getString(3) } }.forEach { (k, v) -> known[k] = v }
@@ -145,7 +165,7 @@ class Works(
             ) { getString(1) to getString(2) }
         }
         var done = 0
-        for ((s, m) in pending) {
+        for ((s, m) in pending + takeWanted((max - pending.size).coerceAtLeast(0).coerceAtMost(WANTED_PER_RUN))) {
             if (sources.get(s) == null) continue
             runCatching { resolve(s, m) }.onSuccess { done++ }.onFailure { log.debug("Sin obra para {} {}: {}", s, m, it.message) }
         }
@@ -326,6 +346,8 @@ class Works(
     }
 
     companion object {
+        private const val WANTED_MAX = 300
+        private const val WANTED_PER_RUN = 4
         fun numberOf(text: String): String? = text.toFloatOrNull()?.let(::numberKey)
     }
 }
