@@ -121,6 +121,9 @@ class AppContainer(context: Context) {
     val browseMemory = android.util.LruCache<String, List<com.nelson.yomukai.domain.model.MediaItem>>(16)
     val contentFilter = ContentFilter(preferences, libraryRepository)
     private val aniList = AniListClient(network)
+
+    /** AniList's lists for the home hero and rows (one request per kind, cached by the view model). */
+    val aniListDiscover = com.nelson.yomukai.data.discovery.AniListDiscover(network)
     val metadata = com.nelson.yomukai.data.metadata.MetadataRepository(
         aniList,
         com.nelson.yomukai.data.metadata.KitsuClient(network),

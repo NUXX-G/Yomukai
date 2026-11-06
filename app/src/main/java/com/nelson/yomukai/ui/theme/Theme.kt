@@ -15,39 +15,40 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
+// Dark is the main look and comes from the design tokens shared with the web (DesignTokens.kt).
 private val DarkColorScheme = darkColorScheme(
-    primary = Ember,
-    onPrimary = Color(0xFF1F0C03),
-    primaryContainer = Color(0xFF3A1C0E),
-    onPrimaryContainer = Color(0xFFFFDBCB),
+    primary = DesignTokens.accent,
+    onPrimary = DesignTokens.onAccent,
+    primaryContainer = DesignTokens.accentSoft,
+    onPrimaryContainer = DesignTokens.onAccentSoft,
     inversePrimary = EmberDeep,
     secondary = Slate,
     onSecondary = Color(0xFF0E1620),
     secondaryContainer = Color(0xFF1D242E),
     onSecondaryContainer = Color(0xFFD5E1EE),
-    tertiary = Gold,
+    tertiary = DesignTokens.warning,
     onTertiary = Color(0xFF241A00),
     tertiaryContainer = Color(0xFF332910),
     onTertiaryContainer = Color(0xFFF6E3B0),
-    error = Color(0xFFFF6B6B),
+    error = DesignTokens.danger,
     onError = Color(0xFF2A0000),
-    background = Sumi,
-    onBackground = Paper,
-    surface = Sumi,
-    onSurface = Paper,
-    surfaceVariant = SumiVariant,
-    onSurfaceVariant = PaperDim,
-    surfaceTint = Ember,
-    surfaceContainerLowest = Sumi,
-    surfaceContainerLow = SumiLow,
-    surfaceContainer = SumiMid,
-    surfaceContainerHigh = SumiHigh,
-    surfaceContainerHighest = SumiHighest,
+    background = DesignTokens.canvas,
+    onBackground = DesignTokens.text,
+    surface = DesignTokens.canvas,
+    onSurface = DesignTokens.text,
+    surfaceVariant = DesignTokens.surfaceHigh,
+    onSurfaceVariant = DesignTokens.textDim,
+    surfaceTint = DesignTokens.accent,
+    surfaceContainerLowest = DesignTokens.canvas,
+    surfaceContainerLow = DesignTokens.surface,
+    surfaceContainer = DesignTokens.surfaceRaised,
+    surfaceContainerHigh = DesignTokens.surfaceHigh,
+    surfaceContainerHighest = DesignTokens.surfaceHighest,
     surfaceBright = Color(0xFF2A2A30),
-    surfaceDim = Sumi,
-    outline = Color(0xFF45454D),
-    outlineVariant = Color(0xFF2A2A30),
-    scrim = Color.Black
+    surfaceDim = DesignTokens.canvas,
+    outline = DesignTokens.borderStrong,
+    outlineVariant = DesignTokens.border,
+    scrim = DesignTokens.scrim
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -101,9 +102,9 @@ fun YomukaiTheme(
         colorScheme = colorScheme,
         typography = Typography,
         shapes = Shapes(
-            small = RoundedCornerShape(10.dp),
-            medium = RoundedCornerShape(14.dp),
-            large = RoundedCornerShape(20.dp),
+            small = RoundedCornerShape(DesignTokens.radiusMd),
+            medium = RoundedCornerShape(DesignTokens.radiusLg),
+            large = RoundedCornerShape(DesignTokens.radiusXl),
             extraLarge = RoundedCornerShape(28.dp)
         ),
         content = content

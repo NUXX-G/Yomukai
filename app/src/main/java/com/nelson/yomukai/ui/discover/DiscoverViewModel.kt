@@ -4,6 +4,8 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nelson.yomukai.AppContainer
+import com.nelson.yomukai.data.discovery.DiscoverEntry
+import com.nelson.yomukai.data.discovery.DiscoverKind
 import com.nelson.yomukai.data.discovery.RandomKind
 import com.nelson.yomukai.data.discovery.RelatedTitle
 import com.nelson.yomukai.ui.details.LocateState
@@ -40,6 +42,10 @@ data class DiscoverUiState(
 
 private const val RECENT_HISTORY = 24
 
+/** A row of the home page from AniList ("Anime en tendencia"...). */
+@Immutable
+data class DiscoverShelf(val id: String, val title: String, val items: List<DiscoverEntry>)
+
 class DiscoverViewModel(private val container: AppContainer) : ViewModel() {
     private val _state = MutableStateFlow(DiscoverUiState())
     val state: StateFlow<DiscoverUiState> = _state.asStateFlow()
@@ -48,6 +54,30 @@ class DiscoverViewModel(private val container: AppContainer) : ViewModel() {
     val locate: StateFlow<LocateState?> = _locate.asStateFlow()
 
     private var locateJob: Job? = null
+
+    private val _shelves = MutableStateFlow<List<DiscoverShelf>>(emptyList())
+    val shelves: StateFlow<List<DiscoverShelf>> = _shelves.asStateFlow()
+    private var shelvesLoading = false
+
+    /** The home's AniList rows, the same ones the web shows: two requests, kept for the life of the screen. */
+    fun loadShelves() {
+        if (shelvesLoading || _shelves.value.isNotEmpty()) return
+        shelvesLoading = true
+        viewModelScope.launch(Dispatchers.IO) {
+            val anime = runCatching { container.aniListDiscover.rows(DiscoverKind.ANIME) }.getOrDefault(emptyMap())
+            val manga = runCatching { container.aniListDiscover.rows(DiscoverKind.MANGA) }.getOrDefault(emptyMap())
+            _shelves.value = listOf(
+                DiscoverShelf("anime_trending", "Anime en tendencia", anime["trending"].orEmpty()),
+                DiscoverShelf("anime_season", "En emisión esta temporada", anime["season"].orEmpty()),
+                DiscoverShelf("manga_trending", "Manga y manhwa en tendencia", manga["trending"].orEmpty()),
+                DiscoverShelf("manga_releasing", "Publicándose ahora", manga["releasing"].orEmpty())
+            ).filter { it.items.isNotEmpty() }
+            shelvesLoading = false
+        }
+    }
+
+    /** An AniList card is looked for in the user's sources, like any related title. */
+    fun openEntry(e: DiscoverEntry) = open(RelatedTitle(e.title, e.names, e.cover, e.type, e.genres, format = e.format, anilistId = e.anilistId))
 
     /** Changing what to pick rolls again at once: the shown pick always fits the chips. */
     fun setKind(kind: RandomKind) {

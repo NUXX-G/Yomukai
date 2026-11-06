@@ -41,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -82,7 +83,12 @@ fun HomeScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var shuffle by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) { discoverViewModel.loadForYou() }
+    LaunchedEffect(Unit) {
+        discoverViewModel.loadForYou()
+        discoverViewModel.loadShelves()
+    }
+    val shelves by discoverViewModel.shelves.collectAsStateWithLifecycle()
+    val heroEntries = remember(shelves) { shelves.firstOrNull()?.items.orEmpty().filter { it.banner.isNotBlank() }.take(6) }
     LocateHandler(discoverViewModel, onOpenMedia = onMediaClick, onSearch = onSearchTitle)
     if (shuffle) ShuffleSheet(discoverViewModel, onOpenMedia = onMediaClick, onDismiss = { shuffle = false })
 
@@ -115,6 +121,7 @@ fun HomeScreen(
                 .padding(padding)
         ) {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+                if (heroEntries.isNotEmpty()) item(key = "hero") { HomeHero(heroEntries, onOpen = discoverViewModel::openEntry) }
                 item {
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = 16.dp),
@@ -157,6 +164,10 @@ fun HomeScreen(
                 }
 
                 item(key = "for_you") { ForYouSection(discoverViewModel) }
+
+                shelves.forEach { shelf ->
+                    item(key = "shelf_" + shelf.id) { DiscoverShelfRow(shelf, onOpen = discoverViewModel::openEntry) }
+                }
 
                 if (state.sections.isEmpty() && !state.isRefreshing) {
                     item {
