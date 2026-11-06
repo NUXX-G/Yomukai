@@ -1,5 +1,8 @@
 <script>
   import { onMount, onDestroy, tick } from 'svelte';
+  import { startPresence } from '../lib/presence.js';
+  // Friends see "reading now" (unless the title is private or the profile hidden).
+  const stopPresence = startPresence('reading', () => ({ title: item?.title, label: current?.label, sourceId: route.params.source, mediaId: route.params.id }));
   import { api, downloadChapters } from '../lib/api.js';
   import { route, back, navigate, media as mediaHref, reader } from '../lib/router.svelte.js';
   import { settings, saveSettings, sourceById, notify } from '../lib/store.svelte.js';
@@ -274,7 +277,7 @@
     }
   });
 
-  onDestroy(() => { leaveImmersive(); clearInterval(clockTimer); cancelAnimationFrame(scrollFrame); scrolling = false; flush(); stopSpeech(); });
+  onDestroy(() => { stopPresence(); leaveImmersive(); clearInterval(clockTimer); cancelAnimationFrame(scrollFrame); scrolling = false; flush(); stopSpeech(); });
 
   function set(key, value) { settings.novel[key] = value; saveSettings(); }
   function size(delta) { set('size', Math.min(32, Math.max(13, settings.novel.size + delta))); }

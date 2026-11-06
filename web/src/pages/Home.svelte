@@ -3,7 +3,7 @@
   // for you, recently updated everywhere (one card per work) and genres. Rows can be hidden and reordered.
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
-  import { settings, saveSettings, library, updates, loadUpdates, home, features } from '../lib/store.svelte.js';
+  import { settings, saveSettings, library, updates, loadUpdates, home, features, session } from '../lib/store.svelte.js';
   import { media, reader, navigate } from '../lib/router.svelte.js';
   import { sourceById } from '../lib/store.svelte.js';
   import { openRelated } from '../lib/open.svelte.js';
@@ -16,9 +16,9 @@
   import Icon from '../components/Icon.svelte';
 
   const ROWS = [
-    ['rooms', 'Salas activas'], ['continueWatching', 'Continuar viendo'], ['continueReading', 'Continuar leyendo'], ['newInLibrary', 'Nuevo en tu biblioteca'],
+    ['rooms', 'Salas activas'], ['recommended', 'Te recomiendan'], ['continueWatching', 'Continuar viendo'], ['continueReading', 'Continuar leyendo'], ['newInLibrary', 'Nuevo en tu biblioteca'],
     ['season', 'En emisión esta temporada'], ['trendingAnime', 'Tendencias en anime'], ['trendingManga', 'Tendencias en manga y manhwa'],
-    ['forYou', 'Para ti'], ['unified', 'Recién actualizado'], ['action', 'Acción'], ['romance', 'Romance'], ['fantasy', 'Fantasía'], ['comedy', 'Comedia']
+    ['friends', 'Actividad de tus amigos'], ['forYou', 'Para ti'], ['unified', 'Recién actualizado'], ['action', 'Acción'], ['romance', 'Romance'], ['fantasy', 'Fantasía'], ['comedy', 'Comedia']
   ];
   const TITLES = Object.fromEntries(ROWS);
 
@@ -49,6 +49,14 @@
     // Who is watching together right now, refreshed while the page is open.
     const rooms = () => { if (features.flags.rooms !== false) load('rooms', () => api.rooms(), 0); };
     rooms();
+    if (!session.user?.guest) {
+      load('feed', () => api.feed(), 60_000);
+      load('recommended', () => api.recommendations().then((l) => {
+        // Seen once shown here; the «Nuevo» badge stays for this visit.
+        if (l.some((r) => !r.seen)) setTimeout(() => api.recommendationsSeen().catch(() => {}), 4_000);
+        return l.slice(0, 20);
+      }), 60_000);
+    }
     const t = setInterval(rooms, 30_000);
     return () => clearInterval(t);
   });
@@ -61,6 +69,21 @@
   const continueReading = $derived(dedupeWork(items('continue').filter((c) => c.type !== 'ANIME')));
   const newInLibrary = $derived(library.items.filter((r) => (updates.byKey[r.sourceId + '|' + r.mediaId]?.unread || 0) > 0)
     .sort((a, b) => (updates.byKey[b.sourceId + '|' + b.mediaId]?.lastUpdate || 0) - (updates.byKey[a.sourceId + '|' + a.mediaId]?.lastUpdate || 0)));
+
+  function feedText(e) {
+    if (e.kind === 'achievement') return 'ha conseguido un logro';
+    if (e.kind === 'rated') return 'ha valorado con un ' + e.text;
+    const what = e.kind === 'episode' ? (e.count === 1 ? 'episodio' : 'episodios') : (e.count === 1 ? 'capítulo' : 'capítulos');
+    const verb = e.kind === 'episode' ? 'ha visto' : 'ha leído';
+    if (e.count === 1) return verb + (e.last ? ' ' + e.last : ' un ' + what);
+    return (e.marathon ? 'maratón: ' : '') + verb + ' ' + e.count + ' ' + what + (e.first && e.last ? ' (' + e.first + ' → ' + e.last + ')' : '');
+  }
+  function ago(at) {
+    const m = Math.round((Date.now() - at) / 60_000);
+    if (m < 60) return m <= 1 ? 'ahora' : 'hace ' + m + ' min';
+    const h = Math.round(m / 60);
+    return h < 24 ? 'hace ' + h + ' h' : 'hace ' + Math.round(h / 24) + ' d';
+  }
 
   function dedupeWork(list) {
     const seen = new Set();
@@ -125,6 +148,24 @@
             {#if room.episode}<span class="room-line">{room.episode}</span>{/if}
             <span class="room-who">{room.members.join(', ')}</span>
             <span class="btn primary join">Unirse</span>
+          </a>
+        {/each}
+      </Shelf>
+    {:else if r.id === 'recommended' && items('recommended').length}
+      <Shelf title="Te recomiendan" subtitle="Lo que tus amigos creen que te va a gustar">
+        {#each items('recommended') as rec (rec.id)}
+          <MediaCard href={media(rec.sourceId, rec.mediaId)} title={rec.title} cover={rec.cover} subtitle={'De ' + rec.from}
+            badges={rec.seen ? [] : [{ text: 'Nuevo', tone: 'accent' }]} detail={rec.message ? '«' + rec.message + '»' : ''} />
+        {/each}
+      </Shelf>
+    {:else if r.id === 'friends' && items('feed').length}
+      <Shelf title="Actividad de tus amigos" href="/amigos">
+        {#each items('feed').slice(0, 24) as e, i (i)}
+          <a class="feed-card" href={e.sourceId ? media(e.sourceId, e.mediaId) : '/u/' + encodeURIComponent(e.user)}>
+            <span class="feed-who"><span class="feed-avatar">{#if e.avatar}<img src={e.avatar} alt="" />{:else}{e.user.slice(0, 1).toUpperCase()}{/if}</span>{e.user}</span>
+            <span class="feed-what">{feedText(e)}</span>
+            <span class="feed-title">{e.title}</span>
+            <span class="feed-when">{ago(e.at)}</span>
           </a>
         {/each}
       </Shelf>
@@ -208,4 +249,12 @@
   .room-title { font-weight: 750; font-size: 1.05rem; margin-top: auto; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .room-line, .room-who { font-size: var(--fs-small); color: var(--c-text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .join { position: absolute; top: 12px; right: 12px; height: 32px; padding: 0 14px; font-size: 0.82rem; }
+  .feed-card { display: flex; flex-direction: column; gap: 4px; width: 240px !important; min-height: 128px; padding: 14px; border-radius: var(--r-lg); background: var(--c-surface); border: 1px solid var(--c-border); }
+  .feed-card:hover { border-color: var(--c-border-strong); }
+  .feed-who { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: var(--fs-small); }
+  .feed-avatar { width: 26px; height: 26px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: var(--c-accent-soft); color: var(--c-on-accent-soft); font-size: 0.75rem; }
+  .feed-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .feed-what { color: var(--c-text-dim); font-size: var(--fs-small); }
+  .feed-title { font-weight: 650; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .feed-when { margin-top: auto; color: var(--c-text-faint); font-size: var(--fs-tiny); }
 </style>

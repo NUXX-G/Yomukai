@@ -1,5 +1,8 @@
 <script>
   import { onMount, onDestroy, tick } from 'svelte';
+  import { startPresence } from '../lib/presence.js';
+  // Friends see "reading now" (unless the title is private or the profile hidden).
+  const stopPresence = startPresence('reading', () => ({ title: item?.title, label: current?.label, sourceId: route.params.source, mediaId: route.params.id }));
   import { api, downloadChapters } from '../lib/api.js';
   import { route, back, navigate, media as mediaHref, reader } from '../lib/router.svelte.js';
   import { settings, saveSettings, notify } from '../lib/store.svelte.js';
@@ -314,7 +317,7 @@
     }
   });
 
-  onDestroy(() => { leaveImmersive(); observer?.disconnect(); clearInterval(clockTimer); cancelAnimationFrame(scrollFrame); scrolling = false; flush(); });
+  onDestroy(() => { stopPresence(); leaveImmersive(); observer?.disconnect(); clearInterval(clockTimer); cancelAnimationFrame(scrollFrame); scrolling = false; flush(); });
 </script>
 
 <!-- With full screen chosen, the first touch in the reader enters it (browsers only allow it after one). -->

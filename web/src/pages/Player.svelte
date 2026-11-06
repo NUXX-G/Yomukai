@@ -8,6 +8,7 @@
   import Icon from '../components/Icon.svelte';
   import Sheet from '../components/Sheet.svelte';
   import RoomChat from '../components/RoomChat.svelte';
+  import { startPresence } from '../lib/presence.js';
   import { createParty, expectedPosition, correction, copyRoomLink } from '../lib/party.svelte.js';
   import { notify, features } from '../lib/store.svelte.js';
 
@@ -18,6 +19,7 @@
 
   // ---------- Watch party (?sala=CODE) ----------
   let roomCode = $state(route.query.get('sala'));
+  let stopPresence;
   let client = $state(null);
   let chatOpen = $state(false);
   let floats = $state([]);
@@ -205,7 +207,7 @@
   }
   function cancelCountdown() { clearInterval(countdownTimer); countdown = null; }
 
-  function skipOpening() { video.currentTime = marks.openingEnd; showFlash('Opening saltado'); }
+  function skipOpening() { video.currentTime = marks.openingEnd; showFlash('Opening saltado'); api.achievementEvent('skip_opening').catch(() => {}); }
   function skipEnding() {
     if (next) { go(next); return; }
     video.currentTime = Math.max(0, (marks.endingEnd || duration) - 0.5);
@@ -343,6 +345,7 @@
       }
       loadMarks();
       loadFillers();
+      stopPresence = startPresence('watching', () => ({ title: item?.title, label: episode?.label, sourceId, mediaId }));
       if (roomCode) startParty(roomCode);
       if (!direct.length) { loading = false; serversOpen = true; error = 'Este episodio solo se puede ver en la web del servidor.'; return; }
       play(0);
@@ -353,7 +356,7 @@
   });
 
   onDestroy(() => {
-    client?.close(); clearInterval(syncTimer); clearTimeout(applyTimer);
+    stopPresence?.(); client?.close(); clearInterval(syncTimer); clearTimeout(applyTimer);
     clearInterval(clockTimer); clearInterval(countdownTimer); clearTimeout(hideTimer); clearTimeout(tapTimer); clearTimeout(flashTimer); hls?.destroy();
     if (document.pictureInPictureElement) document.exitPictureInPicture().catch(() => {}); keepAwake(false); flush();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -438,7 +441,7 @@
         <div class="times"><span>{time(current)}</span><span>{time(duration)}</span></div>
         <input type="range" min="0" max={duration || 0} step="1" value={current} oninput={(e) => { video.currentTime = +e.target.value; poke(); }} style="--p:{duration ? (current / duration) * 100 : 0}%" aria-label="Progreso" />
         <div class="actions">
-          {#if !marks?.openingEnd}<button class="btn text light" onclick={() => seek(85)} title="Saltar el opening (85 s)">+85 s</button>{/if}
+          {#if !marks?.openingEnd}<button class="btn text light" onclick={() => { seek(85); if (current < 300) api.achievementEvent('skip_opening').catch(() => {}); }} title="Saltar el opening (85 s)">+85 s</button>{/if}
           <span class="volume">
             <button class="icon-btn" onclick={toggleMute} aria-label={muted ? 'Activar sonido' : 'Silenciar'}><Icon name={muted || volume === 0 ? 'mute' : 'volume'} /></button>
             <input class="vol" type="range" min="0" max="1" step="0.05" value={muted ? 0 : volume} oninput={(e) => setVolume(+e.target.value)} style="--p:{(muted ? 0 : volume) * 100}%" aria-label="Volumen" />

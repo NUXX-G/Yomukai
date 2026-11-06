@@ -12,6 +12,7 @@
   import MediaCard from '../components/MediaCard.svelte';
   import Sheet from '../components/Sheet.svelte';
   import Row from '../components/Row.svelte';
+  import WorkSocial from '../components/WorkSocial.svelte';
 
   const sourceId = route.params.source;
   const mediaId = route.params.id;
@@ -318,6 +319,8 @@
         <button class="more" onclick={() => (expanded = !expanded)}>{expanded ? 'Mostrar menos' : 'Mostrar más'}</button>
         {#if !item.description && meta?.synopsis}<div class="small muted">Sinopsis de {meta.scoreSource || 'AniList'}</div>{/if}
       {/if}
+
+      <WorkSocial {sourceId} {mediaId} title={item.title} cover={item.cover} />
 
       {#if genres.length}
         <div class="genres">{#each genres as g}<span class="pill">{g}</span>{/each}</div>

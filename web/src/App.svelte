@@ -23,6 +23,8 @@
   const Explore = () => import('./pages/Explore.svelte');
   const Calendar = () => import('./pages/Calendar.svelte');
   const Room = () => import('./pages/Room.svelte');
+  const Profile = () => import('./pages/Profile.svelte');
+  const Friends = () => import('./pages/Friends.svelte');
 
   define('home', '/');
   define('anime', '/anime');
@@ -37,6 +39,8 @@
   define('read', '/leer/:source/:id/:chapter');
   define('watch', '/ver/:source/:id/:chapter');
   define('room', '/sala/:code');
+  define('profile', '/u/:name');
+  define('friends', '/amigos');
   startRouter();
 
   /** The site's sections: rail on computers, bottom bar on phones (the first five). */
@@ -83,7 +87,7 @@
       default: return Home;
     }
   });
-  const lazyPage = $derived(route.name === 'anime' || route.name === 'manga' || route.name === 'novels' ? Explore : route.name === 'calendar' ? Calendar : route.name === 'room' ? Room : null);
+  const lazyPage = $derived(route.name === 'anime' || route.name === 'manga' || route.name === 'novels' ? Explore : route.name === 'calendar' ? Calendar : route.name === 'room' ? Room : route.name === 'profile' ? Profile : route.name === 'friends' ? Friends : null);
 
   async function logout() {
     menu = false;
@@ -95,6 +99,22 @@
     setUnauthorizedHandler(() => resetUserState());
     setSuspendedHandler((message) => { session.suspended = message; });
     loadSession();
+    // New achievements, shown once as a little celebration.
+    const poll = async () => {
+      if (!session.user || session.user.guest || document.hidden) return;
+      try { const fresh = await api.newAchievements(); if (fresh?.length) trophies = [...trophies, ...fresh]; } catch { /* offline: next time */ }
+    };
+    const first = setTimeout(poll, 8_000);
+    const t = setInterval(poll, 60_000);
+    return () => { clearTimeout(first); clearInterval(t); };
+  });
+
+  let trophies = $state([]);
+  const trophy = $derived(trophies[0]);
+  $effect(() => {
+    if (!trophy) return;
+    const t = setTimeout(() => (trophies = trophies.slice(1)), 5_000);
+    return () => clearTimeout(t);
   });
 </script>
 
@@ -156,6 +176,10 @@
           {#if menu}
             <div class="menu" role="menu">
               <div class="who">{session.user.guest ? 'Invitado' : session.user.name}{#if session.user.admin} · admin{/if}</div>
+              {#if !session.user.guest}
+                <a role="menuitem" href="/u/{encodeURIComponent(session.user.name)}" onclick={() => (menu = false)}><Icon name="library" size={18} /> Mi perfil</a>
+                <a role="menuitem" href="/amigos" onclick={() => (menu = false)}><Icon name="explore" size={18} /> Amigos</a>
+              {/if}
               <a role="menuitem" href="/ajustes" onclick={() => (menu = false)}><Icon name="settings" size={18} /> Ajustes</a>
               <a role="menuitem" href="/calendario" onclick={() => (menu = false)}><Icon name="calendar" size={18} /> Calendario</a>
               <button role="menuitem" onclick={logout}><Icon name="logout" size={18} /> Salir</button>
@@ -195,6 +219,14 @@
 {#if palette}<CommandPalette onclose={() => (palette = false)} />{/if}
 <InstallGuide />
 {#if toast.text}<div class="toast" role="status">{toast.text}</div>{/if}
+{#if trophy}
+  {#key trophy.id}
+    <button class="trophy {trophy.rarity}" role="status" onclick={() => (trophies = trophies.slice(1))} aria-label="Logro desbloqueado: {trophy.name}">
+      <span class="t-emoji" aria-hidden="true">{trophy.emoji}</span>
+      <span class="t-text"><span class="t-kicker">Logro desbloqueado</span><span class="t-name">{trophy.name}</span><span class="t-desc">{trophy.description}</span></span>
+    </button>
+  {/key}
+{/if}
 
 <style>
   .suspended { min-height: 100vh; padding: 24px; text-align: center; gap: 8px; max-width: 520px; margin: 0 auto; }
@@ -272,4 +304,17 @@
     .nav-item { justify-content: center; padding: 0; }
   }
   @media (prefers-reduced-motion: reduce) { .page-enter { animation: none; } }
+  .trophy { position: fixed; z-index: 90; left: 50%; top: calc(var(--safe-top) + 14px); transform: translateX(-50%); display: flex; gap: 14px; align-items: center;
+    width: min(440px, calc(100% - 24px)); padding: 14px 18px; border-radius: 18px; text-align: left; color: var(--c-text);
+    background: color-mix(in srgb, var(--c-surface-raised) 94%, transparent); border: 1px solid var(--c-border-strong); box-shadow: var(--shadow-panel);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); animation: trophy-in 0.5s cubic-bezier(0.2, 1.4, 0.4, 1); }
+  .trophy.epic { border-color: #b36bff; } .trophy.legendary { border-color: #ffc64a; box-shadow: 0 0 40px #ffc64a44; }
+  .t-emoji { font-size: 2.4rem; animation: trophy-pop 0.7s 0.2s both; }
+  .t-text { display: flex; flex-direction: column; min-width: 0; }
+  .t-kicker { font-size: var(--fs-tiny); text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-accent); font-weight: 800; }
+  .t-name { font-weight: 800; }
+  .t-desc { font-size: var(--fs-small); color: var(--c-text-dim); }
+  @keyframes trophy-in { from { transform: translate(-50%, -140%); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+  @keyframes trophy-pop { from { transform: scale(0.2) rotate(-30deg); } 70% { transform: scale(1.25) rotate(8deg); } to { transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .trophy, .t-emoji { animation: none; } }
 </style>
