@@ -176,6 +176,7 @@ export const api = {
   pushStatus: () => request('GET', '/api/notifications/push'),
   pushEnable: () => request('POST', '/api/notifications/push'),
   pushDisable: () => request('DELETE', '/api/notifications/push'),
+  ttsPrefetch: (voice, texts, rate) => request('POST', '/api/tts/prefetch', { voice, texts, rate }),
   themes: () => request('GET', '/api/themes'),
   currentTheme: () => request('GET', '/api/themes/current'),
   checkTheme: (theme) => request('POST', '/api/themes/check', theme),

@@ -139,13 +139,53 @@
       () => { if (speaking?.c === c && speaking?.i === i) speak(c, i + 1); },
       (e) => { if (e.message !== 'stopped' && speaking?.c === c && speaking?.i === i) speak(c, i + 1); }
     );
+    // Every 20 paragraphs, the home worker is asked to get the next 30 ready (high-quality voices only).
+    if (i % 20 === 0) prefetchAhead(c, i, lang);
+    showInSystem(l.chapter);
     // The next two paragraphs are prepared while this one is read: no silence between them.
     [l.paragraphs[i + 1], l.paragraphs[i + 2] ?? loaded[c + 1]?.paragraphs[0]].forEach((p) => voice.prepare(p, lang));
     article?.querySelector(`p[data-c="${c}"][data-i="${i}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
 
+  function prefetchAhead(c, i, lang) {
+    if (voice.engine() !== 'natural') return;
+    const rate = settings.novel.speechRate || 1;
+    const byVoice = {};
+    for (const p of (loaded[c]?.paragraphs || []).slice(i + 3, i + 33)) {
+      for (const piece of voice.plan(p, lang)) {
+        if (piece.voice?.startsWith('w:')) (byVoice[piece.voice] ||= []).push(piece.text);
+      }
+    }
+    for (const [v, texts] of Object.entries(byVoice)) api.ttsPrefetch(v, texts, rate).catch(() => {});
+  }
+
+  /** Lock screen, headphones and media keys: play/pause, next and previous chapter. */
+  let systemChapter = null;
+  function showInSystem(chapter) {
+    if (!('mediaSession' in navigator) || systemChapter === chapter?.id) return;
+    systemChapter = chapter?.id;
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({ title: chapter?.label || '', artist: item?.title || '', album: 'Yomukai',
+        artwork: item?.cover ? [{ src: item.cover, sizes: '512x512' }] : [] });
+      navigator.mediaSession.setActionHandler('play', () => { if (speechPaused) toggleSpeech(); });
+      navigator.mediaSession.setActionHandler('pause', () => { if (speaking && !speechPaused) toggleSpeech(); });
+      navigator.mediaSession.setActionHandler('stop', () => stopSpeech());
+      navigator.mediaSession.setActionHandler('nexttrack', () => { if (speaking) speak(speaking.c, loaded[speaking.c]?.paragraphs.length ?? 0); });
+      navigator.mediaSession.setActionHandler('previoustrack', () => { if (speaking) speak(speaking.c, Math.max(0, speaking.i - 1)); });
+    } catch { /* older browsers: the page controls still work */ }
+  }
+
   function toggleSpeech() {
-    if (!speaking) { speechPaused = false; loadVoices().then(() => { const v = visibleParagraph(); speak(v?.c ?? 0, v?.i ?? 0); }); return; }
+    if (!speaking) {
+      speechPaused = false;
+      // Phones stop web pages when the screen goes off; the app keeps reading (said once).
+      if (/Android|iPhone|iPad/i.test(navigator.userAgent) && !sessionStorage.getItem('speech.tip')) {
+        sessionStorage.setItem('speech.tip', '1');
+        notify('Con la pantalla apagada la lectura es más fiable en la app de Android');
+      }
+      loadVoices().then(() => { const v = visibleParagraph(); speak(v?.c ?? 0, v?.i ?? 0); });
+      return;
+    }
     if (speechPaused) { voice.resume(); speechPaused = false; }
     else { voice.pause(); speechPaused = true; }
   }
