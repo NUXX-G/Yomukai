@@ -6,9 +6,13 @@
 #
 # Qué hace: crea una rama, descarga el HTML actual de la fuente como fixture de test, pide a Claude Code en modo headless
 # que arregle el JSON o el parser con un test sobre ese HTML, ejecuta los tests y abre un PR. NUNCA fusiona: el PR
-# espera a que una persona lo revise. El HTML descargado es contenido de un tercero: se le pasa a Claude como DATOS en
-# un fichero, con instrucciones explícitas de no obedecer nada de lo que diga, y Claude solo puede leer/editar ficheros
-# del repo y ejecutar Gradle (sin red, sin git, sin otras órdenes).
+# espera a que una persona lo revise.
+#
+# El HTML descargado es contenido de un tercero y podría intentar manipular a Claude. Por eso:
+#   - Claude solo puede leer y editar: el JSON de esa fuente, los parsers de fuentes y los tests. No ejecuta nada.
+#   - Antes de compilar, cualquier cambio fuera de esa lista (Gradle, scripts, workflows...) aborta la reparación.
+#   - Los tests corren en un contenedor Docker SIN RED y sin credenciales (ni gh, ni git, ni ssh).
+#   - Solo después, y desde este script, se hace commit, push y PR.
 set -euo pipefail
 
 ID="${1:?Falta el id de la fuente}"
@@ -17,7 +21,7 @@ REPORT="${2:?Falta el fichero con el informe del canario}"
 REPO="${WORKER_REPAIR_REPO:?Falta WORKER_REPAIR_REPO (clon del repositorio)}"
 cd "$REPO"
 
-for tool in git gh curl claude; do command -v "$tool" >/dev/null || { echo "Falta $tool" >&2; exit 2; }; done
+for tool in git gh curl claude docker; do command -v "$tool" >/dev/null || { echo "Falta $tool" >&2; exit 2; }; done
 
 DATE="$(date +%Y%m%d-%H%M)"
 BRANCH="repair/$ID-$DATE"
@@ -57,20 +61,34 @@ Tarea:
 2. Arregla solo esa fuente: preferiblemente su JSON en sources/; si es Kotlin, su clase.
 3. Añade o actualiza un test en shared/src/test que use el fixture $FIXTURE y compruebe que la lista de novedades vuelve a
    salir con títulos y enlaces válidos (SourceValidation.latest debe estar vacío).
-4. Ejecuta ./gradlew :shared:test --console=plain y deja los tests en verde.
-No toques otros ficheros. No hagas commits ni uses git: el script lo hará.
+No puedes ejecutar órdenes: el script compilará y pasará los tests después. No toques otros ficheros.
 EOF
 )"
 
-# Headless, with the tools limited to reading and editing the repo and running Gradle.
+# Headless; it may only read the repo and edit the files a source fix needs. No shell, no network.
 timeout 1800 claude -p "$PROMPT" \
   --permission-mode acceptEdits \
-  --allowedTools "Read" "Glob" "Grep" "Edit" "Write" "Bash(./gradlew:*)" \
-  --disallowedTools "WebFetch" "WebSearch" "Bash(git:*)" "Bash(curl:*)" "Bash(gh:*)" \
+  --allowedTools "Read" "Glob" "Grep" "Edit(sources/$ID.json)" "Write(sources/$ID.json)" \
+    "Edit(shared/src/main/kotlin/com/nelson/yomukai/data/source/**)" "Edit(shared/src/test/**)" "Write(shared/src/test/**)" \
+  --disallowedTools "Bash" "WebFetch" "WebSearch" \
   --max-turns 60 > "repair-$ID.log" 2>&1 || true
 
+# Only these paths may change; anything else (build files, scripts, workflows...) means the run is not trusted.
+ALLOWED="^(sources/$ID\.json|shared/src/test/.*|shared/src/main/kotlin/com/nelson/yomukai/data/source/.*)$"
+CHANGED="$( (git diff --name-only; git ls-files --others --exclude-standard) | sort -u | grep -v -E "^repair-$ID(-tests)?\.log$" || true)"
+BAD="$(printf '%s\n' "$CHANGED" | grep -v -E "$ALLOWED" | grep -v '^$' || true)"
+if [ -n "$BAD" ]; then
+  echo "Cambios fuera de lo permitido, se descarta la reparación:" >&2
+  printf '%s\n' "$BAD" >&2
+  git checkout --quiet -- . && git clean -fdq -- sources shared
+  git checkout --quiet main 2>/dev/null || true
+  exit 1
+fi
+
+# The tests run the edited code: do it in a throwaway container without network or credentials.
 TESTS=ok
-./gradlew :shared:test --console=plain -q > "repair-$ID-tests.log" 2>&1 || TESTS=fail
+docker run --rm --network none -v "$REPO":/src -v "$HOME/.gradle":/root/.gradle -w /src -e YOMUKAI_SERVER_ONLY=true \
+  eclipse-temurin:21-jdk ./gradlew --offline :shared:test --console=plain -q > "repair-$ID-tests.log" 2>&1 || TESTS=fail
 
 if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --others --exclude-standard -- sources shared)" ]; then
   echo "Claude no propuso cambios" >&2

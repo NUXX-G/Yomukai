@@ -23,7 +23,7 @@ class YtDlpTest {
     @Test
     fun theUrlCanNeverBeReadAsAnOption() = runBlocking {
         val commands = mutableListOf<List<String>>()
-        val y = YtDlp(File("yt-dlp"), runner = { cmd, _ -> commands += cmd; ok })
+        val y = YtDlp(File("yt-dlp"), hostIsPublic = { true }, runner = { cmd, _ -> commands += cmd; ok })
         assertNull(y.resolve(VideoSource("HD", "--exec=rm -rf /", "Malo")))
         assertNull(y.resolve(VideoSource("HD", "https://a.com/x y", "Espacios")))
         assertTrue("nothing ran for bad input", commands.isEmpty())
@@ -35,10 +35,21 @@ class YtDlpTest {
     }
 
     @Test
+    fun internalAddressesAreNeverFetched() = runBlocking {
+        var runs = 0
+        val y = YtDlp(File("yt-dlp"), runner = { _, _ -> runs++; ok })
+        assertNull(y.resolve(VideoSource("HD", "http://127.0.0.1:8191/v1", "Interno")))
+        assertNull(y.resolve(VideoSource("HD", "http://169.254.169.254/latest/meta-data", "Metadatos")))
+        assertNull(y.resolve(VideoSource("HD", "http://localhost/e/1", "Local")))
+        assertEquals(0, runs)
+        assertTrue(YtDlp(File("yt-dlp")).command("https://x.com/e/1").containsAll(listOf("--use-extractors", "default,-generic")))
+    }
+
+    @Test
     fun hostsItCannotHandleAreSkippedForADay() = runBlocking {
         var now = 0L
         var runs = 0
-        val y = YtDlp(File("yt-dlp"), clock = { now }, runner = { _, _ -> runs++; null })
+        val y = YtDlp(File("yt-dlp"), clock = { now }, hostIsPublic = { true }, runner = { _, _ -> runs++; null })
         val video = VideoSource("HD", "https://raro.com/e/1", "Raro")
         repeat(5) { y.resolve(video) }
         assertEquals("two failures, then skipped", 2, runs)

@@ -22,7 +22,9 @@ class YtDlp(
     private val timeoutMs: Long = 25_000,
     concurrency: Int = 1,
     private val clock: () -> Long = System::currentTimeMillis,
-    private val runner: suspend (List<String>, Long) -> String? = ::run
+    private val runner: suspend (List<String>, Long) -> String? = ::run,
+    /** True when every address of the host is public: a scraped page must never make the VPS reach its own network. */
+    private val hostIsPublic: suspend (String) -> Boolean = ::resolvesOnlyToPublic
 ) {
     private val log = LoggerFactory.getLogger("YtDlp")
     private val permits = Semaphore(concurrency)
@@ -37,6 +39,7 @@ class YtDlp(
         val host = hostOf(url) ?: return null
         val record = hosts.getOrPut(host) { HostRecord() }
         if (record.skipUntil > clock()) return null
+        if (!hostIsPublic(host)) return null
         val output = permits.withPermit { runner(command(url), timeoutMs) }
         val found = output?.let(::parse)
         synchronized(record) {
@@ -58,6 +61,8 @@ class YtDlp(
 
     fun command(url: String): List<String> = listOf(
         binary.absolutePath, "--ignore-config", "--no-cache-dir", "--no-playlist", "--no-warnings", "--no-progress",
+        // No "generic" extractor: only sites yt-dlp knows, so an arbitrary address is never fetched.
+        "--use-extractors", "default,-generic",
         "--socket-timeout", "10", "-f", "best[protocol^=http]/best", "-j", "--", url
     )
 
@@ -65,6 +70,10 @@ class YtDlp(
         private const val SKIP_MS = 24 * 3_600_000L
         private val SAFE_URL = Regex("^https?://[^\\s\"'<>]{4,2000}$")
         private val KEEP_HEADERS = setOf("user-agent", "referer", "origin")
+
+        suspend fun resolvesOnlyToPublic(host: String): Boolean = runInterruptible(Dispatchers.IO) {
+            runCatching { java.net.InetAddress.getAllByName(host).let { all -> all.isNotEmpty() && all.all(PublicAddresses::isPublic) } }.getOrDefault(false)
+        }
 
         fun hostOf(url: String): String? = Regex("^https?://([^/:?#]+)").find(url)?.groupValues?.get(1)?.lowercase()?.removePrefix("www.")
 
