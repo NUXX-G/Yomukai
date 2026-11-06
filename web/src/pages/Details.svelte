@@ -129,6 +129,17 @@
   }
   const unreadChapters = $derived(list.chapters.filter((c) => !progress[c.id]?.read));
 
+  /** Admin: the home worker downloads these to Jellyfin (anime) or exports them as CBZ for Kavita/Komga (comics). */
+  async function toLibrary(chapters) {
+    menu = false;
+    if (!chapters.length) { notify('No hay nada que enviar'); return; }
+    try {
+      const ids = chapters.map((c) => c.id);
+      const r = anime ? await api.jellyfinDownload(sourceId, mediaId, ids) : await api.cbzExport(sourceId, mediaId, ids);
+      notify(`${r.queued} en cola para el servidor de casa${anime ? ' (Jellyfin)' : ' (Kavita/Komga)'}`);
+    } catch (e) { notify(e.message); }
+  }
+
   async function openMarks() {
     menu = false;
     marksOpen = true;
@@ -472,6 +483,10 @@
   <button class="list-item opt" onclick={openAlternatives}><Icon name="search" /> Buscar en otras fuentes</button>
   {#if list.chapters.length}
     <button class="list-item opt" onclick={openDownloads}><Icon name="download" /> Descargar en este dispositivo</button>
+    {#if session.user?.admin && features.flags.jellyfin !== false}
+      <button class="list-item opt" onclick={() => toLibrary(unreadChapters)}><Icon name="library" /> {anime ? 'Al Jellyfin: episodios sin ver' : 'A Kavita/Komga: capítulos sin leer'} · {unreadChapters.length}</button>
+      <button class="list-item opt" onclick={() => toLibrary(list.chapters)}><Icon name="library" /> {anime ? 'Al Jellyfin: todos' : 'A Kavita/Komga: todos'} · {list.chapters.length}</button>
+    {/if}
     {#if !anime}<button class="list-item opt" onclick={openMarks}><Icon name="bookmark" /> Marcadores</button>{/if}
     <button class="list-item opt" onclick={() => markAllBefore(list.chapters[list.chapters.length - 1], true)}><Icon name="check" /> Marcar todo como {anime ? 'visto' : 'leído'}</button>
     <button class="list-item opt" onclick={() => markAllBefore(list.chapters[list.chapters.length - 1], false)}><Icon name="close" /> Quitar todas las marcas</button>

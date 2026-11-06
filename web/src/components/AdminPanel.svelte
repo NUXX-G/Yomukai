@@ -4,6 +4,7 @@
   import { api } from '../lib/api.js';
   import { notify, loadFeatures } from '../lib/store.svelte.js';
   import Icon from './Icon.svelte';
+  import IntegrationsPanel from './IntegrationsPanel.svelte';
 
   let status = $state(null);
   let workers = $state(null);
@@ -180,6 +181,8 @@
   {/if}
   <p class="small muted">«Copias» deja a ese worker llevarse la copia nocturna de la base de datos (para guardarla en el NAS).</p>
 </section>
+
+<IntegrationsPanel />
 
 <section class="card">
   <h3 class="sub">Salud de las fuentes</h3>
