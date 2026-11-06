@@ -78,5 +78,15 @@ class ThemesTest {
         assertTrue(admin.json("/api/themes/current")["theme"]?.isJsonNull ?: true)
         // A background must be one's own upload.
         assertEquals(HttpStatusCode.BadRequest, admin.send("POST", "/api/themes", """{"theme":{"name":"Fondo","colors":{},"background":12345}}""").status)
+        // Backgrounds stay private until they are part of a published theme.
+        val png = java.io.ByteArrayOutputStream().also { javax.imageio.ImageIO.write(java.awt.image.BufferedImage(800, 450, java.awt.image.BufferedImage.TYPE_INT_RGB), "png", it) }.toByteArray()
+        val bg = JsonParser.parseString(ana.post("/api/themes/backgrounds") { setBody(png) }.bodyAsText()).asJsonObject["id"].asLong
+        val withBg = JsonParser.parseString(
+            ana.send("POST", "/api/themes", """{"theme":{"name":"Con fondo","colors":{},"background":$bg}}""").bodyAsText()
+        ).asJsonObject["id"].asLong
+        assertEquals(HttpStatusCode.OK, ana.get("/api/themes/backgrounds/$bg").status)
+        assertEquals(HttpStatusCode.NotFound, admin.get("/api/themes/backgrounds/$bg").status)
+        ana.send("PUT", "/api/themes/$withBg", """{"theme":{"name":"Con fondo","colors":{},"background":$bg},"published":true}""")
+        assertEquals(HttpStatusCode.OK, admin.get("/api/themes/backgrounds/$bg").status)
     }
 }

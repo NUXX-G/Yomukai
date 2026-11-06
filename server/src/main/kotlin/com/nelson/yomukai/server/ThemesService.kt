@@ -133,6 +133,20 @@ class ThemesService(private val db: Database, private val events: Events, dataDi
 
     fun backgroundFile(id: Long): File? = File(backgrounds, "$id.jpg").takeIf { it.isFile }
 
+    /**
+     * A background is private until it is part of a published theme: its owner sees it, and so does whoever has it
+     * in their current theme. (Theme JSON is written by [ThemeRules.toJson], where "background" is always followed by
+     * another field, so the pattern cannot match a longer id.)
+     */
+    suspend fun canSeeBackground(viewer: User, id: Long): Boolean {
+        val pattern = "%\"background\":$id,%"
+        return db.tx {
+            queryOne("SELECT 1 FROM theme_backgrounds WHERE id = ? AND owner_id = ?", id, viewer.id) { 1 } != null ||
+                queryOne("SELECT 1 FROM themes WHERE published = 1 AND json LIKE ?", pattern) { 1 } != null ||
+                queryOne("SELECT 1 FROM users WHERE id = ? AND theme LIKE ?", viewer.id, pattern) { 1 } != null
+        }
+    }
+
     companion object {
         const val MAX_THEMES = 30
         const val MAX_BACKGROUNDS = 10
@@ -187,7 +201,10 @@ fun Route.themeRoutes(s: Services) {
         call.respond(mapOf("id" to s.themes.saveBackground(call.user, bytes)))
     }
     get("/themes/backgrounds/{id}") {
-        val file = s.themes.backgroundFile(call.themeId()) ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "No existe"))
+        if (!call.themesOn(s)) return@get
+        val id = call.themeId()
+        val file = s.themes.backgroundFile(id)?.takeIf { s.themes.canSeeBackground(call.user, id) }
+            ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "No existe"))
         call.response.header(HttpHeaders.CacheControl, "private, max-age=2592000, immutable")
         call.respondBytes(file.readBytes(), ContentType.Image.JPEG)
     }
