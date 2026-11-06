@@ -2,9 +2,48 @@
 
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
+## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
+Última actualización: 2026-11-06, commit `fix(social): lo guardado en categorías privadas...`.
+- **Fase en curso: 6 (Social).** Hecho y probado en el SERVIDOR: salas + watch party + chat (6.1-6.3, también en la web), perfiles, estadísticas, privacidad, feed, presencia, valoraciones, recomendaciones y motor de logros (6.4-6.7 y 6.11) → `server/…/Social.kt`, `Achievements.kt`, `server/src/main/resources/achievements.json`, migración 8, tests `SocialTest` y `RoomsTest`.
+- **SIGUIENTE PASO CONCRETO: la parte WEB de 6.4-6.7 y 6.11** (la API ya existe, ver «API social» abajo):
+  1. Página `/u/:nombre` (`web/src/pages/Profile.svelte`, cargada bajo demanda en `App.svelte` como Room/Explore): banner, avatar, nombre, título elegido, bio, color de acento, estadísticas (episodios, capítulos, horas, racha, género), favorito, logros (desbloqueados primero, % del grupo, secretos ???) y biblioteca. Si es el propio: hoja «Editar perfil» (bio, color, avatar/banner subiendo el archivo tal cual con `fetch(POST, body=file)`, ocultar biblioteca, categorías privadas, título entre los logros desbloqueados).
+  2. Página `/amigos` con `GET /api/users` (quién es, avatar, «viendo ahora»). Enlaces «Mi perfil» y «Amigos» en el menú del avatar (`App.svelte`, `.menu`).
+  3. Inicio (`Home.svelte`): fila «Actividad de tus amigos» (`GET /api/feed`: entradas con user, kind episode/chapter/rated/achievement, title, count, first, last, marathon) y «Te recomiendan» (`GET /api/recommendations`, luego `POST /api/recommendations/seen`). Añadir ids a `ROWS`.
+  4. Ficha (`Details.svelte`): «Amigos que la tienen» (`GET /api/friends-on?s=&id=`), valoración 1-10 + reseña y media del grupo (`GET/PUT /api/ratings`), botón «Recomendar» (elegir amigo de `/api/users`, `POST /api/recommend/{nombre}` con sourceId, mediaId, title, cover, message).
+  5. Presencia: el reproductor y los lectores mandan `POST /api/presence {kind:"watching"|"reading", title, label, sourceId, mediaId}` al abrir y cada 60 s; `{kind:""}` al salir.
+  6. Logros: en `App.svelte` sondear `GET /api/achievements/new` cada 60 s y mostrar un aviso animado (emoji grande + nombre; respetar movimiento reducido). En el reproductor, `skipOpening()` y el botón +85 s mandan `POST /api/achievements/event {kind:"skip_opening"}` (añadir `api.achievementEvent`).
+  7. Comprobar con Playwright (escritorio 1440 y móvil 390) y con WebKit (`scratchpad/pw` no existe en otra sesión: `npm i playwright` en una carpeta temporal y `npx playwright install webkit`), capturas en `docs/capturas/despues/`.
+- **Después: 6.8 Foro, 6.9 Moderación, 6.10 Notificaciones** (detalle en `docs/ENCARGO.md` FASE 6, puntos 8-10). Ideas ya decididas: hilo automático por obra (clave = work_key) + categorías Recomendaciones/Off-topic/Quejas al admin; markdown SANEADO en el servidor (o solo texto con formato mínimo; nunca `{@html}` con datos de usuario sin sanear); spoilers «hasta el ep./cap. N» ocultos a quien vaya por detrás (`SpoilerShield.hideComment` ya existe en shared); al revivir un hilo con >3 meses sin actividad registrar evento `thread_revived`; mensajes marcados spoiler → evento `forum_spoiler`. Moderación: borrar/editar/fijar/cerrar/silenciar con caducidad, todo en `AuditLog`. Notificaciones: canal en tiempo real (SSE ya instalado en Ktor: `install(SSE)`) para menciones, respuestas, recomendaciones y logros; ntfy (ya hay `Notifier.kt` con Discord/ntfy para avisos de admin) y webhook de Discord solo para salas abiertas e hilos nuevos (`DISCORD_WEBHOOK_URL`).
+- **Luego la app Android de la Fase 6** (paridad mínima: salas con el mismo protocolo WebSocket, perfil y feed) y seguir con Fases 7 → 11 en orden.
+
+### Lo que el usuario pidió por el camino (no olvidar)
+- Todo autónomo, sin esperar confirmación entre fases; subir a GitHub a menudo (puede quedarse sin tokens). Si una sesión se corta, la siguiente sigue desde aquí.
+- El VPS no se toca ahora: dejar todo listo para instalar con un par de comandos (`install.sh`, `install-worker.sh`, docker-compose). No probará nada de momento.
+- Bilibili descartada; MangaDex chino sí (hecho).
+- Que funcione, sea seguro y eficiente, y flexible si cae una fuente (sin complicarlo).
+- Debe verse bien en **web escritorio, web móvil y la app Android**, y en navegadores de **iOS/macOS (Safari/WebKit) y Android/Windows/Linux (Chrome, Edge, Firefox)**, también como acceso directo instalado (PWA: `web/public/manifest.webmanifest` con atajos). Mínimo realista: Safari/iOS 16.2+ (usa `color-mix`). Comprobar con WebKit además de Chromium.
+- Portadas grandes en baja resolución → hecho: el servidor usa la portada extraLarge de AniList cuando la página está unida a una obra (`Works.betterCover`, cola en segundo plano que identifica lo que sale en listas). Si vuelve a quejarse, ampliar la identificación o pedir `w=` mayores.
+
+### Cosas que necesitan al usuario (decírselo al terminar)
+- `gh secret set SOURCES_SIGNING_KEY < ~/.yomukai/sources-signing.key` (no tengo permiso para escribir secretos).
+- Medir en el VPS real con `scripts/bench.sh` (no tengo acceso).
+- PRs de Dependabot #1/#2 (subidas mayores de imágenes Docker) sin fusionar a propósito: revisarlas.
+- Una revisión de seguridad automática no terminó por un 429: detalles en `C:\Users\nelso\.claude\security\log.txt`.
+
+### Cómo trabajo aquí (para no perder tiempo)
+- Windows + Git Bash; no hay python: para editar con scripts usar node con un .mjs en el scratchpad y reemplazos por `indexOf/slice` (no `String.replace` con `$`). Cuidado con `${` en plantillas JS al editar Kotlin: usar la herramienta Edit.
+- Comprobar antes de cada commit: `./gradlew -q :shared:test :server:test`, `bash scripts/lint-kotlin.sh` (con `--format` arregla estilo; si cambia la firma de una función ya en `config/detekt-baseline.xml`, actualizar esa línea), `cd web && npm run lint && npm run check && npm run build`, y si se toca la app `./gradlew -q :app:assembleDebug :app:testDebugUnitTest`.
+- Servidor de pruebas local: `./gradlew -q :server:installDist` y `DATA_DIR=<tmp> PORT=8193 WEB_DIR=web/dist server/build/install/server/bin/server` (en la primera ejecución sin ADMIN_PASSWORD pide configuración inicial; para pruebas usar `ADMIN_PASSWORD=admin-password-1`). Probar la web con el MCP de Playwright.
+- Emulador Android: `~/AppData/Local/Android/Sdk/emulator/emulator.exe -avd Medium_Phone_API_37.0`, `adb install -r app/build/outputs/apk/debug/app-debug.apk`, capturas con `adb exec-out screencap -p`; en Git Bash usar `MSYS_NO_PATHCONV=1` con rutas `/sdcard`.
+- Tokens de diseño: editar `shared/src/main/resources/design/tokens.json` y ejecutar `node scripts/tokens-android.mjs` (la web los genera sola en el build).
+
+### API social (servidor, ya hecha y probada)
+`GET/PUT /api/profile` (bio ≤300, accent #rrggbb, favorite{sourceId,mediaId,title,cover}, hidden, privateCategories[], shownTitle=id de logro propio) · `POST/DELETE /api/profile/avatar|banner` (cuerpo = bytes de la imagen, ≤4 MB; se re-dibuja JPEG 256 px cuadrado / 1500 px 3:1) · `GET /api/users` · `GET /api/users/{nombre}` (profile, stats, library, libraryHidden, now, achievements) · `GET /api/users/{nombre}/avatar|banner` · `POST /api/presence` · `GET /api/feed` · `GET /api/friends-on?s=&id=` · `GET/PUT /api/ratings` (score 1-10 o null para borrar, review) · `POST /api/recommend/{nombre}` · `GET /api/recommendations` · `POST /api/recommendations/seen` · `GET /api/achievements` · `GET /api/achievements/new` (los recién desbloqueados, una sola vez) · `POST /api/achievements/event {kind: skip_opening|word_saved|chapter_no_lookup}` · Salas: `GET /api/rooms`, `GET /api/rooms/mine`, `POST /api/rooms`, `GET /api/rooms/{code}`, WebSocket `/api/rooms/{code}/ws` (mensajes en `Rooms.kt`, cliente web en `web/src/lib/party.svelte.js`).
+Eventos que alimentan feed y logros (`Events.record`): episode, chapter, rated, achievement, room_hosted, room_join_late, room_most_pauses, room_buffering, reaction, room_message, recommended, recommendation_followed, questionable_taste, skip_opening… Los que aún no se generan (forum_spoiler, thread_revived, theme_used, word_saved, chapter_no_lookup, jellyfin_download) los emitirán las fases 6.8, 7, 9 y 10.
+
 ## ENCARGO GRANDE (2026-11-05): fases 0 a 11
 Texto íntegro y detalle de cada punto: `docs/ENCARGO.md` (léelo entero antes de seguir).
-Reglas clave: fase a fase y en orden; al acabar cada fase PARAR, resumir (hecho, pendiente, decisiones propias, qué probar a mano) y esperar el OK del usuario.
+Reglas clave: fase a fase y en orden. **CAMBIO del usuario (2026-11-05): NO parar entre fases ni esperar su OK; seguir de forma autónoma con la siguiente y subirlo todo a GitHub.**
 Commits convencionales pequeños, build+tests verdes antes de cada commit, `git push origin main` a menudo (se pueden acabar los tokens: subir por tramos y, si se cortó, seguir donde indique este checklist).
 Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de casa o al dispositivo. Feature flag por funcionalidad grande. Medir rendimiento antes/después de cada fase (tabla abajo).
 
@@ -77,9 +116,12 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 - [x] 6.1 Salas: una persistente por usuario (código de 6 sin caracteres ambiguos, enlace /sala/CODIGO) y hasta 3 temporales; fila «Salas activas» en Inicio con quién está y qué ve; botón «Ver con amigos» en el reproductor (abre tu sala y copia el enlace para Discord)
 - [x] 6.2 Watch party (WebSocket con la sesión, Origin comprobado, límite por conexión, sesión revalidada cada 30 s): el anfitrión manda; posición con el reloj del servidor; deriva >2 s → salto, 0,3-2 s → 0,95x/1,05x; si alguien carga se pausa a todos hasta 10 s; episodio, servidor y velocidad sincronizados; siguiente episodio solo lo decide quien controla; anfitrión pasa al que lleva más tiempo y se puede ceder; «todos controlan»; latido y reconexión. Cada cliente reproduce su propio vídeo (nada pasa por la sala). Lógica pura en shared (PartySync) con tests y test con varios clientes reales. Probado en vivo con dos navegadores: 0,1 s de diferencia
 - [x] 6.3 Chat de sala: menciones resaltadas, reacciones fijas que flotan sobre el vídeo, spoilers tras un toque, antispam, 7 días de historial. Solo texto (nunca HTML)
-- [ ] 6.4 Perfiles
-- [ ] 6.5 Bibliotecas visibles con privacidad  - [ ] 6.6 Feed y presencia  - [ ] 6.7 Recomendar y valorar
-- [ ] 6.8 Foro  - [ ] 6.9 Moderación  - [ ] 6.10 Notificaciones (web, ntfy, Discord)  - [ ] 6.11 Logros
+- [~] 6.4 Perfiles — servidor ✅ (bio, color, favorito, título, avatar/banner re-dibujados, estadísticas con racha y género); **falta la web** (/u/nombre, editar) y la app
+- [~] 6.5 Privacidad — servidor ✅ (biblioteca oculta entera o por categorías; también fuera del feed, de la presencia y de «quién la tiene»); falta la web (ajustes en «Editar perfil»)
+- [~] 6.6 Feed (ráfagas agrupadas, maratón ≥12) y presencia — servidor ✅; falta la web (fila en Inicio, «viendo ahora», /amigos) y que reproductor/lectores manden la presencia
+- [~] 6.7 Valoraciones 1-10 con media del grupo y recomendaciones con mensaje — servidor ✅; falta la web (ficha e Inicio)
+- [ ] 6.8 Foro  - [ ] 6.9 Moderación  - [ ] 6.10 Notificaciones (web en tiempo real, ntfy, Discord)
+- [~] 6.11 Logros — motor ✅ (`achievements.json` con 32 logros, incremental, retroactivo en silencio, secretos ???, % del grupo, eventos de cliente en lista blanca); falta el aviso animado en la web, mostrarlos en el perfil y emitir `skip_opening` desde el reproductor
 
 ### Fase 7 — Temas
 - [ ] 7.1 Tema = JSON de tokens validado  - [ ] 7.2 Temas de serie  - [ ] 7.3 Editor con contraste WCAG
