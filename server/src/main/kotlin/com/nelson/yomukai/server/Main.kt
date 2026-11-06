@@ -169,7 +169,10 @@ class Services(val config: Config) {
             jobs.enqueue(JobQueue.Request(JobTypes.SOURCE_REPAIR, payload, JobPriority.BACKGROUND, dedupKey = "repair:${source.id}:$day", ttlMs = Auth.DAY_MS, maxAttempts = 1))
         }
     })
-    val works = Works(db, catalog, aniList, sources).also { w -> catalog.workKeys = w::knownKeys }
+    val works = Works(db, catalog, aniList, sources).also { w ->
+        catalog.workKeys = w::knownKeys
+        catalog.dtos.betterCover = w::betterCover
+    }
     val discover = Discover(com.nelson.yomukai.data.discovery.AniListDiscover(http), db, catalog, works) { proxy.cover(it, emptyMap()) }
     val ytdlp = YtDlp(
         File(System.getenv("YTDLP_PATH")?.ifBlank { null } ?: "/opt/yt-dlp"),
@@ -613,7 +616,10 @@ private object UpdateLimits {
 private fun typeOf(name: String) = runCatching { MediaType.valueOf(name) }.getOrDefault(MediaType.MANGA)
 
 private fun Route.userRoutes(s: Services) {
-    get("/library") { call.respond(s.db.library(call.user.id)) }
+    // Covers are swapped for AniList's large one when the title is joined to a work (sources often give thumbnails).
+    get("/library") {
+        call.respond(s.db.library(call.user.id).map { r -> s.works.betterCover(r.sourceId, r.mediaId)?.let { r.copy(cover = s.proxy.cover(it, emptyMap())) } ?: r })
+    }
     put("/library") {
         val text = call.receiveText()
         require(text.length < MAX_ROW_CHARS) { "Demasiado grande" }

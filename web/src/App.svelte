@@ -57,6 +57,8 @@
   let scrolled = $state(false);
   let menu = $state(false);
   let sourcesOpen = $state(false);
+  /** Macs (and iPads with a keyboard) say ⌘K; everything else Ctrl K. */
+  const searchKey = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? "⌘K" : "Ctrl K";
   /** Ctrl+K / ⌘K or "/" open the search. */
   function keys(e) {
     const typing = e.target.closest?.('input, textarea, select, [contenteditable]');
@@ -138,8 +140,8 @@
 
       <header class="top" class:solid={scrolled}>
         <a href="/" class="top-logo" aria-label="Yomukai, inicio">Yomukai</a>
-        <button class="search" onclick={() => (palette = true)} aria-label="Buscar (Ctrl+K)">
-          <Icon name="search" size={20} /><span>Buscar anime, manga, novelas...</span><kbd>Ctrl K</kbd>
+        <button class="search" onclick={() => (palette = true)} aria-label="Buscar ({searchKey})">
+          <Icon name="search" size={20} /><span>Buscar anime, manga, novelas...</span><kbd>{searchKey}</kbd>
         </button>
         <span class="grow"></span>
         <button class="icon-btn mobile-only" onclick={() => (palette = true)} aria-label="Buscar"><Icon name="search" /></button>

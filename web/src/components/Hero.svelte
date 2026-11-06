@@ -73,7 +73,7 @@
   .score { color: var(--c-accent); }
   .synopsis { margin: 12px 0 0; color: color-mix(in srgb, var(--c-text) 80%, transparent); font-size: 0.95rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
-  .btn.glass { background: color-mix(in srgb, white 14%, transparent); backdrop-filter: blur(10px); color: var(--c-text); }
+  .btn.glass { background: color-mix(in srgb, white 14%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: var(--c-text); }
   .btn.glass:hover { background: color-mix(in srgb, white 22%, transparent); }
   .dots { position: absolute; right: var(--page-pad); bottom: 22px; display: flex; gap: 6px; }
   .dot { width: 8px; height: 8px; border-radius: var(--r-pill); background: color-mix(in srgb, white 30%, transparent); transition: width var(--motion-base), background var(--motion-base); }

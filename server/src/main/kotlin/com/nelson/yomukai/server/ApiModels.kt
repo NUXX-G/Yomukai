@@ -88,8 +88,12 @@ fun CatalogueSource.toDto(enabled: Boolean, degraded: String? = null) = SourceDt
 
 /** Converts with covers already pointing at the proxy. */
 class Dtos(private val proxy: MediaProxy, private val headersOf: (String) -> Map<String, String>) {
+    /** A sharper cover for a source page (AniList's, once the page is joined to a work); null keeps the source's. */
+    var betterCover: (sourceId: String, mediaId: String) -> String? = { _, _ -> null }
+
     fun media(item: MediaItem) = MediaDto(
-        item.id, item.sourceId, item.title, proxy.cover(item.coverUrl, headersOf(item.sourceId)), item.type.name,
+        item.id, item.sourceId, item.title,
+        betterCover(item.sourceId, item.id)?.let { proxy.cover(it, emptyMap()) } ?: proxy.cover(item.coverUrl, headersOf(item.sourceId)), item.type.name,
         item.status, item.description, item.author, item.genres, item.altTitles
     )
 

@@ -52,12 +52,19 @@ class Works(
     private val gson = Gson()
     private val listType = object : TypeToken<List<String>>() {}.type
     private val known = ConcurrentHashMap<String, String>()
+    /** Work key → AniList's large cover, for works AniList knows: sources often only give 200-300 px thumbnails. */
+    private val covers = ConcurrentHashMap<String, String>()
+
+    /** AniList's cover for a source page already joined to a work, when there is one. */
+    fun betterCover(sourceId: String, mediaId: String): String? = known[WorkKey.itemKey(sourceId, mediaId)]?.let(covers::get)
 
     /** Item key ("source|media") → work key, for what is already resolved (used to group search and lists). */
     fun knownKeys(items: List<MediaItem>): Map<String, String> = items.mapNotNull { i -> known[WorkKey.itemKey(i)]?.let { WorkKey.itemKey(i) to it } }.toMap()
 
     suspend fun loadKnown() {
         db.tx { query("SELECT source_id, media_id, work_key FROM work_sources") { WorkKey.itemKey(getString(1), getString(2)) to getString(3) } }.forEach { (k, v) -> known[k] = v }
+        db.tx { query("SELECT key, cover FROM works WHERE anilist_id IS NOT NULL") { getString(1) to getString(2) } }
+            .forEach { (k, c) -> if (isAniListCover(c)) covers[k] = c }
     }
 
     /** The work of a source page, resolved (and stored) the first time it is asked. */
@@ -80,7 +87,10 @@ class Works(
         return get(key) ?: row
     }
 
+    private fun isAniListCover(url: String) = url.startsWith("https://s4.anilist.co/") || url.startsWith("https://img.anili.st/")
+
     private suspend fun save(r: WorkRow) = db.tx {
+        if (r.anilistId != null && isAniListCover(r.cover)) covers[r.key] = r.cover
         update(
             """INSERT INTO works(key, anilist_id, mal_id, type, title, alt_titles, cover, banner, synopsis, genres, score, status, episodes, chapters,
                next_episode, next_airing_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)

@@ -219,7 +219,7 @@ class AniListClient(private val network: HttpFetcher) {
         private const val MAX_LOOKUP_QUERIES = 2
         private const val LATIN_LIMIT = 0x24F
 
-        private const val FIELDS = "id title{romaji english native} synonyms coverImage{large} type format countryOfOrigin genres tags{name rank}"
+        private const val FIELDS = "id title{romaji english native} synonyms coverImage{extraLarge large} type format countryOfOrigin genres tags{name rank}"
         private val LOOKUP = """
             query(${'$'}s:String,${'$'}t:MediaType,${'$'}f:MediaFormat,${'$'}n:MediaFormat){Page(perPage:5){media(search:${'$'}s,type:${'$'}t,format:${'$'}f,format_not:${'$'}n,sort:SEARCH_MATCH){
             $FIELDS id idMal averageScore meanScore status description(asHtml:false) siteUrl poster:coverImage{extraLarge} bannerImage
@@ -297,7 +297,7 @@ class AniListClient(private val network: HttpFetcher) {
             val shown = title?.str("english") ?: title?.str("romaji") ?: names.firstOrNull() ?: return null
             val type = typeOf(media)
             return RelatedTitle(
-                shown, names, media.obj("coverImage")?.str("large").orEmpty(), type, media.arr("genres").strings(),
+                shown, names, media.obj("coverImage")?.let { it.str("extraLarge") ?: it.str("large") }.orEmpty(), type, media.arr("genres").strings(),
                 format = formatLabel(media.str("format"), type), tags = tagsOf(media), anilistId = media.str("id")?.toIntOrNull()
             )
         }

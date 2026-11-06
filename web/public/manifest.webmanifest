@@ -1,17 +1,27 @@
 {
+  "id": "/",
   "name": "Yomukai",
   "short_name": "Yomukai",
   "description": "Manga, manhwa, novelas, cómics y anime de tus fuentes.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "any",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#050505",
+  "theme_color": "#050505",
   "lang": "es",
+  "dir": "ltr",
+  "categories": ["entertainment", "books"],
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Seguir viendo y leyendo", "short_name": "Seguir", "url": "/", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Biblioteca", "url": "/biblioteca", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Calendario", "url": "/calendario", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Anime", "url": "/anime", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
   ]
 }

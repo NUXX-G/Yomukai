@@ -71,7 +71,7 @@
   .badges { position: absolute; top: 6px; right: 6px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
   .badge { font-size: var(--fs-tiny); font-weight: 700; padding: 2px 7px; border-radius: var(--r-pill); line-height: 1.5; }
   .badge.accent { background: var(--c-accent); color: var(--c-on-accent); }
-  .badge.dark { background: color-mix(in srgb, black 70%, transparent); color: var(--c-text); backdrop-filter: blur(6px); }
+  .badge.dark { background: color-mix(in srgb, black 70%, transparent); color: var(--c-text); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
   .score { position: absolute; left: 6px; bottom: 8px; font-size: var(--fs-tiny); font-weight: 700; padding: 2px 7px; border-radius: var(--r-pill); background: color-mix(in srgb, black 70%, transparent); }
   .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: color-mix(in srgb, white 18%, transparent); }
   .bar span { display: block; height: 100%; background: var(--c-accent); }
