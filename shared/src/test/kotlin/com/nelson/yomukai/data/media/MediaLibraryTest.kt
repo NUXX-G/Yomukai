@@ -32,7 +32,11 @@ class MediaLibraryTest {
 
     @Test
     fun comicInfoForKavitaAndKomga() {
-        val xml = ComicInfo.xml(ComicInfo.Info("Berserk", "12", writers = listOf("Kentaro Miura"), genres = listOf("Acción", "Fantasía"), manga = true, ids = ExternalIds(anilist = 30002), pageCount = 20))
+        val info = ComicInfo.Info(
+            "Berserk", "12", writers = listOf("Kentaro Miura"), genres = listOf("Acción", "Fantasía"), manga = true,
+            ids = ExternalIds(anilist = 30002), pageCount = 20
+        )
+        val xml = ComicInfo.xml(info)
         assertTrue(xml.contains("<Series>Berserk</Series>"))
         assertTrue(xml.contains("<Manga>YesAndRightToLeft</Manga>"))
         assertTrue(xml.contains("<Web>https://anilist.co/manga/30002</Web>"))
