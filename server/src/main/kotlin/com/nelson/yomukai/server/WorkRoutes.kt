@@ -146,4 +146,4 @@ fun Route.playbackRoutes(s: Services) {
 }
 
 /** Streams tied to the address that resolved them (Google's) cannot be fetched by the home worker. */
-private fun ipBound(url: String) = listOf("googlevideo.com", "blogger.com", "googleusercontent.com").any { url.contains(it) }
+internal fun ipBound(url: String) = listOf("googlevideo.com", "blogger.com", "googleusercontent.com").any { url.contains(it) }

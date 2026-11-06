@@ -179,6 +179,9 @@ class Services(val config: Config) {
     val forum = Forum(db, events, notifications, config.dataDir)
     val themes = ThemesService(db, events, config.dataDir)
     val voices by lazy { VoiceRouter(this) }
+    val ocr by lazy { OcrStore(this) }
+    val words = Words(db, events)
+    val language by lazy { WorkerLanguage(this) }
     private val animeCheck: (String) -> Boolean = { id -> sources.get(id) is com.nelson.yomukai.data.source.AnimeSource }
     val social by lazy { Social(db, events, config.dataDir, animeCheck, works::keyOf, notifications::send) }
     val achievements = Achievements(db, events, animeCheck, notifications::send).also { a -> events.onEvent = { user, kind -> a.check(user, kind) } }
@@ -323,6 +326,8 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 forumRoutes(services)
                 notificationRoutes(services)
                 themeRoutes(services)
+                learningRoutes(services)
+                workerLanguageRoutes(services)
                 // Files for the user's device. GET for one chapter (a plain link), POST from a form for many.
                 get("/download") {
                     val p = call.request.queryParameters

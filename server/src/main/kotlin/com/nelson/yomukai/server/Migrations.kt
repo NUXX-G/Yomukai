@@ -229,6 +229,13 @@ object Migrations {
             )
             exec("CREATE TABLE IF NOT EXISTS theme_backgrounds(id INTEGER PRIMARY KEY AUTOINCREMENT, owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, created_at INTEGER NOT NULL)")
             addColumn("users", "theme", "TEXT")
+        },
+        Migration(11, "Palabras guardadas para aprender idiomas") {
+            exec(
+                """CREATE TABLE IF NOT EXISTS words(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                   lang TEXT NOT NULL, word TEXT NOT NULL, meaning TEXT NOT NULL DEFAULT '', context TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT '',
+                   card TEXT NOT NULL, created_at INTEGER NOT NULL, UNIQUE(user_id, lang, word))"""
+            )
         }
     )
 

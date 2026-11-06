@@ -16,6 +16,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -144,5 +145,29 @@ class WorkerApiTest {
         assertEquals(2_000, audio.readRawBytes().size)
         // A voice the worker does not have is refused.
         assertEquals(HttpStatusCode.BadRequest, admin.post("/api/tts") { setBody("""{"voice":"w:nadie","text":"hola"}""") }.status)
+    }
+
+    @Test
+    fun translationsWaitForTheWorkerAndAreReused() = testApplication {
+        val config = config()
+        val services = Services(config)
+        application { yomukai(config, services) }
+        val admin = login("admin", "admin-password-1")
+        assertEquals(HttpStatusCode.ServiceUnavailable, admin.post("/api/translate") { setBody("""{"texts":["hello"],"to":"es"}""") }.status)
+        val token = json(admin.post("/api/admin/workers") { setBody("""{"name":"casa"}""") }.bodyAsText()).get("token").asString
+        suspend fun worker(path: String, body: String = "{}") = client.post(path) { header("Authorization", "Bearer $token"); setBody(body) }
+        worker("/worker/hello", """{"version":"1","capabilities":{"engines":["translate"]}}""")
+        kotlinx.coroutines.coroutineScope {
+            val answer = async { admin.post("/api/translate") { setBody("""{"texts":["hello","world"],"from":"en","to":"es"}""") } }
+            var claimed: com.google.gson.JsonObject? = null
+            repeat(50) { if (claimed == null) { val r = worker("/worker/claim"); if (r.status == HttpStatusCode.OK) claimed = json(r.bodyAsText()) else delay(100) } }
+            assertEquals("translate", claimed!!.get("type").asString)
+            client.put("/worker/jobs/${claimed!!.get("id").asLong}/result") {
+                header("Authorization", "Bearer $token"); contentType(ContentType.Application.Json); setBody("""{"translations":["hola","mundo"]}""")
+            }
+            assertEquals("""{"translations":["hola","mundo"]}""", answer.await().bodyAsText())
+        }
+        // The same texts again come from the cache, without the worker.
+        assertEquals("""{"translations":["hola","mundo"]}""", admin.post("/api/translate") { setBody("""{"texts":["hello","world"],"from":"en","to":"es"}""") }.bodyAsText())
     }
 }
