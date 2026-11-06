@@ -158,10 +158,24 @@ class Services(val config: Config) {
 
     /** Signed source configurations: the bundled ones, then newer ones from the repository (see SourceBundles). */
     val bundles = com.nelson.yomukai.data.source.declarative.SourceBundleUpdater(http, File(config.dataDir, "sources"), config.sourcesUrl)
-    val canary = Canary(health, notifier, pauseMs = config.canaryPauseMs)
+    val canary = Canary(health, notifier, pauseMs = config.canaryPauseMs, onBroken = { source, steps ->
+        // A broken source asks the home worker for a fix proposal (a PR), at most once a day per source.
+        if (features.isOn("source_repair")) {
+            val payload = com.google.gson.JsonObject().apply {
+                addProperty("sourceId", source.id)
+                addProperty("report", steps.joinToString("\n") { (if (it.ok) "OK " else "FALLO ") + it.name + ": " + it.detail })
+            }
+            val day = System.currentTimeMillis() / Auth.DAY_MS
+            jobs.enqueue(JobQueue.Request(JobTypes.SOURCE_REPAIR, payload, JobPriority.BACKGROUND, dedupKey = "repair:${source.id}:$day", ttlMs = Auth.DAY_MS, maxAttempts = 1))
+        }
+    })
+    val ytdlp = YtDlp(File(System.getenv("YTDLP_PATH")?.ifBlank { null } ?: "/opt/yt-dlp"))
 
     init {
         bundles.current()?.let(sources::apply)
+        if (ytdlp.available) {
+            com.nelson.yomukai.data.source.anime.VideoExtractors.preferred = { video -> if (features.isOn("ytdlp")) ytdlp.resolve(video) else null }
+        }
         sources.onDomainChange = { id, from, to ->
             notifier.admin("domain-$id-$to", "La fuente $id cambió de dominio", "Ahora está en $to (antes $from). Se sigue sola; actualiza baseUrl y domains en sources/$id.json.")
         }

@@ -37,7 +37,36 @@ class EchoHandler : JobHandler {
     }
 }
 
+/**
+ * Proposes a fix for a broken source as a pull request, with scripts/auto-repair.sh in a local clone of the repository
+ * (WORKER_REPAIR_REPO). Needs git, gh and Claude Code on this machine; never merges anything.
+ */
+class SourceRepairHandler(private val repo: java.io.File?) : JobHandler {
+    override val type = "source_repair"
+    override fun available(): Boolean = repo != null && java.io.File(repo, "scripts/auto-repair.sh").isFile &&
+        listOf("git", "gh", "claude").all { Capabilities.installed(it) }
+
+    override suspend fun run(job: ClaimedJob, context: JobContext): JobOutput {
+        val id = job.payload.get("sourceId")?.asString.orEmpty()
+        if (!Regex("[a-z0-9_]{2,40}").matches(id)) throw PermanentJobFailure("Id de fuente no válido")
+        val report = context.newFile(".txt").apply { writeText(job.payload.get("report")?.asString.orEmpty().take(8_000)) }
+        try {
+            val result = Processes.run(
+                listOf("bash", "scripts/auto-repair.sh", id, report.absolutePath), timeoutMs = 45 * 60_000L, dir = repo,
+                env = mapOf("WORKER_REPAIR_REPO" to repo!!.absolutePath)
+            )
+            val json = result.output.lineSequence().lastOrNull { it.trim().startsWith("{\"pr\"") }
+                ?: throw PermanentJobFailure("La reparación no abrió ningún PR: " + result.output.takeLast(500))
+            val out = context.newFile(".json")
+            out.writeText(json.trim())
+            return JobOutput(out, "application/json")
+        } finally {
+            report.delete()
+        }
+    }
+}
+
 /** The handlers this build knows; later phases add theirs here. */
-fun allHandlers(config: WorkerConfig): List<JobHandler> = listOf<JobHandler>(EchoHandler())
+fun allHandlers(config: WorkerConfig): List<JobHandler> = listOf<JobHandler>(EchoHandler(), SourceRepairHandler(config.repairRepo))
     .filter { config.onlyEngines.isEmpty() || it.type in config.onlyEngines || it.type == "echo" }
     .filter { it.available() }

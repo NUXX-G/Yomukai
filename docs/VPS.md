@@ -89,6 +89,28 @@ docker compose exec yomukai /app/bin/server canary asura
 
 Entre fuente y fuente espera `CANARY_PAUSE_S` segundos (20). También se puede probar una fuente desde el panel de admin.
 
+## Auto-reparación de fuentes (opcional)
+
+Con el flag «Auto-reparación de fuentes» activo, cuando el canario ve una fuente rota encola un trabajo `source_repair`.
+Lo coge un worker que tenga, **fuera de Docker** (en la propia máquina de casa): un clon del repositorio con permiso de
+push (`WORKER_REPAIR_REPO`), `git`, `gh` con sesión iniciada, JDK 21 y Claude Code (`claude`) con sesión iniciada.
+Ese worker ejecuta `scripts/auto-repair.sh`: guarda el HTML actual como fixture, pide a Claude Code (sin red y solo con
+permiso para editar el repo y lanzar Gradle) que arregle el JSON o el parser con un test, y abre un **PR**. Nunca
+fusiona: lo revisas tú. Al fusionarlo, el workflow «Firmar fuentes» firma el paquete (necesita el secreto
+`SOURCES_SIGNING_KEY`: `gh secret set SOURCES_SIGNING_KEY < ~/.yomukai/sources-signing.key`).
+
+```bash
+git clone git@github.com:NUXX-G/Yomukai.git ~/yomukai-repair
+cd ~/yomukai-repair && ./gradlew :worker:installDist
+YOMUKAI_URL=https://tu-vps WORKER_TOKEN=ykw_... WORKER_ENGINES=source_repair WORKER_REPAIR_REPO=~/yomukai-repair \n  worker/build/install/worker/bin/worker
+```
+
+## Vídeo: yt-dlp
+
+La imagen del VPS trae yt-dlp (solo para encontrar la URL del vídeo detrás de un reproductor; nunca descarga). Se
+prueba antes que los extractores propios; un host que yt-dlp no entiende se salta un día tras dos fallos. Se apaga con
+el flag «yt-dlp para los vídeos».
+
 ## Tailscale (VPS ↔ casa)
 
 El worker se conecta **hacia fuera** al VPS: no hace falta abrir puertos en casa. Puede usar la dirección pública

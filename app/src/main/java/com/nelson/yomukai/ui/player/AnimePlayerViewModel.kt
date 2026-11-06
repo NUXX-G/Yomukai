@@ -50,6 +50,10 @@ fun pickServer(servers: List<VideoSource>, preferredName: String): VideoSource? 
 /** Scraped links may only leave the app as plain web links, never as intents or custom schemes. */
 fun isWebUrl(url: String): Boolean = url.startsWith("https://", ignoreCase = true) || url.startsWith("http://", ignoreCase = true)
 
+/** Player pages the hidden WebView may try, at most two (each can take seconds). */
+fun embedsToSniff(servers: List<VideoSource>, failed: Set<String>): List<VideoSource> =
+    servers.filter { !it.isDirect && isWebUrl(it.videoUrl) && it.serverName !in failed }.take(2)
+
 /** Next direct server of an episode that has not failed yet. */
 fun nextServer(servers: List<VideoSource>, failed: Set<String>): VideoSource? =
     servers.firstOrNull { it.isDirect && it.serverName !in failed }
@@ -152,7 +156,9 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
                 return@launch
             }
             source.fetchVideoSources(fresh.url)
-                .onSuccess { servers ->
+                .onSuccess { found ->
+                    // No direct stream: let the hidden WebView catch one from a player page before giving up.
+                    val servers = if (found.none { it.isDirect }) found + sniffEmbeds(found) else found
                     val server = pickServer(servers, _state.value.playing.serverName)
                     if (server == null) {
                         _state.update { it.copy(isResolving = false, error = "Este episodio solo tiene servidores que se abren en el navegador") }
@@ -181,6 +187,10 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
 
     fun dismissError() = _state.update { it.copy(error = null) }
 
+    /** Streams caught by the hidden WebView from the episode's player pages (none if it finds nothing). */
+    private suspend fun sniffEmbeds(servers: List<VideoSource>): List<VideoSource> =
+        embedsToSniff(servers, failedServers).mapNotNull { embed -> runCatching { container.embedSniffer.sniff(embed) }.getOrNull() }
+
     /**
      * The stream could not be played (blocked, expired, unsupported). Moves to the next direct server of
      * the episode, keeping the position; the user only sees a message when none of them works.
@@ -198,8 +208,9 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
         _state.update { it.copy(isResolving = true, error = null) }
         viewModelScope.launch(Dispatchers.IO) {
             source.fetchVideoSources(chapter.url)
-                .onSuccess { servers ->
-                    val next = nextServer(servers, failedServers)
+                .onSuccess { found ->
+                    val next = nextServer(found, failedServers) ?: nextServer(sniffEmbeds(found), failedServers)
+                    val servers = found
                     if (next == null) {
                         _state.update {
                             it.copy(

@@ -68,6 +68,9 @@ class AppContainer(context: Context) {
             }
         }
     }
+
+    /** Catches the stream behind a player page no extractor understands (see EmbedSniffer). */
+    val embedSniffer by lazy { com.nelson.yomukai.data.source.EmbedSniffer(context) }
     val webViewProxy = WebViewProxy(context, preferences.network, tor.state, sourceManager::domainsOf, applicationScope)
         .also { proxy ->
             network.webViewOnTor = { proxy.state.value.let { it.ready && it.viaTor } }

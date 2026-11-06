@@ -21,7 +21,10 @@ object JobTypes {
     /** Test job: the worker sends the payload back. Used by the admin's "probar worker" button. */
     const val ECHO = "echo"
 
-    val ALL = setOf(TTS, OCR, TRANSLATE, WHISPER, AUDIO_FINGERPRINT, JELLYFIN_DOWNLOAD, CBZ_EXPORT, ECHO)
+    /** A broken source: the worker proposes a fix as a GitHub pull request (scripts/auto-repair.sh). */
+    const val SOURCE_REPAIR = "source_repair"
+
+    val ALL = setOf(TTS, OCR, TRANSLATE, WHISPER, AUDIO_FINGERPRINT, JELLYFIN_DOWNLOAD, CBZ_EXPORT, ECHO, SOURCE_REPAIR)
 
     /** Better on a GPU: given to a GPU worker first when one is online. */
     val GPU_PREFERRED = setOf(TTS, WHISPER)

@@ -33,6 +33,8 @@ class VideoExtractors(private val network: HttpFetcher) {
     }
 
     private suspend fun resolve(source: VideoSource): VideoSource? {
+        // A preferred resolver (yt-dlp on the server) gets the first try; the extractors below are the fallback.
+        preferred?.let { p -> runCatching { p(source) }.getOrNull()?.let { return it } }
         val url = source.videoUrl
         val stream = when {
             "ok.ru/videoembed" in url || "ok.ru/video/" in url ->
@@ -67,6 +69,13 @@ class VideoExtractors(private val network: HttpFetcher) {
     }
 
     companion object {
+        /**
+         * Tried before the built-in extractors for every player page. The server sets it to yt-dlp; the Android app
+         * leaves it empty (and falls back to a hidden WebView instead).
+         */
+        @Volatile
+        var preferred: (suspend (VideoSource) -> VideoSource?)? = null
+
         /**
          * Blogger's player page lists its MP4 files as `"https://…googlevideo.com/videoplayback?…",[itag]`
          * inside escaped JSON. 720p (itag 22) first, then 360p (18). The links are tied to the address that

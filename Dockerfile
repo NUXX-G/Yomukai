@@ -25,6 +25,18 @@ FROM eclipse-temurin:21-jre AS piper
 ARG TARGETARCH
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*  && case "$TARGETARCH" in arm64) ARCH=aarch64 ;; arm) ARCH=armv7l ;; *) ARCH=x86_64 ;; esac  && curl -fsSL "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_$ARCH.tar.gz" | tar -xz -C /opt
 
+# 3b. yt-dlp (Unlicense), standalone build: only used to find the video URL behind a player page, never to download.
+FROM eclipse-temurin:21-jre AS ytdlp
+ARG TARGETARCH
+ARG YTDLP_VERSION=2026.10.26
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/* \
+ && case "$TARGETARCH" in \
+      arm64) F=yt-dlp_linux_aarch64; SHA=e87e9533e89fe5889abaa21f5114dfe7756d6aa6219b83551add04d48b18e483 ;; \
+      *) F=yt-dlp_linux; SHA=767ba9dce7052aa196f8b12652f433d76de128ba168966fa84b6394d5e6c6795 ;; \
+    esac \
+ && curl -fsSL -o /opt/yt-dlp "https://github.com/yt-dlp/yt-dlp/releases/download/$YTDLP_VERSION/$F" \
+ && echo "$SHA  /opt/yt-dlp" | sha256sum -c - && chmod 755 /opt/yt-dlp
+
 # 4. Runtime
 FROM eclipse-temurin:21-jre
 RUN useradd --system --create-home --uid 10001 yomukai && mkdir -p /data && chown yomukai /data
@@ -32,11 +44,12 @@ WORKDIR /app
 COPY --from=server /src/server/build/install/server/ /app/
 COPY --from=web /web/dist/ /app/web/
 COPY --from=piper /opt/piper/ /opt/piper/
+COPY --from=ytdlp /opt/yt-dlp /opt/yt-dlp
 # The build stages leave files readable by root only; the app runs as its own user.
 RUN chmod -R a+rX /app /opt/piper
 # JVM sized for a small VPS: the heap takes 55 % of the container limit (the rest is metaspace, threads, Netty
 # buffers and Piper), Serial GC (least memory), and the process exits on OutOfMemory so Docker restarts it clean.
-ENV PORT=8080 DATA_DIR=/data WEB_DIR=/app/web PIPER_PATH=/opt/piper/piper \
+ENV PORT=8080 DATA_DIR=/data WEB_DIR=/app/web PIPER_PATH=/opt/piper/piper YTDLP_PATH=/opt/yt-dlp \
     JAVA_OPTS="-XX:+UseSerialGC -XX:MaxRAMPercentage=55 -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=64m -Xss512k -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication"
 USER yomukai
 VOLUME /data

@@ -20,7 +20,9 @@ data class WorkerConfig(
     /** Limit the engines offered (comma list); empty = all that are installed. */
     val onlyEngines: Set<String>,
     /** While this file exists the worker takes no jobs (a manual "pause" switch). */
-    val pauseFile: File?
+    val pauseFile: File?,
+    /** A clone of the repository where source repairs are proposed (see scripts/auto-repair.sh). */
+    val repairRepo: File? = null
 ) {
     companion object {
         fun fromEnv(env: Map<String, String> = System.getenv()): WorkerConfig {
@@ -42,7 +44,8 @@ data class WorkerConfig(
                 workDir = File(env["WORKER_WORK_DIR"] ?: System.getProperty("java.io.tmpdir") + "/yomukai-worker").apply { mkdirs() },
                 backupDir = env["WORKER_BACKUP_DIR"]?.ifBlank { null }?.let(::File),
                 onlyEngines = env["WORKER_ENGINES"].orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet(),
-                pauseFile = env["WORKER_PAUSE_FILE"]?.ifBlank { null }?.let(::File)
+                pauseFile = env["WORKER_PAUSE_FILE"]?.ifBlank { null }?.let(::File),
+                repairRepo = env["WORKER_REPAIR_REPO"]?.ifBlank { null }?.let(::File)?.takeIf { it.isDirectory }
             )
         }
 
