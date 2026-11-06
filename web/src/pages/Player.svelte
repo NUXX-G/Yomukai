@@ -20,6 +20,28 @@
   // ---------- Watch party (?sala=CODE) ----------
   let roomCode = $state(route.query.get('sala'));
   let stopPresence;
+
+  // Subtitles transcribed by the home worker (whisper.cpp), cached on the server for everyone.
+  let subtitlesUrl = $state(null);
+  let subtitlesBusy = $state(false);
+  async function subtitles() {
+    if (subtitlesUrl) { subtitlesUrl = null; return; }
+    subtitlesBusy = true;
+    try {
+      const res = await api.subtitles(sourceId, episode.url, item?.language === 'EN' ? 'en' : undefined);
+      if (res.status === 200) subtitlesUrl = URL.createObjectURL(new Blob([await res.text()], { type: 'text/vtt' }));
+      else if (res.status === 202) notify('Generando los subtítulos en el servidor de casa; vuelve a pulsar en unos minutos');
+      else notify('Los subtítulos necesitan el servidor de casa encendido');
+    } catch (e) { notify(e.message); } finally { subtitlesBusy = false; }
+  }
+  $effect(() => {
+    if (!video || !subtitlesUrl) return;
+    const t = document.createElement('track');
+    t.kind = 'subtitles'; t.label = 'Subtítulos'; t.src = subtitlesUrl; t.default = true;
+    video.appendChild(t);
+    t.addEventListener('load', () => { if (t.track) t.track.mode = 'showing'; });
+    return () => { t.remove(); URL.revokeObjectURL(subtitlesUrl); };
+  });
   let client = $state(null);
   let chatOpen = $state(false);
   let floats = $state([]);
@@ -425,6 +447,9 @@
           {:else}
             <button class="btn text light" onclick={watchTogether} title="Abre tu sala y copia el enlace">Ver con amigos</button>
           {/if}
+        {/if}
+        {#if features.available?.whisper}
+          <button class="btn text light" aria-pressed={!!subtitlesUrl} disabled={subtitlesBusy} onclick={subtitles}>{subtitlesUrl ? 'Quitar subtítulos' : 'Subtítulos'}</button>
         {/if}
         <button class="icon-btn" onclick={() => (episodesOpen = true)} aria-label="Episodios" title="Episodios"><Icon name="list" /></button>
         <button class="btn text light" onclick={() => (serversOpen = true)}>Servidores</button>

@@ -252,6 +252,21 @@
     {#await import('../components/SecurityPanel.svelte') then m}<m.default />{/await}
   {/if}
 
+  {#if !session.user.guest && features.flags.learning !== false}
+    <h2 class="h">Aprender idiomas</h2>
+    <section class="card">
+      <label class="toggle"><span class="grow">Modo aprendizaje<br /><span class="small muted">Apagado no cambia nada. Encendido, una pulsación larga (o clic derecho) en una palabra de una novela la traduce y la guarda para repasar.</span></span>
+        <input type="checkbox" bind:checked={settings.learning.enabled} onchange={() => saveSettings()} /></label>
+      {#if settings.learning.enabled}
+        <label class="toggle"><span class="grow">Traducir a</span>
+          <select class="field" style="width:auto" bind:value={settings.learning.target} onchange={() => saveSettings()}>
+            <option value="es">Español</option><option value="en">Inglés</option><option value="fr">Francés</option><option value="de">Alemán</option><option value="it">Italiano</option><option value="pt">Portugués</option>
+          </select></label>
+        <a class="btn tonal" href="/repaso">Ir al repaso</a>
+      {/if}
+    </section>
+  {/if}
+
   {#if !session.user.guest && features.flags.themes !== false}
     <h2 class="h">Temas</h2>
     {#await import('../components/ThemesPanel.svelte') then m}<m.default />{/await}

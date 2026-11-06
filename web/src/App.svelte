@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { route, define, startRouter } from './lib/router.svelte.js';
-  import { session, toast, sources, loadSession, resetUserState, updates, features, notify } from './lib/store.svelte.js';
+  import { session, toast, sources, loadSession, resetUserState, updates, features, notify, settings } from './lib/store.svelte.js';
   import { api, setUnauthorizedHandler, setSuspendedHandler } from './lib/api.js';
   import Icon from './components/Icon.svelte';
   import Login from './pages/Login.svelte';
@@ -26,6 +26,7 @@
   const Profile = () => import('./pages/Profile.svelte');
   const Friends = () => import('./pages/Friends.svelte');
   const ForumPage = () => import('./pages/Forum.svelte');
+  const Review = () => import('./pages/Review.svelte');
 
   define('home', '/');
   define('anime', '/anime');
@@ -43,6 +44,7 @@
   define('profile', '/u/:name');
   define('friends', '/amigos');
   define('forum', '/foro');
+  define('review', '/repaso');
   define('forumThread', '/foro/:id');
   startRouter();
 
@@ -127,7 +129,7 @@
       default: return Home;
     }
   });
-  const lazyPage = $derived(route.name === 'anime' || route.name === 'manga' || route.name === 'novels' ? Explore : route.name === 'calendar' ? Calendar : route.name === 'room' ? Room : route.name === 'profile' ? Profile : route.name === 'friends' ? Friends : route.name === 'forum' || route.name === 'forumThread' ? ForumPage : null);
+  const lazyPage = $derived(route.name === 'anime' || route.name === 'manga' || route.name === 'novels' ? Explore : route.name === 'calendar' ? Calendar : route.name === 'room' ? Room : route.name === 'profile' ? Profile : route.name === 'friends' ? Friends : route.name === 'forum' || route.name === 'forumThread' ? ForumPage : route.name === 'review' ? Review : null);
 
   async function logout() {
     menu = false;
@@ -231,6 +233,7 @@
               {#if !session.user.guest}
                 <a role="menuitem" href="/u/{encodeURIComponent(session.user.name)}" onclick={() => (menu = false)}><Icon name="library" size={18} /> Mi perfil</a>
                 <a role="menuitem" href="/amigos" onclick={() => (menu = false)}><Icon name="explore" size={18} /> Amigos</a>
+                {#if settings.learning?.enabled && features.flags.learning !== false}<a role="menuitem" href="/repaso" onclick={() => (menu = false)}><Icon name="book" size={18} /> Repaso</a>{/if}
                 {#if features.flags.forum !== false}<a role="menuitem" href="/foro" onclick={() => (menu = false)}><Icon name="list" size={18} /> Foro</a>{/if}
               {/if}
               <a role="menuitem" href="/ajustes" onclick={() => (menu = false)}><Icon name="settings" size={18} /> Ajustes</a>

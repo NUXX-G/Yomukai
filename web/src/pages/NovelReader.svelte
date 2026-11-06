@@ -9,6 +9,7 @@
   import { track, markThrough, flush, progressMap } from '../lib/progress.js';
   import { clock } from '../lib/format.js';
   import Icon from '../components/Icon.svelte';
+  import WordSheet from '../components/WordSheet.svelte';
   import Sheet from '../components/Sheet.svelte';
   import SpeedControl from '../components/SpeedControl.svelte';
   import { SpeechReader, speechVoices, loadVoices, voiceSettings, setVoice } from '../lib/speech.svelte.js';
@@ -175,6 +176,40 @@
     } catch { /* older browsers: the page controls still work */ }
   }
 
+  // ---------- Learning mode: long press (or right click) on a word ----------
+  let wordPick = $state(null);
+  let pressTimer;
+  let pressAt = null;
+  function wordAt(x, y) {
+    const range = document.caretRangeFromPoint?.(x, y) || (() => { const p = document.caretPositionFromPoint?.(x, y); if (!p) return null; const r = document.createRange(); r.setStart(p.offsetNode, p.offset); return r; })();
+    const node = range?.startContainer;
+    if (!node || node.nodeType !== Node.TEXT_NODE) return null;
+    const text = node.textContent;
+    let a = range.startOffset;
+    let b = a;
+    const letter = /[\p{L}\p{N}'’-]/u;
+    while (a > 0 && letter.test(text[a - 1])) a--;
+    while (b < text.length && letter.test(text[b])) b++;
+    const word = text.slice(a, b).replace(/^['’-]+|['’-]+$/g, '');
+    if (!word || !/\p{L}/u.test(word)) return null;
+    const para = node.parentElement?.closest('p')?.textContent || text;
+    const sentence = para.split(/(?<=[.!?…])\s+/).find((x) => x.toLowerCase().includes(word.toLowerCase())) || para;
+    return { word: word.toLowerCase(), sentence: sentence.trim().slice(0, 500), lang: speechLang, source: item?.title || '' };
+  }
+  function pressDown(e) {
+    if (!settings.learning?.enabled || e.button > 0) return;
+    pressAt = { x: e.clientX, y: e.clientY };
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => { const w = wordAt(pressAt.x, pressAt.y); if (w) wordPick = w; }, 500);
+  }
+  function pressMove(e) { if (pressAt && Math.hypot(e.clientX - pressAt.x, e.clientY - pressAt.y) > 10) clearTimeout(pressTimer); }
+  function pressEnd() { clearTimeout(pressTimer); pressAt = null; }
+  function rightClick(e) {
+    if (!settings.learning?.enabled) return;
+    const w = wordAt(e.clientX, e.clientY);
+    if (w) { e.preventDefault(); wordPick = w; }
+  }
+
   function toggleSpeech() {
     if (!speaking) {
       speechPaused = false;
@@ -332,7 +367,7 @@
   {:else if !loaded[0]?.paragraphs.length}
     <div class="center"><div class="spinner"></div></div>
   {:else}
-    <article bind:this={article} style:font-size="{settings.novel.size}px" style:line-height={settings.novel.line} style:max-width="{WIDTHS[settings.novel.width] || 720}px" class:serif={settings.novel.font === 'serif'} class:justify={settings.novel.justify !== false}>
+    <article bind:this={article} onpointerdown={pressDown} onpointermove={pressMove} onpointerup={pressEnd} onpointercancel={pressEnd} oncontextmenu={rightClick} style:font-size="{settings.novel.size}px" style:line-height={settings.novel.line} style:max-width="{WIDTHS[settings.novel.width] || 720}px" class:serif={settings.novel.font === 'serif'} class:justify={settings.novel.justify !== false}>
       {#each loaded as l, c (l.chapter.id)}
         <section data-c={c}>
           <h1>{l.chapter.label}{l.chapter.name ? ' · ' + l.chapter.name : ''}</h1>
@@ -495,6 +530,8 @@
     <label class="toggle"><span class="grow">Seguir leyendo en voz alta el siguiente capítulo</span><input type="checkbox" checked={!!settings.novel.speechNext} onchange={(e) => set('speechNext', e.target.checked)} /></label>
   {/if}
 </Sheet>
+
+<WordSheet bind:pick={wordPick} />
 
 <style>
   .novel { min-height: 100vh; transition: background 0.3s, color 0.3s; }

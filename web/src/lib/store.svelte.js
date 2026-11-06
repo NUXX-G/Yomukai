@@ -10,6 +10,8 @@ const DEFAULT_SETTINGS = {
   reader: { mode: 'vertical', fit: 'width', infinite: true },
   novel: { size: 18, line: 1.7, theme: 'dark', font: 'serif' },
   player: { autoNext: true, speed: 1, skipFiller: false },
+  /** Language learning: off unless the user turns it on; with it off, nothing changes anywhere. */
+  learning: { enabled: false, target: 'es' },
   searchHistory: []
 };
 
@@ -89,6 +91,7 @@ export async function loadUserData() {
     reader: { ...DEFAULT_SETTINGS.reader, ...(s.reader || {}) },
     novel: { ...DEFAULT_SETTINGS.novel, ...(s.novel || {}) },
     player: { ...DEFAULT_SETTINGS.player, ...(s.player || {}) },
+    learning: { ...DEFAULT_SETTINGS.learning, ...(s.learning || {}) },
     exclusions: { global: [], perSource: {}, ...(s.exclusions || {}) }
   });
   library.items = lib;
