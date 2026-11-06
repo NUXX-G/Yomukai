@@ -272,12 +272,17 @@ fun Route.accountUserRoutes(s: Services) {
     }
     post("/2fa/setup") {
         require(!call.user.isGuest) { "Los invitados no pueden activar la verificación en dos pasos" }
+        require(s.auth.passwordMatches(call.user.id, call.jsonBody(1_024).text("password", 300))) { "Contraseña incorrecta" }
         val (secret, uri) = s.auth.startTotp(call.user)
         call.respond(mapOf("secret" to secret, "uri" to uri))
     }
     post("/2fa/enable") {
         val codes = s.auth.enableTotp(call.user, call.jsonBody(1_024).text("code", 20))
             ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Código incorrecto. Revisa la hora del móvil y prueba otra vez"))
+        // Any session someone else might have opened before goes away now that a code is needed.
+        s.db.deleteOtherSessions(call.user.id, call.request.cookies[Auth.COOKIE].orEmpty())
+        s.auth.forget(call.user.id)
+        s.audit.record(call.user, "2FA activada", target = call.user.name)
         call.respond(mapOf("recoveryCodes" to codes))
     }
     post("/2fa/disable") {
@@ -285,6 +290,7 @@ fun Route.accountUserRoutes(s: Services) {
         require(s.auth.passwordMatches(call.user.id, body.text("password", 300))) { "Contraseña incorrecta" }
         require(s.auth.checkCode(call.user.id, body.text("code", 40))) { "Código incorrecto" }
         s.auth.disableTotp(call.user.id)
+        s.audit.record(call.user, "2FA desactivada", target = call.user.name)
         call.respond(mapOf("ok" to true))
     }
 }

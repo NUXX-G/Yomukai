@@ -9,6 +9,12 @@
   let workers = $state(null);
   let flags = $state([]);
   let newWorker = $state('');
+  let invites = $state([]);
+  let audit = $state([]);
+  let inviteDays = $state(7);
+  let inviteNote = $state('');
+  let inviteLink = $state('');
+  let showAudit = $state(false);
   let createdToken = $state(null);
 
   const mb = (b) => (b == null ? '—' : `${Math.round(b / 1048576)} MB`);
@@ -36,7 +42,24 @@
     status = st;
     workers = w;
     flags = f;
+    invites = await api.adminInvites().catch(() => []);
+    if (showAudit) audit = await api.adminAudit().catch(() => []);
   }
+  async function invite(e) {
+    e.preventDefault();
+    try {
+      const r = await api.adminCreateInvite(Number(inviteDays), inviteNote.trim());
+      inviteLink = location.origin + r.path;
+      inviteNote = '';
+      try { await navigator.clipboard.writeText(inviteLink); notify('Enlace copiado'); } catch {}
+      load();
+    } catch (err) { notify(err.message); }
+  }
+  async function toggleAudit() {
+    showAudit = !showAudit;
+    if (showAudit) audit = await api.adminAudit().catch(() => []);
+  }
+  const inviteState = (i) => (i.usedAt ? `usada por ${i.usedBy || '—'}` : i.revoked ? 'anulada' : i.expiresAt < Date.now() ? 'caducada' : `caduca el ${new Date(i.expiresAt).toLocaleDateString('es')}`);
   onMount(load);
 
   async function create(e) {
@@ -147,6 +170,39 @@
 </section>
 
 <section class="card">
+  <h3 class="sub">Invitaciones</h3>
+  <p class="small muted" style="margin-top:0">Un enlace para que un amigo cree su cuenta: sirve una sola vez y caduca.</p>
+  <form class="add" onsubmit={invite}>
+    <input class="field" placeholder="Para quién (opcional)" bind:value={inviteNote} maxlength="100" />
+    <select class="field days" bind:value={inviteDays} aria-label="Caducidad">
+      <option value={1}>1 día</option><option value={3}>3 días</option><option value={7}>7 días</option><option value={30}>30 días</option>
+    </select>
+    <button class="btn primary"><Icon name="share" size={18} /> Crear enlace</button>
+  </form>
+  {#if inviteLink}<div class="created"><code class="token">{inviteLink}</code><div class="small">Pásaselo; solo se muestra ahora.</div></div>{/if}
+  {#each invites.slice(0, 10) as i (i.id)}
+    <div class="list-item">
+      <span class="grow"><span class="block">{i.note || `Invitación ${i.id}`}</span><span class="small muted block">{inviteState(i)}</span></span>
+      {#if !i.usedAt && !i.revoked && i.expiresAt > Date.now()}
+        <button class="icon-btn" onclick={() => act(() => api.adminRevokeInvite(i.id), 'Invitación anulada')} aria-label="Anular"><Icon name="close" size={20} /></button>
+      {/if}
+    </div>
+  {/each}
+</section>
+
+<section class="card">
+  <h3 class="sub">Registro de actividad de administración</h3>
+  <button class="btn tonal" onclick={toggleAudit}>{showAudit ? 'Ocultar' : 'Ver'}</button>
+  {#if showAudit}
+    {#each audit as a (a.id)}
+      <div class="audit small"><span class="muted">{new Date(a.at).toLocaleString('es')}</span> <b>{a.actor}</b> {a.action} {a.detail}<span class="muted"> · {a.ip}</span></div>
+    {:else}
+      <p class="small muted">Sin actividad todavía.</p>
+    {/each}
+  {/if}
+</section>
+
+<section class="card">
   <h3 class="sub">Funcionalidades</h3>
   <p class="small muted" style="margin-top:0">Apaga cualquiera si da problemas: desaparece en la web y en la app.</p>
   {#each flags as f (f.name)}
@@ -176,4 +232,6 @@
   .toggle { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--outline-variant); }
   .toggle:last-child { border-bottom: 0; }
   .tag { margin-left: 6px; }
+  .days { flex: 0 0 auto; min-width: 0; width: auto; }
+  .audit { padding: 6px 0; border-bottom: 1px solid var(--outline-variant); overflow-wrap: anywhere; }
 </style>

@@ -21,17 +21,17 @@ say "Instalando Yomukai en $DIR"
 
 curl -fsSL "$RAW/docker-compose.yml" -o docker-compose.yml
 
-# Settings are kept between updates; the admin password is generated only once.
+# Settings are kept between updates. There is no admin password here: the first visit creates the admin with a
+# one-time setup code (printed below), so nobody can log in with a default password.
 if [ ! -f .env ]; then
-  # head closes the pipe early on purpose: pipefail must not count that as a failure.
-  RAW_PASSWORD="$(set +o pipefail; LC_ALL=C tr -dc 'a-km-z2-9' </dev/urandom | head -c 16 || true)"
-  PASSWORD="$(printf '%s' "$RAW_PASSWORD" | sed 's/.\{4\}/&-/g; s/-$//')"
   cat > .env <<EOF
 # Yomukai: change these and run "docker compose up -d" again.
 PORT=${PORT:-8080}
+# Optional: with these two set, the admin is created (or its password reset) at start-up instead of by the setup page.
 ADMIN_USER=admin
-ADMIN_PASSWORD=$PASSWORD
-GUESTS_ENABLED=${GUESTS_ENABLED:-true}
+ADMIN_PASSWORD=
+# Guests (no account, limited, deleted after a day): off by default.
+GUESTS_ENABLED=${GUESTS_ENABLED:-false}
 GUEST_DAYS=1
 # Behind nginx, Caddy or Traefik on this machine: true.
 TRUST_PROXY=false
@@ -65,9 +65,21 @@ say ""
 PORT_IN_USE="${PORT_IN_USE:-8080}"
 case "$PORT_IN_USE" in *:*) ADDRESS="$PORT_IN_USE" ;; *) ADDRESS="localhost:$PORT_IN_USE" ;; esac
 say "Yomukai está en marcha: http://$ADDRESS"
-if [ "${NEW:-0}" = 1 ]; then
-  say "Usuario: admin"
-  say "Contraseña: $(grep -E '^ADMIN_PASSWORD=' .env | cut -d= -f2)"
-  say "(guardada en $DIR/.env)"
+# First run: wait for the setup code and print the page that creates the admin.
+TOKEN=""
+for _ in $(seq 60); do
+  TOKEN="$(docker compose exec -T yomukai cat /data/setup-token 2>/dev/null || true)"
+  if [ -n "$TOKEN" ]; then break; fi
+  if docker compose logs yomukai 2>/dev/null | grep -q "escuchando"; then
+    sleep 3
+    TOKEN="$(docker compose exec -T yomukai cat /data/setup-token 2>/dev/null || true)"
+    break
+  fi
+  sleep 2
+done
+if [ -n "$TOKEN" ]; then
+  say "Abre esta dirección para crear tu cuenta de administrador (el código sirve una sola vez):"
+  say "  http://$ADDRESS/configurar?token=$TOKEN"
+  say "(si usas un dominio con HTTPS, cambia http://$ADDRESS por él)"
 fi
 say "Actualizar: vuelve a ejecutar esta misma línea. Parar: cd $DIR && docker compose down"

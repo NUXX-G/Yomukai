@@ -218,6 +218,9 @@ class Auth(private val db: Database, private val config: Config) {
 
     private class Challenge(val userId: Long, val expires: Long, var attempts: Int, val device: String, val ip: String)
     private val challenges = ConcurrentHashMap<String, Challenge>()
+
+    /** Wrong 2FA codes per account, whatever the challenge: 5 in a row lock the account's second step, longer each time. */
+    val codeThrottle = LoginThrottle()
     val totpBox = SecretBox(config.secret, "totp")
 
     suspend fun login(name: String, password: String, device: String = "", ip: String = ""): LoginResult {
@@ -227,6 +230,9 @@ class Auth(private val db: Database, private val config: Config) {
             val now = System.currentTimeMillis()
             challenges.entries.removeIf { it.value.expires < now }
             val challenge = Passwords.token()
+            // At most a few open challenges per account: asking for new ones does not multiply the guesses.
+            challenges.entries.filter { it.value.userId == user.id }.sortedBy { it.value.expires }.dropLast(MAX_OPEN_CHALLENGES - 1)
+                .forEach { challenges.remove(it.key) }
             challenges[challenge] = Challenge(user.id, now + CHALLENGE_MS, 0, device, ip)
             return LoginResult.NeedsCode(challenge)
         }
@@ -242,7 +248,11 @@ class Auth(private val db: Database, private val config: Config) {
             challenges.remove(challenge)
             return null
         }
-        if (!checkCode(c.userId, code, now)) return null
+        val keys = listOf("2fa:" + c.userId)
+        if (!codeThrottle.begin(keys, now)) return null
+        val ok = checkCode(c.userId, code, now)
+        codeThrottle.finish(keys, success = ok, now = now)
+        if (!ok) return null
         if (challenges.remove(challenge) == null) return null
         val user = db.userById(c.userId) ?: return null
         return user to newSession(user, c.device, c.ip)
@@ -421,6 +431,7 @@ class Auth(private val db: Database, private val config: Config) {
         private const val SESSION_CACHE_MS = 60_000L
         private const val CHALLENGE_MS = 5 * 60_000L
         private const val MAX_CODE_ATTEMPTS = 5
+        private const val MAX_OPEN_CHALLENGES = 3
         private const val ABUSE_WINDOW_MS = 10 * 60_000L
         private const val ADDRESS_BLOCK_MS = 60 * 60_000L
         private const val GUEST_CREATION_WINDOW_MS = 60 * 60_000L

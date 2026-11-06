@@ -26,14 +26,14 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 - [x] 1.5 `/api/features` (flags + worker online/GPU + tipos disponibles). Web: panel de admin (`AdminPanel.svelte`, trozo aparte: estado, workers con crear/pausar/revocar/copias/probar, flags) y «Servidor de casa» en Ajustes. App: lo mismo en Ajustes › Sincronizar (`ServerSync.features`). Flags en `Features.kt` (`FeatureCatalog`): cada fase añade los suyos
 - [x] 1.6 `Bandwidth.kt`: cuenta /api/stream por mes (tabla bandwidth), `BANDWIDTH_CAP_GB`, avisos 80/100 % por `Notifier` (Discord/ntfy, sin repetir), corte a no-admins al 100 % (flag `bandwidth_cap`). Aviso también si todos los workers se apagan
 
-### Fase 2 — Seguridad
-- [ ] 2.1 Cabeceras (CSP, HSTS, etc.) y cookies seguras
-- [ ] 2.2 Rate limiting por usuario e IP; bloqueo progresivo de login
-- [ ] 2.3 Auditoría de autorización con tests (usuarios, invitados, workers)
-- [ ] 2.4 Sesiones visibles y cerrables; 2FA TOTP con códigos de recuperación. Guardar las sesiones como hash (SHA-256) para que ni la base ni las copias que se lleva un worker con `can_backup` contengan tokens usables
-- [ ] 2.5 Invitaciones por enlace (caducidad, un solo uso)
-- [ ] 2.6 Registro de auditoría de admin/moderación
-- [ ] 2.7 Asistente de primera configuración (sin contraseña de admin por defecto)
+### Fase 2 — Seguridad ✅
+- [x] 2.1 `Security.kt`: CSP estricta (script-src self, sin inline scripts; blob: para audio y worker de hls.js), HSTS solo por HTTPS, X-Frame-Options DENY, Permissions-Policy, COOP, nosniff, no-referrer. Cookie HttpOnly + SameSite=Lax + Secure por HTTPS. Probado en navegador: lector, reproductor HLS, ajustes y asistente sin una sola violación de CSP
+- [x] 2.2 `addressRateLimit` por conexión (ruta normalizada): `AUTH_RATE` 30/min en escrituras de /auth, `IP_RATE` 1200/min en la API; por usuario el limitador existente. Bloqueo de login progresivo (15 min, 30, 1 h… hasta 24 h). Fallos de código 2FA contados por cuenta a través de todos los retos (máx. 3 retos abiertos)
+- [x] 2.3 Tests HTTP (`SecurityTest`, `WorkerApiTest`): sin sesión → 401 en toda la API; usuario no ve ni toca datos/sesiones de otro; usuarios/invitados → 403 en /api/admin; invitados sin 2FA ni exportar; solo token de worker válido en /worker, revocación inmediata, copias solo con permiso. Regla para lo nuevo: lo social se monta bajo un plugin que rechace invitados (Fase 6)
+- [x] 2.4 Migración 4: `user_sessions` con SHA-256 del token (las sesiones existentes se migran sin cerrarse), dispositivo, IP y última actividad; listar/cerrar/cerrar las demás. 2FA TOTP (RFC 6238, secreto cifrado con `SecretBox` AES-GCM derivado de SECRET), activar pide contraseña y cierra las demás sesiones, 10 códigos de recuperación de un uso, desactivar pide contraseña + código. Web: `SecurityPanel.svelte`; app: el login de Sincronizar pide el código (la gestión de sesiones y 2FA se hace en la web: decisión para no duplicar pantallas)
+- [x] 2.5 `InviteStore`: enlace `/invitacion/TOKEN` de un solo uso (transacción) con caducidad 1-30 días; admin crea/lista/anula; alta manual intacta
+- [x] 2.6 `AuditLog` + plugin `auditAdminActions`: toda petición no-GET bajo /api/admin queda registrada (quién, qué, detalle, IP, resultado), más 2FA, invitaciones usadas y configuración inicial. Se guarda un año. Visible en el panel de admin
+- [x] 2.7 Sin contraseña por defecto: sin `ADMIN_PASSWORD` el servidor genera un código de un uso (`data/setup-token`, permisos 600, y en el log) y la web muestra «Primera configuración» en `/configurar?token=…`. `install.sh` ya no genera contraseña e imprime ese enlace. Invitados desactivados por defecto (`GUESTS_ENABLED=false`; el VPS actual conserva su .env)
 
 ### Fase 3 — Resistencia a cambios en las webs
 - [ ] 3.1 Canario por cron en el VPS (Discord + ntfy)
@@ -92,6 +92,7 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 | Antes de Fase 0 (2026-11-05, local Windows, JVM SerialGC) | 185 MB | 257 MB | 4,0 s de CPU en 300 peticiones + 4 novedades | 5 ms local · 575 ms novedades reales | 84 KB (JS 74,9 + CSS 9,2) + hls.js 180,5 KB aparte | 34,7 MB (v1.13.0; ~23 MB son Tor) |
 | Después de Fase 0 (mismo equipo) | 181 MB | 260 MB | 5,0 s | 5 ms local · 536 ms novedades | 84 KB (sin cambios) + hls.js 180,5 KB | sin cambios de código de la app (solo formato) |
 | Después de Fase 1 (Docker local, límite 1 GB / 1 CPU) | 107 MB | 165 MB | 21 % de 1 CPU en el pico | 8 ms local · 925 ms novedades | 85 KB + AdminPanel 3,9 KB (solo admins) | ~igual (+1 pantalla de texto) |
+| Después de Fase 2 (local) | sin cambio apreciable (las comprobaciones son hashes y buckets en memoria) | — | — | 5-8 ms local | 77 KB + paneles de admin (4,4 KB) y seguridad (2,3 KB) bajo demanda | ~igual |
 
 Cómo medir: `./gradlew :server:installDist`, `cd web && npm run build`, `bash scripts/bench.sh` (o `scripts/bench.sh https://tu-vps PID` en el VPS con `BENCH_USER`/`BENCH_PASSWORD`). En el VPS real aún no se ha medido (no tengo acceso): pendiente de que el usuario lance el script allí.
 

@@ -24,8 +24,8 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     val tor: StateFlow<com.nelson.yomukai.data.network.TorState> = container.tor.state
     val sync: StateFlow<com.nelson.yomukai.data.sync.SyncState> = container.serverSync.state
 
-    suspend fun connectServer(server: String, user: String, password: String): String? =
-        container.serverSync.connect(server, user, password)
+    suspend fun connectServer(server: String, user: String, password: String, code: String?): String? =
+        container.serverSync.connect(server, user, password, code)
 
     private val _features = MutableStateFlow<com.nelson.yomukai.data.sync.ServerFeatures?>(null)
 

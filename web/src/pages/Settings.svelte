@@ -246,6 +246,11 @@
     <label class="toggle"><span class="grow">Siguiente episodio automático</span><input type="checkbox" bind:checked={settings.player.autoNext} onchange={() => saveSettings()} /></label>
   </section>
 
+  {#if !session.user.guest}
+    <h2 class="h">Seguridad</h2>
+    {#await import('../components/SecurityPanel.svelte') then m}<m.default />{/await}
+  {/if}
+
   {#if session.user.admin}
     <h2 class="h">Administración</h2>
     <section class="card">

@@ -1,6 +1,7 @@
 package com.nelson.yomukai.server
 
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.decodeURLPart
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.createApplicationPlugin
 import io.ktor.server.request.path
@@ -72,7 +73,7 @@ class KeyedRateLimiter(private val maxKeys: Int = 50_000) {
 fun addressRateLimit(config: Config, limiter: KeyedRateLimiter, addressOf: (ApplicationCall) -> String) =
     createApplicationPlugin("AddressRateLimit") {
         onCall { call ->
-            val path = call.request.path()
+            val path = normalizedPath(call.request.path())
             val (bucket, perMinute) = when {
                 path.startsWith("/auth/") && call.request.local.method.value != "GET" -> "auth" to config.authRatePerMinute
                 path.startsWith("/auth/") || path.startsWith("/api/") -> "api" to config.ipRatePerMinute
@@ -107,6 +108,10 @@ class SecretBox(serverSecret: ByteArray, purpose: String) {
         String(cipher.doFinal(bytes, 12, bytes.size - 12))
     }.getOrNull()
 }
+
+/** Decoded, with repeated slashes collapsed and lower-cased: "//AUTH/%6Cogin" is counted like "/auth/login". */
+fun normalizedPath(path: String): String =
+    runCatching { path.decodeURLPart() }.getOrDefault(path).replace(Regex("/{2,}"), "/").lowercase()
 
 fun sha256Hex(text: String): String = MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }
 

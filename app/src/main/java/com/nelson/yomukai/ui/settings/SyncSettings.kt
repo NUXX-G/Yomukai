@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ServerSyncItem(
     state: SyncState,
-    onConnect: suspend (server: String, user: String, password: String) -> String?,
+    onConnect: suspend (server: String, user: String, password: String, code: String?) -> String?,
     onSyncNow: () -> Unit,
     onDisconnect: () -> Unit,
     features: com.nelson.yomukai.data.sync.ServerFeatures? = null
@@ -88,7 +88,7 @@ fun ServerSyncItem(
 }
 
 @Composable
-private fun ConnectDialog(onConnect: suspend (String, String, String) -> String?, onDismiss: () -> Unit) {
+private fun ConnectDialog(onConnect: suspend (String, String, String, String?) -> String?, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
     var afterPermission by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -101,6 +101,10 @@ private fun ConnectDialog(onConnect: suspend (String, String, String) -> String?
     var password by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+
+    /** The account has 2FA: the server asked for the code of the authenticator app. */
+    var needsCode by remember { mutableStateOf(false) }
+    var code by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
@@ -125,6 +129,14 @@ private fun ConnectDialog(onConnect: suspend (String, String, String) -> String?
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done)
                 )
+                if (needsCode) {
+                    OutlinedTextField(
+                        value = code, onValueChange = { code = it.take(20) }, singleLine = true,
+                        label = { Text("Código de verificación") },
+                        supportingText = { Text("De tu app de autenticación, o un código de recuperación") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done)
+                    )
+                }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                 if (busy) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     CircularProgressIndicator(strokeWidth = 2.dp)
@@ -134,15 +146,19 @@ private fun ConnectDialog(onConnect: suspend (String, String, String) -> String?
         },
         confirmButton = {
             TextButton(
-                enabled = !busy && server.isNotBlank() && user.isNotBlank() && password.isNotEmpty(),
+                enabled = !busy && server.isNotBlank() && user.isNotBlank() && password.isNotEmpty() && (!needsCode || code.isNotBlank()),
                 onClick = {
                     busy = true
                     error = null
                     val go = {
                         scope.launch {
-                            val problem = onConnect(server, user, password)
+                            val problem = onConnect(server, user, password, code.takeIf { needsCode && it.isNotBlank() })
                             busy = false
-                            if (problem == null) onDismiss()
+                            if (problem == com.nelson.yomukai.data.sync.ServerSync.TWO_FACTOR_NEEDED) {
+                                needsCode = true
+                                code = ""
+                                error = null
+                            } else if (problem == null) onDismiss()
                             else error = if (needsLocalNetwork(context, server)) problem + ". Permite a Yomukai ver los dispositivos de tu red local en los ajustes de Android." else problem
                         }
                         Unit

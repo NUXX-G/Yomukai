@@ -1,7 +1,7 @@
 // What the whole app shares: who is logged in, their settings (kept on the server) and the library.
 import { api, clearMemo } from './api.js';
 
-export const session = $state({ user: null, ready: false, offline: false, suspended: '', guestsEnabled: true, guestDays: 1 });
+export const session = $state({ user: null, ready: false, offline: false, suspended: '', guestsEnabled: false, guestDays: 1, setupNeeded: false });
 
 const DEFAULT_SETTINGS = {
   enabledSources: null,
@@ -66,8 +66,9 @@ export async function loadSession(attempt = 0) {
       try {
         const res = await fetch('/auth/me', { credentials: 'same-origin' });
         const data = await res.json();
-        session.guestsEnabled = data.guestsEnabled ?? true;
+        session.guestsEnabled = data.guestsEnabled ?? false;
         session.guestDays = data.guestDays ?? 7;
+        session.setupNeeded = data.setupNeeded === true;
       } catch {}
     }
   }

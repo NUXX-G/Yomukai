@@ -93,25 +93,44 @@ class ServerSync(context: Context, private val db: YomukaiDatabase, private val 
      * Signs in and, if that works, sends everything this phone has (the first sync merges both sides:
      * nothing is deleted). Returns an error message for the user, or null.
      */
-    suspend fun connect(serverInput: String, user: String, password: String): String? = withContext(Dispatchers.IO) {
+
+    /** The challenge of a login that still needs its 2FA code, with the server it belongs to. */
+    @Volatile private var pendingTwoFactor: Pair<String, String>? = null
+
+    suspend fun connect(serverInput: String, user: String, password: String, code: String? = null): String? = withContext(Dispatchers.IO) {
         val server = normalizeServer(serverInput) ?: return@withContext "Esa dirección no es válida. Ejemplo: https://yomukai.tudominio.com"
         if (!server.startsWith("https://") && !allowsPlainHttp(server)) {
             return@withContext "El servidor tiene que usar HTTPS: la contraseña viajaría sin cifrar."
         }
-        val body = JsonObject().apply { addProperty("name", user.trim()); addProperty("password", password) }
-        val request = Request.Builder().url("$server/auth/login").post(body.toString().toRequestBody(json)).build()
+        val pending = pendingTwoFactor?.takeIf { it.first == server && !code.isNullOrBlank() }
+        val request = if (pending != null) {
+            val body = JsonObject().apply { addProperty("challenge", pending.second); addProperty("code", code!!.trim()) }
+            Request.Builder().url("$server/auth/2fa").post(body.toString().toRequestBody(json)).build()
+        } else {
+            val body = JsonObject().apply { addProperty("name", user.trim()); addProperty("password", password) }
+            Request.Builder().url("$server/auth/login").post(body.toString().toRequestBody(json)).build()
+        }
         val result = runCatching {
             client.newCall(request).execute().use { r ->
                 when {
+                    r.code == 401 && pending != null -> Result.failure(IOException("Código incorrecto o caducado"))
                     r.code == 401 -> Result.failure(IOException("Usuario o contraseña incorrectos"))
+                    r.code == 429 -> Result.failure(IOException(errorOf(r.body?.string()) ?: "Demasiados intentos; espera un rato"))
                     !r.isSuccessful -> Result.failure(IOException(errorOf(r.body?.string()) ?: "El servidor respondió ${r.code}"))
                     else -> {
                         val session = r.headers("Set-Cookie").firstNotNullOfOrNull { c ->
                             c.substringBefore(';').takeIf { it.startsWith("$COOKIE=") }?.substringAfter('=')
                         }
                         val info = runCatching { JsonParser.parseString(r.body?.string()).asJsonObject }.getOrNull()
+                        val challenge = info?.takeIf { it.bool("twoFactor") }?.str("challenge")
                         when {
+                            !challenge.isNullOrBlank() -> {
+                                pendingTwoFactor = server to challenge
+                                Result.failure(IOException(TWO_FACTOR_NEEDED))
+                            }
                             session.isNullOrBlank() -> Result.failure(IOException("Eso no parece un servidor de Yomukai"))
+                            (info?.getAsJsonObject("user") ?: info)?.get("guest")?.asBoolean == true ->
+                                Result.failure(IOException("Las cuentas de invitado no se pueden sincronizar"))
                             info?.get("guest")?.asBoolean == true -> Result.failure(IOException("Las cuentas de invitado no se pueden sincronizar"))
                             else -> Result.success(session)
                         }
@@ -120,6 +139,7 @@ class ServerSync(context: Context, private val db: YomukaiDatabase, private val 
             }
         }.getOrElse { Result.failure(IOException("No se pudo conectar con el servidor: ${it.message}")) }
         val session = result.getOrElse { return@withContext it.message }
+        pendingTwoFactor = null
         prefs.edit()
             .putString("server", server).putString("user", user.trim()).putString("token", session)
             .putLong("rev", 0L).remove("error").commit()
@@ -466,6 +486,9 @@ class ServerSync(context: Context, private val db: YomukaiDatabase, private val 
             val available = root.getAsJsonObject("available")?.entrySet()?.filter { (_, v) -> v.takeIf { it.isJsonPrimitive }?.asBoolean == true }?.map { it.key }?.toSet().orEmpty()
             ServerFeatures(flags, worker.bool("online"), worker.bool("gpu"), available)
         }.getOrDefault(ServerFeatures())
+
+        /** [connect] answers this when the account has 2FA: ask for the code and call again with it. */
+        const val TWO_FACTOR_NEEDED = "Escribe el código de verificación en dos pasos"
 
         fun normalizeServer(input: String): String? {
             val trimmed = input.trim().trimEnd('/')

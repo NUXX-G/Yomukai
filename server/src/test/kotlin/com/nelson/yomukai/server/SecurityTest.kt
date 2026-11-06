@@ -183,7 +183,7 @@ class SecurityTest {
         val guest = session()
         assertEquals(HttpStatusCode.OK, guest.post("/auth/guest").status)
         assertEquals(HttpStatusCode.Forbidden, guest.get("/api/admin/users").status)
-        assertEquals(HttpStatusCode.BadRequest, guest.post("/api/2fa/setup").status)
+        assertEquals(HttpStatusCode.BadRequest, guest.post("/api/2fa/setup") { setBody("{}") }.status)
         assertNotEquals(HttpStatusCode.OK, guest.get("/api/export").status)
     }
 
@@ -196,7 +196,8 @@ class SecurityTest {
         admin.post("/api/admin/users") { setBody("""{"name":"ana","password":"ana-password-1"}""") }
         val ana = session().also { it.login("ana", "ana-password-1") }
 
-        val setup = json(ana.post("/api/2fa/setup").bodyAsText())
+        assertEquals(HttpStatusCode.BadRequest, ana.post("/api/2fa/setup") { setBody("""{"password":"mal"}""") }.status)
+        val setup = json(ana.post("/api/2fa/setup") { setBody("""{"password":"ana-password-1"}""") }.bodyAsText())
         val secret = setup.get("secret").asString
         assertEquals(HttpStatusCode.BadRequest, ana.post("/api/2fa/enable") { setBody("""{"code":"000000"}""") }.status)
         val code = Totp.code(Totp.decodeBase32(secret)!!, Totp.step(System.currentTimeMillis()))
@@ -224,6 +225,31 @@ class SecurityTest {
         assertEquals(HttpStatusCode.BadRequest, ana.post("/api/2fa/disable") { setBody("""{"password":"mal","code":"${recovery[2]}"}""") }.status)
         assertEquals(HttpStatusCode.OK, ana.post("/api/2fa/disable") { setBody("""{"password":"ana-password-1","code":"${recovery[2]}"}""") }.status)
         assertEquals(HttpStatusCode.OK, session().login("ana", "ana-password-1").let { r -> assertTrue(r.headers["Set-Cookie"] != null); r.status })
+    }
+
+    @Test
+    fun codeGuessingIsLimitedPerAccountAcrossChallenges() = testApplication {
+        val c = config(mapOf("AUTH_RATE" to "1000"))
+        val s = Services(c)
+        application { yomukai(c, s) }
+        val admin = session().also { it.login("admin", "admin-password-1") }
+        admin.post("/api/admin/users") { setBody("""{"name":"ana","password":"ana-password-1"}""") }
+        val ana = session().also { it.login("ana", "ana-password-1") }
+        val secret = json(ana.post("/api/2fa/setup") { setBody("""{"password":"ana-password-1"}""") }.bodyAsText()).get("secret").asString
+        val code = Totp.code(Totp.decodeBase32(secret)!!, Totp.step(System.currentTimeMillis()))
+        val recovery = json(ana.post("/api/2fa/enable") { setBody("""{"code":"$code"}""") }.bodyAsText()).getAsJsonArray("recoveryCodes").map { it.asString }
+        // New challenges do not give new guesses: after 5 wrong codes even a right one is refused for a while.
+        repeat(3) {
+            val ch = json(session().login("ana", "ana-password-1").bodyAsText()).get("challenge").asString
+            repeat(2) { client.post("/auth/2fa") { setBody("""{"challenge":"$ch","code":"000000"}""") } }
+        }
+        val ch = json(session().login("ana", "ana-password-1").bodyAsText()).get("challenge").asString
+        assertEquals(HttpStatusCode.Unauthorized, client.post("/auth/2fa") { setBody("""{"challenge":"$ch","code":"${recovery[0]}"}""") }.status)
+    }
+
+    @Test
+    fun oddPathsCountAgainstTheSameBudget() {
+        assertEquals("/auth/login", normalizedPath("//AUTH/%6Cogin"))
     }
 
     @Test

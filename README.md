@@ -114,8 +114,9 @@ Opciones en `~/yomukai/.env` (aplícalas con `docker compose up -d`):
 | Variable | Por defecto | Qué hace |
 |---|---|---|
 | `PORT` | `8080` | Puerto en el que escucha |
-| `ADMIN_USER` / `ADMIN_PASSWORD` | `admin` / generada | Cuenta de administrador inicial |
-| `GUESTS_ENABLED` | `true` | Permite entrar como invitado |
+| `ADMIN_USER` / `ADMIN_PASSWORD` | `admin` / vacía | Opcional. Sin contraseña, el primer arranque muestra un enlace `/configurar?token=…` (en el log y en `data/setup-token`) para crear el administrador |
+| `GUESTS_ENABLED` | `false` | Permite entrar como invitado |
+| `AUTH_RATE` / `IP_RATE` | `30` / `1200` | Intentos de login/registro y peticiones a la API por minuto y conexión |
 | `GUEST_DAYS` | `1` | Días hasta borrar a un invitado |
 | `GUEST_RATE` / `GUEST_STREAMS` | `120` / `2` | Peticiones por minuto y vídeos a la vez por invitado |
 | `ABUSE_LIMIT` / `GUEST_ABUSE_LIMIT` | `1500` / `300` | Peticiones a las fuentes en 10 minutos antes de suspender la cuenta |

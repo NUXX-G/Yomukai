@@ -34,7 +34,7 @@ services:
     environment:
       ADMIN_USER: ${ADMIN_USER:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      GUESTS_ENABLED: ${GUESTS_ENABLED:-true}
+      GUESTS_ENABLED: ${GUESTS_ENABLED:-false}
       GUEST_DAYS: ${GUEST_DAYS:-1}
       GUEST_RATE: ${GUEST_RATE:-120}
       GUEST_STREAMS: ${GUEST_STREAMS:-2}
@@ -42,6 +42,8 @@ services:
       GUEST_ABUSE_LIMIT: ${GUEST_ABUSE_LIMIT:-300}
       MAL_CLIENT_ID: ${MAL_CLIENT_ID:-}
       TRUST_PROXY: ${TRUST_PROXY:-false}
+      AUTH_RATE: ${AUTH_RATE:-30}
+      IP_RATE: ${IP_RATE:-1200}
       PUBLIC_URL: ${PUBLIC_URL:-}
       TZ: ${TZ:-Europe/Madrid}
       BACKUP_HOUR: ${BACKUP_HOUR:-4}
