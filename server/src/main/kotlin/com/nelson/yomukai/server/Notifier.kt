@@ -36,8 +36,7 @@ class Notifier(
         if (!enabled || !shouldSend(key, now)) return
         scope.launch {
             discordWebhook?.let { url ->
-                val body = JsonObject().apply { addProperty("content", "**${clip(title, 200)}**\n${clip(message, 1800)}") }
-                post(url, body.toString(), "application/json")
+                post(url, discordBody("**${neutralize(clip(title, 200))}**\n${neutralize(clip(message, 1800))}"), "application/json")
             }
             ntfyUrl?.let { url ->
                 val request = Request.Builder().url(url)
@@ -56,7 +55,7 @@ class Notifier(
     fun public(key: String, message: String, now: Long = System.currentTimeMillis()) {
         val url = discordWebhook ?: return
         if (!shouldSend(key, now)) return
-        scope.launch { post(url, JsonObject().apply { addProperty("content", clip(message, 1800)) }.toString(), "application/json") }
+        scope.launch { post(url, discordBody(neutralize(clip(message, 1800))), "application/json") }
     }
 
     internal fun shouldSend(key: String, now: Long): Boolean {
@@ -76,6 +75,18 @@ class Notifier(
     }
 
     companion object {
+        /** Discord never pings anyone from these messages (no @everyone, roles or users), whatever the text says. */
+        internal fun discordBody(content: String): String = JsonObject().apply {
+            addProperty("content", clip(content, 1900))
+            add("allowed_mentions", JsonObject().apply { add("parse", com.google.gson.JsonArray()) })
+        }.toString()
+
+        private val DISCORD_MARKUP = Regex("""([*_~`|>\[\]\\])""")
+
+        /** User text in a Discord message: mentions broken with a zero-width space, markdown and masked links defused. */
+        internal fun neutralize(text: String): String =
+            text.replace("@", "@​").replace("<", "<​").replace(DISCORD_MARKUP, "\\\\$1")
+
         private fun clip(text: String, max: Int) = if (text.length <= max) text else text.take(max - 1) + "…"
         fun asciiHeader(text: String): String =
             java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD).replace(Regex("[^\\x20-\\x7E]"), "").take(200)

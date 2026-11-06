@@ -211,7 +211,7 @@ class Rooms(
             room.loading.clear()
             room.waitingSince = null
             if (room.hostedBy.add(me.user.id)) events.record(me.user.id, "room_hosted", mapOf("room" to room.row.code))
-            if (previous == null) onOpen(me.user.name, listOf(next.title, next.episode).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { room.row.name })
+            if (previous == null) onOpen(me.user.name, ChatGuard.clean(listOf(next.title, next.episode).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { room.row.name }).take(200))
         }
         room.state = if (room.loading.isNotEmpty() && next.playing) {
             room.resumeAfterWait = true

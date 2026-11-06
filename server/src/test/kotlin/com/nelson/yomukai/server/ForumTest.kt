@@ -93,11 +93,25 @@ class ForumTest {
         assertEquals(HttpStatusCode.BadRequest, ana.postJson("/api/forum/$id/posts", """{"body":"¿hola?"}""").status)
         admin.postJson("/api/admin/mute", """{"name":"beto","minutes":60,"reason":"spam"}""")
         assertEquals(HttpStatusCode.BadRequest, beto.postJson("/api/forum", """{"category":"offtopic","title":"Otro hilo","body":"x"}""").status)
+        // Silenced means silenced: no editing old posts nor reacting either.
+        val betoPost = ana.json("/api/forum/$id?upTo=60")["posts"].asJsonArray.last().asJsonObject["id"].asLong
+        assertEquals(HttpStatusCode.BadRequest, beto.put("/api/forum/posts/$betoPost") { contentType(ContentType.Application.Json); setBody("""{"body":"cambiado"}""") }.status)
+        assertEquals(HttpStatusCode.BadRequest, beto.postJson("/api/forum/posts/$postId/react", """{"emoji":"😂"}""").status)
         delay(300)
         assertTrue(admin.get("/api/admin/audit").bodyAsText().contains("POST /mute"))
 
         // The switch in the admin panel turns the forum off.
         s.features.set("forum", false)
         assertEquals(HttpStatusCode.NotFound, ana.get("/api/forum?c=offtopic").status)
+    }
+
+    @Test
+    fun discordMessagesNeverPingAnyone() {
+        val body = JsonParser.parseString(Notifier.discordBody(Notifier.neutralize("@everyone mira [esto](https://x) **ya** <@123>"))).asJsonObject
+        val content = body["content"].asString
+        assertFalse(content.contains("@everyone"))
+        assertFalse(content.contains("<@123>"))
+        assertTrue(content.contains("""\[esto\]"""))
+        assertTrue(body["allowed_mentions"].asJsonObject["parse"].asJsonArray.isEmpty)
     }
 }

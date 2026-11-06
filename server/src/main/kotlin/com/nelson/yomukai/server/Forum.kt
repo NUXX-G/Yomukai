@@ -144,7 +144,7 @@ class Forum(
         // Who hears about it: whoever is quoted, whoever is mentioned, and others who wrote in the thread.
         val told = HashSet<Long>().apply { add(user.id) }
         quote?.takeIf { told.add(it) }?.let { notifications.send(it, "reply", "${user.name} te ha citado en «${t.title}»", link) }
-        for (name in ChatGuard.mentions(text)) {
+        for (name in ChatGuard.mentions(text).take(MAX_MENTIONS)) {
             val target = db.tx { queryOne("SELECT id FROM users WHERE name = ? AND is_guest = 0", name) { getLong(1) } } ?: continue
             if (told.add(target)) notifications.send(target, "mention", "${user.name} te ha mencionado en «${t.title}»", link)
         }
@@ -156,8 +156,16 @@ class Forum(
     }
 
     suspend fun edit(user: User, postId: Long, body: String) {
-        val owner = db.tx { queryOne("SELECT author_id FROM forum_posts WHERE id = ? AND deleted = 0", postId) { getLong(1) } } ?: throw NoSuchElementException("No existe")
+        val (owner, threadId) = db.tx {
+            queryOne("SELECT author_id, thread_id FROM forum_posts WHERE id = ? AND deleted = 0", postId) { getLong(1) to getLong(2) }
+        } ?: throw NoSuchElementException("No existe")
         require(owner == user.id || user.isAdmin) { "Solo puedes editar lo tuyo" }
+        if (!user.isAdmin) {
+            // The same rules as writing: not silenced, and not in a closed or deleted thread.
+            checkCanWrite(user)
+            val t = thread(threadId) ?: throw NoSuchElementException("Ese hilo no existe")
+            require(!t.locked) { "El hilo está cerrado" }
+        }
         val text = cleanBody(body)
         require(text.isNotBlank()) { "Escribe algo" }
         db.tx { update("UPDATE forum_posts SET body = ?, edited_at = ? WHERE id = ?", text, clock(), postId) }
@@ -170,7 +178,7 @@ class Forum(
     }
 
     suspend fun react(user: User, postId: Long, emoji: String) {
-        require(!user.isGuest) { "Los invitados no pueden reaccionar" }
+        checkCanWrite(user)
         require(emoji in ChatGuard.REACTIONS) { "Reacción no válida" }
         db.tx {
             requireNotNull(queryOne("SELECT 1 FROM forum_posts WHERE id = ? AND deleted = 0", postId) { 1 }) { "No existe" }
@@ -246,6 +254,7 @@ class Forum(
         const val MAX_TITLE = 120
         const val MAX_BODY = 5_000
         const val MAX_POSTS_PER_MINUTE = 6
+        const val MAX_MENTIONS = 5
         const val MAX_IMAGES_PER_DAY = 30
         const val MAX_IMAGE_BYTES = 6 * 1024 * 1024
         const val NECRO_MS = 90L * 86_400_000L
@@ -303,14 +312,17 @@ private fun Route.forumWriteRoutes(s: Services) {
         call.respond(mapOf("id" to s.forum.reply(call.user, id, b.text("body", Forum.MAX_BODY + 100), b.num("spoilerUntil"), b.num("quoteId")?.toLong())))
     }
     put("/forum/posts/{id}") {
+        if (!call.forumOn(s)) return@put
         s.forum.edit(call.user, call.idParam(), call.jsonBody(16_384).text("body", Forum.MAX_BODY + 100))
         call.respond(mapOf("ok" to true))
     }
     delete("/forum/posts/{id}") {
+        if (!call.forumOn(s)) return@delete
         s.forum.deletePost(call.user, call.idParam())
         call.respond(mapOf("ok" to true))
     }
     post("/forum/posts/{id}/react") {
+        if (!call.forumOn(s)) return@post
         s.forum.react(call.user, call.idParam(), call.jsonBody(256).text("emoji", 16))
         call.respond(mapOf("ok" to true))
     }
