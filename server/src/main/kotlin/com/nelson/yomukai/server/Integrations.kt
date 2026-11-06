@@ -60,10 +60,19 @@ class Integrations(private val db: Database, secret: ByteArray) {
             return v.take(400)
         }
         fun key(name: String, current: String) = body.get(name)?.takeIf { it.isJsonPrimitive }?.asString?.trim()?.takeIf { it.isNotEmpty() }?.take(200) ?: current
+
+        // A stored key only ever goes to the address it was given for: changing the address forgets it unless a new key comes too.
+        fun keyFor(keyField: String, oldUrl: String, newUrl: String, oldKey: String): String {
+            val sentKey = body.get(keyField)?.takeIf { it.isJsonPrimitive }?.asString?.trim().orEmpty()
+            return if (newUrl != oldUrl && sentKey.isEmpty()) "" else key(keyField, oldKey)
+        }
+        val jellyfinUrl = url("jellyfinUrl", old.jellyfinUrl)
+        val comicsUrl = url("comicsUrl", old.comicsUrl)
         val server = body.get("comicsServer")?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it in setOf("", "kavita", "komga") } ?: old.comicsServer
         val c = Config(
-            url("jellyfinUrl", old.jellyfinUrl), key("jellyfinKey", old.jellyfinKey), path("animePath", old.animePath), path("seriesPath", old.seriesPath),
-            path("moviesPath", old.moviesPath), path("comicsPath", old.comicsPath), server, url("comicsUrl", old.comicsUrl), key("comicsKey", old.comicsKey)
+            jellyfinUrl, keyFor("jellyfinKey", old.jellyfinUrl, jellyfinUrl, old.jellyfinKey), path("animePath", old.animePath),
+            path("seriesPath", old.seriesPath), path("moviesPath", old.moviesPath), path("comicsPath", old.comicsPath), server,
+            comicsUrl, keyFor("comicsKey", old.comicsUrl, comicsUrl, old.comicsKey)
         )
         db.tx {
             update(

@@ -93,6 +93,9 @@ class IntegrationsTest {
             assertTrue(JellyfinClient(jf.url, "secreta-123").scanPath("/media/anime/Frieren (2023)"))
             assertTrue(jf.scanned.single().contains("/media/anime/Frieren (2023)"))
             assertEquals(null, JellyfinClient(jf.url, "mala").info())
+            // Pointing the settings somewhere else forgets the key: it can never be sent to a new address.
+            val moved = admin.put("/api/admin/integrations") { contentType(ContentType.Application.Json); setBody("""{"jellyfinUrl":"https://otro.example"}""") }.bodyAsText()
+            assertFalse(JsonParser.parseString(moved).asJsonObject["jellyfinKeySet"].asBoolean)
         }
     }
 }
