@@ -54,7 +54,9 @@ data class Config(
     val authRatePerMinute: Int = 30,
     val ipRatePerMinute: Int = 1200,
     /** Pause between sources in a canary run, to stay gentle with the sites. */
-    val canaryPauseMs: Long = 20_000
+    val canaryPauseMs: Long = 20_000,
+    /** Where newer signed source bundles come from. */
+    val sourcesUrl: String = com.nelson.yomukai.data.source.declarative.SourceBundles.REMOTE_URL
 ) {
     companion object {
         const val ACCOUNT_RATE = 600
@@ -91,7 +93,8 @@ data class Config(
                 ntfyToken = env["NTFY_TOKEN"]?.trim()?.ifBlank { null },
                 authRatePerMinute = env["AUTH_RATE"]?.toIntOrNull()?.coerceIn(5, 1_000) ?: 30,
                 ipRatePerMinute = env["IP_RATE"]?.toIntOrNull()?.coerceIn(60, 100_000) ?: 1200,
-                canaryPauseMs = (env["CANARY_PAUSE_S"]?.toLongOrNull()?.coerceIn(0, 600) ?: 20) * 1000
+                canaryPauseMs = (env["CANARY_PAUSE_S"]?.toLongOrNull()?.coerceIn(0, 600) ?: 20) * 1000,
+                sourcesUrl = env["SOURCES_URL"]?.trim()?.takeIf { it.startsWith("https://") } ?: com.nelson.yomukai.data.source.declarative.SourceBundles.REMOTE_URL
             )
         }
 

@@ -128,7 +128,7 @@ class Services(val config: Config) {
     val http = ServerHttp(config.flareSolverrUrl)
     val db = Database(File(config.dataDir, "yomukai.db"))
     val auth = Auth(db, config)
-    val sources = SourceManager(http).also { manager ->
+    val sources = SourceManager(http, null).also { manager ->
         http.solverHosts = manager.all.mapNotNull { it.baseUrl.toHttpUrlOrNull()?.host?.lowercase()?.removePrefix("www.") }.toSet()
     }
     val aniList = AniListClient(http)
@@ -144,6 +144,7 @@ class Services(val config: Config) {
     val speech = Speech(http, config.dataDir, File(System.getenv("PIPER_PATH")?.ifBlank { null } ?: "/opt/piper/piper"))
 
     val notifier = Notifier(config.discordWebhook, config.ntfyUrl, config.ntfyToken)
+
     val features = FeatureFlags(db)
     val workers = WorkerRegistry(db)
     val workerLimiter = RateLimiter()
@@ -154,8 +155,17 @@ class Services(val config: Config) {
     val setup = SetupWizard(db, config.dataDir)
     val addressLimiter = KeyedRateLimiter()
     val health = SourceHealthStore(db)
+
+    /** Signed source configurations: the bundled ones, then newer ones from the repository (see SourceBundles). */
+    val bundles = com.nelson.yomukai.data.source.declarative.SourceBundleUpdater(http, File(config.dataDir, "sources"), config.sourcesUrl)
     val canary = Canary(health, notifier, pauseMs = config.canaryPauseMs)
 
+    init {
+        bundles.current()?.let(sources::apply)
+        sources.onDomainChange = { id, from, to ->
+            notifier.admin("domain-$id-$to", "La fuente $id cambió de dominio", "Ahora está en $to (antes $from). Se sigue sola; actualiza baseUrl y domains en sources/$id.json.")
+        }
+    }
     suspend fun prefs(user: User) = UserPrefs.parse(db.settings(user.id), sources.defaultEnabledIds)
 }
 
@@ -179,6 +189,20 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
     }
 
     launch { runCatching { refreshDegraded(services.health, services.sources) } }
+    launch {
+        while (true) {
+            runCatching { services.bundles.fetchNewer(services.sources.bundleVersion) }
+                .onSuccess { b ->
+                    if (b != null) {
+                        services.sources.apply(b)
+                        log.info("Fuentes actualizadas a la versión {} ({} declarativas)", b.version, b.configs.size)
+                        if (b.rejected.isNotEmpty()) services.notifier.admin("bundle-rejected-" + b.version, "Configuraciones de fuente rechazadas", b.rejected.joinToString("\n"))
+                    }
+                }
+                .onFailure { log.info("Sin paquete de fuentes nuevo: {}", it.message) }
+            delay(6 * 3_600_000L)
+        }
+    }
     launch {
         services.auth.bootstrap()
         services.setup.prepare(config.publicUrl)

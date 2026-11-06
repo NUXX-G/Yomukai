@@ -8,7 +8,6 @@ import com.nelson.yomukai.data.source.manga.AsuraScansSource
 import com.nelson.yomukai.data.source.manga.FlameComicsSource
 import com.nelson.yomukai.data.source.manga.LectorTmoSource
 import com.nelson.yomukai.data.source.manga.MangaDexSource
-import com.nelson.yomukai.data.source.manga.MarmotaComicsSource
 import com.nelson.yomukai.data.source.manga.MegaBananaSource
 import com.nelson.yomukai.data.source.manga.NovelCoolNovelSource
 import com.nelson.yomukai.data.source.manga.NovelCoolSource
@@ -17,9 +16,18 @@ import com.nelson.yomukai.data.source.manga.YskComicsSource
 import com.nelson.yomukai.data.source.manga.ZonaTmoSource
 import com.nelson.yomukai.data.source.novel.SkyNovelsSource
 
-class SourceManager(network: HttpFetcher) {
+/**
+ * Every source: the Kotlin ones (special logic) and the declarative ones from the signed configuration bundle
+ * (see declarative/SourceConfig.kt), which can be replaced at run time when a newer bundle arrives.
+ */
+class SourceManager(
+    private val network: HttpFetcher,
+    bundle: com.nelson.yomukai.data.source.declarative.SourceBundle? = com.nelson.yomukai.data.source.declarative.SourceBundles.bundled(),
+    /** Told when a declarative source follows its site to a new domain: (source, old, new). */
+    var onDomainChange: (String, String, String) -> Unit = { _, _, _ -> }
+) {
 
-    val all: List<CatalogueSource> = listOf(
+    private val kotlinSources: List<CatalogueSource> = listOf(
         // Manga / manhwa
         MangaDexSource(network),
         MangaDexSource(network, com.nelson.yomukai.data.source.manga.MangaDexProfile.CHINESE),
@@ -30,7 +38,6 @@ class SourceManager(network: HttpFetcher) {
         ZonaTmoSource(network),
         NovelCoolSource(network, "es"),
         NovelCoolSource(network, "en"),
-        MarmotaComicsSource(network),
         MegaBananaSource(network),
         YskComicsSource(network),
         // Novels
@@ -42,9 +49,40 @@ class SourceManager(network: HttpFetcher) {
         AnitakuSource(network)
     )
 
-    private val byId = all.associateBy { it.id }
+    @Volatile
+    private var declarative: List<CatalogueSource> = emptyList()
 
-    val defaultEnabledIds: Set<String> = all.filter { it.enabledByDefault }.map { it.id }.toSet()
+    /** Version of the configuration bundle in use (0 = none). */
+    @Volatile
+    var bundleVersion: Long = 0
+        private set
+
+    @Volatile
+    var all: List<CatalogueSource> = kotlinSources
+        private set
+
+    @Volatile
+    private var byId: Map<String, CatalogueSource> = all.associateBy { it.id }
+
+    val defaultEnabledIds: Set<String> get() = all.filter { it.enabledByDefault }.map { it.id }.toSet()
+
+    init {
+        bundle?.let(::apply)
+    }
+
+    /**
+     * Uses [bundle]'s sources from now on. A configuration with the id of a Kotlin source replaces it (that is how a
+     * source moves to a JSON file); the order of the Kotlin list is kept, new ones go at the end.
+     */
+    fun apply(bundle: com.nelson.yomukai.data.source.declarative.SourceBundle) {
+        val made = bundle.configs.map { com.nelson.yomukai.data.source.declarative.declarativeSource(it, network) { id, from, to -> onDomainChange(id, from, to) } }
+        val byConfig = made.associateBy { it.id }
+        val merged = kotlinSources.map { byConfig[it.id] ?: it } + made.filter { m -> kotlinSources.none { it.id == m.id } }
+        declarative = made
+        all = merged
+        byId = merged.associateBy { it.id }
+        bundleVersion = bundle.version
+    }
 
     fun get(id: String): CatalogueSource? = byId[id]
 

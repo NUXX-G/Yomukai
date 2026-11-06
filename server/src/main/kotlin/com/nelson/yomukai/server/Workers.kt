@@ -276,6 +276,10 @@ fun Route.workerAdminRoutes(s: Services) {
 
 /** Users: what is on and available now, and their own jobs. */
 fun Route.featureRoutes(s: Services) {
+    get("/source-bundle") {
+        val (bytes, sig) = s.bundles.rawCurrent() ?: return@get call.respond(HttpStatusCode.NoContent)
+        call.respond(mapOf("bundle" to String(bytes, Charsets.UTF_8), "signature" to sig.trim(), "version" to s.sources.bundleVersion))
+    }
     get("/features") {
         val flags = s.features.all()
         val availability = s.workers.availability()

@@ -177,6 +177,20 @@ class ServerHttp(private val flareSolverrUrl: String?) : HttpFetcher {
             }
         }
 
+    /** Plain pages report where they finally came from (a moved site shows up as a redirect); anything else goes the usual way. */
+    override suspend fun getStringWithUrl(url: String, headers: Map<String, String>): Pair<String, String> = withContext(Dispatchers.IO) {
+        val request = Request.Builder().url(url).browserHeaders(url, headers).build()
+        val answer = runCatching {
+            client.newCall(request).await().use { r -> listOf(r.code.toString(), r.body?.string().orEmpty(), r.header("cf-mitigated").orEmpty(), r.request.url.toString()) }
+        }.getOrNull()
+        val code = answer?.get(0)?.toIntOrNull() ?: 0
+        if (answer == null || code !in 200..299 || WebProtection.detectProtection(code, answer[1], answer[2].ifEmpty { null }) != null) {
+            getString(url, headers, cloudflareFallback = true) to url
+        } else {
+            answer[1] to answer[3]
+        }
+    }
+
     private fun trimRecent() {
         val now = System.currentTimeMillis()
         recent.entries.removeIf { now - it.value.at > RECENT_MS }

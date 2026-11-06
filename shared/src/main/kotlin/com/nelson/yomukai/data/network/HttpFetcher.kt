@@ -14,6 +14,12 @@ interface HttpFetcher {
      */
     suspend fun getString(url: String, headers: Map<String, String> = emptyMap(), cloudflareFallback: Boolean = true): String
 
+    /**
+     * Like [getString], also returning the address the answer finally came from after redirects, so a source can
+     * notice that its site moved. Fetchers that cannot tell return the requested address.
+     */
+    suspend fun getStringWithUrl(url: String, headers: Map<String, String> = emptyMap()): Pair<String, String> = getString(url, headers) to url
+
     /** POSTs with an empty body; some sites answer their AJAX endpoints only to POST. */
     suspend fun postString(url: String, headers: Map<String, String> = emptyMap()): String
 

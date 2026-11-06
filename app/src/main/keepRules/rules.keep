@@ -10,7 +10,10 @@
 #-keepclassmembers class fqcn.of.javascript.interface.for.webview {
 #   public *;
 #}
-# Gson reads JSON through the JsonElement tree only (no reflection on model classes), so no model keeps are needed.
+# Gson reads JSON through the JsonElement tree, except the declarative source configurations, which it maps by reflection
+# onto these data classes: their field names must survive R8 (and Gson needs their no-arg constructors).
+-keep class com.nelson.yomukai.data.source.declarative.** { *; }
+-keepattributes Signature,*Annotation*
 # Keep line numbers for readable crash reports.
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile

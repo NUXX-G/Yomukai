@@ -49,6 +49,25 @@ class AppContainer(context: Context) {
         network.domainsOfSources = sm::domainsOf
         preferences.enableNewSources(sm.defaultEnabledIds)
     }
+
+    /**
+     * Signed source configurations: a newer cached bundle is used at once, and a newer one is looked for in the
+     * repository at most every 6 hours, so a source fixed in its JSON works here without a new APK.
+     */
+    init {
+        val updater = com.nelson.yomukai.data.source.declarative.SourceBundleUpdater(network, java.io.File(context.filesDir, "sources"))
+        applicationScope.launch(Dispatchers.IO) {
+            runCatching {
+                updater.current()?.takeIf { it.version > sourceManager.bundleVersion }?.let(sourceManager::apply)
+                val stamp = java.io.File(context.filesDir, "sources/checked")
+                if (System.currentTimeMillis() - stamp.lastModified() > 6 * 3_600_000L) {
+                    updater.fetchNewer(sourceManager.bundleVersion)?.let(sourceManager::apply)
+                    stamp.parentFile?.mkdirs()
+                    stamp.writeText(System.currentTimeMillis().toString())
+                }
+            }
+        }
+    }
     val webViewProxy = WebViewProxy(context, preferences.network, tor.state, sourceManager::domainsOf, applicationScope)
         .also { proxy ->
             network.webViewOnTor = { proxy.state.value.let { it.ready && it.viaTor } }

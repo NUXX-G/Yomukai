@@ -2,7 +2,6 @@ package com.nelson.yomukai.data.source
 
 import com.nelson.yomukai.data.source.manga.AsuraScansSource
 import com.nelson.yomukai.data.source.manga.MangaDexSource
-import com.nelson.yomukai.data.source.manga.MarmotaComicsSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -32,16 +31,6 @@ class CatalogueFiltersTest {
             "/series?sort=title&limit=24&page=1&status=completed&type=manhua",
             AsuraScansSource.catalogueRequest(
                 1, mapOf(FilterKeys.SORT to setOf("title"), FilterKeys.STATUS to setOf("completed"), FilterKeys.TYPE to setOf("manhua")), 24
-            )
-        )
-    }
-
-    @Test
-    fun madaraUrls() {
-        assertEquals(
-            "https://marmota.me/?s=&post_type=wp-manga&m_orderby=views&paged=2&status%5B%5D=end&genre%5B%5D=dc-comics",
-            MarmotaComicsSource.catalogueUrl(
-                2, mapOf(FilterKeys.SORT to setOf("views"), FilterKeys.STATUS to setOf("end"), FilterKeys.GENRE to setOf("dc-comics"))
             )
         )
     }

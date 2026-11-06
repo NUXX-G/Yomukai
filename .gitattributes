@@ -3,3 +3,7 @@
 gradlew text eol=lf
 Dockerfile text eol=lf
 docker-compose.yml text eol=lf
+
+# Signed bytes: never touch line endings, or the Ed25519 signature stops matching.
+shared/src/main/resources/sources/bundle.json -text
+shared/src/main/resources/sources/bundle.json.sig -text
