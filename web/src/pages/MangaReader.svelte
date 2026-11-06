@@ -5,7 +5,8 @@
   const stopPresence = startPresence('reading', () => ({ title: item?.title, label: current?.label, sourceId: route.params.source, mediaId: route.params.id }));
   import { api, downloadChapters } from '../lib/api.js';
   import { route, back, navigate, media as mediaHref, reader } from '../lib/router.svelte.js';
-  import { settings, saveSettings, notify } from '../lib/store.svelte.js';
+  import { settings, saveSettings, notify, features, sourceById } from '../lib/store.svelte.js';
+  import { readingOrder, directionFor, stripMs, analyze, wordsIn } from '../lib/ocr.js';
   import { track, markThrough, flush, progressMap } from '../lib/progress.js';
   import { clock } from '../lib/format.js';
   import { detectCrop, cropStyles } from '../lib/crop.js';
@@ -85,6 +86,140 @@
     navigate(reader('manga', sourceId, mediaId, b.chapterId) + '?p=' + b.position, { replace: true });
   }
 
+  // ---------- Text on the pages (shared OCR): translation over the bubbles, bubbles read aloud, smart autoscroll ----------
+  /** "chapterUrl#page" -> { boxes, tr } ; undefined = not asked yet, null = nobody has read it yet. */
+  let ocr = $state({});
+  let translating = $state(false);
+  let readingBubbles = $state(false);
+  let speakingBox = $state('');
+  const ocrRequested = new Set();
+  const ocrOn = $derived(features.flags.ocr !== false);
+  const pageKey = (url, i) => url + '#' + i;
+  const chapterUrlOf = (id) => loaded.find((l) => l.chapter.id === id)?.chapter.url;
+  const textLang = $derived(sourceById(sourceId)?.language === 'ES' ? 'es' : 'en');
+
+  async function ensureOcr(chapter, i) {
+    const key = pageKey(chapter.url, i);
+    if (ocr[key]) return ocr[key];
+    try {
+      const r = await api.ocr(sourceId, chapter.url, i);
+      if (r?.boxes) { ocr[key] = { boxes: r.boxes, tr: null }; return ocr[key]; }
+      ocr[key] = null;
+      // Nobody has read this page yet: the home worker can, for the whole chapter at once.
+      if (!features.available?.ocr && translating && !ocrRequested.has(chapter.url)) {
+        ocrRequested.add(chapter.url);
+        notify('Esta página aún no tiene el texto reconocido; hace falta el servidor de casa (o leerla antes en la app)');
+      }
+      if (!ocrRequested.has(chapter.url) && features.available?.ocr) {
+        ocrRequested.add(chapter.url);
+        api.ocrRequest(sourceId, chapter.url, textLang).catch(() => {});
+      }
+    } catch { ocr[key] = null; }
+    return null;
+  }
+
+  async function translatePage(chapter, i) {
+    const data = await ensureOcr(chapter, i);
+    if (!data || data.tr) return;
+    const bubbles = data.boxes.filter((b) => b.kind !== 'SFX');
+    if (!bubbles.length) { data.tr = []; return; }
+    try {
+      const r = await api.translate(bubbles.map((b) => b.text), textLang, settings.learning?.target || 'es');
+      ocr[pageKey(chapter.url, i)] = { ...data, tr: r.translations };
+    } catch (e) {
+      translating = false;
+      notify(e.status === 503 ? 'Traducir necesita el servidor de casa encendido' : e.message);
+    }
+  }
+
+  // While translating, the pages around the one being read are done (and again as the reader moves on).
+  $effect(() => {
+    if (!translating || !current) return;
+    for (let i = Math.max(0, page - 1); i <= page + 4; i++) translatePage(current, i);
+  });
+  // Pages nobody had read yet are asked again every 20 s while translating (the worker may have finished).
+  $effect(() => {
+    if (!translating) return;
+    const t = setInterval(() => { for (const k of Object.keys(ocr)) if (ocr[k] === null) delete ocr[k]; }, 20_000);
+    return () => clearInterval(t);
+  });
+
+  /** Reads the bubbles aloud in reading order from the current page, highlighting and centring the one that sounds. */
+  async function toggleBubbles() {
+    if (readingBubbles) { readingBubbles = false; speechSynthesis.cancel(); speakingBox = ''; return; }
+    if (!('speechSynthesis' in window) || !current) return;
+    readingBubbles = true;
+    const chapter = current;
+    const total = currentPages;
+    for (let i = page; i < total && readingBubbles; i++) {
+      const data = await ensureOcr(chapter, i);
+      if (!data) continue;
+      const ordered = readingOrder(data.boxes.filter((b) => b.kind !== 'SFX' || settings.reader.readSfx), directionFor(item?.type));
+      for (const b of ordered) {
+        if (!readingBubbles) break;
+        speakingBox = pageKey(chapter.url, i) + '@' + data.boxes.indexOf(b);
+        const el = document.querySelector(`.pg[data-chapter="${CSS.escape(chapter.id)}"][data-index="${i}"]`);
+        if (el) {
+          const r = el.getBoundingClientRect();
+          window.scrollTo({ top: scrollY + r.top + (b.y + b.h / 2) * r.height - innerHeight / 2, behavior: 'smooth' });
+        }
+        await new Promise((done) => {
+          const u = new SpeechSynthesisUtterance(b.text);
+          u.lang = textLang;
+          u.rate = settings.novel?.speechRate || 1;
+          u.onend = done; u.onerror = done;
+          speechSynthesis.speak(u);
+        });
+      }
+    }
+    readingBubbles = false;
+    speakingBox = '';
+  }
+
+  /** Smart autoscroll: the strip at the middle of the screen sets the speed (OCR words, else the picture itself). */
+  const bandCache = new Map();
+  const canvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+  function smartSpeed(base) {
+    const el = document.elementFromPoint(innerWidth / 2, innerHeight / 2)?.closest('.pg');
+    if (!el) return base;
+    const r = el.getBoundingClientRect();
+    // Strips of a fixed height on screen (very tall webtoon images would make "a tenth of a page" huge).
+    const band = Math.max(0, Math.floor((innerHeight / 2 - r.top) / STRIP_PX));
+    const from = Math.min(1, (band * STRIP_PX) / r.height);
+    const to = Math.min(1, ((band + 1) * STRIP_PX) / r.height);
+    const url = chapterUrlOf(el.dataset.chapter);
+    const key = url ? pageKey(url, Number(el.dataset.index)) : '';
+    const cacheKey = key + '|' + band;
+    let strip = bandCache.get(cacheKey);
+    if (!strip) {
+      const data = key ? ocr[key] : null;
+      if (key && data === undefined && current) ensureOcr(loaded.find((l) => l.chapter.url === url)?.chapter || current, Number(el.dataset.index));
+      if (data?.boxes) strip = { words: wordsIn(data.boxes, from, to), detail: 0.5 };
+      else strip = pictureStrip(el.querySelector('img'), from, to);
+      if (strip) bandCache.set(cacheKey, strip);
+    }
+    if (!strip) return base;
+    const pxPerSecond = STRIP_PX / (stripMs(strip, settings.reader.wpm || 220) / 1000);
+    // The speed control still works: it scales the plan (80 = as planned).
+    return Math.min(2000, Math.max(15, pxPerSecond * (base / 80)));
+  }
+  const STRIP_PX = 300;
+  function pictureStrip(img, from, to) {
+    if (!img?.naturalWidth || !canvas) return null;
+    try {
+      const w = 32;
+      const h = 16;
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const sy = from * img.naturalHeight;
+      ctx.drawImage(img, 0, sy, img.naturalWidth, Math.max(1, (to - from) * img.naturalHeight), 0, 0, w, h);
+      const px = ctx.getImageData(0, 0, w, h).data;
+      const grey = new Array(w * h);
+      for (let i = 0; i < w * h; i++) grey[i] = (px[i * 4] * 299 + px[i * 4 + 1] * 587 + px[i * 4 + 2] * 114) / 1000;
+      return { words: 0, ...analyze(grey, w) };
+    } catch { return null; }
+  }
+
   // Auto-scroll for long strips: a steady glide, stopped by a tap or at the end.
   function toggleScroll() {
     scrolling = !scrolling;
@@ -95,7 +230,8 @@
     let carry = 0;
     const step = (t) => {
       if (!scrolling) return;
-      carry += ((t - last) / 1000) * (settings.reader.autoSpeed || 80);
+      const base = settings.reader.autoSpeed || 80;
+      carry += ((t - last) / 1000) * (settings.reader.smartScroll !== false ? smartSpeed(base) : base);
       last = t;
       const px = Math.floor(carry);
       if (px > 0) { window.scrollBy(0, px); carry -= px; }
@@ -335,8 +471,21 @@
         {#if l.error}<p class="center error-text">{l.error}</p>{/if}
         {#if !l.pages.length && !l.error}<div class="center"><div class="spinner"></div></div>{/if}
         {#each l.pages as src, i (src)}
+          {@const text = ocr[pageKey(l.chapter.url, i)]}
           <div class="pg" class:ready={ready[src]} class:guess={!ready[src] && usual} class:cropped={crops[src]} style:aspect-ratio={crops[src]?.ratio ?? (!ready[src] && usual ? usual : null)} style:max-width={width === 'original' && crops[src] ? crops[src].natural : null} data-page data-chapter={l.chapter.id} data-index={i} data-total={l.pages.length}>
             <img {src} alt="Página {i + 1}" loading={i < 3 || (li === 0 && i <= resumePage + 2) ? 'eager' : 'lazy'} decoding="async" style:width={crops[src]?.width} style:left={crops[src]?.left} style:top={crops[src]?.top} onload={(e) => { cropFor(e, src); pageLoaded(e, l.chapter, i, l.pages.length, src); }} />
+            {#if text && (translating || readingBubbles)}
+              <div class="ocr-layer" style:width={crops[src]?.width} style:left={crops[src]?.left} style:top={crops[src]?.top} aria-hidden={!translating}>
+                {#each text.boxes as b, j (j)}
+                  {@const tIndex = text.boxes.filter((x) => x.kind !== 'SFX').indexOf(b)}
+                  {#if translating && b.kind !== 'SFX' && text.tr?.[tIndex]}
+                    <div class="tr-bubble" style:left="{b.x * 100}%" style:top="{b.y * 100}%" style:width="{b.w * 100}%" style:min-height="{b.h * 100}%">{text.tr[tIndex]}</div>
+                  {:else if speakingBox === pageKey(l.chapter.url, i) + '@' + j}
+                    <div class="now-box" style:left="{b.x * 100}%" style:top="{b.y * 100}%" style:width="{b.w * 100}%" style:height="{b.h * 100}%"></div>
+                  {/if}
+                {/each}
+              </div>
+            {/if}
           </div>
         {/each}
       {/each}
@@ -377,6 +526,10 @@
       </div>
       <div class="actions">
         <button class="btn text" disabled={!current || !prevOf(current)} onclick={() => open(prevOf(current))}>Anterior</button>
+        {#if ocrOn}
+          <button class="btn text" aria-pressed={translating} onclick={() => (translating = !translating)} title="Traducir los bocadillos">{translating ? 'Ver original' : 'Traducir'}</button>
+          {#if mode === 'vertical'}<button class="icon-btn" class:active={readingBubbles} onclick={toggleBubbles} aria-label={readingBubbles ? 'Parar la lectura' : 'Leer los bocadillos en voz alta'} title="Leer los bocadillos"><Icon name="speech" /></button>{/if}
+        {/if}
         {#if mode === 'vertical'}<button class="icon-btn" onclick={toggleScroll} aria-label={scrolling ? 'Parar desplazamiento' : 'Desplazamiento automático'} title="Desplazamiento automático"><Icon name={scrolling ? 'pause' : 'play'} /></button>{/if}
         <button class="btn text" disabled={!current || !nextOf(current)} onclick={() => open(nextOf(current))}>Siguiente</button>
       </div>
@@ -483,6 +636,11 @@
   :global(html.immersive) .reader { min-height: 100lvh; }
   .single { height: 100vh; height: 100dvh; display: grid; place-items: center; overflow: hidden; touch-action: pan-y pinch-zoom; }
   .single img { max-width: 100%; max-height: 100vh; max-height: 100dvh; object-fit: contain; user-select: none; -webkit-user-drag: none; }
+  /* Text found on the page: translations drawn over each bubble, and the bubble being read aloud. */
+  .ocr-layer { position: absolute; inset: 0; pointer-events: none; }
+  .tr-bubble { position: absolute; display: flex; align-items: center; justify-content: center; text-align: center; padding: 2px 4px;
+    background: #fff; color: #111; border-radius: 10px; font: 600 clamp(9px, 1.5vw, 15px)/1.15 system-ui, sans-serif; overflow-wrap: anywhere; box-shadow: 0 0 0 2px #fff; }
+  .now-box { position: absolute; border: 3px solid var(--c-accent); border-radius: 12px; box-shadow: 0 0 0 4px color-mix(in srgb, var(--c-accent) 30%, transparent); }
   /* Solid bars: pages scrolling behind a see-through bar looked broken. */
   .top, .bottom { position: fixed; left: 0; right: 0; z-index: 20; display: flex; align-items: center; gap: 8px; background: #0c0c0f; animation: in 0.18s ease-out; }
   .top { border-bottom: 1px solid #ffffff14; }

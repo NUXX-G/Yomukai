@@ -34,14 +34,7 @@
       else notify('Los subtítulos necesitan el servidor de casa encendido');
     } catch (e) { notify(e.message); } finally { subtitlesBusy = false; }
   }
-  $effect(() => {
-    if (!video || !subtitlesUrl) return;
-    const t = document.createElement('track');
-    t.kind = 'subtitles'; t.label = 'Subtítulos'; t.src = subtitlesUrl; t.default = true;
-    video.appendChild(t);
-    t.addEventListener('load', () => { if (t.track) t.track.mode = 'showing'; });
-    return () => { t.remove(); URL.revokeObjectURL(subtitlesUrl); };
-  });
+  $effect(() => { const url = subtitlesUrl; return () => { if (url) URL.revokeObjectURL(url); }; });
   let client = $state(null);
   let chatOpen = $state(false);
   let floats = $state([]);
@@ -400,7 +393,7 @@
     onpause={() => { playing = false; poke(); shareState(); }}
     onseeked={shareState}
     onloadedmetadata={onLoaded} ontimeupdate={onTime} onended={onEnded} onerror={onError}
-  ></video>
+  >{#if subtitlesUrl}<track kind="subtitles" label="Subtítulos" src={subtitlesUrl} default />{/if}</video>
 
   {#each floats as f (f.id)}<span class="float" style:left="{f.x}%" aria-hidden="true">{f.emoji}</span>{/each}
   {#if client && client.party.waiting.length}

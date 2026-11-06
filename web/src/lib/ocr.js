@@ -1,0 +1,64 @@
+// The same rules as shared/…/data/ocr (Ocr.kt and ScrollPlanner.kt), for the browser: reading order of the bubbles,
+// time per strip for the smart autoscroll, and the picture-only analysis when there is no OCR.
+
+/** Manhwa top to bottom, manga right to left, comics left to right. */
+export function directionFor(type) {
+  const t = String(type || '').toUpperCase();
+  return t === 'MANHWA' || t === 'MANHUA' ? 'down' : t === 'MANGA' ? 'rtl' : 'ltr';
+}
+
+function overlap(a, b) {
+  const top = Math.max(a.y, b.y);
+  const bottom = Math.min(a.y + a.h, b.y + b.h);
+  return Math.max(0, (bottom - top) / Math.min(a.h, b.h));
+}
+
+/** Boxes in reading order (rows of boxes that overlap vertically; inside a row by the reading direction). */
+export function readingOrder(boxes, direction) {
+  if (direction === 'down') return [...boxes].sort((a, b) => a.y - b.y || a.x - b.x);
+  const rows = [];
+  for (const b of [...boxes].sort((p, q) => p.y - q.y)) {
+    const row = rows.at(-1);
+    if (row && row.some((o) => overlap(o, b) > 0.5)) row.push(b); else rows.push([b]);
+  }
+  const cx = (b) => b.x + b.w / 2;
+  return rows.flatMap((row) => row.sort((a, b) => (direction === 'rtl' ? cx(b) - cx(a) : cx(a) - cx(b))));
+}
+
+export const DEFAULT_WPM = 220;
+
+/** Milliseconds for a strip: text by its words and the reader's speed, panels by their detail, gutters almost none. */
+export function stripMs({ words = 0, detail = 0.5, empty = false }, wpm = DEFAULT_WPM) {
+  if (empty) return 150;
+  if (words > 0) return 400 + (words / Math.min(700, Math.max(80, wpm))) * 60_000;
+  return 900 + Math.min(1, Math.max(0, detail)) * 1100;
+}
+
+/** Plan B without OCR: grey values of a strip (0..255, row by row of [width]) → { empty, detail }. */
+export function analyze(grey, width) {
+  if (!grey.length || width <= 1) return { empty: true, detail: 0 };
+  let mean = 0;
+  for (const v of grey) mean += v;
+  mean /= grey.length;
+  let variance = 0;
+  for (const v of grey) variance += (v - mean) ** 2;
+  if (Math.sqrt(variance / grey.length) < 6) return { empty: true, detail: 0 };
+  let edges = 0;
+  let pairs = 0;
+  for (let i = 0; i + 1 < grey.length; i++) {
+    if ((i + 1) % width === 0) continue;
+    pairs++;
+    if (Math.abs(grey[i] - grey[i + 1]) > 24) edges++;
+  }
+  return { empty: false, detail: pairs ? Math.min(1, edges / pairs / 0.35) : 0 };
+}
+
+/** Words of the OCR boxes inside the band [top, bottom] of a page (fractions), speech only. */
+export function wordsIn(boxes, top, bottom) {
+  let n = 0;
+  for (const b of boxes || []) {
+    if (b.kind === 'SFX' || b.y + b.h < top || b.y > bottom) continue;
+    n += (b.text.match(/\p{L}+/gu) || []).length;
+  }
+  return n;
+}
