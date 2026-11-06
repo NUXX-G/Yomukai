@@ -54,6 +54,44 @@
   let marks = $state(null);
   const maxDownload = $derived(session.user?.guest ? 3 : 100);
 
+  // ---------- The work behind this page (AniList): banner, other names, fillers, where to continue ----------
+  let work = $state(null);
+  /** Episode number -> 'FILLER' | 'MIXED' (AnimeFillerList); only for anime. */
+  let fillers = $state({});
+  let hideFiller = $state(false);
+  /** Names of chapters ahead of where you are stay blurred until hovered or focused. */
+  let shield = $state(safeGet('spoilerShield') !== '0');
+  let where = $state(null);
+  let pointOpen = $state(false);
+  let point = $state({ target: '', episode: '', chapter: '', volume: '' });
+  function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+  function toggleShield() { shield = !shield; try { localStorage.setItem('spoilerShield', shield ? '1' : '0'); } catch { /* private mode */ } }
+  const fillerOf = (c) => (anime && c.number != null ? fillers[Math.floor(c.number)] : undefined);
+  const fillerCount = $derived(Object.values(fillers).filter((k) => k === 'FILLER').length);
+  /** Last watched/read chapter number (by number, not position). */
+  const lastDone = $derived(list.chapters.reduce((m, c) => (progress[c.id]?.read && c.number > m ? c.number : m), 0));
+  /** Related works on the other side (manga/novel for an anime and the other way round) that AniList can name. */
+  const counterparts = $derived((meta?.relations || []).filter((r) => r.anilistId && (anime ? r.type !== 'ANIME' : r.type === 'ANIME')));
+  const relationByKey = (key) => (meta?.relations || []).find((r) => 'al:' + r.anilistId === key);
+  async function loadWhere() {
+    if (!work?.key) return;
+    where = await api.workContinue(work.key, anime && lastDone ? Math.floor(lastDone) : undefined).catch(() => null);
+  }
+  async function savePoint(e) {
+    e.preventDefault();
+    const target = 'al:' + point.target;
+    const chapter = point.chapter === '' ? null : +point.chapter;
+    const volume = point.volume === '' ? null : +point.volume;
+    const body = anime
+      ? { animeKey: work.key, targetKey: target, untilEpisode: +point.episode, chapter, volume }
+      : { animeKey: target, targetKey: work.key, untilEpisode: +point.episode, chapter, volume };
+    try { await api.setAdaptation(body); notify('Guardado; lo verán todos los usuarios'); pointOpen = false; loadWhere(); } catch (err) { notify(err.message); }
+  }
+  function openPoint() {
+    point = { target: String(counterparts[0]?.anilistId ?? ''), episode: anime && lastDone ? String(Math.floor(lastDone)) : '', chapter: '', volume: '' };
+    pointOpen = true;
+  }
+
   function toggleCat(name) {
     const current = saved?.categories || [];
     setCategories(sourceId, mediaId, current.includes(name) ? current.filter((c) => c !== name) : [...current, name]);
@@ -96,7 +134,26 @@
   const shown = $derived.by(() => {
     const q = chapterQuery.trim().toLowerCase();
     const all = descending ? [...list.chapters].reverse() : list.chapters;
-    return q ? all.filter((c) => matches(c, q)) : all;
+    const visible = hideFiller ? all.filter((c) => fillerOf(c) !== 'FILLER') : all;
+    return q ? visible.filter((c) => matches(c, q)) : visible;
+  });
+  const altNames = $derived([...new Set([...(work?.altTitles || []), ...(item?.altTitles || [])])].filter((n) => n && n.toLowerCase() !== item?.title?.toLowerCase()));
+  /** Chapters after this number are "ahead of you": their names may spoil. */
+  const ahead = $derived(Math.max(lastDone, target ? (target.chapter.number ?? 0) : 0));
+  const whereTarget = $derived(where?.next?.length ? relationByKey(where.next[0].targetKey) : null);
+  const whereText = $derived.by(() => {
+    if (!where) return '';
+    if (anime && where.next?.length) {
+      const n = where.next[0];
+      const name = whereTarget?.title || 'la obra original';
+      const at = n.chapter != null ? `el capítulo ${Math.floor(n.chapter)}` : `el volumen ${n.volume}`;
+      return `Después del episodio ${Math.floor(lastDone)}, la historia sigue en ${at} de ${name}.`;
+    }
+    if (!anime && where.animatedUpTo != null) {
+      const upTo = Math.floor(where.animatedUpTo);
+      return lastDone >= upTo ? `Ya has pasado lo que adapta el anime (hasta el capítulo ${upTo}).` : `El anime adapta hasta el capítulo ${upTo}.`;
+    }
+    return '';
   });
   const gapAfter = $derived(Object.fromEntries(list.issues.filter((i) => i.afterChapterId).map((i) => [i.afterChapterId, i])));
   const target = $derived(continueTarget(list.chapters, progress));
@@ -130,6 +187,10 @@
     );
     progressMap(sourceId, mediaId).then((p) => (progress = p));
     api.metadata(sourceId, mediaId).then((m) => (meta = m), () => {}).finally(() => (metaLoading = false));
+    api.work(sourceId, mediaId).then((w) => {
+      work = w;
+      if (anime && w?.title) api.fillers(w.title).then((f) => (fillers = f || {}), () => {});
+    }, () => {});
     const early = item?.cover;
     if (early) coverSeed(early).then((seed) => (theme = themeFor(seed)));
     try {
@@ -139,6 +200,9 @@
       error = e.message;
     }
   });
+
+  // Where to continue is asked again when the work arrives and whenever what you have seen moves on.
+  $effect(() => { if (work?.key) { void lastDone; loadWhere(); } });
 
   $effect(() => {
     sessionStorage.setItem('details.tab', String(tab));
@@ -179,8 +243,10 @@
 
 <svelte:window onscroll={onScroll} />
 
-<div class="details" style={styleOf(theme)}>
-  {#if item?.cover}<div class="backdrop" style:background-image="url('{item.cover}')"></div>{/if}
+<div class="details" class:has-banner={!!work?.banner} style={styleOf(theme)}>
+  {#if work?.banner}
+    <div class="banner"><img src={work.banner} alt="" decoding="async" /></div>
+  {:else if item?.cover}<div class="backdrop" style:background-image="url('{item.cover}')"></div>{/if}
   <div class="wrap">
   <header class="bar" style:--fill={fill}>
     <button class="icon-btn" onclick={() => back('/')} aria-label="Volver"><Icon name="back" /></button>
@@ -203,6 +269,7 @@
         {/if}
         <div class="facts">
           <h1>{item.title}</h1>
+          {#if altNames.length}<div class="alt-names" title={altNames.join(' · ')}>{altNames.slice(0, 2).join(' · ')}</div>{/if}
           {#if item.author}<div class="muted author">{item.author}</div>{/if}
           <div class="line small">
             <span class="dot" style:background={TYPE_COLORS[item.type]}></span>{TYPE_NAMES[item.type]}
@@ -215,6 +282,12 @@
           </div>
         </div>
       </div>
+
+      {#if work?.sources?.length > 1}
+        <button class="in-sources" onclick={openAlternatives}>
+          <Icon name="grid" size={16} /> En {work.sources.length} fuentes: {work.sources.map((x) => x.name).join(', ')}
+        </button>
+      {/if}
 
       {#if list.abandoned}
         <div class="notice"><Icon name="hourglass" size={16} /> Posible abandono o hiato prolongado{#if list.lastUpdate} · último capítulo en {monthYear(list.lastUpdate)}{/if}</div>
@@ -259,11 +332,28 @@
     </div>
 
     {#if tab === 0}
+      {#if whereText || (work?.key && counterparts.length && !session.user?.guest)}
+        <div class="where">
+          <Icon name="info" size={18} />
+          <div class="grow">
+            <div class="where-title">¿Dónde sigo?</div>
+            {#if whereText}
+              <div class="small">{whereText}</div>
+            {:else}
+              <div class="small muted">Nadie ha dicho todavía hasta dónde llega {anime ? 'este anime en el manga o la novela' : 'el anime en esta obra'}.</div>
+            {/if}
+            {#if whereTarget}<button class="link" onclick={() => openRelated(whereTarget)}>Abrir {whereTarget.title}</button>{/if}
+          </div>
+          {#if counterparts.length && !session.user?.guest}<button class="btn text" onclick={openPoint}>{whereText ? 'Corregir' : 'Añadir'}</button>{/if}
+        </div>
+      {/if}
       <div class="chapter-bar">
         <span class="small muted">{readCount ? `${readCount} ${anime ? 'vistos' : 'leídos'} de ${list.chapters.length}` : ''}</span>
         <span class="bar-actions">
-          {#if list.chapters.length}<button class="btn text" onclick={openDownloads}><Icon name="download" size={18} /> Descargar</button>{/if}
-          <button class="btn text" onclick={() => (descending = !descending)}><Icon name="sort" size={18} /> {descending ? 'Más recientes' : 'Desde el principio'}</button>
+          {#if list.chapters.length}<button class="btn text" onclick={openDownloads}><Icon name="download" size={18} /> <span class="lbl">Descargar</span></button>{/if}
+          {#if fillerCount}<button class="btn text" class:on={hideFiller} aria-pressed={hideFiller} onclick={() => (hideFiller = !hideFiller)}>{hideFiller ? 'Mostrar relleno' : 'Ocultar relleno'}</button>{/if}
+          <button class="btn text" aria-pressed={shield} onclick={toggleShield} title="Difumina los títulos de lo que aún no has visto"><Icon name="eye" size={18} /> <span class="lbl">{shield ? 'Sin spoilers' : 'Títulos visibles'}</span></button>
+          <button class="btn text" onclick={() => (descending = !descending)}><Icon name="sort" size={18} /> <span class="lbl">{descending ? 'Más recientes' : 'Desde el principio'}</span></button>
         </span>
       </div>
       {#if list.chapters.length > 20}
@@ -297,7 +387,7 @@
           {@const p = progress[c.id]}
           <li class="chapter" class:read={p?.read}>
             <button class="ch-main" onclick={() => open(c)}>
-              <span class="ch-label">{c.label}{#if c.name}<span class="ch-name">{c.name}</span>{/if}</span>
+              <span class="ch-label">{c.label}{#if c.name}<span class="ch-name" class:veil={shield && !p?.read && c.number > ahead}>{c.name}</span>{/if}{#if fillerOf(c) === 'FILLER'}<span class="kind filler">Relleno</span>{:else if fillerOf(c) === 'MIXED'}<span class="kind mixed">Mixto</span>{/if}</span>
               <span class="ch-meta">
                 {#if c.date}<span class="date">{c.date}</span>{/if}
                 {#if p && !p.read && anime && p.page > 0}<span class="accent">· Vas por el minuto {Math.floor(p.page / 60)}</span>
@@ -411,6 +501,23 @@
   {/if}
 </Sheet>
 
+<Sheet bind:open={pointOpen} title="Hasta dónde llega el anime">
+  <form class="point" onsubmit={savePoint}>
+    <p class="small muted" style="margin-top:0">Lo ven todos los usuarios y queda en el historial, así que nada se pierde si alguien se equivoca.</p>
+    <label>{anime ? 'Obra original' : 'Anime'}
+      <select class="field" bind:value={point.target} required>
+        {#each counterparts as r (r.anilistId)}<option value={String(r.anilistId)}>{r.title}{r.format ? ' · ' + r.format : ''}</option>{/each}
+      </select>
+    </label>
+    <label>Hasta el episodio <input class="field" type="number" min="1" max="10000" inputmode="numeric" bind:value={point.episode} required /></label>
+    <div class="range">
+      <label>Capítulo <input class="field" type="number" min="0" max="100000" step="0.1" inputmode="decimal" bind:value={point.chapter} /></label>
+      <label>o volumen <input class="field" type="number" min="0" max="1000" inputmode="numeric" bind:value={point.volume} /></label>
+    </div>
+    <button class="btn primary block" disabled={!point.target || !point.episode || (point.chapter === '' && point.volume === '')}>Guardar</button>
+  </form>
+</Sheet>
+
 <Sheet bind:open={marksOpen} title="Marcadores">
   {#if marks === null}
     <div class="spinner"></div>
@@ -464,6 +571,27 @@
   .hero { position: relative; padding: 0 16px; }
   .backdrop { position: absolute; left: 0; right: 0; top: 0; height: 360px; background-size: cover; background-position: center 30%; filter: blur(36px); opacity: 0.45; transform: scale(1.1); }
   .backdrop::after { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent, var(--bg)); }
+  .banner { position: absolute; left: 0; right: 0; top: 0; height: 300px; overflow: hidden; }
+  .banner img { width: 100%; height: 100%; object-fit: cover; object-position: center 30%; opacity: 0.75; }
+  .banner::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 25%, transparent), var(--bg) 96%); }
+  .has-banner .hero { padding-top: 120px; }
+  .alt-names { color: var(--text-dim); font-size: 0.85rem; margin: -2px 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .in-sources { position: relative; display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 0.82rem; color: var(--text-dim); text-align: left; }
+  .in-sources:hover { color: var(--text); }
+  .where { display: flex; gap: 12px; align-items: flex-start; margin: 14px 16px 6px; padding: 12px 14px; border-radius: 14px; background: var(--surface-high); border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent); }
+  .where > :global(svg) { color: var(--primary); flex: none; margin-top: 2px; }
+  .where-title { font-weight: 700; margin-bottom: 2px; }
+  .link { color: var(--primary); font-weight: 600; font-size: 0.85rem; margin-top: 4px; padding: 0; }
+  .veil { filter: blur(5px); transition: filter 0.2s; }
+  .chapter:hover .veil, .chapter:focus-within .veil { filter: none; }
+  .kind { margin-left: 8px; font-size: 0.68rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; vertical-align: 2px; }
+  .kind.filler { background: color-mix(in srgb, var(--tertiary) 22%, transparent); color: var(--tertiary); }
+  .kind.mixed { background: var(--surface-high); color: var(--text-dim); }
+  .btn.text.on { color: var(--primary); }
+  .point { display: flex; flex-direction: column; gap: 12px; }
+  .point label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--text-dim); flex: 1; }
+  .point .field { height: 44px; }
+  @media (prefers-reduced-motion: reduce) { .veil { transition: none; } }
   .statuses { position: relative; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
   .statuses .chip { height: 30px; padding: 0 12px; font-size: 0.8rem; }
   .ch-search { display: flex; align-items: center; gap: 8px; margin: 4px 16px 8px; padding: 0 12px; height: 40px; border-radius: 20px; background: var(--surface-high); color: var(--text-dim); }
@@ -473,7 +601,7 @@
   .poster.shown, .poster.skeleton { opacity: 1; }
   @media (min-width: 760px) { .poster { width: 160px; height: 228px; } }
   .facts { min-width: 0; }
-  h1 { font-size: 1.4rem; margin: 0 0 4px; line-height: 1.2; }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; line-height: 1.2; overflow-wrap: anywhere; text-wrap: balance; }
   .author { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .line { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; color: var(--text-dim); margin-top: 6px; }
   .sep { margin: 0 2px; }
@@ -489,7 +617,10 @@
   .tabs { display: flex; margin-top: 18px; border-bottom: 1px solid var(--outline-variant); position: sticky; top: calc(var(--safe-top) + 52px); background: var(--bg); z-index: 5; transition: background 0.45s; }
   .tabs button { flex: 1; padding: 14px 0; color: var(--text-dim); font-weight: 600; border-bottom: 3px solid transparent; }
   .tabs button.on { color: var(--primary); border-bottom-color: var(--primary); }
-  .bar-actions { display: flex; align-items: center; }
+  .bar-actions { display: flex; align-items: center; flex-wrap: nowrap; }
+  .bar-actions .btn { white-space: nowrap; }
+  /* Phones: the chapter tools keep only their icons (their names stay for screen readers). */
+  @media (max-width: 599px) { .bar-actions .btn :global(.lbl) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } .bar-actions .btn { padding: 0 10px; } }
   .chapter-bar { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 4px 16px; }
   .integrity { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; text-align: left; margin: 4px 16px; padding: 8px 12px; border-radius: 10px; background: var(--surface-high); color: var(--text-dim); font-size: 0.85rem; width: calc(100% - 32px); }
   .warn { color: var(--tertiary); display: flex; }
@@ -509,7 +640,7 @@
   .gap { display: flex; align-items: center; gap: 8px; padding: 2px 16px; color: var(--tertiary); font-size: 0.74rem; }
   .gap::before, .gap::after { content: ''; flex: 1; height: 1px; background: color-mix(in srgb, var(--tertiary) 35%, transparent); }
   .related { padding: 0 16px; }
-  .fab { position: fixed; right: max(16px, calc((100vw - 960px) / 2 + 16px)); bottom: calc(16px + var(--safe-bottom)); z-index: 30; height: 56px; padding: 0 22px 0 18px; border-radius: 18px; display: flex; align-items: center; gap: 10px; background: var(--primary-container); color: var(--on-primary-container); font-weight: 600; box-shadow: 0 6px 20px #0008; }
+  .fab { position: fixed; right: max(16px, calc((100vw - 960px) / 2 + 16px)); bottom: calc(16px + var(--layout-bottom-bar) + var(--safe-bottom)); z-index: 30; height: 56px; padding: 0 22px 0 18px; border-radius: 18px; display: flex; align-items: center; gap: 10px; background: var(--primary-container); color: var(--on-primary-container); font-weight: 600; box-shadow: 0 6px 20px #0008; }
   .opt { width: 100%; text-align: left; gap: 14px; }
   .cats { position: relative; display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 0.82rem; color: var(--text-dim); text-align: left; }
   .chipwrap { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -532,6 +663,7 @@
     .hero { position: sticky; top: calc(var(--top-h) + 20px); padding: 0 0 24px; max-height: calc(100vh - var(--top-h) - 40px); overflow-y: auto; scrollbar-width: none; }
     .hero::-webkit-scrollbar { display: none; }
     .hero-inner { flex-direction: column; align-items: flex-start; }
+    .facts { width: 100%; }
     /* Small enough that the whole card usually fits the screen beside the list. */
     .poster { width: min(100%, calc(50vh * 0.7)); height: auto; aspect-ratio: 0.7; }
     h1 { font-size: 1.7rem; }
@@ -539,6 +671,12 @@
     .lib { margin-top: 10px; }
     .fab { display: none; }
     .main .tabs { margin-top: 0; top: var(--top-h); }
+    .has-banner .hero { padding-top: 0; }
+    .has-banner .layout { padding-top: 190px; }
+    .banner { height: 460px; }
+    .banner img { opacity: 0.6; }
+    .poster { width: min(100%, 240px); }
+    .where { margin: 14px 0 6px; }
     .tabs button { flex: none; padding: 16px 22px; }
     .tabs button:hover:not(.on) { color: var(--text); }
     .chapter-bar { padding: 10px 0 6px 4px; }
@@ -558,6 +696,7 @@
     .wrap { max-width: 1560px; }
     .layout { grid-template-columns: 380px minmax(0, 1fr); gap: 56px; padding: 0 32px; }
     .backdrop { height: 460px; }
+    .banner { height: 480px; }
     h1 { font-size: 1.9rem; }
   }
 </style>

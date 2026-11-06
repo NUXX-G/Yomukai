@@ -32,7 +32,9 @@ data class RelatedTitle(
     /** Kind of release shown under the card ("Anime", "Película", "Novela ligera"...). */
     val format: String = "",
     /** AniList's tags, which hold what its genres do not (Boys' Love, Gore...). */
-    val tags: List<String> = emptyList()
+    val tags: List<String> = emptyList(),
+    /** AniList id, so the page can link the work ("where do I continue" between anime and manga). */
+    val anilistId: Int? = null
 )
 
 /** What the random pick may be; a null [type] leaves that to chance too. */
@@ -217,7 +219,7 @@ class AniListClient(private val network: HttpFetcher) {
         private const val MAX_LOOKUP_QUERIES = 2
         private const val LATIN_LIMIT = 0x24F
 
-        private const val FIELDS = "title{romaji english native} synonyms coverImage{large} type format countryOfOrigin genres tags{name rank}"
+        private const val FIELDS = "id title{romaji english native} synonyms coverImage{large} type format countryOfOrigin genres tags{name rank}"
         private val LOOKUP = """
             query(${'$'}s:String,${'$'}t:MediaType,${'$'}f:MediaFormat,${'$'}n:MediaFormat){Page(perPage:5){media(search:${'$'}s,type:${'$'}t,format:${'$'}f,format_not:${'$'}n,sort:SEARCH_MATCH){
             $FIELDS id idMal averageScore meanScore status description(asHtml:false) siteUrl poster:coverImage{extraLarge} bannerImage
@@ -296,7 +298,7 @@ class AniListClient(private val network: HttpFetcher) {
             val type = typeOf(media)
             return RelatedTitle(
                 shown, names, media.obj("coverImage")?.str("large").orEmpty(), type, media.arr("genres").strings(),
-                format = formatLabel(media.str("format"), type), tags = tagsOf(media)
+                format = formatLabel(media.str("format"), type), tags = tagsOf(media), anilistId = media.str("id")?.toIntOrNull()
             )
         }
 

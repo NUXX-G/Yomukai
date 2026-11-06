@@ -110,7 +110,7 @@
 {:else if !session.user}
   <Login />
 {:else}
-  <div class="shell" class:immersive>
+  <div class="shell" class:immersive class:own-bar={route.name === "details"}>
     {#if !immersive}
       <aside class="rail" aria-label="Secciones">
         <a href="/" class="logo" aria-label="Yomukai, inicio"><span class="mark">読</span><span class="word">Yomukai</span></a>
@@ -215,6 +215,8 @@
   .menu a, .menu button { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: var(--r-md); text-align: left; font-size: 0.92rem; }
   .menu a:hover, .menu button:hover { background: var(--c-surface-high); }
   main { min-height: 60vh; overflow-x: clip; }
+  /* Phones: the work page brings its own bar (back, title, options); two bars would eat the banner. */
+  @media (max-width: 1023px) { .shell.own-bar .top { display: none; } }
   .page-enter { animation: enter var(--motion-base) var(--motion-easing); }
   @keyframes enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 

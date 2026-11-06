@@ -45,7 +45,7 @@ data class ChaptersDto(
 
 data class RelatedDto(
     val title: String, val names: List<String>, val cover: String, val type: String, val genres: List<String>,
-    val relation: String?, val format: String, val tags: List<String>, val item: MediaDto?
+    val relation: String?, val format: String, val tags: List<String>, val item: MediaDto?, val anilistId: Int? = null
 )
 
 data class MetadataDto(
@@ -95,7 +95,7 @@ class Dtos(private val proxy: MediaProxy, private val headersOf: (String) -> Map
 
     fun related(r: RelatedTitle) = RelatedDto(
         r.title, r.names, proxy.cover(r.coverUrl, r.item?.let { headersOf(it.sourceId) } ?: emptyMap()), r.type.name, r.genres,
-        r.relation, r.format, r.tags, r.item?.let(::media)
+        r.relation, r.format, r.tags, r.item?.let(::media), r.anilistId
     )
 
     fun metadata(m: TitleMetadata) = MetadataDto(

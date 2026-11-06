@@ -128,6 +128,7 @@ export const api = {
   workContinue: (key, episode) => request('GET', `/api/works/${encodeURIComponent(key)}/continue?${qs({ episode })}`),
   calendar: (days = 7) => request('GET', `/api/calendar?${qs({ days })}`),
   fillers: (title) => request('GET', `/api/fillers?${qs({ title })}`),
+  setAdaptation: (body) => request('PUT', '/api/adaptations', body),
   skip: (s, c, other) => request('GET', `/api/skip?${qs({ s, c, other })}`),
   job: (id) => request('GET', `/api/jobs/${id}`),
   adminStatus: () => request('GET', '/api/admin/status'),
