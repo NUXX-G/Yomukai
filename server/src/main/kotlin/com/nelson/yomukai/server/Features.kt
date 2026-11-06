@@ -13,6 +13,7 @@ object FeatureCatalog {
         Feature("worker_jobs", "Trabajos en el servidor de casa", "Cola de trabajos pesados (voces, OCR, subtítulos, descargas) para los workers"),
         Feature("bandwidth_cap", "Tope de tráfico de vídeo", "Corta el vídeo que pasa por el VPS al llegar al tope mensual"),
         Feature("ytdlp", "yt-dlp para los vídeos", "Prueba yt-dlp antes que los extractores propios al buscar el vídeo de un reproductor"),
+        Feature("jellyfin", "Jellyfin y NAS", "Descargar al Jellyfin, obras seguidas y exportar cómics a Kavita/Komga (lo hace el servidor de casa)"),
         Feature("ocr", "OCR de cómics", "Texto de los bocadillos (móvil o servidor de casa), compartido para no repetirlo"),
         Feature("learning", "Aprender idiomas", "Palabras guardadas con repaso espaciado (FSRS) y exportación a Anki; cada usuario lo activa"),
         Feature("themes", "Temas", "Temas personalizados con editor, contraste WCAG y galería entre amigos"),

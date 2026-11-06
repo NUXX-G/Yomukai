@@ -181,6 +181,7 @@ class Services(val config: Config) {
     val voices by lazy { VoiceRouter(this) }
     val ocr by lazy { OcrStore(this) }
     val words = Words(db, events)
+    val integrations = Integrations(db, config.secret)
     val language by lazy { WorkerLanguage(this) }
     private val animeCheck: (String) -> Boolean = { id -> sources.get(id) is com.nelson.yomukai.data.source.AnimeSource }
     val social by lazy { Social(db, events, config.dataDir, animeCheck, works::keyOf, notifications::send) }
@@ -346,6 +347,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 accountAdminRoutes(services)
                 workerAdminRoutes(services)
                 forumAdminRoutes(services)
+                integrationAdminRoutes(services)
                 get("/status") { call.respond(mapOf("bandwidth" to services.bandwidth.summary(), "memory" to memoryStatus())) }
             }
         }

@@ -236,6 +236,14 @@ object Migrations {
                    lang TEXT NOT NULL, word TEXT NOT NULL, meaning TEXT NOT NULL DEFAULT '', context TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT '',
                    card TEXT NOT NULL, created_at INTEGER NOT NULL, UNIQUE(user_id, lang, word))"""
             )
+        },
+        Migration(12, "Integraciones (Jellyfin, Kavita/Komga) guardadas cifradas, y obras seguidas para descargar") {
+            exec("CREATE TABLE IF NOT EXISTS integrations(name TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL)")
+            exec(
+                """CREATE TABLE IF NOT EXISTS follows(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                   source_id TEXT NOT NULL, media_id TEXT NOT NULL, title TEXT NOT NULL, rules TEXT NOT NULL DEFAULT '{}', last_number REAL NOT NULL DEFAULT 0,
+                   created_at INTEGER NOT NULL, UNIQUE(source_id, media_id))"""
+            )
         }
     )
 
