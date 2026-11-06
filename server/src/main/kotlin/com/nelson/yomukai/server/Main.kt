@@ -173,6 +173,8 @@ class Services(val config: Config) {
         catalog.workKeys = w::knownKeys
         catalog.dtos.betterCover = w::betterCover
     }
+    val events = Events(db)
+    val rooms = Rooms(db, events)
     val discover = Discover(com.nelson.yomukai.data.discovery.AniListDiscover(http), db, catalog, works) { proxy.cover(it, emptyMap()) }
     val ytdlp = YtDlp(
         File(System.getenv("YTDLP_PATH")?.ifBlank { null } ?: "/opt/yt-dlp"),
@@ -252,6 +254,7 @@ private fun Application.startBackgroundJobs(config: Config, services: Services) 
     launch {
         while (true) {
             runCatching { services.auth.cleanUpGuests() }.onFailure { log.warn("Limpieza de invitados", it) }
+            runCatching { services.rooms.cleanup(); services.events.cleanup() }.onFailure { log.warn("Limpieza de salas", it) }
             delay(60 * 60_000L)
         }
     }
@@ -267,6 +270,12 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
         deflate { matchContentType(ContentType.Application.Json, ContentType.Text.Any) }
     }
     install(SSE)
+    install(io.ktor.server.websocket.WebSockets) {
+        pingPeriodMillis = 20_000
+        timeoutMillis = 45_000
+        maxFrameSize = Rooms.MAX_FRAME.toLong()
+        masking = false
+    }
     install(StatusPages) {
         exception<NoSuchElementException> { call, e -> call.respond(HttpStatusCode.NotFound, mapOf("error" to (e.message ?: "No encontrado"))) }
         exception<IllegalArgumentException> { call, e -> call.respond(HttpStatusCode.BadRequest, mapOf("error" to (e.message ?: "Petición no válida"))) }
@@ -301,6 +310,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 workRoutes(services)
                 discoverRoutes(services)
                 playbackRoutes(services)
+                roomRoutes(services)
                 // Files for the user's device. GET for one chapter (a plain link), POST from a form for many.
                 get("/download") {
                     val p = call.request.queryParameters

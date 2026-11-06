@@ -13,6 +13,7 @@ object FeatureCatalog {
         Feature("worker_jobs", "Trabajos en el servidor de casa", "Cola de trabajos pesados (voces, OCR, subtítulos, descargas) para los workers"),
         Feature("bandwidth_cap", "Tope de tráfico de vídeo", "Corta el vídeo que pasa por el VPS al llegar al tope mensual"),
         Feature("ytdlp", "yt-dlp para los vídeos", "Prueba yt-dlp antes que los extractores propios al buscar el vídeo de un reproductor"),
+        Feature("rooms", "Salas para ver juntos", "Watch party sincronizada con chat y reacciones; cada cliente reproduce su propio vídeo"),
         Feature("source_repair", "Auto-reparación de fuentes", "Cuando el canario ve una fuente rota, el worker propone un arreglo como PR en GitHub (nunca se aplica solo)", default = false)
     )
     private val byName = ALL.associateBy { it.name }

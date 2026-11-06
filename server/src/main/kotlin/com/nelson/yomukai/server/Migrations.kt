@@ -143,6 +143,24 @@ object Migrations {
                    target_key TEXT NOT NULL, before TEXT NOT NULL, after TEXT NOT NULL, changed_by TEXT NOT NULL, changed_at INTEGER NOT NULL)"""
             )
             exec("CREATE TABLE IF NOT EXISTS fillers(slug TEXT PRIMARY KEY, data TEXT NOT NULL, fetched_at INTEGER NOT NULL)")
+        },
+        Migration(7, "Salas para ver juntos, su chat y el registro de actividad") {
+            exec(
+                """CREATE TABLE IF NOT EXISTS rooms(code TEXT PRIMARY KEY, owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                   name TEXT NOT NULL, persistent INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, last_active INTEGER NOT NULL)"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS rooms_owner ON rooms(owner_id)")
+            exec(
+                """CREATE TABLE IF NOT EXISTS room_messages(id INTEGER PRIMARY KEY AUTOINCREMENT, room_code TEXT NOT NULL REFERENCES rooms(code) ON DELETE CASCADE,
+                   user_id INTEGER, user_name TEXT NOT NULL, kind TEXT NOT NULL, text TEXT NOT NULL, spoiler INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL)"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS room_messages_room ON room_messages(room_code, created_at)")
+            exec(
+                """CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                   kind TEXT NOT NULL, data TEXT NOT NULL DEFAULT '{}', created_at INTEGER NOT NULL)"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS events_user ON events(user_id, kind, created_at)")
+            exec("CREATE INDEX IF NOT EXISTS events_time ON events(created_at)")
         }
     )
 

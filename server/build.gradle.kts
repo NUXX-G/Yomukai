@@ -26,6 +26,7 @@ dependencies {
     implementation("io.ktor:ktor-server-caching-headers:$ktor")
     implementation("io.ktor:ktor-server-default-headers:$ktor")
     implementation("io.ktor:ktor-server-sse:$ktor")
+    implementation("io.ktor:ktor-server-websockets:$ktor")
     implementation(libs.okhttp)
     implementation(libs.okhttp.dnsoverhttps)
     implementation("org.xerial:sqlite-jdbc:3.50.3.0")
