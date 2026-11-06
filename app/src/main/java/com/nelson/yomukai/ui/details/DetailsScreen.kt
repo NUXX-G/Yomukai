@@ -56,6 +56,8 @@ import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -187,6 +189,9 @@ private fun DetailsContent(
     val alternatives by viewModel.alternatives.collectAsStateWithLifecycle()
     val locate by viewModel.locate.collectAsStateWithLifecycle()
     val metadata by viewModel.metadata.collectAsStateWithLifecycle()
+    val fillers by viewModel.fillers.collectAsStateWithLifecycle()
+    val spoilerPrefs = androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("ui", android.content.Context.MODE_PRIVATE)
+    var shield by remember { mutableStateOf(spoilerPrefs.getBoolean("spoilerShield", true)) }
     val metadataLoading by viewModel.metadataLoading.collectAsStateWithLifecycle()
     val insights by viewModel.insights.collectAsStateWithLifecycle()
 
@@ -348,7 +353,13 @@ private fun DetailsContent(
                 }
                 if (tab == 0) {
                     item(key = "chapters_bar") {
-                        ChaptersBar(state, onToggleSort = viewModel::toggleSort)
+                        ChaptersBar(
+                            state, onToggleSort = viewModel::toggleSort, shield = shield,
+                            onToggleShield = {
+                                shield = !shield
+                                spoilerPrefs.edit().putBoolean("spoilerShield", shield).apply()
+                            }
+                        )
                         IntegrityNotice(insights.issues, state.isAnime)
                     }
                     if (state.chapters.isEmpty() && !state.isRefreshing) {
@@ -360,6 +371,7 @@ private fun DetailsContent(
                             )
                         }
                     }
+                    val furthestRead = state.chapters.filter { it.read }.maxOfOrNull { it.number }
                     state.displayedChapters.forEach { chapter ->
                         val gap = insights.gapAfter[chapter.chapterId]
                         // The gap sits between this chapter and the next one in reading order.
@@ -371,6 +383,8 @@ private fun DetailsContent(
                                 download = state.downloads[chapter.chapterId],
                                 isNovel = state.isNovel,
                                 isAnime = state.isAnime,
+                                hideName = com.nelson.yomukai.data.work.SpoilerShield.hideChapter(shield && !chapter.read, chapter.number, furthestRead),
+                                kind = if (state.isAnime) fillers[chapter.number.toInt()] else null,
                                 onClick = { onOpenChapter(chapter) },
                                 onToggleRead = { viewModel.setRead(chapter, !chapter.read) },
                                 onMarkPrevious = { viewModel.markPreviousRead(chapter) },
@@ -624,9 +638,44 @@ private fun GenrePill(genre: String) {
     }
 }
 
+/** The chapter's own name (blurred while it could spoil) and its filler/mixed badge. */
+@Composable
+private fun androidx.compose.foundation.layout.RowScope.ChapterNameAndKind(
+    name: String?,
+    hideName: Boolean,
+    kind: com.nelson.yomukai.data.work.EpisodeKind?,
+    contentAlpha: Float
+) {
+    if (name != null) {
+        // Blurred on Android 12+; older phones cannot blur text, so the name is replaced.
+        val canBlur = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S
+        Text(
+            if (hideName && !canBlur) "  · título oculto" else "  $name",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha * 0.9f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false).then(if (hideName && canBlur) Modifier.blur(6.dp) else Modifier)
+        )
+    }
+    if (kind == null) return
+    val filler = kind == com.nelson.yomukai.data.work.EpisodeKind.FILLER
+    Text(
+        if (filler) "Relleno" else "Mixto",
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = if (filler) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .padding(start = 8.dp)
+            .clip(RoundedCornerShape(50))
+            .background(if (filler) MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(horizontal = 7.dp, vertical = 1.dp)
+    )
+}
+
 /** Count of read chapters and the order switch, right above the list. */
 @Composable
-private fun ChaptersBar(state: DetailsUiState, onToggleSort: () -> Unit) {
+private fun ChaptersBar(state: DetailsUiState, onToggleSort: () -> Unit, shield: Boolean, onToggleShield: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -640,6 +689,11 @@ private fun ChaptersBar(state: DetailsUiState, onToggleSort: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f)
         )
+        TextButton(onClick = onToggleShield) {
+            Icon(if (shield) Icons.Default.VisibilityOff else Icons.Default.Visibility, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(if (shield) "Sin spoilers" else "Títulos visibles", style = MaterialTheme.typography.labelLarge)
+        }
         TextButton(onClick = onToggleSort) {
             Icon(Icons.AutoMirrored.Filled.Sort, null, Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
@@ -757,6 +811,8 @@ private fun ChapterRow(
     download: DownloadEntity?,
     isNovel: Boolean,
     isAnime: Boolean,
+    hideName: Boolean,
+    kind: com.nelson.yomukai.data.work.EpisodeKind?,
     onClick: () -> Unit,
     onToggleRead: () -> Unit,
     onMarkPrevious: () -> Unit,
@@ -785,15 +841,7 @@ private fun ChapterRow(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
                         maxLines = 1
                     )
-                    label.name?.let { name ->
-                        Text(
-                            "  $name",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha * 0.9f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    ChapterNameAndKind(label.name, hideName, kind, contentAlpha)
                 }
                 val progressText = when {
                     chapter.read -> null

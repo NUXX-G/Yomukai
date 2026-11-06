@@ -163,6 +163,9 @@ object FillerGuide {
             n to kind
         }.toMap()
 
+    /** The show's page on animefillerlist.com, or null when the title gives no usable address. */
+    fun url(title: String): String? = slug(title).take(100).ifBlank { null }?.let { "https://www.animefillerlist.com/shows/$it" }
+
     /** The site's address for a show: its English title in lower case with dashes. */
     fun slug(title: String): String =
         java.text.Normalizer.normalize(title, java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}"), "").lowercase()

@@ -131,6 +131,19 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
     /** Score, official synopsis, normalized genres and related works; null while loading. */
     val metadata: StateFlow<TitleMetadata?> = _metadata
 
+    private val _fillers = MutableStateFlow<Map<Int, com.nelson.yomukai.data.work.EpisodeKind>>(emptyMap())
+
+    /** Anime: episode number -> filler or mixed (AnimeFillerList); empty when unknown. */
+    val fillers: StateFlow<Map<Int, com.nelson.yomukai.data.work.EpisodeKind>> = _fillers
+
+    private fun loadFillers(title: String) {
+        val url = com.nelson.yomukai.data.work.FillerGuide.url(title) ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val html = runCatching { container.network.getString(url, emptyMap(), cloudflareFallback = false) }.getOrNull() ?: return@launch
+            _fillers.value = com.nelson.yomukai.data.work.FillerGuide.parse(html).filterValues { it != com.nelson.yomukai.data.work.EpisodeKind.CANON }
+        }
+    }
+
     private val _metadataLoading = MutableStateFlow(true)
     val metadataLoading: StateFlow<Boolean> = _metadataLoading
 
@@ -166,6 +179,7 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
     private fun loadMetadata() {
         viewModelScope.launch(Dispatchers.IO) {
             val media = mediaItem() ?: run { _metadataLoading.value = false; return@launch }
+            if (source is AnimeSource) loadFillers(media.title)
             // AniList may be busy with the home screen's recommendations right after start: what
             // came back empty is asked again a little later, and the genres shown meanwhile stay.
             repeat(METADATA_ATTEMPTS) { attempt ->

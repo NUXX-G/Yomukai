@@ -88,4 +88,10 @@ class WorkExtrasTest {
         assertEquals("one-piece", FillerGuide.slug("One Piece"))
         assertEquals("my-hero-academia", FillerGuide.slug("My Hero Academia!"))
     }
+
+    @Test
+    fun fillerAddressComesFromTheTitle() {
+        org.junit.Assert.assertEquals("https://www.animefillerlist.com/shows/naruto-shippuden", FillerGuide.url("Naruto: Shippūden"))
+        org.junit.Assert.assertEquals(null, FillerGuide.url("¡¿?!"))
+    }
 }

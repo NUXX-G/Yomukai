@@ -127,7 +127,8 @@ export const api = {
   workChoice: (key, number, sourceId) => request('PUT', `/api/works/${encodeURIComponent(key)}/choice`, { number, sourceId }),
   workContinue: (key, episode) => request('GET', `/api/works/${encodeURIComponent(key)}/continue?${qs({ episode })}`),
   calendar: (days = 7) => request('GET', `/api/calendar?${qs({ days })}`),
-  fillers: (title) => request('GET', `/api/fillers?${qs({ title })}`),
+  /** Episode number -> 'FILLER' | 'MIXED' (the server answers in lower case). */
+  fillers: async (title) => Object.fromEntries(Object.entries((await request('GET', `/api/fillers?${qs({ title })}`)) || {}).map(([n, k]) => [n, String(k).toUpperCase()])),
   setAdaptation: (body) => request('PUT', '/api/adaptations', body),
   skip: (s, c, other) => request('GET', `/api/skip?${qs({ s, c, other })}`),
   job: (id) => request('GET', `/api/jobs/${id}`),

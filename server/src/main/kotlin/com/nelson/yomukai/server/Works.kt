@@ -321,7 +321,7 @@ class Works(
         if (slug.isBlank()) return emptyMap()
         val cached = db.tx { queryOne("SELECT data, fetched_at FROM fillers WHERE slug = ?", slug) { getString(1) to getLong(2) } }
         if (cached != null && clock() - cached.second < 7 * Auth.DAY_MS) return parseFillers(cached.first)
-        val parsed = runCatching { FillerGuide.parse(http.getString("https://www.animefillerlist.com/shows/$slug", emptyMap(), cloudflareFallback = false)) }.getOrDefault(emptyMap())
+        val parsed = runCatching { FillerGuide.parse(http.getString(FillerGuide.url(title) ?: return emptyMap(), emptyMap(), cloudflareFallback = false)) }.getOrDefault(emptyMap())
         val data = parsed.filterValues { it != EpisodeKind.CANON }.mapKeys { it.key.toString() }.mapValues { it.value.name.lowercase() }
         db.tx {
             update(
