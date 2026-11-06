@@ -184,6 +184,7 @@ class ServerSync(
             _state.value = _state.value.copy(running = true)
             val result = runCatching { run(server, session) }
             runCatching { fetchSourceHealth(server, session) }
+            runCatching { fetchTheme(server, session) }
             val error = result.exceptionOrNull()?.let { it.message ?: "Error al sincronizar" }
             prefs.edit().apply {
                 if (error == null) putLong("last_sync", System.currentTimeMillis()).remove("error") else putString("error", error)
@@ -436,6 +437,15 @@ class ServerSync(
     }
 
     private fun authed(builder: Request.Builder, session: String) = builder.header("Cookie", "$COOKIE=$session")
+
+    /** The theme chosen on the server (web or app) is the one this phone shows too. */
+    private fun fetchTheme(server: String, session: String) {
+        client.newCall(authed(Request.Builder().url("$server/api/themes/current"), session).build()).execute().use { r ->
+            if (!r.isSuccessful) return
+            val theme = JsonParser.parseString(r.body?.string().orEmpty()).asJsonObject.get("theme")?.takeIf { it.isJsonObject }?.toString()
+            if (theme != preferences.app.value.customTheme) preferences.updateApp { it.copy(customTheme = theme) }
+        }
+    }
 
     private fun fetchSourceHealth(server: String, session: String) {
         client.newCall(authed(Request.Builder().url("$server/api/sources"), session).build()).execute().use { r ->

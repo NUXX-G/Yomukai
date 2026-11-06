@@ -118,6 +118,8 @@ enum class NovelFormat(val displayName: String) { EPUB("EPUB"), TXT("TXT") }
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.DARK,
     val dynamicColor: Boolean = false,
+    /** A theme (shared ThemeSpec JSON): a built-in one or the one chosen on the connected server; null = default. */
+    val customTheme: String? = null,
     /** null = use the source manager's defaults. */
     val enabledSources: Set<String>? = null,
     /** Background check for new chapters/episodes of library titles. */
@@ -282,6 +284,7 @@ class AppPreferences(context: Context) {
         prefs.edit()
             .putString("theme_mode", value.themeMode.name)
             .putBoolean("dynamic_color_v2", value.dynamicColor)
+            .putString("custom_theme", value.customTheme)
             .putBoolean("updates_enabled", value.updatesEnabled)
             .putInt("updates_interval", value.updateIntervalHours)
             .putBoolean("updates_wifi", value.updatesWifiOnly)
@@ -365,6 +368,7 @@ class AppPreferences(context: Context) {
     private fun readApp() = AppSettings(
         themeMode = enumOr(prefs.getString("theme_mode", null), ThemeMode.DARK),
         dynamicColor = prefs.getBoolean("dynamic_color_v2", false),
+        customTheme = prefs.getString("custom_theme", null),
         updatesEnabled = prefs.getBoolean("updates_enabled", true),
         updateIntervalHours = prefs.getInt("updates_interval", 12),
         updatesWifiOnly = prefs.getBoolean("updates_wifi", false),

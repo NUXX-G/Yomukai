@@ -48,6 +48,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,6 +72,7 @@ import com.nelson.yomukai.data.prefs.TorMode
 import com.nelson.yomukai.data.updates.LibraryUpdateWorker
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.components.LanguageTag
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -129,6 +131,28 @@ fun SettingsScreen(
                             selected = app.themeMode == mode,
                             onClick = { viewModel.updateApp { it.copy(themeMode = mode) } },
                             label = { Text(mode.displayName) }
+                        )
+                    }
+                }
+            }
+            item {
+                // The same themes as the web; with a server connected the choice is saved there too (and comes back on sync).
+                val current = remember(app.customTheme) { com.nelson.yomukai.ui.theme.CustomTheme.parse(app.customTheme)?.name }
+                val scope = rememberCoroutineScope()
+                val container = com.nelson.yomukai.ui.LocalAppContainer.current
+                Text("Tema", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
+                ChipRow {
+                    FilterChip(selected = current == null, onClick = { viewModel.updateApp { it.copy(customTheme = null) } }, label = { Text("Ninguno") })
+                    com.nelson.yomukai.ui.theme.CustomTheme.builtIn.forEach { (id, spec) ->
+                        FilterChip(
+                            selected = current == spec.name,
+                            onClick = {
+                                viewModel.updateApp { it.copy(customTheme = com.nelson.yomukai.data.theme.ThemeRules.toJson(spec).toString()) }
+                                scope.launch {
+                                    runCatching { container.serverSync.api("PUT", "/api/themes/use", com.google.gson.JsonObject().apply { addProperty("builtIn", id) }) }
+                                }
+                            },
+                            label = { Text(spec.name) }
                         )
                     }
                 }

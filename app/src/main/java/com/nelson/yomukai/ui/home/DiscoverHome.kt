@@ -77,11 +77,11 @@ fun HomeHero(entries: List<DiscoverEntry>, onOpen: (DiscoverEntry) -> Unit, modi
                 Box(
                     Modifier.fillMaxSize().background(
                         Brush.verticalGradient(
-                            0f to DesignTokens.canvas.copy(alpha = 0.35f),
+                            0f to Color.Black.copy(alpha = 0.35f),
                             0.3f to Color.Transparent,
-                            0.55f to DesignTokens.canvas.copy(alpha = 0.7f),
-                            0.75f to DesignTokens.canvas.copy(alpha = 0.9f),
-                            1f to DesignTokens.canvas
+                            0.55f to Color.Black.copy(alpha = 0.7f),
+                            0.75f to Color.Black.copy(alpha = 0.85f),
+                            1f to MaterialTheme.colorScheme.background
                         )
                     )
                 )

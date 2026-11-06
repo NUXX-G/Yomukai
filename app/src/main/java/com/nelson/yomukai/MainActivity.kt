@@ -107,8 +107,11 @@ class MainActivity : ComponentActivity() {
         val container = (application as YomukaiApplication).container
         setContent {
             val settings by container.preferences.app.collectAsStateWithLifecycle()
-            val dark = when (settings.themeMode) {
-                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+            // A chosen theme (shared with the web) decides light or dark by its own background.
+            val custom = remember(settings.customTheme) { com.nelson.yomukai.ui.theme.CustomTheme.parse(settings.customTheme) }
+            val systemDark = isSystemInDarkTheme()
+            val dark = custom?.let { com.nelson.yomukai.ui.theme.CustomTheme.isDark(it) } ?: when (settings.themeMode) {
+                ThemeMode.SYSTEM -> systemDark
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
             }
@@ -131,7 +134,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             CompositionLocalProvider(LocalAppContainer provides container, LocalConfiguration provides themedConfiguration) {
-                YomukaiTheme(darkTheme = dark, dynamicColor = settings.dynamicColor) {
+                YomukaiTheme(darkTheme = dark, dynamicColor = settings.dynamicColor && custom == null, custom = custom) {
                     YomukaiApp(container, pendingDetails.value, onDeepLinkHandled = { pendingDetails.value = null })
                 }
             }

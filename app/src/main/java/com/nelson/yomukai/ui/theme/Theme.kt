@@ -86,9 +86,12 @@ fun YomukaiTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = false,
+    /** A shared theme (built-in or from the server): it decides colours, font and corners. */
+    custom: com.nelson.yomukai.data.theme.ThemeSpec? = null,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
+        custom != null -> CustomTheme.colorScheme(custom)
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
@@ -100,11 +103,11 @@ fun YomukaiTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
+        typography = custom?.let { CustomTheme.typography(Typography, it) } ?: Typography,
         shapes = Shapes(
-            small = RoundedCornerShape(DesignTokens.radiusMd),
-            medium = RoundedCornerShape(DesignTokens.radiusLg),
-            large = RoundedCornerShape(DesignTokens.radiusXl),
+            small = RoundedCornerShape(DesignTokens.radiusMd * (custom?.let(CustomTheme::radiusFactor) ?: 1f)),
+            medium = RoundedCornerShape(DesignTokens.radiusLg * (custom?.let(CustomTheme::radiusFactor) ?: 1f)),
+            large = RoundedCornerShape(DesignTokens.radiusXl * (custom?.let(CustomTheme::radiusFactor) ?: 1f)),
             extraLarge = RoundedCornerShape(28.dp)
         ),
         content = content
