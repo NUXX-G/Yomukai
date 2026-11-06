@@ -1,26 +1,27 @@
 /* Yomukai: "sumi y brasa", the same palette as the Android app. Title pages override --primary & co. from their cover. */
 :root {
-  --bg: #000000;
-  --surface-low: #0b0b0d;
-  --surface: #121215;
-  --surface-high: #19191d;
-  --surface-highest: #222227;
-  --surface-variant: #1c1c21;
-  --text: #ececef;
-  --text-dim: #a2a2ad;
-  --primary: #ff8e5e;
-  --on-primary: #1f0c03;
-  --primary-container: #3a1c0e;
-  --on-primary-container: #ffdbcb;
+  /* Every color comes from the shared design tokens (tokens.css); title pages still override --primary from the cover. */
+  --bg: var(--c-canvas);
+  --surface-low: var(--c-surface);
+  --surface: var(--c-surface-raised);
+  --surface-high: var(--c-surface-high);
+  --surface-highest: var(--c-surface-highest);
+  --surface-variant: var(--c-surface-high);
+  --text: var(--c-text);
+  --text-dim: var(--c-text-dim);
+  --primary: var(--c-accent);
+  --on-primary: var(--c-on-accent);
+  --primary-container: var(--c-accent-soft);
+  --on-primary-container: var(--c-on-accent-soft);
   --secondary: #afc0d3;
   --secondary-container: #1d242e;
   --on-secondary-container: #d5e1ee;
   --tertiary: #e9c46a;
   --tertiary-container: #332910;
-  --error: #ff6b6b;
-  --outline: #45454d;
-  --outline-variant: #2a2a30;
-  --radius: 14px;
+  --error: var(--c-danger);
+  --outline: var(--c-border-strong);
+  --outline-variant: var(--c-border);
+  --radius: var(--r-lg);
   --nav-h: 64px;
   /* Height of the computer's top bar (none on phones) and the widest a page gets. */
   --top-h: 0px;
@@ -28,7 +29,6 @@
   /* --ios-top: a minimum set on iPhones/iPads whose Safari hides the status bar area without reporting it. */
   --safe-top: max(env(safe-area-inset-top, 0px), var(--ios-top, 0px));
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   color-scheme: dark;
 }
 

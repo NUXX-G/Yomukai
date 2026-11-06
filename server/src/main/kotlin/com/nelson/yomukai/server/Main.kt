@@ -170,6 +170,7 @@ class Services(val config: Config) {
         }
     })
     val works = Works(db, catalog, aniList, sources).also { w -> catalog.workKeys = w::knownKeys }
+    val discover = Discover(com.nelson.yomukai.data.discovery.AniListDiscover(http), db, catalog, works) { proxy.cover(it, emptyMap()) }
     val ytdlp = YtDlp(
         File(System.getenv("YTDLP_PATH")?.ifBlank { null } ?: "/opt/yt-dlp"),
         allowedHosts = YtDlp.DEFAULT_HOSTS + System.getenv("YTDLP_HOSTS").orEmpty().split(',').map { it.trim().lowercase() }.filter { it.contains('.') }
@@ -187,26 +188,16 @@ class Services(val config: Config) {
     suspend fun prefs(user: User) = UserPrefs.parse(db.settings(user.id), sources.defaultEnabledIds)
 }
 
-fun Application.yomukai(config: Config, services: Services = Services(config)) {
-    install(DefaultHeaders)
-    install(securityHeaders(config))
-    install(addressRateLimit(config, services.addressLimiter) { clientAddress(it, config) })
-    install(ContentNegotiation) { gson { disableHtmlEscaping() } }
-    install(Compression) {
-        gzip { matchContentType(ContentType.Application.Json, ContentType.Text.Any, ContentType.Application.JavaScript) }
-        deflate { matchContentType(ContentType.Application.Json, ContentType.Text.Any) }
-    }
-    install(SSE)
-    install(StatusPages) {
-        exception<NoSuchElementException> { call, e -> call.respond(HttpStatusCode.NotFound, mapOf("error" to (e.message ?: "No encontrado"))) }
-        exception<IllegalArgumentException> { call, e -> call.respond(HttpStatusCode.BadRequest, mapOf("error" to (e.message ?: "Petición no válida"))) }
-        exception<Throwable> { call, e ->
-            log.warn("Error en {}", call.request.local.uri, e)
-            call.respond(HttpStatusCode.InternalServerError, mapOf("error" to (e.message ?: "Error interno")))
+/** Everything the server does on its own: start-up work, sweeps, the canary's view, backups, resolvers. */
+private fun Application.startBackgroundJobs(config: Config, services: Services) {
+    launch { runCatching { refreshDegraded(services.health, services.sources) } }
+    // Top AniList titles are looked for in the sources, one every 20 s, so the home rows can open them directly.
+    launch {
+        while (true) {
+            delay(20_000L)
+            runCatching { services.discover.resolveNext() }.onFailure { log.debug("Descubrir: {}", it.message) }
         }
     }
-
-    launch { runCatching { refreshDegraded(services.health, services.sources) } }
     // Library and history rows get their work a few at a time (AniList allows ~30 requests a minute).
     launch {
         runCatching { services.works.loadKnown() }
@@ -261,6 +252,28 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
             delay(60 * 60_000L)
         }
     }
+}
+
+fun Application.yomukai(config: Config, services: Services = Services(config)) {
+    install(DefaultHeaders)
+    install(securityHeaders(config))
+    install(addressRateLimit(config, services.addressLimiter) { clientAddress(it, config) })
+    install(ContentNegotiation) { gson { disableHtmlEscaping() } }
+    install(Compression) {
+        gzip { matchContentType(ContentType.Application.Json, ContentType.Text.Any, ContentType.Application.JavaScript) }
+        deflate { matchContentType(ContentType.Application.Json, ContentType.Text.Any) }
+    }
+    install(SSE)
+    install(StatusPages) {
+        exception<NoSuchElementException> { call, e -> call.respond(HttpStatusCode.NotFound, mapOf("error" to (e.message ?: "No encontrado"))) }
+        exception<IllegalArgumentException> { call, e -> call.respond(HttpStatusCode.BadRequest, mapOf("error" to (e.message ?: "Petición no válida"))) }
+        exception<Throwable> { call, e ->
+            log.warn("Error en {}", call.request.local.uri, e)
+            call.respond(HttpStatusCode.InternalServerError, mapOf("error" to (e.message ?: "Error interno")))
+        }
+    }
+
+    startBackgroundJobs(config, services)
 
     routing {
         authRoutes(services)
@@ -283,6 +296,8 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 featureRoutes(services)
                 accountUserRoutes(services)
                 workRoutes(services)
+                discoverRoutes(services)
+                playbackRoutes(services)
                 // Files for the user's device. GET for one chapter (a plain link), POST from a form for many.
                 get("/download") {
                     val p = call.request.queryParameters

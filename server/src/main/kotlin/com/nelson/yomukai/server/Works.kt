@@ -306,7 +306,9 @@ class Works(
         JsonParser.parseString(json).asJsonObject.entrySet().associate { it.key.toInt() to it.value.asString }
     }.getOrDefault(emptyMap())
 
-    fun dto(w: WorkRow, links: List<WorkSourceRow>): JsonObject = JsonParser.parseString(gson.toJson(w)).asJsonObject.apply {
+    fun dto(w: WorkRow, links: List<WorkSourceRow>, image: (String) -> String = { it }): JsonObject = JsonParser.parseString(
+        gson.toJson(w.copy(cover = w.cover.takeIf { it.startsWith("http") }?.let(image) ?: w.cover, banner = w.banner.takeIf { it.startsWith("http") }?.let(image).orEmpty()))
+    ).asJsonObject.apply {
         val list = links.map {
             mapOf("sourceId" to it.sourceId, "mediaId" to it.mediaId, "confidence" to it.confidence, "name" to (sources.get(it.sourceId)?.name ?: it.sourceId))
         }

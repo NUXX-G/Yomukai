@@ -8,7 +8,11 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --threshold error",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "tokens": "node scripts/tokens.mjs",
+    "predev": "node scripts/tokens.mjs",
+    "prebuild": "node scripts/tokens.mjs",
+    "precheck": "node scripts/tokens.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -21,6 +25,7 @@
     "vite": "^8.3.5"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
     "hls.js": "^1.6.13"
   }
 }

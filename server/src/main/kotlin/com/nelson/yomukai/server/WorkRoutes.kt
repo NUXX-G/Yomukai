@@ -32,12 +32,12 @@ fun Route.workRoutes(s: Services) {
     // The work behind a source page (resolved on first use).
     get("/work") {
         val w = s.works.resolve(call.param("s", 60), call.param("id"))
-        call.respond(s.works.dto(w, s.works.sourcesOf(w.key)))
+        call.respond(s.works.dto(w, s.works.sourcesOf(w.key)) { s.proxy.cover(it, emptyMap()) })
     }
     get("/works/{key}") {
         val key = workKey(call.parameters["key"])
         val w = s.works.get(key) ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Obra desconocida"))
-        call.respond(s.works.dto(w, s.works.sourcesOf(key)))
+        call.respond(s.works.dto(w, s.works.sourcesOf(key)) { s.proxy.cover(it, emptyMap()) })
     }
     get("/works/{key}/chapters") {
         val key = workKey(call.parameters["key"])
@@ -88,6 +88,38 @@ fun Route.workRoutes(s: Services) {
     }
     get("/updates/unified") {
         call.respond(s.catalog.unifiedLatest(s.prefs(call.user)).map { (primary, others) -> mapOf("primary" to primary, "others" to others) })
+    }
+}
+
+/** Continue rows and skip markers: the parts of the work model the player and the home page use. */
+fun Route.playbackRoutes(s: Services) {
+    // What to continue: the latest history, each with its progress inside the chapter and the work's banner.
+    get("/continue") {
+        val rows = s.db.tx {
+            query(
+                """SELECT h.source_id, h.media_id, h.chapter_id, h.chapter_title, h.title, h.cover, h.type, h.read_at, h.work_key,
+                   p.page, p.total, p.fraction, p.read, w.banner, w.cover AS work_cover
+                   FROM history h LEFT JOIN progress p ON p.user_id = h.user_id AND p.source_id = h.source_id AND p.chapter_id = h.chapter_id
+                   LEFT JOIN works w ON w.key = h.work_key
+                   WHERE h.user_id = ? AND h.deleted = 0 ORDER BY h.read_at DESC LIMIT 30""", call.user.id
+            ) {
+                val total = getInt("total")
+                val page = getInt("page")
+                val anime = getString("type") == "ANIME"
+                mapOf(
+                    "sourceId" to getString("source_id"), "mediaId" to getString("media_id"), "chapterId" to getString("chapter_id"),
+                    "chapterTitle" to getString("chapter_title"), "title" to getString("title"), "type" to getString("type"),
+                    // History covers are already proxied addresses; AniList ones are not.
+                    "cover" to (getString("work_cover")?.takeIf { it.startsWith("https://") }?.let { s.proxy.cover(it, emptyMap()) } ?: getString("cover")),
+                    "banner" to getString("banner")?.takeIf { it.isNotBlank() }?.let { s.proxy.cover(it, emptyMap()) },
+                    "readAt" to getLong("read_at"), "workKey" to getString("work_key"),
+                    "fraction" to getDouble("fraction"), "finished" to (getInt("read") == 1),
+                    // For video the position and length are in seconds.
+                    "remainingMin" to if (anime && total > 0) ((total - page).coerceAtLeast(0) + 59) / 60 else null
+                )
+            }
+        }
+        call.respond(rows)
     }
     // Opening/ending markers of an episode from audio fingerprints (computed by the home worker, then cached).
     get("/skip") {

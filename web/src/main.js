@@ -1,3 +1,6 @@
+// Inter (OFL-1.1), latin and latin-ext only, served from this site like everything else.
+import '@fontsource-variable/inter/wght.css';
+import './tokens.css';
 import './app.css';
 import { mount } from 'svelte';
 import App from './App.svelte';

@@ -1,2 +1,5 @@
 node_modules/
 dist/
+
+# Generated from shared/src/main/resources/design/tokens.json
+src/tokens.css

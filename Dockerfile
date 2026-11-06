@@ -5,6 +5,8 @@ FROM node:22-alpine AS web
 WORKDIR /web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
+# The design tokens are shared with the Android app; the build turns them into CSS variables.
+COPY shared/src/main/resources/design/ /shared/src/main/resources/design/
 COPY web/ ./
 RUN npm run build
 
