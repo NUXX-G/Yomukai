@@ -9,7 +9,7 @@ COPY web/ ./
 RUN npm run build
 
 # 2. Server (no Android SDK here: YOMUKAI_SERVER_ONLY leaves the app module out)
-FROM eclipse-temurin:21-jdk AS server
+FROM eclipse-temurin:25-jdk AS server
 WORKDIR /src
 ENV YOMUKAI_SERVER_ONLY=true GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.configuration-cache=false"
 COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
@@ -21,12 +21,12 @@ RUN ./gradlew :server:installDist --console=plain -q
 
 # 3. Natural voices for reading novels aloud: Piper (open source, runs offline on this machine).
 #    The voice models are downloaded by the server the first time each one is used.
-FROM eclipse-temurin:21-jre AS piper
+FROM eclipse-temurin:25-jre AS piper
 ARG TARGETARCH
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*  && case "$TARGETARCH" in arm64) ARCH=aarch64 ;; arm) ARCH=armv7l ;; *) ARCH=x86_64 ;; esac  && curl -fsSL "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_$ARCH.tar.gz" | tar -xz -C /opt
 
 # 3b. yt-dlp (Unlicense), standalone build: only used to find the video URL behind a player page, never to download.
-FROM eclipse-temurin:21-jre AS ytdlp
+FROM eclipse-temurin:25-jre AS ytdlp
 ARG TARGETARCH
 ARG YTDLP_VERSION=2026.10.26
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/* \
@@ -38,7 +38,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
  && echo "$SHA  /opt/yt-dlp" | sha256sum -c - && chmod 755 /opt/yt-dlp
 
 # 4. Runtime
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 RUN useradd --system --create-home --uid 10001 yomukai && mkdir -p /data && chown yomukai /data
 WORKDIR /app
 COPY --from=server /src/server/build/install/server/ /app/
