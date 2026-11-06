@@ -138,15 +138,18 @@ class Services(val config: Config) {
     val workerLimiter = RateLimiter()
     val jobs = JobQueue(db, ResultCache(db, File(config.dataDir, "results"), config.resultCacheBytes))
     val bandwidth = Bandwidth(db, config.bandwidthCapBytes, notifier).also { meter -> proxy.onStreamBytes = meter::record }
+    val invites = InviteStore(db)
+    val audit = AuditLog(db)
+    val setup = SetupWizard(db, config.dataDir)
+    val addressLimiter = KeyedRateLimiter()
 
     suspend fun prefs(user: User) = UserPrefs.parse(db.settings(user.id), sources.defaultEnabledIds)
 }
 
 fun Application.yomukai(config: Config, services: Services = Services(config)) {
-    install(DefaultHeaders) {
-        header("X-Content-Type-Options", "nosniff")
-        header("Referrer-Policy", "no-referrer")
-    }
+    install(DefaultHeaders)
+    install(securityHeaders(config))
+    install(addressRateLimit(config, services.addressLimiter) { clientAddress(it, config) })
     install(ContentNegotiation) { gson { disableHtmlEscaping() } }
     install(Compression) {
         gzip { matchContentType(ContentType.Application.Json, ContentType.Text.Any, ContentType.Application.JavaScript) }
@@ -162,7 +165,10 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
         }
     }
 
-    launch { services.auth.bootstrap() }
+    launch {
+        services.auth.bootstrap()
+        services.setup.prepare(config.publicUrl)
+    }
     if (config.backupsEnabled) backupsOf(config).schedule(this, services.db, config.backupHour)
     // Every minute: job leases and expiry, the traffic meter, and a warning when every worker has gone quiet.
     launch {
@@ -193,6 +199,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
 
     routing {
         authRoutes(services)
+        accountPublicRoutes(services, { clientAddress(it, config) }, { isSecure(it, config) })
         route("/api") {
             run {
                 install(requireUser(services.auth) { LoginThrottle.addressKey(clientAddress(it, config)) })
@@ -209,6 +216,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                     services.proxy.serveStream(call, call.user)
                 }
                 featureRoutes(services)
+                accountUserRoutes(services)
                 // Files for the user's device. GET for one chapter (a plain link), POST from a form for many.
                 get("/download") {
                     val p = call.request.queryParameters
@@ -221,8 +229,10 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 }
             }
             route("/admin") {
-                install(requireUser(services.auth, admin = true))
+                install(requireUser(services.auth, admin = true) { clientAddress(it, config) })
+                install(auditAdminActions(services.audit) { clientAddress(it, config) })
                 adminRoutes(services)
+                accountAdminRoutes(services)
                 workerAdminRoutes(services)
                 get("/status") { call.respond(mapOf("bandwidth" to services.bandwidth.summary(), "memory" to memoryStatus())) }
             }
@@ -250,7 +260,7 @@ private fun ApplicationCall.q(name: String): String =
     request.queryParameters[name] ?: throw IllegalArgumentException("Falta el parámetro '$name'")
 
 private fun Route.authRoutes(s: Services) {
-    fun secure(call: ApplicationCall) = call.request.local.scheme == "https" || call.request.headers["X-Forwarded-Proto"] == "https"
+    fun secure(call: ApplicationCall) = isSecure(call, s.config)
 
     post("/auth/login") {
         val body = JsonParser.parseString(call.receiveText()).asJsonObject
@@ -267,19 +277,22 @@ private fun Route.authRoutes(s: Services) {
                 mapOf("error" to "Demasiados intentos. Prueba otra vez en ${(wait / 60_000) + 1} min")
             )
         }
-        val session = try {
+        val result = try {
             // Many failures against this account from anywhere slow every attempt on it down.
             s.auth.throttle.accountDelay(account).takeIf { it > 0 }?.let { delay(it) }
-            s.auth.login(name, password)
+            s.auth.login(name, password, deviceOf(call.request.headers["User-Agent"]), clientAddress(call, s.config))
         } catch (e: Throwable) {
             s.auth.throttle.finish(keys, success = false)
             throw e
         }
-        s.auth.throttle.finish(keys, success = session != null)
-        if (session == null) s.auth.throttle.accountFailed(account)
-        if (session == null) {
+        s.auth.throttle.finish(keys, success = result !is Auth.LoginResult.Failed)
+        if (result is Auth.LoginResult.Failed) {
+            s.auth.throttle.accountFailed(account)
             return@post call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Usuario o contraseña incorrectos"))
         }
+        // Right password, 2FA on: no session yet, the code page finishes the login.
+        if (result is Auth.LoginResult.NeedsCode) return@post call.respond(mapOf("twoFactor" to true, "challenge" to result.challenge))
+        val session = (result as Auth.LoginResult.Session).let { it.user to it.token }
         if (session.first.suspendedAt != null) {
             s.auth.logout(session.second)
             return@post call.respond(HttpStatusCode.Forbidden, mapOf("error" to SUSPENDED_MESSAGE, "suspended" to true))
@@ -303,7 +316,10 @@ private fun Route.authRoutes(s: Services) {
     }
     get("/auth/me") {
         val user = s.auth.userFor(call.request.cookies[Auth.COOKIE])
-            ?: return@get call.respond(HttpStatusCode.Unauthorized, mapOf("guestsEnabled" to s.config.guestsEnabled, "guestDays" to s.config.guestDays))
+            ?: return@get call.respond(
+                HttpStatusCode.Unauthorized,
+                mapOf("guestsEnabled" to s.config.guestsEnabled, "guestDays" to s.config.guestDays, "setupNeeded" to s.setup.needed())
+            )
         if (user.suspendedAt != null) {
             return@get call.respond(HttpStatusCode.Forbidden, mapOf("error" to SUSPENDED_MESSAGE, "suspended" to true, "guestsEnabled" to s.config.guestsEnabled, "guestDays" to s.config.guestDays))
         }
@@ -347,6 +363,7 @@ private fun Route.adminRoutes(s: Services) {
         require(s.db.userByName(name) == null) { "Ya existe un usuario '$name'" }
         val password = body.get("password")?.asString?.takeIf { it.length >= MIN_PASSWORD } ?: Passwords.generate()
         s.db.createUser(name, Passwords.hash(password), admin = body.get("admin")?.asBoolean == true, guest = false, expiresAt = null)
+        call.auditDetail("usuario $name")
         call.respond(mapOf("name" to name, "password" to password))
     }
     post("/users/{id}/password") {
@@ -359,6 +376,7 @@ private fun Route.adminRoutes(s: Services) {
     delete("/users/{id}") {
         val id = call.parameters["id"]?.toLongOrNull() ?: throw IllegalArgumentException("Usuario no válido")
         require(id != call.user.id) { "No puedes borrarte a ti mismo" }
+        call.auditDetail("usuario " + (s.db.userById(id)?.name ?: id.toString()))
         s.db.deleteUser(id)
         s.auth.forget(id)
         call.respond(mapOf("ok" to true))

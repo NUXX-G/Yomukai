@@ -49,7 +49,10 @@ data class Config(
     /** Admin warnings: Discord webhook and/or ntfy topic URL (with optional token). */
     val discordWebhook: String? = null,
     val ntfyUrl: String? = null,
-    val ntfyToken: String? = null
+    val ntfyToken: String? = null,
+    /** Per address and minute: login/guest/invitation/setup attempts, and API requests. */
+    val authRatePerMinute: Int = 30,
+    val ipRatePerMinute: Int = 1200
 ) {
     companion object {
         const val ACCOUNT_RATE = 600
@@ -63,7 +66,7 @@ data class Config(
                 adminUser = env["ADMIN_USER"]?.trim()?.ifBlank { null } ?: "admin",
                 adminPassword = env["ADMIN_PASSWORD"]?.ifBlank { null },
                 secret = env["SECRET"]?.ifBlank { null }?.toByteArray() ?: persistentSecret(dataDir),
-                guestsEnabled = env["GUESTS_ENABLED"]?.lowercase() != "false",
+                guestsEnabled = env["GUESTS_ENABLED"]?.lowercase() == "true",
                 guestDays = env["GUEST_DAYS"]?.toIntOrNull()?.coerceIn(1, 365) ?: 1,
                 flareSolverrUrl = env["FLARESOLVERR_URL"]?.trimEnd('/')?.ifBlank { null },
                 malClientId = env["MAL_CLIENT_ID"].orEmpty().trim(),
@@ -83,7 +86,9 @@ data class Config(
                 bandwidthCapBytes = ((env["BANDWIDTH_CAP_GB"]?.toDoubleOrNull()?.coerceIn(0.0, 1_000_000.0) ?: 0.0) * 1_073_741_824).toLong(),
                 discordWebhook = env["DISCORD_WEBHOOK_URL"]?.trim()?.takeIf { it.startsWith("https://") },
                 ntfyUrl = env["NTFY_URL"]?.trim()?.takeIf { it.startsWith("https://") || it.startsWith("http://") },
-                ntfyToken = env["NTFY_TOKEN"]?.trim()?.ifBlank { null }
+                ntfyToken = env["NTFY_TOKEN"]?.trim()?.ifBlank { null },
+                authRatePerMinute = env["AUTH_RATE"]?.toIntOrNull()?.coerceIn(5, 1_000) ?: 30,
+                ipRatePerMinute = env["IP_RATE"]?.toIntOrNull()?.coerceIn(60, 100_000) ?: 1200
             )
         }
 

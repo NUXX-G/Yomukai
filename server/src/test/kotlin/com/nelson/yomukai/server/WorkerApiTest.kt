@@ -24,7 +24,7 @@ import java.nio.file.Files
 /** The worker API end to end: tokens, who may see which job, and a job going round trip. */
 class WorkerApiTest {
     private fun config() = Config.fromEnv(
-        mapOf("DATA_DIR" to Files.createTempDirectory("ykapi").toString(), "ADMIN_USER" to "admin", "ADMIN_PASSWORD" to "admin-password-1", "BACKUPS_ENABLED" to "false")
+        mapOf("DATA_DIR" to Files.createTempDirectory("ykapi").toString(), "ADMIN_USER" to "admin", "ADMIN_PASSWORD" to "admin-password-1", "BACKUPS_ENABLED" to "false", "GUESTS_ENABLED" to "true")
     )
 
     private suspend fun ApplicationTestBuilder.login(name: String, password: String): HttpClient {

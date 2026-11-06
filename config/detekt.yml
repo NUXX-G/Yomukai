@@ -13,7 +13,7 @@ style:
   WildcardImport:
     active: false
   ReturnCount:
-    max: 4
+    max: 6
   LoopWithTooManyJumpStatements:
     maxJumpCount: 3
   ThrowsCount:

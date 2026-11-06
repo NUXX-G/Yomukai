@@ -172,6 +172,12 @@ class Database(file: File) {
         User(id, name, admin, guest, now, expiresAt)
     }
 
+    suspend fun userById(id: Long): User? = tx { queryOne("SELECT * FROM users WHERE id = ?", id) { user() } }
+
+    suspend fun userCount(admins: Boolean = false): Int = tx {
+        queryOne(if (admins) "SELECT COUNT(*) FROM users WHERE is_admin = 1" else "SELECT COUNT(*) FROM users WHERE is_guest = 0") { getInt(1) } ?: 0
+    }
+
     suspend fun userByName(name: String): Pair<User, String?>? = tx {
         prepare("SELECT * FROM users WHERE name = ? COLLATE NOCASE") {
             setString(1, name)
@@ -180,8 +186,8 @@ class Database(file: File) {
     }
 
     suspend fun userBySession(token: String): User? = tx {
-        prepare("SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?") {
-            setString(1, token)
+        prepare("SELECT u.* FROM user_sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?") {
+            setString(1, sha256Hex(token))
             executeQuery().use { if (it.next()) it.user() else null }
         }
     }
@@ -197,7 +203,7 @@ class Database(file: File) {
     suspend fun setPassword(userId: Long, passHash: String) = tx {
         prepare("UPDATE users SET pass_hash = ? WHERE id = ?") { setString(1, passHash); setLong(2, userId); executeUpdate() }
         // Changing the password closes every other session.
-        prepare("DELETE FROM sessions WHERE user_id = ?") { setLong(1, userId); executeUpdate() }
+        prepare("DELETE FROM user_sessions WHERE user_id = ?") { setLong(1, userId); executeUpdate() }
     }
 
     suspend fun suspend(userId: Long, reason: String) = tx {
@@ -214,15 +220,38 @@ class Database(file: File) {
         prepare("DELETE FROM users WHERE id = ?") { setLong(1, userId); executeUpdate() }
     }
 
-    suspend fun createSession(token: String, userId: Long) = tx {
+    /** Only the SHA-256 of each session token is stored: neither the database nor a copy of it can log anyone in. */
+    suspend fun createSession(token: String, userId: Long, device: String = "", ip: String = "") = tx {
         val now = System.currentTimeMillis()
-        prepare("INSERT INTO sessions(token, user_id, created_at, last_seen) VALUES(?,?,?,?)") {
-            setString(1, token); setLong(2, userId); setLong(3, now); setLong(4, now); executeUpdate()
+        update(
+            "INSERT INTO user_sessions(token_hash, user_id, created_at, last_seen, device, ip) VALUES(?,?,?,?,?,?)",
+            sha256Hex(token), userId, now, now, device.take(200), ip.take(64)
+        )
+    }
+
+    suspend fun deleteSession(token: String) = tx { update("DELETE FROM user_sessions WHERE token_hash = ?", sha256Hex(token)) }
+
+    data class SessionRow(val id: Long, val createdAt: Long, val lastSeen: Long, val device: String, val ip: String, val tokenHash: String)
+
+    suspend fun sessionsOf(userId: Long): List<SessionRow> = tx {
+        query("SELECT id, created_at, last_seen, device, ip, token_hash FROM user_sessions WHERE user_id = ? ORDER BY last_seen DESC", userId) {
+            SessionRow(getLong(1), getLong(2), getLong(3), getString(4), getString(5), getString(6))
         }
     }
 
-    suspend fun deleteSession(token: String) = tx {
-        prepare("DELETE FROM sessions WHERE token = ?") { setString(1, token); executeUpdate() }
+    /** Deletes one of [userId]'s own sessions; returns its token hash (to drop it from caches) or null. */
+    suspend fun deleteSessionById(userId: Long, id: Long): String? = tx {
+        val hash = queryOne("SELECT token_hash FROM user_sessions WHERE id = ? AND user_id = ?", id, userId) { getString(1) }
+        if (hash != null) update("DELETE FROM user_sessions WHERE id = ?", id)
+        hash
+    }
+
+    suspend fun deleteOtherSessions(userId: Long, keepToken: String): Int = tx {
+        update("DELETE FROM user_sessions WHERE user_id = ? AND token_hash <> ?", userId, sha256Hex(keepToken))
+    }
+
+    suspend fun touchSession(token: String, now: Long, ip: String) = tx {
+        update("UPDATE user_sessions SET last_seen = ?, ip = ? WHERE token_hash = ?", now, ip.take(64), sha256Hex(token))
     }
 
     /** Deletes guests whose week is over; every row of theirs goes with them (ON DELETE CASCADE). */

@@ -74,7 +74,7 @@ class RateLimiter {
  * account, within [WINDOW_MS], that key is locked for [LOCK_MS]. A right password clears the account.
  */
 class LoginThrottle {
-    private class Record(var failures: Int, var inFlight: Int, var since: Long, var lockedUntil: Long)
+    private class Record(var failures: Int, var inFlight: Int, var since: Long, var lockedUntil: Long, var locks: Int = 0, var lastLock: Long = 0)
 
     private val records = ConcurrentHashMap<String, Record>()
 
@@ -92,8 +92,11 @@ class LoginThrottle {
         val all = keys.map { records.getOrPut(it) { Record(0, 0, now, 0) } }
         all.forEach { if (now - it.since > WINDOW_MS && it.inFlight == 0) { it.failures = 0; it.since = now } }
         if (all.any { it.lockedUntil > now || it.failures + it.inFlight >= MAX_FAILURES }) return false
+        // Records of locked keys are kept a day, so the next lock of the same key can be longer.
         all.forEach { it.inFlight++ }
-        if (records.size > MAX_RECORDS) records.entries.removeIf { now - it.value.since > WINDOW_MS && it.value.lockedUntil < now && it.value.inFlight == 0 }
+        if (records.size > MAX_RECORDS) {
+            records.entries.removeIf { now - it.value.since > WINDOW_MS && it.value.lockedUntil < now && it.value.inFlight == 0 && now - it.value.lastLock > MAX_LOCK_MS }
+        }
         return true
     }
 
@@ -111,7 +114,15 @@ class LoginThrottle {
                 if (key.startsWith("pair:") && record.inFlight == 0) records.remove(key)
             } else {
                 record.failures++
-                if (record.failures >= MAX_FAILURES) record.lockedUntil = now + LOCK_MS
+                if (record.failures >= MAX_FAILURES) {
+                    // A key that keeps getting locked is locked for longer each time: 15 min, 30, 1 h... up to a day.
+                    if (now - record.lastLock > MAX_LOCK_MS) record.locks = 0
+                    record.lockedUntil = now + lockFor(record.locks)
+                    record.locks++
+                    record.lastLock = now
+                    record.failures = 0
+                    record.since = now
+                }
             }
         }
     }
@@ -146,6 +157,8 @@ class LoginThrottle {
         const val MAX_FAILURES = 5
         const val WINDOW_MS = 15 * 60_000L
         const val LOCK_MS = 15 * 60_000L
+        const val MAX_LOCK_MS = 24 * 60 * 60_000L
+        fun lockFor(previousLocks: Int): Long = (LOCK_MS shl previousLocks.coerceAtMost(7)).coerceAtMost(MAX_LOCK_MS)
         private val IPV4 = Regex("""^\d{1,3}(\.\d{1,3}){3}$""")
         private val IPV6_CHARS = Regex("""^[0-9A-Fa-f:.]{2,45}$""")
         const val SLOW_AFTER = 10
@@ -184,11 +197,9 @@ class Auth(private val db: Database, private val config: Config) {
         val existing = db.userByName(config.adminUser)
         val password = config.adminPassword
         when {
+            existing == null && password == null -> Unit // the first-run setup page creates the admin (SetupWizard)
             existing == null -> {
-                val chosen = password ?: Passwords.generate().also {
-                    log.warn("No hay ADMIN_PASSWORD: contraseña generada para '{}': {}", config.adminUser, it)
-                }
-                db.createUser(config.adminUser, Passwords.hash(chosen), admin = true, guest = false, expiresAt = null)
+                db.createUser(config.adminUser, Passwords.hash(password!!), admin = true, guest = false, expiresAt = null)
                 log.info("Administrador '{}' creado", config.adminUser)
             }
             password != null && !Passwords.verify(password, existing.second) -> {
@@ -198,10 +209,96 @@ class Auth(private val db: Database, private val config: Config) {
         }
     }
 
-    suspend fun login(name: String, password: String): Pair<User, String>? {
-        val (user, hash) = db.userByName(name.trim()) ?: return null
-        if (user.isGuest || !Passwords.verify(password, hash)) return null
-        return user to newSession(user)
+    /** What a password login led to: a session, a second step (2FA), or nothing. */
+    sealed class LoginResult {
+        data class Session(val user: User, val token: String) : LoginResult()
+        data class NeedsCode(val challenge: String) : LoginResult()
+        data object Failed : LoginResult()
+    }
+
+    private class Challenge(val userId: Long, val expires: Long, var attempts: Int, val device: String, val ip: String)
+    private val challenges = ConcurrentHashMap<String, Challenge>()
+    val totpBox = SecretBox(config.secret, "totp")
+
+    suspend fun login(name: String, password: String, device: String = "", ip: String = ""): LoginResult {
+        val (user, hash) = db.userByName(name.trim()) ?: return LoginResult.Failed
+        if (user.isGuest || !Passwords.verify(password, hash)) return LoginResult.Failed
+        if (db.tx { queryOne("SELECT totp_enabled FROM users WHERE id = ?", user.id) { getInt(1) == 1 } } == true) {
+            val now = System.currentTimeMillis()
+            challenges.entries.removeIf { it.value.expires < now }
+            val challenge = Passwords.token()
+            challenges[challenge] = Challenge(user.id, now + CHALLENGE_MS, 0, device, ip)
+            return LoginResult.NeedsCode(challenge)
+        }
+        return LoginResult.Session(user, newSession(user, device, ip))
+    }
+
+    /** Second step: the authenticator's code or a recovery code. Five tries per challenge. */
+    suspend fun completeTwoFactor(challenge: String, code: String): Pair<User, String>? {
+        val now = System.currentTimeMillis()
+        val c = challenges[challenge]?.takeIf { it.expires > now } ?: return null
+        val attempts = synchronized(c) { ++c.attempts }
+        if (attempts > MAX_CODE_ATTEMPTS) {
+            challenges.remove(challenge)
+            return null
+        }
+        if (!checkCode(c.userId, code, now)) return null
+        if (challenges.remove(challenge) == null) return null
+        val user = db.userById(c.userId) ?: return null
+        return user to newSession(user, c.device, c.ip)
+    }
+
+    /** A TOTP code (each one usable once) or an unused recovery code. */
+    suspend fun checkCode(userId: Long, code: String, now: Long = System.currentTimeMillis()): Boolean {
+        val row = db.tx { queryOne("SELECT totp_secret, totp_last_step FROM users WHERE id = ? AND totp_enabled = 1", userId) { getString(1) to getLong(2) } }
+            ?: return false
+        val secret = row.first?.let(totpBox::open) ?: return false
+        Totp.verify(secret, code, now, row.second)?.let { step ->
+            val fresh = db.tx { update("UPDATE users SET totp_last_step = ? WHERE id = ? AND totp_last_step < ?", step, userId, step) } == 1
+            return fresh
+        }
+        val hash = RecoveryCodes.hash(code)
+        return db.tx { update("UPDATE recovery_codes SET used_at = ? WHERE user_id = ? AND code_hash = ? AND used_at IS NULL", now, userId, hash) } == 1
+    }
+
+    /** Starts turning 2FA on: a new secret, kept (encrypted) but not active until [enableTotp] confirms a code. */
+    suspend fun startTotp(user: User): Pair<String, String> {
+        require(!user.isGuest) { "Los invitados no pueden activar la verificación en dos pasos" }
+        val secret = Totp.newSecret()
+        val changed = db.tx { update("UPDATE users SET totp_secret = ? WHERE id = ? AND totp_enabled = 0", totpBox.seal(secret), user.id) }
+        require(changed == 1) { "La verificación en dos pasos ya está activada" }
+        return secret to Totp.uri(secret, user.name)
+    }
+
+    /** Confirms the first code and switches 2FA on; returns the recovery codes, shown once. */
+    suspend fun enableTotp(user: User, code: String): List<String>? {
+        val sealed = db.tx { queryOne("SELECT totp_secret FROM users WHERE id = ? AND totp_enabled = 0", user.id) { getString(1) } } ?: return null
+        val secret = totpBox.open(sealed) ?: return null
+        val step = Totp.verify(secret, code, System.currentTimeMillis()) ?: return null
+        val codes = RecoveryCodes.generate()
+        db.tx {
+            update("UPDATE users SET totp_enabled = 1, totp_last_step = ? WHERE id = ?", step, user.id)
+            update("DELETE FROM recovery_codes WHERE user_id = ?", user.id)
+            codes.forEach { update("INSERT INTO recovery_codes(user_id, code_hash) VALUES(?,?)", user.id, RecoveryCodes.hash(it)) }
+        }
+        return codes
+    }
+
+    suspend fun disableTotp(userId: Long) = db.tx {
+        update("UPDATE users SET totp_enabled = 0, totp_secret = NULL, totp_last_step = -1 WHERE id = ?", userId)
+        update("DELETE FROM recovery_codes WHERE user_id = ?", userId)
+    }
+
+    /** Whether 2FA is on, and how many recovery codes are left. */
+    suspend fun totpStatus(userId: Long): Pair<Boolean, Int> = db.tx {
+        val on = queryOne("SELECT totp_enabled FROM users WHERE id = ?", userId) { getInt(1) == 1 } ?: false
+        val left = queryOne("SELECT COUNT(*) FROM recovery_codes WHERE user_id = ? AND used_at IS NULL", userId) { getInt(1) } ?: 0
+        on to left
+    }
+
+    suspend fun passwordMatches(userId: Long, password: String): Boolean {
+        val hash = db.tx { queryOne("SELECT pass_hash FROM users WHERE id = ?", userId) { getString(1) } }
+        return Passwords.verify(password, hash)
     }
 
     /** A guest: no password, everything allowed, gone after [Config.guestDays]. */
@@ -212,14 +309,14 @@ class Auth(private val db: Database, private val config: Config) {
         return user to newSession(user)
     }
 
-    private suspend fun newSession(user: User): String {
+    suspend fun newSession(user: User, device: String = "", ip: String = ""): String {
         val token = Passwords.token()
-        db.createSession(token, user.id)
+        db.createSession(token, user.id, device, ip)
         return token
     }
 
-    suspend fun userFor(token: String?): User? {
-        if (token.isNullOrBlank()) return null
+    suspend fun userFor(token: String?, ip: String = ""): User? {
+        if (token.isNullOrBlank() || token.length > 100) return null
         val now = System.currentTimeMillis()
         sessionCache[token]?.takeIf { now - it.second < SESSION_CACHE_MS }?.let { (user, _) ->
             return user.takeUnless { it.isGuest && (it.expiresAt ?: Long.MAX_VALUE) < now }
@@ -227,8 +324,13 @@ class Auth(private val db: Database, private val config: Config) {
         val user = db.userBySession(token) ?: return null.also { sessionCache.remove(token) }
         if (user.isGuest && (user.expiresAt ?: Long.MAX_VALUE) < now) return null
         sessionCache[token] = user to now
+        // "Last activity" of the sessions list: written when the cache entry is renewed, about once a minute.
+        db.touchSession(token, now, ip)
         return user
     }
+
+    /** Drops cached sessions by token hash (after one is closed from the sessions list). */
+    fun forgetToken(hash: String) = sessionCache.keys.removeIf { sha256Hex(it) == hash }
 
     suspend fun logout(token: String) {
         sessionCache.remove(token)
@@ -317,6 +419,8 @@ class Auth(private val db: Database, private val config: Config) {
         const val COOKIE = "yk_session"
         const val DAY_MS = 86_400_000L
         private const val SESSION_CACHE_MS = 60_000L
+        private const val CHALLENGE_MS = 5 * 60_000L
+        private const val MAX_CODE_ATTEMPTS = 5
         private const val ABUSE_WINDOW_MS = 10 * 60_000L
         private const val ADDRESS_BLOCK_MS = 60 * 60_000L
         private const val GUEST_CREATION_WINDOW_MS = 60 * 60_000L
@@ -333,7 +437,7 @@ val ApplicationCall.user: User get() = attributes[UserKey]
 fun requireUser(auth: Auth, admin: Boolean = false, addressOf: (io.ktor.server.application.ApplicationCall) -> String = { "" }) =
     createRouteScopedPlugin("RequireUser${if (admin) "Admin" else ""}") {
     onCall { call ->
-        val user = auth.userFor(call.request.cookies[Auth.COOKIE])
+        val user = auth.userFor(call.request.cookies[Auth.COOKIE], addressOf(call))
         when {
             user == null -> call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Inicia sesión o entra como invitado"))
             user.suspendedAt != null -> call.respond(HttpStatusCode.Forbidden, mapOf("error" to SUSPENDED_MESSAGE, "suspended" to true))

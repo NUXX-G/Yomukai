@@ -69,6 +69,43 @@ object Migrations {
         },
         Migration(3, "Permiso de cada worker para llevarse copias de la base de datos") {
             addColumn("workers", "can_backup", "INTEGER NOT NULL DEFAULT 0")
+        },
+        Migration(4, "Sesiones guardadas como hash con dispositivo e IP, 2FA, invitaciones y registro de auditoría") {
+            exec(
+                """CREATE TABLE IF NOT EXISTS user_sessions(id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL UNIQUE,
+                   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, created_at INTEGER NOT NULL, last_seen INTEGER NOT NULL,
+                   device TEXT NOT NULL DEFAULT '', ip TEXT NOT NULL DEFAULT '')"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS user_sessions_user ON user_sessions(user_id)")
+            // Existing sessions keep working: their tokens are hashed here, then the plain-text table goes.
+            val hasOld = query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'sessions'") { getString(1) }.isNotEmpty()
+            if (hasOld) {
+                query("SELECT token, user_id, created_at, last_seen FROM sessions") { listOf(getString(1), getLong(2), getLong(3), getLong(4)) }.forEach { r ->
+                    update(
+                        "INSERT OR IGNORE INTO user_sessions(token_hash, user_id, created_at, last_seen) VALUES(?,?,?,?)",
+                        sha256Hex(r[0] as String), r[1], r[2], r[3]
+                    )
+                }
+                exec("DROP TABLE sessions")
+            }
+            addColumn("users", "totp_secret", "TEXT")
+            addColumn("users", "totp_enabled", "INTEGER NOT NULL DEFAULT 0")
+            addColumn("users", "totp_last_step", "INTEGER NOT NULL DEFAULT -1")
+            exec(
+                """CREATE TABLE IF NOT EXISTS recovery_codes(user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                   code_hash TEXT NOT NULL, used_at INTEGER, PRIMARY KEY(user_id, code_hash))"""
+            )
+            exec(
+                """CREATE TABLE IF NOT EXISTS invites(id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL UNIQUE,
+                   created_by INTEGER REFERENCES users(id) ON DELETE SET NULL, note TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL,
+                   expires_at INTEGER NOT NULL, used_at INTEGER, used_by INTEGER REFERENCES users(id) ON DELETE SET NULL, revoked INTEGER NOT NULL DEFAULT 0)"""
+            )
+            exec(
+                """CREATE TABLE IF NOT EXISTS audit_log(id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, actor_id INTEGER,
+                   actor_name TEXT NOT NULL, action TEXT NOT NULL, target TEXT NOT NULL DEFAULT '', detail TEXT NOT NULL DEFAULT '',
+                   ip TEXT NOT NULL DEFAULT '')"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS audit_at ON audit_log(at)")
         }
     )
 
