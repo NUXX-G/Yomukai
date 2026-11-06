@@ -67,6 +67,6 @@ class SourceRepairHandler(private val repo: java.io.File?) : JobHandler {
 }
 
 /** The handlers this build knows; later phases add theirs here. */
-fun allHandlers(config: WorkerConfig): List<JobHandler> = listOf<JobHandler>(EchoHandler(), SourceRepairHandler(config.repairRepo))
+fun allHandlers(config: WorkerConfig): List<JobHandler> = listOf(EchoHandler(), SourceRepairHandler(config.repairRepo), FingerprintHandler())
     .filter { config.onlyEngines.isEmpty() || it.type in config.onlyEngines || it.type == "echo" }
     .filter { it.available() }

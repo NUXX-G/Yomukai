@@ -209,12 +209,36 @@ class Catalog(
     }
 
     /** The source's chapter list, cached, shared with identical requests in flight, its health noted. */
-    private suspend fun chapterList(sourceId: String, mediaId: String): Result<List<Chapter>> {
+    suspend fun chapterList(sourceId: String, mediaId: String): Result<List<Chapter>> {
         val source = require(sourceId)
         val k = key(sourceId, mediaId)
         return swr(chapters, "chapters|$k", CHAPTERS_STALE_MS) {
             source.fetchChapterList(mediaId).also { health.record(sourceId, mediaId, it) }
         }
+    }
+
+    /** The chapter list if it is in memory (never fetches): for the calendar. */
+    fun cachedChapters(sourceId: String, mediaId: String): List<Chapter>? = chapters.getAged("chapters|" + key(sourceId, mediaId))?.first
+
+    /** Work keys already known for items (set by [Works]); used to keep one card per work. */
+    @Volatile
+    var workKeys: (List<MediaItem>) -> Map<String, String> = { emptyMap() }
+
+    /**
+     * "Recently updated" across every enabled source, one card per work: each source's first page (cached), merged in
+     * turns so no source floods the row, grouped by work. A card whose work could not be confirmed keeps its own place.
+     */
+    suspend fun unifiedLatest(prefs: UserPrefs, max: Int = 60): List<Pair<MediaDto, List<MediaDto>>> = coroutineScope {
+        val lists = enabled(prefs).map { source ->
+            async {
+                val k = key("latest", source.id, "1")
+                withTimeoutOrNull(SOURCE_TIMEOUT_MS) { swr(latest, k, LIST_STALE_MS) { source.fetchLatestUpdates(1).onSuccess { remember(it) } } }
+                    ?.getOrNull()?.let { filterFor(prefs).known(source, it) }.orEmpty()
+            }
+        }.map { it.await() }
+        val interleaved = (0 until (lists.maxOfOrNull { it.size } ?: 0)).flatMap { i -> lists.mapNotNull { it.getOrNull(i) } }
+        com.nelson.yomukai.data.work.WorkGrouper.group(interleaved, workKeys(interleaved)).take(max)
+            .map { card -> dtos.media(card.primary) to card.items.drop(1).map(dtos::media) }
     }
 
     suspend fun browse(sourceId: String, page: Int, filtersJson: String?, prefs: UserPrefs): Result<List<MediaDto>> {
@@ -267,11 +291,11 @@ class Catalog(
                 }
                 pending -= source.name
                 lock.withLock {
-                    val groups = health.arrangeGroups(SmartSearch.rankAndGroup(query, found.values.flatten(), trusted = trusted.toSet()))
-                    if (pending.isEmpty()) probe(groups.take(PROBE_PER_LIST).flatMap { listOf(it.primary) + it.others.take(2) }, PROBE_PER_LIST * 2)
+                    val groups = splitDoubtful(health.arrangeGroups(SmartSearch.rankAndGroup(query, found.values.flatten(), trusted = trusted.toSet())))
+                    if (pending.isEmpty()) probe(groups.take(PROBE_PER_LIST).flatMap { (g, _) -> listOf(g.primary) + g.others.take(2) }, PROBE_PER_LIST * 2)
                     onUpdate(
                         SearchUpdateDto(
-                            groups.take(MAX_GROUPS).map { g -> SearchGroupDto(dtos.media(g.primary), g.others.map(dtos::media)) },
+                            groups.take(MAX_GROUPS).map { (g, doubt) -> SearchGroupDto(dtos.media(g.primary), g.others.map(dtos::media), doubt) },
                             pending.toList(), errors.toMap(), pending.isEmpty()
                         )
                     )
@@ -279,6 +303,18 @@ class Catalog(
             }
         }
     }
+
+    /**
+     * Search groups items by name; a group whose members are not confirmed to be the same work (different authors, a
+     * short shared name) is split, and the parts are flagged as "may be the same" instead of being merged wrongly.
+     */
+    private fun splitDoubtful(groups: List<com.nelson.yomukai.data.search.SearchGroup>): List<Pair<com.nelson.yomukai.data.search.SearchGroup, Boolean>> =
+        groups.flatMap { g ->
+            val members = listOf(g.primary) + g.others
+            val cards = com.nelson.yomukai.data.work.WorkGrouper.group(members, workKeys(members))
+            if (cards.size == 1) listOf(g to false)
+            else cards.map { c -> com.nelson.yomukai.data.search.SearchGroup(c.primary, c.items.drop(1), g.score) to true }
+        }
 
     /** The title's page; [hint] fills in what the list knew when the source has no details. */
     suspend fun media(sourceId: String, mediaId: String): Result<MediaItem> {

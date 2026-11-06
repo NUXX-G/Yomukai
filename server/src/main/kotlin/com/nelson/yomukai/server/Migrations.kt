@@ -112,6 +112,37 @@ object Migrations {
                 """CREATE TABLE IF NOT EXISTS source_health(source_id TEXT PRIMARY KEY, status TEXT NOT NULL, summary TEXT NOT NULL DEFAULT '',
                    steps TEXT NOT NULL DEFAULT '', checked_at INTEGER NOT NULL, failing_since INTEGER, last_ok_at INTEGER)"""
             )
+        },
+        Migration(6, "Obras unificadas: obras, sus páginas en cada fuente, elecciones de capítulo, dónde sigo y relleno") {
+            exec(
+                """CREATE TABLE IF NOT EXISTS works(key TEXT PRIMARY KEY, anilist_id INTEGER, mal_id INTEGER, type TEXT NOT NULL, title TEXT NOT NULL,
+                   alt_titles TEXT NOT NULL DEFAULT '[]', cover TEXT NOT NULL DEFAULT '', banner TEXT NOT NULL DEFAULT '', synopsis TEXT NOT NULL DEFAULT '',
+                   genres TEXT NOT NULL DEFAULT '[]', score INTEGER, status TEXT NOT NULL DEFAULT '', episodes INTEGER, chapters INTEGER,
+                   next_episode INTEGER, next_airing_at INTEGER, updated_at INTEGER NOT NULL)"""
+            )
+            exec(
+                """CREATE TABLE IF NOT EXISTS work_sources(source_id TEXT NOT NULL, media_id TEXT NOT NULL, work_key TEXT NOT NULL,
+                   confidence TEXT NOT NULL, added_at INTEGER NOT NULL, PRIMARY KEY(source_id, media_id))"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS work_sources_work ON work_sources(work_key)")
+            // Library and history keep their (source, title) keys; the work is an extra column filled in the background.
+            addColumn("library", "work_key", "TEXT")
+            addColumn("history", "work_key", "TEXT")
+            exec("CREATE INDEX IF NOT EXISTS library_work ON library(user_id, work_key)")
+            exec(
+                """CREATE TABLE IF NOT EXISTS work_choices(user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, work_key TEXT NOT NULL,
+                   number_key TEXT NOT NULL, source_id TEXT NOT NULL, PRIMARY KEY(user_id, work_key, number_key))"""
+            )
+            exec(
+                """CREATE TABLE IF NOT EXISTS adaptation_points(anime_key TEXT NOT NULL, until_episode INTEGER NOT NULL, target_key TEXT NOT NULL,
+                   chapter REAL, volume INTEGER, updated_by INTEGER, updated_at INTEGER NOT NULL, PRIMARY KEY(anime_key, until_episode, target_key))"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS adaptation_target ON adaptation_points(target_key)")
+            exec(
+                """CREATE TABLE IF NOT EXISTS adaptation_history(id INTEGER PRIMARY KEY AUTOINCREMENT, anime_key TEXT NOT NULL, until_episode INTEGER NOT NULL,
+                   target_key TEXT NOT NULL, before TEXT NOT NULL, after TEXT NOT NULL, changed_by TEXT NOT NULL, changed_at INTEGER NOT NULL)"""
+            )
+            exec("CREATE TABLE IF NOT EXISTS fillers(slug TEXT PRIMARY KEY, data TEXT NOT NULL, fetched_at INTEGER NOT NULL)")
         }
     )
 

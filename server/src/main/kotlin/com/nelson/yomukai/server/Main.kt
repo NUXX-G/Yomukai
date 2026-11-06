@@ -169,6 +169,7 @@ class Services(val config: Config) {
             jobs.enqueue(JobQueue.Request(JobTypes.SOURCE_REPAIR, payload, JobPriority.BACKGROUND, dedupKey = "repair:${source.id}:$day", ttlMs = Auth.DAY_MS, maxAttempts = 1))
         }
     })
+    val works = Works(db, catalog, aniList, sources).also { w -> catalog.workKeys = w::knownKeys }
     val ytdlp = YtDlp(
         File(System.getenv("YTDLP_PATH")?.ifBlank { null } ?: "/opt/yt-dlp"),
         allowedHosts = YtDlp.DEFAULT_HOSTS + System.getenv("YTDLP_HOSTS").orEmpty().split(',').map { it.trim().lowercase() }.filter { it.contains('.') }
@@ -206,6 +207,14 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
     }
 
     launch { runCatching { refreshDegraded(services.health, services.sources) } }
+    // Library and history rows get their work a few at a time (AniList allows ~30 requests a minute).
+    launch {
+        runCatching { services.works.loadKnown() }
+        while (true) {
+            delay(2 * 60_000L)
+            runCatching { services.works.backfill() }.onFailure { log.debug("Obras pendientes: {}", it.message) }
+        }
+    }
     launch {
         while (true) {
             runCatching { services.bundles.fetchNewer(services.sources.bundleVersion) }
@@ -273,6 +282,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 }
                 featureRoutes(services)
                 accountUserRoutes(services)
+                workRoutes(services)
                 // Files for the user's device. GET for one chapter (a plain link), POST from a form for many.
                 get("/download") {
                     val p = call.request.queryParameters

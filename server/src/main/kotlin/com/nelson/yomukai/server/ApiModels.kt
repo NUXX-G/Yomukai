@@ -63,7 +63,8 @@ data class AlternativeDto(
 
 data class VideoDto(val server: String, val quality: String, val url: String, val direct: Boolean, val hls: Boolean)
 
-data class SearchGroupDto(val primary: MediaDto, val others: List<MediaDto>)
+/** [doubt]: this card may be the same work as a neighbouring one, but it could not be confirmed. */
+data class SearchGroupDto(val primary: MediaDto, val others: List<MediaDto>, val doubt: Boolean = false)
 data class SearchUpdateDto(val groups: List<SearchGroupDto>, val pending: List<String>, val errors: Map<String, String>, val done: Boolean)
 
 data class UserDto(val name: String, val admin: Boolean, val guest: Boolean, val expiresAt: Long?)
