@@ -52,10 +52,13 @@ class VoiceRouter(private val s: Services) {
         val clean = text.replace(Regex("\\s+"), " ").trim().take(MAX_CHARS)
         require(clean.isNotEmpty()) { "Texto vacío" }
         val id = voice.removePrefix("w:")
+        require(!user.isGuest) { "Las voces del servidor de casa no están disponibles para invitados" }
         require(workerVoices().any { it.get("id")?.asString == id }) { "Esa voz no está disponible ahora (¿el servidor de casa está apagado?)" }
-        val key = key(id, rate, clean)
+        val r = normalRate(rate)
+        val key = key(id, r, clean)
         s.jobs.results.get(key)?.let { (file, _) -> return file.readBytes() }
-        val job = s.jobs.enqueue(JobQueue.Request(JobTypes.TTS, payload(clean, id, rate), JobPriority.INTERACTIVE, dedupKey = key, requestedBy = user.id, ttlMs = 10 * 60_000L))
+        require(pending(user) < MAX_PENDING_PER_USER) { "Demasiadas lecturas en cola; espera un poco" }
+        val job = s.jobs.enqueue(JobQueue.Request(JobTypes.TTS, payload(clean, id, r), JobPriority.INTERACTIVE, dedupKey = key, requestedBy = user.id, ttlMs = 10 * 60_000L))
         val done = withTimeoutOrNull(waitMs) {
             while (true) {
                 val j = s.jobs.get(job.id) ?: break
@@ -68,23 +71,33 @@ class VoiceRouter(private val s: Services) {
 
     /** Queues the next texts (e.g. the next chapter's paragraphs) at lower priority, so they are ready when reached. */
     suspend fun prefetch(user: User, texts: List<String>, voice: String, rate: Float): Int {
-        if (!voice.startsWith("w:")) return 0
+        if (!voice.startsWith("w:") || user.isGuest) return 0
         val id = voice.removePrefix("w:")
+        val r = normalRate(rate)
+        var room = MAX_PENDING_PER_USER - pending(user)
         if (workerVoices().none { it.get("id")?.asString == id }) return 0
         var queued = 0
         for (t in texts.map { it.replace(Regex("\\s+"), " ").trim() }.distinct().take(MAX_PREFETCH)) {
             val clean = t.replace(Regex("\\s+"), " ").trim().take(MAX_CHARS).takeIf { it.isNotEmpty() } ?: continue
-            val key = key(id, rate, clean)
+            val key = key(id, r, clean)
             if (s.jobs.results.has(key)) continue
-            s.jobs.enqueue(JobQueue.Request(JobTypes.TTS, payload(clean, id, rate), JobPriority.NEXT, dedupKey = key, requestedBy = user.id, ttlMs = 6 * 3_600_000L))
+            if (room-- <= 0) break
+            s.jobs.enqueue(JobQueue.Request(JobTypes.TTS, payload(clean, id, r), JobPriority.NEXT, dedupKey = key, requestedBy = user.id, ttlMs = 6 * 3_600_000L))
             queued++
         }
         return queued
     }
 
     private fun payload(text: String, voice: String, rate: Float) = JsonObject().apply {
-        addProperty("text", text); addProperty("voice", voice); addProperty("rate", rate.coerceIn(0.5f, 2f))
+        addProperty("text", text); addProperty("voice", voice); addProperty("rate", rate)
     }
+
+    /** One value per real speed (0.5..2 in steps of 0.05): the same audio is never queued twice for 1.0 and 1.0001. */
+    private fun normalRate(rate: Float): Float = if (!rate.isFinite()) 1f else (Math.round(rate.coerceIn(0.5f, 2f) * 20) / 20f)
+
+    private suspend fun pending(user: User): Int = s.db.tx {
+        queryOne("SELECT COUNT(*) FROM jobs WHERE requested_by = ? AND type = ? AND status IN ('queued','running')", user.id, JobTypes.TTS) { getInt(1) }
+    } ?: 0
 
     private fun key(voice: String, rate: Float, text: String): String =
         "tts:" + MessageDigest.getInstance("SHA-256").digest("$voice|${"%.2f".format(java.util.Locale.ROOT, rate)}|$text".toByteArray())
@@ -94,6 +107,7 @@ class VoiceRouter(private val s: Services) {
         const val MAX_CHARS = 2_000
         const val MAX_PREFETCH = 60
         const val POLL_MS = 300L
+        const val MAX_PENDING_PER_USER = 120
     }
 }
 
