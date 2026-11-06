@@ -97,6 +97,23 @@ class ServerSync(context: Context, private val db: YomukaiDatabase, private val 
     /** The challenge of a login that still needs its 2FA code, with the server it belongs to. */
     @Volatile private var pendingTwoFactor: Pair<String, String>? = null
 
+    /** The session from a successful login answer, or why there is none (including "2FA code needed"). */
+    private fun loginAnswer(server: String, cookies: List<String>, body: String?): Result<String> {
+        val session = cookies.firstNotNullOfOrNull { c -> c.substringBefore(';').takeIf { it.startsWith("$COOKIE=") }?.substringAfter('=') }
+        val info = runCatching { JsonParser.parseString(body).asJsonObject }.getOrNull()
+        val challenge = info?.takeIf { it.bool("twoFactor") }?.str("challenge")
+        val guest = (info?.getAsJsonObject("user") ?: info)?.get("guest")?.asBoolean == true
+        return when {
+            !challenge.isNullOrBlank() -> {
+                pendingTwoFactor = server to challenge
+                Result.failure(IOException(TWO_FACTOR_NEEDED))
+            }
+            session.isNullOrBlank() -> Result.failure(IOException("Eso no parece un servidor de Yomukai"))
+            guest -> Result.failure(IOException("Las cuentas de invitado no se pueden sincronizar"))
+            else -> Result.success(session)
+        }
+    }
+
     suspend fun connect(serverInput: String, user: String, password: String, code: String? = null): String? = withContext(Dispatchers.IO) {
         val server = normalizeServer(serverInput) ?: return@withContext "Esa dirección no es válida. Ejemplo: https://yomukai.tudominio.com"
         if (!server.startsWith("https://") && !allowsPlainHttp(server)) {
@@ -117,24 +134,7 @@ class ServerSync(context: Context, private val db: YomukaiDatabase, private val 
                     r.code == 401 -> Result.failure(IOException("Usuario o contraseña incorrectos"))
                     r.code == 429 -> Result.failure(IOException(errorOf(r.body?.string()) ?: "Demasiados intentos; espera un rato"))
                     !r.isSuccessful -> Result.failure(IOException(errorOf(r.body?.string()) ?: "El servidor respondió ${r.code}"))
-                    else -> {
-                        val session = r.headers("Set-Cookie").firstNotNullOfOrNull { c ->
-                            c.substringBefore(';').takeIf { it.startsWith("$COOKIE=") }?.substringAfter('=')
-                        }
-                        val info = runCatching { JsonParser.parseString(r.body?.string()).asJsonObject }.getOrNull()
-                        val challenge = info?.takeIf { it.bool("twoFactor") }?.str("challenge")
-                        when {
-                            !challenge.isNullOrBlank() -> {
-                                pendingTwoFactor = server to challenge
-                                Result.failure(IOException(TWO_FACTOR_NEEDED))
-                            }
-                            session.isNullOrBlank() -> Result.failure(IOException("Eso no parece un servidor de Yomukai"))
-                            (info?.getAsJsonObject("user") ?: info)?.get("guest")?.asBoolean == true ->
-                                Result.failure(IOException("Las cuentas de invitado no se pueden sincronizar"))
-                            info?.get("guest")?.asBoolean == true -> Result.failure(IOException("Las cuentas de invitado no se pueden sincronizar"))
-                            else -> Result.success(session)
-                        }
-                    }
+                    else -> loginAnswer(server, r.headers("Set-Cookie"), r.body?.string())
                 }
             }
         }.getOrElse { Result.failure(IOException("No se pudo conectar con el servidor: ${it.message}")) }

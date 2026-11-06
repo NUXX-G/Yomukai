@@ -252,10 +252,9 @@ class Auth(private val db: Database, private val config: Config) {
         if (!codeThrottle.begin(keys, now)) return null
         val ok = checkCode(c.userId, code, now)
         codeThrottle.finish(keys, success = ok, now = now)
-        if (!ok) return null
-        if (challenges.remove(challenge) == null) return null
-        val user = db.userById(c.userId) ?: return null
-        return user to newSession(user, c.device, c.ip)
+        // Removing the challenge is what makes it single-use, even with two right codes sent at once.
+        val user = if (ok && challenges.remove(challenge) != null) db.userById(c.userId) else null
+        return user?.let { it to newSession(it, c.device, c.ip) }
     }
 
     /** A TOTP code (each one usable once) or an unused recovery code. */
