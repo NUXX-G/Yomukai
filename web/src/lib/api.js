@@ -130,6 +130,10 @@ export const api = {
   /** Episode number -> 'FILLER' | 'MIXED' (the server answers in lower case). */
   fillers: async (title) => Object.fromEntries(Object.entries((await request('GET', `/api/fillers?${qs({ title })}`)) || {}).map(([n, k]) => [n, String(k).toUpperCase()])),
   setAdaptation: (body) => request('PUT', '/api/adaptations', body),
+  rooms: () => request('GET', '/api/rooms'),
+  roomMine: () => request('GET', '/api/rooms/mine'),
+  roomCreate: (name) => request('POST', '/api/rooms', { name }),
+  room: (code) => request('GET', `/api/rooms/${encodeURIComponent(code)}`),
   skip: (s, c, other) => request('GET', `/api/skip?${qs({ s, c, other })}`),
   job: (id) => request('GET', `/api/jobs/${id}`),
   adminStatus: () => request('GET', '/api/admin/status'),

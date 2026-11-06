@@ -74,7 +74,10 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 - [ ] App Android: tarjeta «¿Dónde sigo?» (necesita el servidor: las correcciones son compartidas)
 
 ### Fase 6 — Social
-- [ ] 6.1 Salas  - [ ] 6.2 Watch party WebSocket  - [ ] 6.3 Chat de sala  - [ ] 6.4 Perfiles
+- [x] 6.1 Salas: una persistente por usuario (código de 6 sin caracteres ambiguos, enlace /sala/CODIGO) y hasta 3 temporales; fila «Salas activas» en Inicio con quién está y qué ve; botón «Ver con amigos» en el reproductor (abre tu sala y copia el enlace para Discord)
+- [x] 6.2 Watch party (WebSocket con la sesión, Origin comprobado, límite por conexión, sesión revalidada cada 30 s): el anfitrión manda; posición con el reloj del servidor; deriva >2 s → salto, 0,3-2 s → 0,95x/1,05x; si alguien carga se pausa a todos hasta 10 s; episodio, servidor y velocidad sincronizados; siguiente episodio solo lo decide quien controla; anfitrión pasa al que lleva más tiempo y se puede ceder; «todos controlan»; latido y reconexión. Cada cliente reproduce su propio vídeo (nada pasa por la sala). Lógica pura en shared (PartySync) con tests y test con varios clientes reales. Probado en vivo con dos navegadores: 0,1 s de diferencia
+- [x] 6.3 Chat de sala: menciones resaltadas, reacciones fijas que flotan sobre el vídeo, spoilers tras un toque, antispam, 7 días de historial. Solo texto (nunca HTML)
+- [ ] 6.4 Perfiles
 - [ ] 6.5 Bibliotecas visibles con privacidad  - [ ] 6.6 Feed y presencia  - [ ] 6.7 Recomendar y valorar
 - [ ] 6.8 Foro  - [ ] 6.9 Moderación  - [ ] 6.10 Notificaciones (web, ntfy, Discord)  - [ ] 6.11 Logros
 

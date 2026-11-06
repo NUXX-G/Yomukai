@@ -22,6 +22,7 @@
   // Pages users rarely open are loaded only when they do (smaller first download).
   const Explore = () => import('./pages/Explore.svelte');
   const Calendar = () => import('./pages/Calendar.svelte');
+  const Room = () => import('./pages/Room.svelte');
 
   define('home', '/');
   define('anime', '/anime');
@@ -35,6 +36,7 @@
   define('details', '/obra/:source/:id');
   define('read', '/leer/:source/:id/:chapter');
   define('watch', '/ver/:source/:id/:chapter');
+  define('room', '/sala/:code');
   startRouter();
 
   /** The site's sections: rail on computers, bottom bar on phones (the first five). */
@@ -81,7 +83,7 @@
       default: return Home;
     }
   });
-  const lazyPage = $derived(route.name === 'anime' || route.name === 'manga' || route.name === 'novels' ? Explore : route.name === 'calendar' ? Calendar : null);
+  const lazyPage = $derived(route.name === 'anime' || route.name === 'manga' || route.name === 'novels' ? Explore : route.name === 'calendar' ? Calendar : route.name === 'room' ? Room : null);
 
   async function logout() {
     menu = false;

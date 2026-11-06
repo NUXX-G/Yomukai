@@ -7,11 +7,85 @@
   import { clock, time } from '../lib/format.js';
   import Icon from '../components/Icon.svelte';
   import Sheet from '../components/Sheet.svelte';
+  import RoomChat from '../components/RoomChat.svelte';
+  import { createParty, expectedPosition, correction, copyRoomLink } from '../lib/party.svelte.js';
+  import { notify, features } from '../lib/store.svelte.js';
 
   const sourceId = route.params.source;
   const mediaId = route.params.id;
   const episodeId = route.params.chapter;
   const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
+  // ---------- Watch party (?sala=CODE) ----------
+  let roomCode = $state(route.query.get('sala'));
+  let client = $state(null);
+  let chatOpen = $state(false);
+  let floats = $state([]);
+  let floatId = 0;
+  /** Set while the page itself moves the video to follow the room, so that move is not sent back as the host's. */
+  let applying = false;
+  let applyTimer;
+  let syncTimer;
+  const withRoom = (url) => (roomCode ? url + '?sala=' + encodeURIComponent(roomCode) : url);
+
+  function startParty(code) {
+    client?.close();
+    client = createParty(code, {
+      // by === null: the server itself paused or resumed the room (someone loading); the host obeys that too.
+      onState: (state, by) => followState(state, by === null),
+      onReact: (emoji) => floatReaction(emoji),
+      onNotice: (text) => notify(text)
+    });
+    clearInterval(syncTimer);
+    syncTimer = setInterval(() => { if (client?.party.state && !client.isHost) followState(client.party.state); }, 1000);
+  }
+
+  /** Someone else drives: go to their episode, then keep play/pause and position with them. */
+  function followState(state, serverDriven = false) {
+    if (!state || !episode || !video || (client?.isHost && !serverDriven)) return;
+    if (state.sourceId !== sourceId || state.mediaId !== mediaId || state.chapterId !== episode.id) {
+      go({ id: state.chapterId }, state.sourceId, state.mediaId);
+      return;
+    }
+    if (loading || !video.duration) return;
+    const fix = correction(video.currentTime, expectedPosition(state, client.serverNow()), state.speed || 1);
+    applying = true;
+    clearTimeout(applyTimer);
+    applyTimer = setTimeout(() => (applying = false), 400);
+    if (state.playing && video.paused) video.play().catch(() => (ui = true));
+    if (!state.playing && !video.paused) video.pause();
+    if (fix?.seek != null) video.currentTime = fix.seek;
+    video.playbackRate = fix?.rate ?? (state.speed || 1);
+  }
+
+  /** The host (or anyone, when allowed) tells the room what plays. */
+  function shareState() {
+    if (!client?.canControl || applying || !item || !episode || !video) return;
+    const server = order(servers)[serverIndex]?.server || '';
+    client.sendState({
+      sourceId, mediaId, chapterId: episode.id, title: item.title, episode: episode.label, server,
+      position: video.currentTime || 0, playing: !video.paused, speed: settings.player.speed
+    });
+  }
+
+  function floatReaction(emoji) {
+    const id = ++floatId;
+    floats = [...floats.slice(-30), { id, emoji, x: 8 + Math.random() * 30 }];
+    setTimeout(() => (floats = floats.filter((f) => f.id !== id)), 2600);
+  }
+
+  /** "Ver con amigos": into your own room, and the link copied for Discord. */
+  async function watchTogether() {
+    try {
+      const room = roomCode ? { code: roomCode } : await api.roomMine();
+      roomCode = room.code;
+      history.replaceState(history.state, '', withRoom(location.pathname));
+      if (!client) startParty(room.code);
+      chatOpen = true;
+      notify((await copyRoomLink(room.code)) ? 'Enlace de la sala copiado: pásalo a tus amigos' : 'Sala ' + room.code);
+      setTimeout(shareState, 500);
+    } catch (e) { notify(e.message); }
+  }
 
   let item = $state(null);
   let chapters = $state([]);
@@ -115,6 +189,8 @@
   }
 
   function onEnded() {
+    // In a room only whoever drives moves on; the rest follow.
+    if (client && !client.canControl) return;
     if (next && settings.player.autoNext) startCountdown();
     else ui = true;
   }
@@ -153,7 +229,7 @@
     } catch { /* unknown: nothing is marked */ }
   }
 
-  function go(target) { cancelCountdown(); flush(); navigate(reader('anime', sourceId, mediaId, target.id), { replace: true }); }
+  function go(target, s = sourceId, m = mediaId) { cancelCountdown(); flush(); navigate(withRoom(reader('anime', s, m, target.id)), { replace: true }); }
 
   function toggle() { video.paused ? video.play() : video.pause(); }
   function seek(delta) { video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + delta)); poke(); }
@@ -233,7 +309,7 @@
     } catch {}
   }
 
-  function setSpeed(s) { settings.player.speed = s; video.playbackRate = s; saveSettings(); }
+  function setSpeed(s) { settings.player.speed = s; video.playbackRate = s; saveSettings(); shareState(); }
 
   function key(e) {
     if (e.target.closest?.('input[type=search], input[type=text], textarea') || serversOpen || episodesOpen) return;
@@ -267,6 +343,7 @@
       }
       loadMarks();
       loadFillers();
+      if (roomCode) startParty(roomCode);
       if (!direct.length) { loading = false; serversOpen = true; error = 'Este episodio solo se puede ver en la web del servidor.'; return; }
       play(0);
     } catch (e) {
@@ -276,6 +353,7 @@
   });
 
   onDestroy(() => {
+    client?.close(); clearInterval(syncTimer); clearTimeout(applyTimer);
     clearInterval(clockTimer); clearInterval(countdownTimer); clearTimeout(hideTimer); clearTimeout(tapTimer); clearTimeout(flashTimer); hls?.destroy();
     if (document.pictureInPictureElement) document.exitPictureInPicture().catch(() => {}); keepAwake(false); flush();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -291,11 +369,21 @@
 <div class="player" bind:this={shell}>
   <video
     bind:this={video} playsinline preload="auto"
-    onpointerup={press} ondblclick={fullscreen} onpointermove={(e) => { if (e.pointerType === 'mouse' && playing) poke(); }} onplay={() => (playing = true)} onpause={() => { playing = false; poke(); }}
-    onwaiting={() => (loading = true)} onplaying={() => (loading = false)}
+    onpointerup={press} ondblclick={fullscreen} onpointermove={(e) => { if (e.pointerType === 'mouse' && playing) poke(); }} onplay={() => (playing = true)}
+    onwaiting={() => { loading = true; if (client?.party.state?.playing) client.loading(); }}
+    onplaying={() => { loading = false; client?.ready(); shareState(); }}
+    onpause={() => { playing = false; poke(); shareState(); }}
+    onseeked={shareState}
     onloadedmetadata={onLoaded} ontimeupdate={onTime} onended={onEnded} onerror={onError}
   ></video>
 
+  {#each floats as f (f.id)}<span class="float" style:left="{f.x}%" aria-hidden="true">{f.emoji}</span>{/each}
+  {#if client && client.party.waiting.length}
+    <div class="waiting">Esperando a {client.party.waiting.join(', ')}...</div>
+  {/if}
+  {#if chatOpen && client}
+    <div class="chat-panel"><RoomChat {client} onclose={() => (chatOpen = false)} /></div>
+  {/if}
   {#if inOpening}
     <button class="skip" onclick={skipOpening}><Icon name="skip" size={20} /> Saltar opening</button>
   {:else if inEnding}
@@ -326,6 +414,15 @@
       <div class="top">
         <button class="icon-btn" onclick={() => back(mediaHref(sourceId, mediaId))} aria-label="Volver"><Icon name="back" /></button>
         <div class="title">{item?.title ?? ''} · {episode?.label ?? ''}</div>
+        {#if features.flags.rooms !== false}
+          {#if client}
+            <button class="btn text light chat-btn" onclick={() => { chatOpen = !chatOpen; client.party.unread = 0; }}>
+              Sala · {client.party.members.length}{#if client.party.unread && !chatOpen}<span class="dot-unread">{client.party.unread}</span>{/if}
+            </button>
+          {:else}
+            <button class="btn text light" onclick={watchTogether} title="Abre tu sala y copia el enlace">Ver con amigos</button>
+          {/if}
+        {/if}
         <button class="icon-btn" onclick={() => (episodesOpen = true)} aria-label="Episodios" title="Episodios"><Icon name="list" /></button>
         <button class="btn text light" onclick={() => (serversOpen = true)}>Servidores</button>
         <button class="btn text light" onclick={() => setSpeed(SPEEDS[(SPEEDS.indexOf(settings.player.speed) + 1) % SPEEDS.length])}>{settings.player.speed}x</button>
@@ -405,6 +502,14 @@
   .grow { flex: 1; }
   .mini-clock { position: absolute; top: calc(var(--safe-top) + 12px); right: 18px; color: #fff9; font-size: 0.8rem; font-weight: 500; text-shadow: 0 0 6px #000; pointer-events: none; }
   .srv { width: 100%; text-align: left; gap: 12px; }
+  .chat-panel { position: absolute; z-index: 6; right: 0; top: 0; bottom: 0; width: min(360px, 100%); box-shadow: -10px 0 40px #0008; }
+  @media (max-width: 600px) { .chat-panel { top: auto; height: 58%; width: 100%; border-radius: 16px 16px 0 0; overflow: hidden; } }
+  .chat-btn { position: relative; }
+  .dot-unread { margin-left: 6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--c-accent); color: var(--c-on-accent); font-size: 0.7rem; display: inline-grid; place-items: center; }
+  .waiting { position: absolute; top: calc(var(--safe-top) + 64px); left: 50%; transform: translateX(-50%); z-index: 5; padding: 8px 14px; border-radius: 999px; background: #000b; color: #fff; font-size: 0.85rem; pointer-events: none; }
+  .float { position: absolute; bottom: 18%; z-index: 5; font-size: 2.2rem; pointer-events: none; animation: rise 2.6s ease-out forwards; }
+  @keyframes rise { from { transform: translateY(0) scale(0.8); opacity: 0; } 15% { opacity: 1; transform: translateY(-20px) scale(1.1); } to { transform: translateY(-260px) scale(1); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .float { animation: none; opacity: 0.9; } }
   .filler { font-size: 0.7rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: color-mix(in srgb, var(--tertiary) 22%, transparent); color: var(--tertiary); }
   .skip {
     position: absolute; right: 24px; bottom: calc(var(--safe-bottom) + 120px); z-index: 4; display: flex; align-items: center; gap: 8px;

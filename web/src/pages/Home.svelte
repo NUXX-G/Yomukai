@@ -3,7 +3,7 @@
   // for you, recently updated everywhere (one card per work) and genres. Rows can be hidden and reordered.
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
-  import { settings, saveSettings, library, updates, loadUpdates, home } from '../lib/store.svelte.js';
+  import { settings, saveSettings, library, updates, loadUpdates, home, features } from '../lib/store.svelte.js';
   import { media, reader, navigate } from '../lib/router.svelte.js';
   import { sourceById } from '../lib/store.svelte.js';
   import { openRelated } from '../lib/open.svelte.js';
@@ -16,7 +16,7 @@
   import Icon from '../components/Icon.svelte';
 
   const ROWS = [
-    ['continueWatching', 'Continuar viendo'], ['continueReading', 'Continuar leyendo'], ['newInLibrary', 'Nuevo en tu biblioteca'],
+    ['rooms', 'Salas activas'], ['continueWatching', 'Continuar viendo'], ['continueReading', 'Continuar leyendo'], ['newInLibrary', 'Nuevo en tu biblioteca'],
     ['season', 'En emisión esta temporada'], ['trendingAnime', 'Tendencias en anime'], ['trendingManga', 'Tendencias en manga y manhwa'],
     ['forYou', 'Para ti'], ['unified', 'Recién actualizado'], ['action', 'Acción'], ['romance', 'Romance'], ['fantasy', 'Fantasía'], ['comedy', 'Comedia']
   ];
@@ -46,6 +46,11 @@
     load('unified', () => api.unified());
     load('forYou', () => api.forYou(), 15 * 60_000);
     loadUpdates();
+    // Who is watching together right now, refreshed while the page is open.
+    const rooms = () => { if (features.flags.rooms !== false) load('rooms', () => api.rooms(), 0); };
+    rooms();
+    const t = setInterval(rooms, 30_000);
+    return () => clearInterval(t);
   });
 
   const items = (key) => data[key]?.items || [];
@@ -111,7 +116,19 @@
   <Hero {slides} />
 
   {#each layout.filter((r) => !r.hidden) as r (r.id)}
-    {#if r.id === 'continueWatching' && continueWatching.length}
+    {#if r.id === 'rooms' && items('rooms').length}
+      <Shelf title="Salas activas" subtitle="Tus amigos viendo algo juntos ahora mismo" wide>
+        {#each items('rooms') as room (room.code)}
+          <a class="room-card" href="/sala/{room.code}">
+            <span class="live"><span class="pulse"></span> {room.playing ? 'En directo' : 'En pausa'}</span>
+            <span class="room-title">{room.title || room.name}</span>
+            {#if room.episode}<span class="room-line">{room.episode}</span>{/if}
+            <span class="room-who">{room.members.join(', ')}</span>
+            <span class="btn primary join">Unirse</span>
+          </a>
+        {/each}
+      </Shelf>
+    {:else if r.id === 'continueWatching' && continueWatching.length}
       <Shelf title="Continuar viendo" wide>
         {#each continueWatching as c (c.sourceId + c.chapterId)}
           <WideCard href={continueHref(c)} image={c.banner} fallback={c.cover} title={c.title} line={c.chapterTitle}
@@ -181,4 +198,14 @@
   .edit label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
   .edit .icon-btn :global(svg) { transform: rotate(90deg); }
   .grow { flex: 1; min-width: 0; }
+  .room-card { position: relative; display: flex; flex-direction: column; gap: 4px; aspect-ratio: 16 / 9; padding: 14px; border-radius: var(--r-lg);
+    background: radial-gradient(120% 120% at 100% 0%, color-mix(in srgb, var(--c-accent) 35%, transparent), var(--c-surface-high)); border: 1px solid var(--c-border); }
+  .room-card:hover { border-color: var(--c-accent); }
+  .live { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-tiny); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-text-dim); }
+  .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--c-danger); animation: pulse 1.6s infinite; }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+  @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+  .room-title { font-weight: 750; font-size: 1.05rem; margin-top: auto; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .room-line, .room-who { font-size: var(--fs-small); color: var(--c-text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .join { position: absolute; top: 12px; right: 12px; height: 32px; padding: 0 14px; font-size: 0.82rem; }
 </style>
