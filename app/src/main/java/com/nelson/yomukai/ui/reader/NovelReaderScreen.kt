@@ -156,6 +156,25 @@ fun NovelReaderScreen(
         speech.setLanguage(if (viewModel.language == "ES") Locale("es") else if (viewModel.language == "EN") Locale.ENGLISH else Locale.getDefault())
     }
     LaunchedEffect(settings) { speech.update(settings) }
+    // While reading aloud, a foreground service keeps it going with the screen off (notification, lock screen, headphones).
+    val serviceContext = androidx.compose.ui.platform.LocalContext.current
+    val reading = spokenIndex != null
+    LaunchedEffect(reading, state.mediaTitle) {
+        if (reading) {
+            ReadAloud.onStop = { speech.stop() }
+            ReadAloudService.start(serviceContext, state.mediaTitle, "Leyendo en voz alta")
+        } else {
+            ReadAloudService.stop(serviceContext)
+        }
+    }
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose {
+            ReadAloud.onStop = null
+            ReadAloudService.stop(serviceContext)
+        }
+    }
+    var batteryAsk by remember { mutableStateOf(false) }
+    if (batteryAsk) BatteryOptimizationDialog(onDismiss = { batteryAsk = false })
     val speechNotice by speech.notice.collectAsStateWithLifecycle()
     val noticeContext = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(speechNotice) { speechNotice?.let { android.widget.Toast.makeText(noticeContext, it, android.widget.Toast.LENGTH_LONG).show() } }
@@ -384,6 +403,7 @@ fun NovelReaderScreen(
                                     else {
                                         val from = currentChapterId?.let { NovelItems.indexOf(currentItems, it, currentParagraph) } ?: 0
                                         speech.start(from, speechText)
+                                        if (BatteryOptimization.shouldAsk(serviceContext)) batteryAsk = true
                                     }
                                 }
                             ) {
