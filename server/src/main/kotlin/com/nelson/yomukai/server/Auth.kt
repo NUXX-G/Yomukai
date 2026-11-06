@@ -305,6 +305,27 @@ class Auth(private val db: Database, private val config: Config) {
         on to left
     }
 
+    /**
+     * Password check from an open session (turning 2FA on or off): same locks as the login, so a stolen session
+     * cannot be used to guess the password.
+     */
+    suspend fun reauthenticate(userId: Long, password: String): Boolean {
+        val keys = listOf("reauth:" + userId)
+        if (!throttle.begin(keys)) return false
+        val ok = passwordMatches(userId, password)
+        throttle.finish(keys, success = ok)
+        return ok
+    }
+
+    /** A 2FA code from an open session, counted with the login's wrong codes for that account. */
+    suspend fun checkCodeLimited(userId: Long, code: String): Boolean {
+        val keys = listOf("2fa:" + userId)
+        if (!codeThrottle.begin(keys)) return false
+        val ok = checkCode(userId, code)
+        codeThrottle.finish(keys, success = ok)
+        return ok
+    }
+
     suspend fun passwordMatches(userId: Long, password: String): Boolean {
         val hash = db.tx { queryOne("SELECT pass_hash FROM users WHERE id = ?", userId) { getString(1) } }
         return Passwords.verify(password, hash)

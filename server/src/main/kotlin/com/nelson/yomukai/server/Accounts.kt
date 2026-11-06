@@ -272,7 +272,7 @@ fun Route.accountUserRoutes(s: Services) {
     }
     post("/2fa/setup") {
         require(!call.user.isGuest) { "Los invitados no pueden activar la verificación en dos pasos" }
-        require(s.auth.passwordMatches(call.user.id, call.jsonBody(1_024).text("password", 300))) { "Contraseña incorrecta" }
+        require(s.auth.reauthenticate(call.user.id, call.jsonBody(1_024).text("password", 300))) { "Contraseña incorrecta o demasiados intentos" }
         val (secret, uri) = s.auth.startTotp(call.user)
         call.respond(mapOf("secret" to secret, "uri" to uri))
     }
@@ -287,8 +287,8 @@ fun Route.accountUserRoutes(s: Services) {
     }
     post("/2fa/disable") {
         val body = call.jsonBody(1_024)
-        require(s.auth.passwordMatches(call.user.id, body.text("password", 300))) { "Contraseña incorrecta" }
-        require(s.auth.checkCode(call.user.id, body.text("code", 40))) { "Código incorrecto" }
+        require(s.auth.reauthenticate(call.user.id, body.text("password", 300))) { "Contraseña incorrecta o demasiados intentos" }
+        require(s.auth.checkCodeLimited(call.user.id, body.text("code", 40))) { "Código incorrecto o demasiados intentos" }
         s.auth.disableTotp(call.user.id)
         s.audit.record(call.user, "2FA desactivada", target = call.user.name)
         call.respond(mapOf("ok" to true))

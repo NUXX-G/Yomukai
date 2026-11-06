@@ -248,6 +248,15 @@ class SecurityTest {
     }
 
     @Test
+    fun anOpenSessionCannotBeUsedToGuessThePassword() = testApplication {
+        val c = config(mapOf("AUTH_RATE" to "1000"))
+        application { yomukai(c, Services(c)) }
+        val admin = session().also { it.login("admin", "admin-password-1") }
+        repeat(LoginThrottle.MAX_FAILURES) { admin.post("/api/2fa/setup") { setBody("""{"password":"intento-$it"}""") } }
+        assertEquals("locked even with the right password", HttpStatusCode.BadRequest, admin.post("/api/2fa/setup") { setBody("""{"password":"admin-password-1"}""") }.status)
+    }
+
+    @Test
     fun oddPathsCountAgainstTheSameBudget() {
         assertEquals("/auth/login", normalizedPath("//AUTH/%6Cogin"))
     }
