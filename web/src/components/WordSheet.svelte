@@ -11,12 +11,19 @@
   let open = $state(false);
   let result = $state(null);
   let error = $state('');
+  let paragraph = $state(null);
+
+  async function translateParagraph() {
+    paragraph = '…';
+    try { paragraph = (await api.translate([pick.paragraph], pick.lang, settings.learning.target)).translations[0]; } catch (e) { paragraph = e.message; }
+  }
 
   $effect(() => {
     if (!pick) return;
     open = true;
     result = null;
     error = '';
+    paragraph = null;
     const current = pick;
     api.translate([current.word, current.sentence], current.lang, settings.learning.target).then(
       (r) => { if (pick === current) result = r.translations; },
@@ -61,6 +68,9 @@
         <p class="meaning">{result[0]}</p>
         <blockquote>{pick.sentence}</blockquote>
         <p class="muted">{result[1]}</p>
+        {#if pick.paragraph && pick.paragraph !== pick.sentence}
+          {#if paragraph}<p class="para">{paragraph}</p>{:else}<button class="btn text" onclick={translateParagraph}>Traducir el párrafo entero</button>{/if}
+        {/if}
       {/if}
     </div>
   {/if}
@@ -71,5 +81,6 @@
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .grow { flex: 1; }
   .meaning { font-size: 1.3rem; font-weight: 700; margin: 0; }
+  .para { margin: 0; padding: 10px 12px; border-radius: var(--r-md); background: var(--c-surface-high); }
   blockquote { margin: 0; padding: 8px 12px; border-left: 3px solid var(--c-accent); background: var(--c-surface); border-radius: 0 var(--r-md) var(--r-md) 0; }
 </style>

@@ -194,8 +194,39 @@
     if (!word || !/\p{L}/u.test(word)) return null;
     const para = node.parentElement?.closest('p')?.textContent || text;
     const sentence = para.split(/(?<=[.!?…])\s+/).find((x) => x.toLowerCase().includes(word.toLowerCase())) || para;
-    return { word: word.toLowerCase(), sentence: sentence.trim().slice(0, 500), lang: speechLang, source: item?.title || '' };
+    return { word: word.toLowerCase(), sentence: sentence.trim().slice(0, 500), paragraph: para.slice(0, 2_000), lang: speechLang, source: item?.title || '' };
   }
+  // Words being learnt are underlined with the CSS Highlight API (the text itself is never touched).
+  let levels = $state({});
+  let learningHere = $state(0);
+  $effect(() => {
+    if (!settings.learning?.enabled) return;
+    api.wordLevels(speechLang).then((l) => (levels = l || {}), () => {});
+  });
+  $effect(() => {
+    void loaded.length;
+    if (!settings.learning?.enabled || !article || typeof CSS === 'undefined' || !CSS.highlights) return;
+    const learning = new Set(Object.entries(levels).filter(([, v]) => v !== 'KNOWN').map(([w]) => w));
+    const ranges = [];
+    let count = 0;
+    if (learning.size) {
+      const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        for (const m of n.textContent.matchAll(/\p{L}+/gu)) {
+          if (!learning.has(m[0].toLowerCase())) continue;
+          const r = new Range();
+          r.setStart(n, m.index);
+          r.setEnd(n, m.index + m[0].length);
+          ranges.push(r);
+          count++;
+        }
+      }
+    }
+    learningHere = count;
+    CSS.highlights.set('yk-learning', new Highlight(...ranges));
+    return () => CSS.highlights.delete('yk-learning');
+  });
+
   function pressDown(e) {
     if (!settings.learning?.enabled || e.button > 0) return;
     pressAt = { x: e.clientX, y: e.clientY };
@@ -395,7 +426,7 @@
 {#if ui}
   <header class="top">
     <button class="icon-btn" onclick={() => back(mediaHref(sourceId, mediaId))} aria-label="Volver"><Icon name="back" /></button>
-    <div class="titles"><div class="t1">{item?.title ?? ''}</div><div class="t2">{current?.label ?? ''}</div></div>
+    <div class="titles"><div class="t1">{item?.title ?? ''}</div><div class="t2">{current?.label ?? ''}{#if settings.learning?.enabled && learningHere} · {learningHere} {learningHere === 1 ? 'palabra' : 'palabras'} que estás aprendiendo{/if}</div></div>
     <button class="icon-btn" onclick={() => (findOpen = !findOpen)} aria-label="Buscar en el capítulo" title="Buscar (Ctrl+F)"><Icon name="search" /></button>
     <button class="icon-btn" onclick={toggleBookmark} aria-label="Marcador" title="Marcador en este párrafo"><Icon name="bookmark" /></button>
     {#if canSpeak}<button class="icon-btn" class:active={speaking} onclick={toggleSpeech} aria-label="Leer en voz alta" title="Leer en voz alta"><Icon name="speech" /></button>{/if}
@@ -534,6 +565,7 @@
 <WordSheet bind:pick={wordPick} />
 
 <style>
+  :global(::highlight(yk-learning)) { text-decoration: underline dotted color-mix(in srgb, var(--c-accent) 70%, transparent); text-underline-offset: 3px; }
   .novel { min-height: 100vh; transition: background 0.3s, color 0.3s; }
   article { margin: 0 auto; padding: calc(var(--safe-top) + 72px) 22px calc(var(--safe-bottom) + 96px); }
   article.serif { font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif; }
