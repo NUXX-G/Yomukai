@@ -269,6 +269,7 @@ class Rooms(private val db: Database, private val events: Events, private val cl
             )
             lastId()
         }
+        events.record(me.user.id, "room_message", emptyMap())
         val mentions = ChatGuard.mentions(text)
         broadcast(room, mapOf("t" to "chat", "msg" to ChatMessage(id, me.user.name, text, spoiler, now, mentions)))
     }

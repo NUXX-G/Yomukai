@@ -161,6 +161,33 @@ object Migrations {
             )
             exec("CREATE INDEX IF NOT EXISTS events_user ON events(user_id, kind, created_at)")
             exec("CREATE INDEX IF NOT EXISTS events_time ON events(created_at)")
+        },
+        Migration(8, "Perfiles, valoraciones, recomendaciones y logros") {
+            addColumn("users", "bio", "TEXT NOT NULL DEFAULT ''")
+            addColumn("users", "accent", "TEXT NOT NULL DEFAULT ''")
+            addColumn("users", "favorite", "TEXT NOT NULL DEFAULT ''")
+            addColumn("users", "shown_title", "TEXT NOT NULL DEFAULT ''")
+            addColumn("users", "hidden", "INTEGER NOT NULL DEFAULT 0")
+            addColumn("users", "private_categories", "TEXT NOT NULL DEFAULT '[]'")
+            addColumn("users", "avatar_at", "INTEGER NOT NULL DEFAULT 0")
+            addColumn("users", "banner_at", "INTEGER NOT NULL DEFAULT 0")
+            exec(
+                """CREATE TABLE IF NOT EXISTS ratings(user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, work_key TEXT NOT NULL,
+                   score INTEGER NOT NULL, review TEXT NOT NULL DEFAULT '', updated_at INTEGER NOT NULL, PRIMARY KEY(user_id, work_key))"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS ratings_work ON ratings(work_key)")
+            exec(
+                """CREATE TABLE IF NOT EXISTS recommendations(id INTEGER PRIMARY KEY AUTOINCREMENT, from_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                   to_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, source_id TEXT NOT NULL, media_id TEXT NOT NULL, work_key TEXT NOT NULL,
+                   title TEXT NOT NULL, cover TEXT NOT NULL DEFAULT '', message TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL,
+                   seen INTEGER NOT NULL DEFAULT 0, added INTEGER NOT NULL DEFAULT 0)"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS recommendations_to ON recommendations(to_id, created_at)")
+            exec(
+                """CREATE TABLE IF NOT EXISTS achievements(user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, id TEXT NOT NULL,
+                   unlocked_at INTEGER NOT NULL, notified INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(user_id, id))"""
+            )
+            exec("CREATE TABLE IF NOT EXISTS achievement_scans(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, at INTEGER NOT NULL)")
         }
     )
 

@@ -62,6 +62,43 @@ object ImageShrinker {
         }
     }
 
+    /**
+     * An uploaded picture (avatar, banner) always re-drawn as a plain JPEG: whatever the file carried (metadata,
+     * odd formats, tricks for other decoders) is gone. [aspect] crops the centre to width/height (1.0 = square).
+     * Null when the file is not a readable image or is absurdly large.
+     */
+    fun reencode(bytes: ByteArray, maxWidth: Int, aspect: Double): ByteArray? {
+        val input = ImageIO.createImageInputStream(ByteArrayInputStream(bytes)) ?: return null
+        return input.use {
+            val reader = ImageIO.getImageReaders(input).asSequence().firstOrNull() ?: return null
+            try {
+                reader.input = input
+                val width = reader.getWidth(0)
+                val height = reader.getHeight(0)
+                if (width <= 0 || height <= 0 || width.toLong() * height > MAX_PIXELS) return null
+                val pixels = width.toLong() * height
+                val param = reader.defaultReadParam
+                val step = kotlin.math.ceil(kotlin.math.sqrt(pixels.toDouble() / DECODE_BUDGET)).toInt().coerceAtLeast(1)
+                if (step > 1) param.setSourceSubsampling(step, step, 0, 0)
+                val source = reader.read(0, param)
+                // Centre crop to the wanted shape.
+                val (cw, ch) = if (source.width.toDouble() / source.height > aspect) {
+                    (source.height * aspect).toInt().coerceAtLeast(1) to source.height
+                } else {
+                    source.width to (source.width / aspect).toInt().coerceAtLeast(1)
+                }
+                val cropped = source.getSubimage((source.width - cw) / 2, (source.height - ch) / 2, cw, ch)
+                val targetW = minOf(maxWidth, cw)
+                val targetH = max(1, (ch.toLong() * targetW / cw).toInt())
+                encode(scale(cropped, targetW, targetH))
+            } catch (e: Exception) {
+                null
+            } finally {
+                reader.dispose()
+            }
+        }
+    }
+
     /** Halves while far above the target (sharp result), then one smooth step; on white for transparent PNGs. */
     private fun scale(image: BufferedImage, w: Int, h: Int): BufferedImage {
         var current = image

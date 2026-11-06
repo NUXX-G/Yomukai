@@ -56,6 +56,9 @@ class Works(
     /** Work key → AniList's large cover, for works AniList knows: sources often only give 200-300 px thumbnails. */
     private val covers = ConcurrentHashMap<String, String>()
 
+    /** The work a source page belongs to, when already known. */
+    fun keyOf(sourceId: String, mediaId: String): String? = known[WorkKey.itemKey(sourceId, mediaId)]
+
     /** AniList's cover for a source page already joined to a work, when there is one. */
     fun betterCover(sourceId: String, mediaId: String): String? = known[WorkKey.itemKey(sourceId, mediaId)]?.let(covers::get)
 

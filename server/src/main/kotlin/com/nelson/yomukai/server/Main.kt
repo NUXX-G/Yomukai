@@ -175,6 +175,9 @@ class Services(val config: Config) {
     }
     val events = Events(db)
     val rooms = Rooms(db, events)
+    private val animeCheck: (String) -> Boolean = { id -> sources.get(id) is com.nelson.yomukai.data.source.AnimeSource }
+    val social by lazy { Social(db, events, config.dataDir, animeCheck, works::keyOf) }
+    val achievements = Achievements(db, events, animeCheck).also { a -> events.onEvent = { user, kind -> a.check(user, kind) } }
     val discover = Discover(com.nelson.yomukai.data.discovery.AniListDiscover(http), db, catalog, works) { proxy.cover(it, emptyMap()) }
     val ytdlp = YtDlp(
         File(System.getenv("YTDLP_PATH")?.ifBlank { null } ?: "/opt/yt-dlp"),
@@ -311,6 +314,8 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 discoverRoutes(services)
                 playbackRoutes(services)
                 roomRoutes(services) { clientAddress(it, config) }
+                socialRoutes(services)
+                achievementRoutes(services)
                 // Files for the user's device. GET for one chapter (a plain link), POST from a form for many.
                 get("/download") {
                     val p = call.request.queryParameters
@@ -639,7 +644,10 @@ private fun Route.userRoutes(s: Services) {
         val now = System.currentTimeMillis()
         // A save that does not mention categories keeps the ones the title already has.
         val categories = if (json.has("categories")) row.categories else s.db.libraryRow(call.user.id, row.sourceId, row.mediaId)?.categories
+        val isNew = s.db.libraryRow(call.user.id, row.sourceId, row.mediaId)?.deleted != false
         s.db.putLibrary(call.user.id, row.copy(addedAt = row.addedAt.takeIf { it > 0 } ?: now, categories = categories, updatedAt = now, deleted = false))
+        if (isNew) s.social.onLibraryAdd(call.user, row.sourceId, row.mediaId)
+        s.achievements.check(call.user.id, "library")
         call.respond(mapOf("ok" to true))
     }
     get("/categories") { call.respond(s.db.categories(call.user.id)) }
@@ -677,6 +685,11 @@ private fun Route.userRoutes(s: Services) {
         require(categories.size <= MAX_CATEGORIES) { "Demasiadas categorías" }
         val shared = root.getAsJsonObject("settings")
         require(shared == null || shared.toString().length < MAX_SETTINGS_CHARS) { "Ajustes demasiado grandes" }
+        // Chapters the phone just finished count as activity too (one at a time, never bulk marks).
+        progress.filter { !it.sourceId.isNullOrBlank() && !it.chapterId.isNullOrBlank() && !it.mediaId.isNullOrBlank() }.map { it.normalized() }
+            .takeIf { it.size <= Social.LIVE_ROWS }?.let { rows ->
+                s.social.onProgress(call.user, rows, history.lastOrNull { h -> rows.any { it.mediaId == h.mediaId } }?.normalized())
+            }
         // Rows without their keys are dropped rather than stored half empty.
         val changes = s.db.sync(
             call.user.id, root.get("since")?.asLong ?: 0L,
@@ -699,8 +712,10 @@ private fun Route.userRoutes(s: Services) {
         val rows = body.getAsJsonArray("rows")?.map { gson.fromJson(it, ProgressRow::class.java) }.orEmpty()
             .filter { !it.sourceId.isNullOrBlank() && !it.chapterId.isNullOrBlank() && !it.mediaId.isNullOrBlank() }
         if (rows.size > MAX_PROGRESS_ROWS) throw IllegalArgumentException("Demasiados capítulos de una vez")
+        val history = body.getAsJsonObject("history")?.let { gson.fromJson(it, HistoryRow::class.java) }
+        s.social.onProgress(call.user, rows.map { it.normalized() }, history?.normalized())
         s.db.putProgress(call.user.id, rows)
-        body.getAsJsonObject("history")?.let { s.db.putHistory(call.user.id, gson.fromJson(it, HistoryRow::class.java)) }
+        history?.let { s.db.putHistory(call.user.id, it) }
         call.respond(mapOf("ok" to true))
     }
     get("/history") { call.respond(s.db.history(call.user.id)) }
