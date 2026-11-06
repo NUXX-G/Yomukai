@@ -201,7 +201,9 @@
     if (!strip) return base;
     const pxPerSecond = STRIP_PX / (stripMs(strip, settings.reader.wpm || 220) / 1000);
     // The speed control still works: it scales the plan (80 = as planned).
-    return Math.min(2000, Math.max(15, pxPerSecond * (base / 80)));
+    // Panels without text follow the reader's pace too (text already uses it through the words per minute).
+    const pace = strip.words ? 1 : (settings.reader.wpm || 220) / 220;
+    return Math.min(2000, Math.max(15, pxPerSecond * pace * (base / 80)));
   }
   const STRIP_PX = 300;
   function pictureStrip(img, from, to) {
@@ -231,7 +233,7 @@
     const step = (t) => {
       if (!scrolling) return;
       const base = settings.reader.autoSpeed || 80;
-      carry += ((t - last) / 1000) * (settings.reader.smartScroll !== false ? smartSpeed(base) : base);
+      carry += ((t - last) / 1000) * (settings.reader.smartScroll !== false ? smartSpeed(80) : base);
       last = t;
       const px = Math.floor(carry);
       if (px > 0) { window.scrollBy(0, px); carry -= px; }
@@ -538,7 +540,13 @@
     <div class="mini-clock">{now}</div>
   {/if}
   {#if scrolling && mode === 'vertical'}
-    <SpeedControl value={settings.reader.autoSpeed || 80} base={80} min={15} max={800} onchange={(v) => setReader('autoSpeed', v)} onstop={toggleScroll} />
+    {#if settings.reader.smartScroll !== false}
+      <!-- Smart mode: the control is the reader's reading speed (words per minute); it is remembered and used for all text. -->
+      <SpeedControl value={Math.round(80 * (settings.reader.wpm || 220) / 220)} base={80} min={30} max={250}
+        onchange={(v) => setReader('wpm', Math.round(Math.min(700, Math.max(80, (220 * v) / 80))))} onstop={toggleScroll} />
+    {:else}
+      <SpeedControl value={settings.reader.autoSpeed || 80} base={80} min={15} max={800} onchange={(v) => setReader('autoSpeed', v)} onstop={toggleScroll} />
+    {/if}
   {/if}
 </div>
 
