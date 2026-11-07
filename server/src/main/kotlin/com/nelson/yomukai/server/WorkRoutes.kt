@@ -24,7 +24,9 @@ private fun workKey(raw: String?): String {
 private suspend fun Services.mergePrefsOf(user: User): Pair<List<String>, List<String>> {
     val settings = runCatching { JsonParser.parseString(db.settings(user.id) ?: "{}").asJsonObject }.getOrElse { JsonObject() }
     fun list(name: String) = settings.getAsJsonArray(name)?.mapNotNull { e -> e.takeIf { it.isJsonPrimitive }?.asString?.take(40) }.orEmpty()
-    return list("chapterLanguages").ifEmpty { listOf("ES", "EN") } to list("sourceOrder")
+    // The home Jellyfin goes first unless the user ordered it elsewhere: better quality and no dead servers.
+    val order = list("sourceOrder").let { if (JellyfinSource.ID in it) it else listOf(JellyfinSource.ID) + it }
+    return list("chapterLanguages").ifEmpty { listOf("ES", "EN") } to order
 }
 
 /** The work model over HTTP: one work across sources, its merged chapters, where to continue, calendar, fillers, skips. */

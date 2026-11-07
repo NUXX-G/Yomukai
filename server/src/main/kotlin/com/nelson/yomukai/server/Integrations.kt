@@ -117,6 +117,7 @@ fun Route.integrationAdminRoutes(s: Services) {
     get("/integrations") { call.respond(s.integrations.publicView()) }
     put("/integrations") {
         s.integrations.save(call.jsonBody(8_192))
+        runCatching { s.jellyfin.refresh() }
         call.respond(s.integrations.publicView())
     }
     // Checked from the VPS itself (it must be on the tailnet to reach Jellyfin).

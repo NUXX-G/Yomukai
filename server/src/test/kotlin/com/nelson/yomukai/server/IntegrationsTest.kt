@@ -35,6 +35,15 @@ class FakeJellyfin(private val key: String) : AutoCloseable {
                 ex.requestURI.path == "/Library/Media/Updated" -> {
                     scanned += ex.requestBody.readBytes().decodeToString(); 204 to ""
                 }
+                ex.requestURI.path == "/Items" -> 200 to ITEMS
+                ex.requestURI.path == "/Shows/$SERIES/Episodes" -> 200 to EPISODES
+                ex.requestURI.path == "/Videos/$EP1/stream" -> {
+                    videoAsks += ex.requestURI.query.orEmpty()
+                    val range = ex.requestHeaders.getFirst("Range")
+                    ex.responseHeaders.add("Content-Type", "video/x-matroska")
+                    if (range != null) { ex.responseHeaders.add("Content-Range", "bytes 0-3/10"); 206 to "abcd" } else 200 to "abcdefghij"
+                }
+                ex.requestURI.path == "/Items/$SERIES/Images/Primary" -> { ex.responseHeaders.add("Content-Type", "image/jpeg"); 200 to "JPEGDATA" }
                 else -> 404 to "{}"
             }
             val bytes = body.toByteArray()
@@ -44,7 +53,17 @@ class FakeJellyfin(private val key: String) : AutoCloseable {
         start()
     }
     val url = "http://127.0.0.1:${server.address.port}"
+    val videoAsks = CopyOnWriteArrayList<String>()
     override fun close() = server.stop(0)
+
+    companion object {
+        const val SERIES = "a1b2c3d4e5f60718293a4b5c6d7e8f90"
+        const val EP1 = "11111111111111111111111111111111"
+        const val EP2 = "22222222222222222222222222222222"
+        private const val ITEMS = """{"Items":[{"Id":"$SERIES","Name":"Frieren","Type":"Series","ProductionYear":2023,"Status":"Ended"}]}"""
+        private const val EPISODES =
+            """{"Items":[{"Id":"$EP1","Name":"El fin del viaje","IndexNumber":1,"ParentIndexNumber":1},{"Id":"$EP2","Name":"Episode 2","IndexNumber":2,"ParentIndexNumber":1}]}"""
+    }
 }
 
 class IntegrationsTest {

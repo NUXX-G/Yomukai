@@ -53,6 +53,10 @@ class SourceManager(
     @Volatile
     private var declarative: List<CatalogueSource> = emptyList()
 
+    /** Sources only one host has (the server's Jellyfin): put first, and replaced as a whole when they change. */
+    @Volatile
+    private var extra: List<CatalogueSource> = emptyList()
+
     /** Version of the configuration bundle in use (0 = none). */
     @Volatile
     var bundleVersion: Long = 0
@@ -78,11 +82,21 @@ class SourceManager(
     fun apply(bundle: com.nelson.yomukai.data.source.declarative.SourceBundle) {
         val made = bundle.configs.map { com.nelson.yomukai.data.source.declarative.declarativeSource(it, network) { id, from, to -> onDomainChange(id, from, to) } }
         val byConfig = made.associateBy { it.id }
-        val merged = kotlinSources.map { byConfig[it.id] ?: it } + made.filter { m -> kotlinSources.none { it.id == m.id } }
         declarative = made
+        rebuild(byConfig)
+        bundleVersion = bundle.version
+    }
+
+    fun setExtra(sources: List<CatalogueSource>) {
+        if (sources.map { it.id } == extra.map { it.id }) return
+        extra = sources
+        rebuild(declarative.associateBy { it.id })
+    }
+
+    private fun rebuild(byConfig: Map<String, CatalogueSource>) {
+        val merged = extra + kotlinSources.map { byConfig[it.id] ?: it } + declarative.filter { m -> kotlinSources.none { it.id == m.id } }
         all = merged
         byId = merged.associateBy { it.id }
-        bundleVersion = bundle.version
     }
 
     fun get(id: String): CatalogueSource? = byId[id]

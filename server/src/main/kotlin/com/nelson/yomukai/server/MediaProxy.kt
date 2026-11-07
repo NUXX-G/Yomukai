@@ -238,6 +238,34 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
                 call.response.header(HttpHeaders.CacheControl, "no-cache")
                 return call.respondText(rewritePlaylist(text, response.request.url.toString(), headers), ContentType.parse("application/vnd.apple.mpegurl"))
             }
+            sendVideo(call, open, response, url)
+        }
+    }
+
+    /**
+     * A video from a host only the server may reach (the home Jellyfin through Tailscale), with [client] and the
+     * request already built (its key in a header, never in the link). Playlists are not relayed: progressive only.
+     */
+    suspend fun pipeVideo(call: ApplicationCall, user: User, client: okhttp3.OkHttpClient, request: Request) {
+        val open = openStreams.getOrPut(user.id) { AtomicInteger() }
+        if (user.isGuest) return call.respond(HttpStatusCode.Forbidden)
+        val ranged = request.newBuilder().apply { call.request.headers[HttpHeaders.Range]?.let { header(HttpHeaders.Range, it) } }.build()
+        val response = withContext(Dispatchers.IO) { client.newCall(ranged).execute() }
+        if (!response.isSuccessful) {
+            response.close()
+            return call.respond(HttpStatusCode.fromValue(response.code))
+        }
+        // The body is closed once written: an engine may write it after respond() has returned.
+        try {
+            sendVideo(call, open, response, request.url.toString(), closeAfter = true)
+        } catch (e: Throwable) {
+            response.close()
+            throw e
+        }
+    }
+
+    private suspend fun sendVideo(call: ApplicationCall, open: AtomicInteger, response: okhttp3.Response, url: String, closeAfter: Boolean = false) {
+            val type = response.header("Content-Type").orEmpty()
             open.incrementAndGet()
             try {
                 // Safari plays a video only with a real video type and an exact length on every range.
@@ -258,16 +286,20 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
                     override val status = HttpStatusCode.fromValue(response.code)
                     override val headers = extra
                     override suspend fun writeTo(channel: io.ktor.utils.io.ByteWriteChannel) {
-                        withContext(Dispatchers.IO) {
-                            body.byteStream().use { input ->
-                                val buffer = ByteArray(BUFFER)
-                                while (true) {
-                                    val read = input.read(buffer)
-                                    if (read < 0) break
-                                    channel.writeFully(buffer, 0, read)
-                                    onStreamBytes(read.toLong())
+                        try {
+                            withContext(Dispatchers.IO) {
+                                body.byteStream().use { input ->
+                                    val buffer = ByteArray(BUFFER)
+                                    while (true) {
+                                        val read = input.read(buffer)
+                                        if (read < 0) break
+                                        channel.writeFully(buffer, 0, read)
+                                        onStreamBytes(read.toLong())
+                                    }
                                 }
                             }
+                        } finally {
+                            if (closeAfter) response.close()
                         }
                         channel.flushAndClose()
                     }
@@ -275,7 +307,6 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
             } finally {
                 open.decrementAndGet()
             }
-        }
     }
 
     /** Every URI in an HLS playlist (segments, keys, sub-playlists) made absolute and proxied. */

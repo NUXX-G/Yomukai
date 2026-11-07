@@ -83,6 +83,16 @@ class WorkTest {
     }
 
     @Test
+    fun theHomeNasWinsWhenTheUserPutsItFirst() {
+        val merged = ChapterMerge.merge(
+            listOf(SourceChapters("animeflv", "ES", listOf(ch(1f), ch(2f))), SourceChapters("jellyfin", "MULTI", listOf(ch(1f)))),
+            MergePrefs(languages = listOf("ES", "EN"), sources = listOf("jellyfin"))
+        )
+        assertEquals("jellyfin", merged.chapters[0].chosen.sourceId)
+        assertEquals("what the NAS lacks still comes from streaming", "animeflv", merged.chapters[1].chosen.sourceId)
+    }
+
+    @Test
     fun manualChoiceGapsAndDecimals() {
         val merged = ChapterMerge.merge(
             listOf(

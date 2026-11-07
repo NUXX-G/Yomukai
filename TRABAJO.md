@@ -3,14 +3,14 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
-Última actualización: 2026-11-07, commit `feat(jellyfin): obras seguidas...`.
+Última actualización: 2026-11-07, commit `feat(jellyfin): Jellyfin como fuente...`.
 
 ### PEDIDO DEL USUARIO EL 2026-11-07 (sesión nueva, modo autónomo total; no está mirando)
 Al acabar TODO avisarle: lo instalará en el VPS y en su móvil, lo probará un día y dirá qué corregir. Orden elegido por mí:
 1. [x] Separar idiomas: MangaDex era una fuente con ES+EN mezclados en la misma obra → `mangadex` (ES, conserva el id),
    `mangadex_en` (EN, activa por defecto) y `mangadex_zh` (ZH, apagada). Filtro de idioma con «Chino» en web y app.
    No olvidar el chino en ningún sitio (filtros, voz, OCR, aprendizaje).
-2. [ ] Fase 10 pendiente: ~~obras seguidas~~ (HECHO: `MediaDownloads.kt`) → Jellyfin como fuente → progreso bidireccional → salas con Jellyfin.
+2. [ ] Fase 10 pendiente: ~~obras seguidas~~ y ~~Jellyfin como fuente~~ (HECHOS) → progreso bidireccional → salas con Jellyfin.
 3. [ ] **Interfaz en español e inglés** (solo el idioma del sistema; el contenido de cualquier idioma se ve igual):
    web (diccionario por clave, lazy por idioma, detecta el del navegador, Ajustes › Idioma) y app (strings.xml + values-en).
 4. [ ] **Todo por obras, no por fuentes** (ya acordado en la Fase 5): revisar que ninguna pantalla vuelva a organizarse por
@@ -49,6 +49,7 @@ Todo con HUD moderno tipo Netflix/Seanime, bonito y eficiente («que sea top de 
 - **Descargas HECHAS**: `POST /worker/videos` (vídeo directo fresco al empezar), `POST /api/admin/jellyfin/download` y `POST /api/admin/cbz/export {sourceId, mediaId, chapterIds}` (solo admins, auditado, cola BACKGROUND, 30 días, deduplicado), `JellyfinDownloadHandler` (espacio libre ≥5 GB, ffmpeg -c copy a MKV, nombres de Jellyfin dentro de la biblioteca, tvshow/season/episodio .nfo con ids, poster, escaneo solo de esa carpeta) y `CbzExportHandler` (CBZ con ComicInfo.xml en la carpeta de cómics). Pendiente: evento `jellyfin_download` para el logro (registrar en el servidor cuando el trabajo termine) y aviso a Kavita/Komga para escanear.
 - Web HECHA: `IntegrationsPanel.svelte` en el panel de admin (Jellyfin, carpetas, Kavita/Komga, probar desde el VPS; las claves no se muestran) y en el menú de la ficha, para admins, «Al Jellyfin» (anime) / «A Kavita/Komga» (cómics) con los no vistos o todos.
 - **Obras seguidas HECHAS** (`server/…/MediaDownloads.kt`, test `MediaDownloadsTest`): las descargas manuales y las automáticas pasan por `MediaDownloads.queueEpisodes/queueChapters`; `/api/admin/follows` (GET, POST {sourceId, mediaId, rules{preferredServer, maxPerRun≤20}}, DELETE /{id}, GET /of?s=&id=, POST /check); bucle cada 3 h en Main (flag `jellyfin`), solo lo publicado después de seguirla, ≤20 por vez; aviso en la campana al encolar, al llegar (solo automáticas) y al fallar del todo; evento `jellyfin_download` al terminar (logro Coleccionista de discos); el worker usa el servidor preferido (`/worker/videos` con preferredServer) y avisa a Kavita (plugin/authenticate + scan-all) o Komga (X-API-Key, scan por biblioteca) tras cada CBZ. Web: ficha › Opciones › «Descargar lo nuevo automáticamente» y lista en Admin › Integraciones.
+- **Jellyfin como fuente HECHO** (`server/…/JellyfinSource.kt`, test `JellyfinSourceTest` con `FakeJellyfin` ampliado): `JellyfinLink` la registra con `SourceManager.setExtra` solo si está configurada, el flag `jellyfin` encendido y responde (cada 5 min y al guardar Integraciones); series y películas como tipo ANIME, episodios numerados seguidos entre temporadas (especiales al final); portadas por `/api/jellyfin/image/{id}` y vídeo por `/api/jellyfin/stream/{id}?q=orig|8000|4000|1500` (Range, cuenta ancho de banda, la clave solo en cabecera; nunca invitados: `Services.prefs` la quita para ellos). Prioridad: «jellyfin» va primero en el orden de fuentes de la obra y el idioma MULTI cuenta como el preferido. Web: insignia «En tu NAS» (`groupBadges` en format.js) en búsqueda y recién actualizado. **Sin probar con un Jellyfin real**: la transcodificación (`/Videos/{id}/stream.mp4?VideoBitrate=…`) es la parte más dudosa; si falla, «Original» va siempre. La app Android aún no la ve (sus fuentes corren en el móvil): pendiente.
 - **SIGUIENTE PASO CONCRETO (Fase 10)**: 7) Jellyfin como fuente (biblioteca por su API, insignia «en tu NAS», prioridad en el modelo de obra), progreso en las dos direcciones, salas con Jellyfin.
   (Notas antiguas de la Fase 6, ya hecha:) Ideas ya decididas: hilo automático por obra (clave = work_key) + categorías Recomendaciones/Off-topic/Quejas al admin; markdown SANEADO en el servidor (o solo texto con formato mínimo; nunca `{@html}` con datos de usuario sin sanear); spoilers «hasta el ep./cap. N» ocultos a quien vaya por detrás (`SpoilerShield.hideComment` ya existe en shared); al revivir un hilo con >3 meses sin actividad registrar evento `thread_revived`; mensajes marcados spoiler → evento `forum_spoiler`. Moderación: borrar/editar/fijar/cerrar/silenciar con caducidad, todo en `AuditLog`. Notificaciones: canal en tiempo real (SSE ya instalado en Ktor: `install(SSE)`) para menciones, respuestas, recomendaciones y logros; ntfy (ya hay `Notifier.kt` con Discord/ntfy para avisos de admin) y webhook de Discord solo para salas abiertas e hilos nuevos (`DISCORD_WEBHOOK_URL`).
 - Pendiente de la app Android de la Fase 6: salas nativas con el mismo protocolo WebSocket, perfil y feed.
@@ -174,7 +175,7 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 - [x] 9.4 Traducción de bocadillos (web; falta ML Kit en la app)  - [~] 9.5 Modo aprendizaje (web ✅; falta la app, diccionario offline y mazos compartidos)
 
 ### Fase 10 — Jellyfin, Kavita/Komga
-- [x] 10.1 Config admin (cifrada, prueba desde el VPS, panel web)  - [x] 10.2 Descargar a Jellyfin (botón en la ficha)  - [x] 10.3 Descarga automática (obras seguidas)  - [ ] 10.4 Jellyfin como fuente
+- [x] 10.1 Config admin (cifrada, prueba desde el VPS, panel web)  - [x] 10.2 Descargar a Jellyfin (botón en la ficha)  - [x] 10.3 Descarga automática (obras seguidas)  - [x] 10.4 Jellyfin como fuente (web; falta la app)
 - [ ] 10.5 Progreso bidireccional  - [ ] 10.6 Salas con Jellyfin  - [x] 10.7 CBZ + ComicInfo + aviso de escaneo a Kavita/Komga  - [~] 10.8 Tests con Jellyfin falso (FakeJellyfin listo)
 
 ### Fase 11 — Pulido, instalación y documentación

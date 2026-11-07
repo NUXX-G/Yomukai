@@ -8,6 +8,7 @@
   import { sourceById } from '../lib/store.svelte.js';
   import { openRelated } from '../lib/open.svelte.js';
   import { openDiscover, score10, genreName, seasonName, formatName } from '../lib/ui.js';
+  import { groupBadges } from '../lib/format.js';
   import Hero from '../components/Hero.svelte';
   import Shelf from '../components/Shelf.svelte';
   import MediaCard from '../components/MediaCard.svelte';
@@ -210,7 +211,7 @@
       <Shelf title="Recién actualizado" subtitle="De todas tus fuentes, una tarjeta por obra" loading={loading('unified')}>
         {#each items('unified') as u (u.primary.sourceId + u.primary.id)}
           <MediaCard href={media(u.primary.sourceId, u.primary.id)} title={u.primary.title} cover={u.primary.cover} showType type={u.primary.type}
-            badges={u.others.length ? [{ text: `${u.others.length + 1} fuentes`, tone: 'dark' }] : []} />
+            badges={groupBadges(u)} />
         {/each}
       </Shelf>
     {/if}

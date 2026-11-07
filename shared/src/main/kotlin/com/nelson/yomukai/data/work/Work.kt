@@ -143,7 +143,8 @@ object ChapterMerge {
 
     private fun choose(key: String, options: List<ChapterOption>, prefs: MergePrefs, sizes: Map<String, Int>): ChapterOption {
         prefs.overrides[key]?.let { wanted -> options.firstOrNull { it.sourceId == wanted }?.let { return it } }
-        fun langRank(o: ChapterOption) = prefs.languages.indexOf(o.language).let { if (it < 0) prefs.languages.size else it }
+        // A source with every language (the home Jellyfin: its files carry several audio and subtitle tracks) suits anyone.
+        fun langRank(o: ChapterOption) = if (o.language == "MULTI") 0 else prefs.languages.indexOf(o.language).let { if (it < 0) prefs.languages.size else it }
         fun sourceRank(o: ChapterOption) = prefs.sources.indexOf(o.sourceId).let { if (it < 0) prefs.sources.size else it }
         return options.minWith(compareBy<ChapterOption>({ langRank(it) }, { sourceRank(it) }, { -(sizes[it.sourceId] ?: 0) }))
     }

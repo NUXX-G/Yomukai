@@ -182,6 +182,7 @@ class Services(val config: Config) {
     val ocr by lazy { OcrStore(this) }
     val words = Words(db, events)
     val integrations = Integrations(db, config.secret)
+    val jellyfin = JellyfinLink(integrations, features, sources)
     val library = MediaDownloads(db, catalog, works, integrations, jobs, notifications, events)
     val language by lazy { WorkerLanguage(this) }
     private val animeCheck: (String) -> Boolean = { id -> sources.get(id) is com.nelson.yomukai.data.source.AnimeSource }
@@ -202,7 +203,10 @@ class Services(val config: Config) {
             notifier.admin("domain-$id-$to", "La fuente $id cambió de dominio", "Ahora está en $to (antes $from). Se sigue sola; actualiza baseUrl y domains en sources/$id.json.")
         }
     }
-    suspend fun prefs(user: User) = UserPrefs.parse(db.settings(user.id), sources.defaultEnabledIds)
+    suspend fun prefs(user: User) = UserPrefs.parse(db.settings(user.id), sources.defaultEnabledIds).let { p ->
+        // The home NAS is for the group, never for guests.
+        if (user.isGuest) p.copy(enabledSources = (p.enabledSources ?: sources.defaultEnabledIds) - JellyfinSource.ID) else p
+    }
 }
 
 /** Everything the server does on its own: start-up work, sweeps, the canary's view, backups, resolvers. */
@@ -260,6 +264,13 @@ private fun Application.startBackgroundJobs(config: Config, services: Services) 
                 }
                 workersWereOnline = online
             }
+        }
+    }
+    // The home Jellyfin as a source only while it is set up and answering.
+    launch {
+        while (true) {
+            runCatching { services.jellyfin.refresh() }.onFailure { log.debug("Jellyfin: {}", it.message) }
+            delay(5 * 60_000L)
         }
     }
     // Followed works: new episodes/chapters go to the NAS on their own (every 3 h, spaced out between works).
@@ -326,6 +337,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                     services.proxy.serveStream(call, call.user)
                 }
                 featureRoutes(services)
+                jellyfinMediaRoutes(services)
                 accountUserRoutes(services)
                 workRoutes(services)
                 discoverRoutes(services)

@@ -62,3 +62,12 @@ export function time(seconds) {
 export function clock() {
   return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
+
+/** Badges for a card that groups one work from several sources: "En tu NAS" when the home Jellyfin has it. */
+export function groupBadges(g) {
+  const all = [g.primary, ...(g.others || [])];
+  const badges = [];
+  if (all.some((x) => x?.sourceId === 'jellyfin')) badges.push({ text: 'En tu NAS', tone: 'accent' });
+  if (all.length > 1) badges.push({ text: `${all.length} fuentes`, tone: 'dark' });
+  return badges;
+}

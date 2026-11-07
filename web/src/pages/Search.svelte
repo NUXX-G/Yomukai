@@ -3,7 +3,7 @@
   import { searchStream } from '../lib/api.js';
   import { settings, rememberSearch, saveSettings, rememberItems, sourceById } from '../lib/store.svelte.js';
   import { route, navigate, media } from '../lib/router.svelte.js';
-  import { TYPE_FILTERS, LANGUAGES } from '../lib/format.js';
+  import { TYPE_FILTERS, LANGUAGES, groupBadges } from '../lib/format.js';
   import Icon from '../components/Icon.svelte';
   import MediaCard from '../components/MediaCard.svelte';
 
@@ -85,7 +85,7 @@
             <MediaCard
               title={g.primary.title} cover={g.primary.cover} href={media(g.primary.sourceId, g.primary.id)}
               subtitle={line(g)} doubt={g.doubt} detail={g.others.length ? 'En ' + allSources(g) : ''}
-              badges={g.others.length ? [{ text: `${g.others.length + 1} fuentes`, tone: 'dark' }] : []}
+              badges={groupBadges(g)}
             />
           {/each}
         </div>

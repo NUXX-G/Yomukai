@@ -404,7 +404,9 @@ class Catalog(
         return list.map { servers ->
             servers.map { v ->
                 val hls = v.isDirect && (v.videoUrl.contains("m3u8") || v.quality.contains("HLS", ignoreCase = true))
-                VideoDto(v.serverName, v.quality, if (v.isDirect) proxy.stream(v.videoUrl, v.headers) else v.videoUrl, v.isDirect, hls)
+                // The server's own routes (the home Jellyfin) are links already; everything else direct goes through the proxy.
+                val url = when { v.videoUrl.startsWith("/api/") -> v.videoUrl; v.isDirect -> proxy.stream(v.videoUrl, v.headers); else -> v.videoUrl }
+                VideoDto(v.serverName, v.quality, url, v.isDirect, hls)
             }
         }
     }
