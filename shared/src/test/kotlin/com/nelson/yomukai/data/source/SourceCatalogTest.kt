@@ -25,10 +25,14 @@ class SourceCatalogTest {
     @Test
     fun extraRepositoriesAddSourcesButNeverReplaceOfficialOnes() {
         val manager = SourceManager(NoNetwork)
-        val rejected = manager.applyExtra(mapOf("fuentes.amigo.dev" to listOf(config("amigo_manga"), config("mangadex"), config("marmota"))))
+        val rejected = manager.applyExtra(mapOf("fuentes.amigo.dev" to listOf(config("amigo_manga"), config("mangadex"), config("marmota"), config("jellyfin"))))
         assertNotNull(manager.get("amigo_manga"))
         assertEquals("fuentes.amigo.dev", manager.origins["amigo_manga"])
-        assertEquals("code and official ids stay official", listOf("mangadex (fuentes.amigo.dev)", "marmota (fuentes.amigo.dev)"), rejected)
+        assertEquals(
+            "code, official and reserved ids stay theirs",
+            listOf("mangadex (fuentes.amigo.dev)", "marmota (fuentes.amigo.dev)", "jellyfin (fuentes.amigo.dev)"), rejected
+        )
+        assertEquals(null, manager.get("jellyfin"))
         assertTrue(manager.get("mangadex") is com.nelson.yomukai.data.source.manga.MangaDexSource)
         // Removing the repository takes its sources away again.
         manager.applyExtra(emptyMap())

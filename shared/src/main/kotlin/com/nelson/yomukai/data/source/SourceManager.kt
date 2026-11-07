@@ -71,7 +71,11 @@ class SourceManager(
      * replaced from outside. Returns the ids rejected that way.
      */
     fun applyExtra(byRepo: Map<String, List<com.nelson.yomukai.data.source.declarative.SourceConfig>>): List<String> {
-        val taken = kotlinSources.map { it.id }.toMutableSet().apply { addAll(official?.configs.orEmpty().map { it.id }) }
+        val taken = kotlinSources.map { it.id }.toMutableSet().apply {
+            addAll(official?.configs.orEmpty().map { it.id })
+            addAll(extra.map { it.id })
+            addAll(RESERVED_IDS)
+        }
         val accepted = mutableListOf<com.nelson.yomukai.data.source.declarative.SourceConfig>()
         val rejected = mutableListOf<String>()
         val origin = mutableMapOf<String, String>()
@@ -137,7 +141,10 @@ class SourceManager(
     }
 
     private fun rebuild(byConfig: Map<String, CatalogueSource>) {
-        val merged = extra + kotlinSources.map { byConfig[it.id] ?: it } + declarative.filter { m -> kotlinSources.none { it.id == m.id } }
+        // Host-only sources (the server's Jellyfin) can never be covered by a JSON source with the same id.
+        val hostIds = extra.map { it.id }.toSet()
+        val merged = extra + kotlinSources.map { byConfig[it.id] ?: it }.filter { it.id !in hostIds } +
+            declarative.filter { m -> kotlinSources.none { it.id == m.id } && m.id !in hostIds }
         all = merged
         byId = merged.associateBy { it.id }
     }
@@ -167,4 +174,9 @@ class SourceManager(
     }
 
     fun require(id: String): CatalogueSource = byId[id] ?: error("Fuente desconocida: $id")
+
+    companion object {
+        /** Ids only this program may use, whether or not their source is running now (the server's Jellyfin). */
+        val RESERVED_IDS = setOf("jellyfin")
+    }
 }
