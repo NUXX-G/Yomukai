@@ -195,11 +195,13 @@ fun Route.workerRoutes(s: Services) {
             val id = call.parameters["id"]!!.toLong()
             val type = call.request.contentType().withoutParameters().toString()
             val job = s.jobs.complete(id, call.worker.id, call.receiveChannel().toInputStream(), type)
+            runCatching { s.library.finished(job) }
             call.respond(mapOf("ok" to true, "status" to job.status.db))
         }
         post("/jobs/{id}/fail") {
             val body = JsonParser.parseString(call.receiveText().take(4_096)).asJsonObject
             val job = s.jobs.fail(call.parameters["id"]!!.toLong(), call.worker.id, body.get("error")?.asString.orEmpty().ifBlank { "Error" }, body.get("retry")?.asBoolean != false)
+            runCatching { s.library.failed(job) }
             call.respond(mapOf("ok" to true, "status" to job.status.db))
         }
         // Latest database backup, so a home worker can keep a copy on the NAS.

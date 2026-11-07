@@ -137,77 +137,11 @@ fun Route.workerMediaRoutes(s: Services) {
             val b = call.jsonBody(8_192)
             val sourceId = b.text("sourceId", 60)
             require(s.sources.get(sourceId) != null) { "Fuente desconocida" }
-            val video = s.catalog.rawVideos(sourceId, b.text("url", 2_000)).getOrNull()?.firstOrNull { it.isDirect }
+            val direct = s.catalog.rawVideos(sourceId, b.text("url", 2_000)).getOrNull().orEmpty().filter { it.isDirect }
+            val preferred = b.get("preferredServer")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty().take(40)
+            val video = direct.getOrNull(preferServer(direct.map { it.serverName }, preferred))
                 ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("error" to "Sin vídeo directo"))
             call.respond(mapOf("url" to video.videoUrl, "headers" to video.headers.filterKeys { it in setOf("Referer", "User-Agent", "Origin") }))
         }
-    }
-}
-
-/** Admin only: download episodes to Jellyfin, or export chapters to CBZ for Kavita/Komga (both done by the worker). */
-private suspend fun io.ktor.server.application.ApplicationCall.selection(): Triple<String, String, List<String>> {
-    val b = jsonBody(32_000)
-    val ids = b.getAsJsonArray("chapterIds")?.mapNotNull { e -> e.takeIf { it.isJsonPrimitive }?.asString?.take(2_000) }?.take(500).orEmpty()
-    require(ids.isNotEmpty()) { "Elige al menos un episodio o capítulo" }
-    return Triple(b.text("sourceId", 60), b.text("mediaId", 2_000), ids)
-}
-
-fun Route.mediaLibraryAdminRoutes(s: Services) {
-    jellyfinDownloadRoute(s)
-    cbzExportRoute(s)
-}
-
-private fun Route.jellyfinDownloadRoute(s: Services) {
-    post("/jellyfin/download") {
-        require(s.features.isOn("jellyfin")) { "Jellyfin está desactivado" }
-        val (sourceId, mediaId, ids) = call.selection()
-        val cfg = s.integrations.get()
-        require(cfg.animePath.isNotBlank()) { "Configura antes la carpeta de anime en Integraciones" }
-        val work = runCatching { s.works.resolve(sourceId, mediaId) }.getOrNull()
-        val item = s.catalog.media(sourceId, mediaId).getOrThrow()
-        val chapters = s.catalog.chapterList(sourceId, mediaId).getOrThrow().filter { it.id in ids || it.url in ids }
-        val config = s.integrations.forWorker()
-        chapters.forEach { ch ->
-            val payload = JsonObject().apply {
-                addProperty("sourceId", sourceId); addProperty("episodeUrl", ch.url); addProperty("title", work?.title ?: item.title)
-                addProperty("number", ch.chapterNumber); addProperty("season", 1); addProperty("episodeTitle", ch.title)
-                addProperty("synopsis", (work?.synopsis ?: item.description).take(2_000)); addProperty("cover", work?.cover ?: item.coverUrl)
-                work?.anilistId?.let { addProperty("anilistId", it) }; work?.malId?.let { addProperty("malId", it) }
-                add("genres", JsonArray().apply { (work?.genres ?: item.genres).take(10).forEach(::add) })
-                add("config", config)
-            }
-            s.jobs.enqueue(JobQueue.Request(JobTypes.JELLYFIN_DOWNLOAD, payload, JobPriority.BACKGROUND, dedupKey = "jf:$sourceId:${ch.url}", ttlMs = 30L * 86_400_000, maxAttempts = 5))
-        }
-        call.respond(mapOf("queued" to chapters.size))
-    }
-}
-
-private fun Route.cbzExportRoute(s: Services) {
-    post("/cbz/export") {
-        require(s.features.isOn("jellyfin")) { "Desactivado" }
-        val (sourceId, mediaId, ids) = call.selection()
-        val cfg = s.integrations.get()
-        require(cfg.comicsPath.isNotBlank()) { "Configura antes la carpeta de cómics en Integraciones" }
-        val item = s.catalog.media(sourceId, mediaId).getOrThrow()
-        val work = runCatching { s.works.resolve(sourceId, mediaId) }.getOrNull()
-        val chapters = s.catalog.chapterList(sourceId, mediaId).getOrThrow().filter { it.id in ids || it.url in ids }
-        val config = s.integrations.forWorker()
-        var queued = 0
-        for (ch in chapters) {
-            val (pages, headers) = s.catalog.rawPages(sourceId, ch.url).getOrNull() ?: continue
-            val payload = JsonObject().apply {
-                addProperty("series", work?.title ?: item.title); addProperty("number", ch.chapterNumber); addProperty("title", ch.title)
-                addProperty("summary", item.description.take(2_000)); addProperty("type", item.type.name)
-                add("authors", JsonArray().apply { item.author.split(',').map { it.trim() }.filter { it.isNotEmpty() }.forEach(::add) })
-                add("genres", JsonArray().apply { (work?.genres ?: item.genres).take(10).forEach(::add) })
-                add("pages", JsonArray().apply { pages.forEach(::add) })
-                add("headers", Gson().toJsonTree(headers.filterKeys { it in setOf("Referer", "User-Agent", "Origin") }))
-                work?.anilistId?.let { addProperty("anilistId", it) }; work?.malId?.let { addProperty("malId", it) }
-                add("config", config)
-            }
-            s.jobs.enqueue(JobQueue.Request(JobTypes.CBZ_EXPORT, payload, JobPriority.BACKGROUND, dedupKey = "cbz:$sourceId:${ch.url}", ttlMs = 30L * 86_400_000))
-            queued++
-        }
-        call.respond(mapOf("queued" to queued))
     }
 }

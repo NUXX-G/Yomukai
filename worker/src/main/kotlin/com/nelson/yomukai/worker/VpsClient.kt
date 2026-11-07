@@ -41,8 +41,8 @@ class VpsClient(private val baseUrl: String, private val token: String, val http
     /** False when the VPS no longer considers the job ours (it was reassigned): stop working on it. */
 
     /** A direct video for an episode, resolved by the VPS right now: { url, headers, hls }, or null. */
-    fun freshVideo(sourceId: String, episodeUrl: String): JsonObject? {
-        val body = JsonObject().apply { addProperty("sourceId", sourceId); addProperty("url", episodeUrl) }
+    fun freshVideo(sourceId: String, episodeUrl: String, preferredServer: String = ""): JsonObject? {
+        val body = JsonObject().apply { addProperty("sourceId", sourceId); addProperty("url", episodeUrl); addProperty("preferredServer", preferredServer) }
         val (code, text) = call(request("/worker/videos").post(body.toString().toRequestBody(json)).build())
         return if (code == 200) runCatching { com.google.gson.JsonParser.parseString(text).asJsonObject }.getOrNull() else null
     }

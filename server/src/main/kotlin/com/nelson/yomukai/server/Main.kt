@@ -182,6 +182,7 @@ class Services(val config: Config) {
     val ocr by lazy { OcrStore(this) }
     val words = Words(db, events)
     val integrations = Integrations(db, config.secret)
+    val library = MediaDownloads(db, catalog, works, integrations, jobs, notifications, events)
     val language by lazy { WorkerLanguage(this) }
     private val animeCheck: (String) -> Boolean = { id -> sources.get(id) is com.nelson.yomukai.data.source.AnimeSource }
     val social by lazy { Social(db, events, config.dataDir, animeCheck, works::keyOf, notifications::send) }
@@ -259,6 +260,14 @@ private fun Application.startBackgroundJobs(config: Config, services: Services) 
                 }
                 workersWereOnline = online
             }
+        }
+    }
+    // Followed works: new episodes/chapters go to the NAS on their own (every 3 h, spaced out between works).
+    launch {
+        delay(10 * 60_000L)
+        while (true) {
+            if (services.features.isOn("jellyfin")) runCatching { services.library.checkAll() }.onFailure { log.warn("Obras seguidas", it) }
+            delay(3 * 3_600_000L)
         }
     }
     // Guests whose week is over go away, with all their data, once an hour.

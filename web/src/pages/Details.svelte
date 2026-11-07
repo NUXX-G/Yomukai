@@ -140,6 +140,29 @@
     } catch (e) { notify(e.message); }
   }
 
+  /** Admin: follow the work so new episodes/chapters go to the NAS on their own (checked every 3 h). */
+  let follow = $state(null);
+  let followOpen = $state(false);
+  let followRules = $state({ preferredServer: '', maxPerRun: 5 });
+  async function openFollow() {
+    menu = false;
+    followOpen = true;
+    try {
+      follow = (await api.followOf(sourceId, mediaId)).follow;
+      if (follow) followRules = { ...follow.rules };
+    } catch (e) { notify(e.message); }
+  }
+  async function saveFollow() {
+    try {
+      follow = await api.follow(sourceId, mediaId, { ...followRules, maxPerRun: Number(followRules.maxPerRun) || 5 });
+      notify(anime ? 'Seguida: los episodios nuevos irán solos al Jellyfin' : 'Seguida: los capítulos nuevos irán solos a Kavita/Komga');
+      followOpen = false;
+    } catch (e) { notify(e.message); }
+  }
+  async function stopFollow() {
+    try { await api.unfollow(follow.id); follow = null; notify('Ya no se descarga sola'); followOpen = false; } catch (e) { notify(e.message); }
+  }
+
   async function openMarks() {
     menu = false;
     marksOpen = true;
@@ -479,6 +502,21 @@
   </button>
 {/if}
 
+<Sheet bind:open={followOpen} title="Descarga automática">
+  <div class="follow">
+    <p class="small muted">Cada 3 horas el servidor mira si hay {anime ? 'episodios' : 'capítulos'} nuevos y el servidor de casa los guarda en {anime ? 'tu Jellyfin' : 'tu carpeta de cómics'}. Te avisa cuando lleguen o si algo falla.</p>
+    {#if anime}
+      <label>Servidor preferido <input class="field" placeholder="p. ej. MP4Upload (vacío = el primero que funcione)" bind:value={followRules.preferredServer} maxlength="40" /></label>
+    {/if}
+    <label>Como mucho cada vez <input class="field" type="number" min="1" max="20" bind:value={followRules.maxPerRun} /></label>
+    {#if follow}<p class="small muted">Siguiendo desde el {anime ? 'episodio' : 'capítulo'} {follow.lastNumber}.</p>{/if}
+    <div class="row">
+      <button class="btn primary" onclick={saveFollow}>{follow ? 'Guardar' : 'Seguir'}</button>
+      {#if follow}<button class="btn tonal" onclick={stopFollow}>Dejar de seguir</button>{/if}
+    </div>
+  </div>
+</Sheet>
+
 <Sheet bind:open={menu} title="Opciones">
   <button class="list-item opt" onclick={openAlternatives}><Icon name="search" /> Buscar en otras fuentes</button>
   {#if list.chapters.length}
@@ -486,6 +524,7 @@
     {#if session.user?.admin && features.flags.jellyfin !== false}
       <button class="list-item opt" onclick={() => toLibrary(unreadChapters)}><Icon name="library" /> {anime ? 'Al Jellyfin: episodios sin ver' : 'A Kavita/Komga: capítulos sin leer'} · {unreadChapters.length}</button>
       <button class="list-item opt" onclick={() => toLibrary(list.chapters)}><Icon name="library" /> {anime ? 'Al Jellyfin: todos' : 'A Kavita/Komga: todos'} · {list.chapters.length}</button>
+      <button class="list-item opt" onclick={openFollow}><Icon name="bell" /> Descargar lo nuevo automáticamente</button>
     {/if}
     {#if !anime}<button class="list-item opt" onclick={openMarks}><Icon name="bookmark" /> Marcadores</button>{/if}
     <button class="list-item opt" onclick={() => markAllBefore(list.chapters[list.chapters.length - 1], true)}><Icon name="check" /> Marcar todo como {anime ? 'visto' : 'leído'}</button>
@@ -686,6 +725,9 @@
   .cats { position: relative; display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 0.82rem; color: var(--text-dim); text-align: left; }
   .chipwrap { display: flex; flex-wrap: wrap; gap: 8px; }
   .row-form { display: flex; gap: 8px; margin-top: 14px; }
+  .follow { display: flex; flex-direction: column; gap: 12px; padding: 4px 0 8px; }
+  .follow label { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-small); color: var(--c-text-dim); }
+  .follow .row { display: flex; gap: 8px; flex-wrap: wrap; }
   .row-form .field { flex: 1; min-width: 0; height: 44px; }
   .dl-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
   .range { display: flex; gap: 8px; margin-top: 6px; }

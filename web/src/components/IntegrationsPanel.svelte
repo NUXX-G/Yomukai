@@ -8,7 +8,17 @@
   let keys = $state({ jellyfinKey: '', comicsKey: '' });
   let testing = $state(false);
 
+  let follows = $state(null);
   api.integrations().then((v) => (form = v), (e) => notify(e.message));
+  const loadFollows = () => api.follows().then((v) => (follows = v), () => (follows = []));
+  loadFollows();
+
+  async function unfollow(f) {
+    try { await api.unfollow(f.id); loadFollows(); } catch (err) { notify(err.message); }
+  }
+  async function checkNow() {
+    try { const r = await api.checkFollows(); notify(r.queued ? `${r.queued} nuevos en cola` : 'Nada nuevo por ahora'); loadFollows(); } catch (err) { notify(err.message); }
+  }
 
   async function save(e) {
     e.preventDefault();
@@ -56,9 +66,34 @@
   {/if}
 </section>
 
+<section class="card">
+  <h3 class="sub">Descarga automática</h3>
+  <p class="small muted">Obras seguidas: lo nuevo va solo al Jellyfin o a la carpeta de cómics (cada 3 horas). Se sigue una obra desde su ficha › Opciones.</p>
+  {#if follows === null}
+    <div class="spinner"></div>
+  {:else if !follows.length}
+    <p class="small muted">Ninguna todavía.</p>
+  {:else}
+    <ul class="follows">
+      {#each follows as f (f.id)}
+        <li>
+          <a href={`/obra/${encodeURIComponent(f.sourceId)}/${encodeURIComponent(f.mediaId)}`}>{f.title}</a>
+          <span class="small muted">desde el {f.lastNumber}{f.rules.preferredServer ? ` · ${f.rules.preferredServer}` : ''} · hasta {f.rules.maxPerRun} cada vez</span>
+          <button class="btn tonal small-btn" onclick={() => unfollow(f)}>Dejar de seguir</button>
+        </li>
+      {/each}
+    </ul>
+    <button class="btn tonal" onclick={checkNow}>Mirar ahora</button>
+  {/if}
+</section>
+
 <style>
   .grid-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
   .grid-form label { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-small); color: var(--c-text-dim); }
   .span { grid-column: 1 / -1; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .follows { list-style: none; margin: 8px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .follows li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+  .follows a { font-weight: 600; color: var(--c-text); }
+  .small-btn { margin-left: auto; min-height: 32px; padding: 0 12px; }
 </style>
