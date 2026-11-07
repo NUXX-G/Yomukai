@@ -1,4 +1,8 @@
 # Worker de Yomukai para el servidor de casa (y, si quieres, el portátil con GPU).
+# Imagen ligera (ffmpeg, huellas de audio, OCR) o completa con voces y subtítulos:
+#   YOMUKAI_WORKER_IMAGE=ghcr.io/nuxx-g/yomukai-worker-full:latest   en .env (el instalador: WORKER_FULL=true)
+# Traducción (bocadillos, modo aprendizaje): COMPOSE_PROFILES=traduccion en .env y
+#   WORKER_LIBRETRANSLATE_URL=http://libretranslate:5000 en .env.worker (el instalador: WORKER_TRANSLATION=true)
 # Hace lo pesado: voces, OCR, subtítulos, huellas de audio, descargas a Jellyfin y CBZ.
 # Se conecta él al VPS (no abre ningún puerto en tu red). Ajustes en .env.worker:
 #   YOMUKAI_URL   dirección del VPS (https://… o http://100.x.y.z:8080 por Tailscale)
@@ -43,5 +47,21 @@ services:
     #           count: 1
     #           capabilities: [gpu]
 
+  # Traducción sin conexión con LibreTranslate (AGPL, contenedor aparte sin modificar). Solo con el perfil "traduccion".
+  # Descarga sus modelos la primera vez (unos GB): LT_LOAD_ONLY limita los idiomas.
+  libretranslate:
+    profiles: ["traduccion"]
+    image: libretranslate/libretranslate:v1.9.6
+    restart: unless-stopped
+    mem_limit: ${LIBRETRANSLATE_MEMORY:-2g}
+    cpus: ${LIBRETRANSLATE_CPUS:-1.5}
+    environment:
+      LT_LOAD_ONLY: ${LT_LOAD_ONLY:-es,en,ja,ko,zh,fr,de,it,pt}
+      LT_DISABLE_WEB_UI: "true"
+    volumes:
+      - libretranslate-models:/home/libretranslate/.local
+    logging: *logging
+
 volumes:
   worker-work:
+  libretranslate-models:

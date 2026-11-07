@@ -2,7 +2,9 @@
 # Worker de Yomukai (servidor de casa o portátil con GPU): instalar o actualizar con una línea.
 #   curl -fsSL https://raw.githubusercontent.com/NUXX-G/Yomukai/main/install-worker.sh | YOMUKAI_URL=https://tu-vps WORKER_TOKEN=ykw_... bash
 # El token se crea en la web: Ajustes › Administración › Workers › Nuevo worker.
-# Opciones: YOMUKAI_WORKER_DIR (por defecto ~/yomukai-worker), WORKER_GPU=true para usar una GPU NVIDIA.
+# Opciones: YOMUKAI_WORKER_DIR (por defecto ~/yomukai-worker), WORKER_GPU=true para usar una GPU NVIDIA,
+#   WORKER_FULL=true para la imagen con voces (Pocket TTS) y subtítulos (whisper.cpp),
+#   WORKER_TRANSLATION=true para añadir LibreTranslate (traducción sin conexión; descarga varios GB la primera vez).
 set -euo pipefail
 
 REPO="https://github.com/NUXX-G/Yomukai"
@@ -40,6 +42,16 @@ ENV
   chmod 600 .env.worker
 fi
 
+# Variables que lee docker compose (imagen y perfiles) van en .env; las del worker en .env.worker.
+touch .env
+set_env() { sed -i "/^$1=/d" .env; echo "$1=$2" >> .env; }
+if [ "${WORKER_FULL:-false}" = "true" ]; then set_env YOMUKAI_WORKER_IMAGE ghcr.io/nuxx-g/yomukai-worker-full:latest; fi
+if [ "${WORKER_TRANSLATION:-false}" = "true" ]; then
+  set_env COMPOSE_PROFILES traduccion
+  sed -i "/^WORKER_LIBRETRANSLATE_URL=/d" .env.worker
+  echo "WORKER_LIBRETRANSLATE_URL=http://libretranslate:5000" >> .env.worker
+fi
+
 if [ "${WORKER_GPU:-false}" = "true" ]; then
   # Uncomment the GPU block of the compose file.
   sed -i 's/^    # deploy:/    deploy:/; s/^    #   resources:/      resources:/; s/^    #     reservations:/        reservations:/; s/^    #       devices:/          devices:/; s/^    #         - driver: nvidia/            - driver: nvidia/; s/^    #           count: 1/              count: 1/; s/^    #           capabilities: \[gpu\]/              capabilities: [gpu]/' docker-compose.worker.yml
@@ -48,7 +60,11 @@ fi
 if ! docker compose -f docker-compose.worker.yml pull --quiet worker 2>/dev/null; then
   say "Compilando la imagen del worker (la primera vez tarda unos minutos)..."
   rm -rf src && git clone --depth 1 "$REPO" src >/dev/null 2>&1 || fail "No se pudo descargar el código de $REPO"
-  docker build -t ghcr.io/nuxx-g/yomukai-worker:latest -f src/Dockerfile.worker src
+  if grep -q "^YOMUKAI_WORKER_IMAGE=.*full" .env; then
+    docker build --build-arg WITH_TTS=true --build-arg WITH_WHISPER=true -t ghcr.io/nuxx-g/yomukai-worker-full:latest -f src/Dockerfile.worker src
+  else
+    docker build -t ghcr.io/nuxx-g/yomukai-worker:latest -f src/Dockerfile.worker src
+  fi
   rm -rf src
 fi
 docker compose -f docker-compose.worker.yml up -d

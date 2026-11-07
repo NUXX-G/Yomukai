@@ -59,6 +59,16 @@ Tailscale crea una red privada entre tus equipos. El VPS llega al Jellyfin de ca
 
 Si el equipo de casa se apaga, los trabajos esperan en la cola y lo demás sigue funcionando. Cuando vuelve, los recoge.
 
+### Motores del worker (todos opcionales)
+
+| Imagen / opción | Qué añade |
+|---|---|
+| `yomukai-worker` (por defecto) | ffmpeg (descargas al Jellyfin), Chromaprint (saltar opening/ending), Tesseract (OCR de cómics en español, inglés, japonés, coreano y chino) |
+| `WORKER_FULL=true` → `yomukai-worker-full` | Además voces naturales con Pocket TTS (Kyutai, MIT) y subtítulos con whisper.cpp (MIT, modelo «base»). Imagen grande: mejor en el equipo de casa |
+| `WORKER_TRANSLATION=true` | Contenedor de LibreTranslate (AGPL, aparte y sin modificar) para traducir bocadillos y frases sin conexión; descarga sus modelos la primera vez |
+
+Ejemplo con todo: `curl -fsSL …/install-worker.sh | YOMUKAI_URL=… WORKER_TOKEN=… WORKER_FULL=true WORKER_TRANSLATION=true bash`. El worker anuncia solo los motores que encuentra; lo que falte se apaga con elegancia.
+
 ## Variables principales (`.env` del servidor)
 
 | Variable | Qué hace | Por defecto |
