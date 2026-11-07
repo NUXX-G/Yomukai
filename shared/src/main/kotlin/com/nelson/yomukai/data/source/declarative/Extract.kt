@@ -15,6 +15,9 @@ import java.net.URLEncoder
  * parsed and bounded, never executed or used to build anything but plain values.
  */
 object Extract {
+    private val TEMPLATE_SLOT = Regex("\\{([a-zA-Z0-9_]+)\\}")
+    private val MAPPED_SLOT = Regex("\\{([^\\}]+)\\}")
+
     private const val MAX_ITEMS = 2_000
 
     // ---------- CSS ----------
@@ -61,7 +64,8 @@ object Extract {
 
     /** Fills "{name}" placeholders; unknown ones become empty. Values are inserted as given (encode beforehand). */
     fun template(t: String, vars: Map<String, String>): String =
-        Regex("\\{([a-zA-Z0-9_]+)}").replace(t) { m -> vars[m.groupValues[1]].orEmpty() }
+        // Every brace escaped: Android's regex engine refuses a bare "}" (the JVM's accepts it), see TRABAJO.md.
+        TEMPLATE_SLOT.replace(t) { m -> vars[m.groupValues[1]].orEmpty() }
 
     fun encode(s: String): String = URLEncoder.encode(s, "UTF-8")
 
@@ -98,7 +102,7 @@ object Extract {
     fun mapped(item: JsonElement, spec: String?, vars: Map<String, String>): String {
         if (spec.isNullOrBlank()) return ""
         if (!spec.contains('{')) return string(item, spec)
-        return Regex("\\{([^}]+)}").replace(spec) { m -> vars[m.groupValues[1]] ?: string(item, m.groupValues[1]) }
+        return MAPPED_SLOT.replace(spec) { m -> vars[m.groupValues[1]] ?: string(item, m.groupValues[1]) }
     }
 
     /** Next.js pages carry their data in <script id="__NEXT_DATA__">. */
