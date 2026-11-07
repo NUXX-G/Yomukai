@@ -93,7 +93,8 @@ class JellyfinSourceTest {
             assertEquals(HttpStatusCode.OK, guest.post("/auth/guest").status)
             for (path in listOf(
                 "/api/sources/jellyfin/latest", "/api/chapters?s=jellyfin&id=${FakeJellyfin.SERIES}", "/api/jellyfin/image/${FakeJellyfin.SERIES}",
-                "/api/jellyfin/stream/${FakeJellyfin.EP1}?q=orig", "/api/videos?s=jellyfin&c=jellyfin:${FakeJellyfin.EP1}"
+                "/api/jellyfin/stream/${FakeJellyfin.EP1}?q=orig", "/api/videos?s=jellyfin&c=jellyfin:${FakeJellyfin.EP1}",
+                "/api/sources/%6Aellyfin/latest", "/api/sources/JELLYFIN/latest", "/api/chapters?s=%4Aellyfin&id=x", "/api/%6Aellyfin/image/${FakeJellyfin.SERIES}"
             )) {
                 assertEquals(path, HttpStatusCode.Forbidden, guest.get(path).status)
             }

@@ -305,7 +305,8 @@ fun Route.featureRoutes(s: Services) {
             mapOf(
                 "flags" to flags,
                 "worker" to mapOf("online" to (jobsOn && availability.workersOnline > 0), "gpu" to (jobsOn && availability.gpu)),
-                "available" to JobTypes.ALL.filter { it != JobTypes.ECHO }.associateWith { jobsOn && it in availability.engines }
+                "available" to JobTypes.ALL.filter { it != JobTypes.ECHO }.associateWith { jobsOn && it in availability.engines },
+                "nas" to if (call.user.isGuest) null else mapOf("online" to (s.jellyfin.api != null), "uploadMbps" to s.config.nasUploadMbps)
             )
         )
     }

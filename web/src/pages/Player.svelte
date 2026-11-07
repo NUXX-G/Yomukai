@@ -11,6 +11,7 @@
   import { startPresence } from '../lib/presence.js';
   import { createParty, expectedPosition, correction, copyRoomLink } from '../lib/party.svelte.js';
   import { notify, features } from '../lib/store.svelte.js';
+  import { recommendedQuality, qualityOf } from '../lib/nas.js';
 
   const sourceId = route.params.source;
   const mediaId = route.params.id;
@@ -182,6 +183,25 @@
   }
 
   function onError() { if (serverIndex >= 0) play(serverIndex + 1); }
+
+  // From the home NAS in a room: the home upload is shared out, so the quality follows how many are watching
+  // (unless someone picked a server by hand). Alone, the original.
+  let pickedByHand = false;
+  const nasAdvice = $derived.by(() => {
+    if (!servers.some((s) => qualityOf(s.url))) return null;
+    const viewers = client?.party.members.length || 1;
+    const q = recommendedQuality(viewers, features.nas?.uploadMbps);
+    return { viewers, q, server: order(servers).find((s) => qualityOf(s.url) === q) };
+  });
+  $effect(() => {
+    const advice = nasAdvice;
+    if (!advice?.server || pickedByHand || loading) return;
+    const now = order(servers)[serverIndex];
+    if (!now || qualityOf(now.url) === advice.q) return;
+    resumeAt = video.currentTime;
+    notify(advice.viewers > 1 ? `Sala de ${advice.viewers}: calidad «${advice.server.quality}» para que vaya fluido a todos` : `Calidad «${advice.server.quality}»`);
+    play(order(servers).indexOf(advice.server));
+  });
 
   function onLoaded() {
     duration = video.duration;
@@ -489,9 +509,12 @@
 </Sheet>
 
 <Sheet bind:open={serversOpen} title="Servidores">
+  {#if nasAdvice && nasAdvice.viewers > 1}
+    <p class="small muted nas-note">Desde tu NAS: con {nasAdvice.viewers} en la sala se recomienda «{nasAdvice.server?.quality}» (la subida de casa es de {features.nas?.uploadMbps || 20} Mbps).</p>
+  {/if}
   {#each servers as s}
     {#if s.direct}
-      <button class="list-item srv" class:current={order(servers)[serverIndex] === s} onclick={() => { serversOpen = false; play(order(servers).indexOf(s)); }}>
+      <button class="list-item srv" class:current={order(servers)[serverIndex] === s} onclick={() => { serversOpen = false; pickedByHand = true; resumeAt = video.currentTime; play(order(servers).indexOf(s)); }}>
         <Icon name="play" /> <span class="grow">{s.server} <span class="small muted">{s.quality}</span></span>
       </button>
     {:else}
@@ -528,6 +551,7 @@
   .chat-btn { position: relative; }
   .dot-unread { margin-left: 6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--c-accent); color: var(--c-on-accent); font-size: 0.7rem; display: inline-grid; place-items: center; }
   .waiting { position: absolute; top: calc(var(--safe-top) + 64px); left: 50%; transform: translateX(-50%); z-index: 5; padding: 8px 14px; border-radius: 999px; background: #000b; color: #fff; font-size: 0.85rem; pointer-events: none; }
+  .nas-note { margin: 0 0 8px; padding: 0 4px; }
   .float { position: absolute; bottom: 18%; z-index: 5; font-size: 2.2rem; pointer-events: none; animation: rise 2.6s ease-out forwards; }
   @keyframes rise { from { transform: translateY(0) scale(0.8); opacity: 0; } 15% { opacity: 1; transform: translateY(-20px) scale(1.1); } to { transform: translateY(-260px) scale(1); opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .float { animation: none; opacity: 0.9; } }

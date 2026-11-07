@@ -46,6 +46,8 @@ data class Config(
     val imageCacheBytes: Long = 2L * 1024 * 1024 * 1024,
     /** Monthly cap for video through the VPS; 0 = only measure. */
     val bandwidthCapBytes: Long = 0,
+    /** Upload of the home connection in Mbit/s: rooms watching from the NAS are advised a quality that fits. */
+    val nasUploadMbps: Int = 20,
     /** Admin warnings: Discord webhook and/or ntfy topic URL (with optional token). */
     val discordWebhook: String? = null,
     val ntfyUrl: String? = null,
@@ -89,6 +91,7 @@ data class Config(
                 backupsEnabled = env["BACKUPS_ENABLED"]?.lowercase() != "false",
                 resultCacheBytes = (env["RESULT_CACHE_MB"]?.toLongOrNull()?.coerceIn(64, 1_000_000) ?: 2048) * 1024 * 1024,
                 imageCacheBytes = (env["IMAGE_CACHE_MB"]?.toLongOrNull()?.coerceIn(64, 1_000_000) ?: 2048) * 1024 * 1024,
+                nasUploadMbps = env["NAS_UPLOAD_MBPS"]?.toIntOrNull()?.coerceIn(1, 10_000) ?: 20,
                 bandwidthCapBytes = ((env["BANDWIDTH_CAP_GB"]?.toDoubleOrNull()?.coerceIn(0.0, 1_000_000.0) ?: 0.0) * 1_073_741_824).toLong(),
                 discordWebhook = env["DISCORD_WEBHOOK_URL"]?.trim()?.takeIf { it.startsWith("https://") },
                 ntfyUrl = env["NTFY_URL"]?.trim()?.takeIf { it.startsWith("https://") || it.startsWith("http://") },

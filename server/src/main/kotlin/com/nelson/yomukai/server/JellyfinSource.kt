@@ -183,9 +183,12 @@ val GuestsOffNas = io.ktor.server.application.createRouteScopedPlugin("GuestsOff
     onCall { call ->
         val user = call.attributes.getOrNull(UserKey) ?: return@onCall
         if (!user.isGuest) return@onCall
-        val path = call.request.path()
-        val asked = call.request.queryParameters.getAll("s").orEmpty() + call.request.queryParameters.getAll("sourceId").orEmpty()
-        if (JellyfinSource.ID in asked || path.contains("/sources/" + JellyfinSource.ID) || path.startsWith("/api/jellyfin/")) {
+        // Every path segment and query value is compared decoded, trimmed and lower-cased ("%6Aellyfin" is "jellyfin"):
+        // any request that names the NAS anywhere is refused, on top of the checks in its own routes.
+        fun norm(v: String): String = runCatching { java.net.URLDecoder.decode(v.replace("+", "%2B"), Charsets.UTF_8) }.getOrDefault(v).trim().lowercase()
+        val segments = call.request.path().split('/').map(::norm)
+        val values = call.request.queryParameters.entries().flatMap { it.value }.map(::norm)
+        if (JellyfinSource.ID in segments || values.any { it == JellyfinSource.ID || it.startsWith(JellyfinSource.URL_PREFIX) }) {
             call.respond(HttpStatusCode.Forbidden, mapOf("error" to "No disponible para invitados"))
         }
     }
