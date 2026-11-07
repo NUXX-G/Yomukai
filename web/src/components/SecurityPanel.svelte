@@ -1,5 +1,5 @@
 <script>
-  import { t } from '../lib/i18n.svelte.js';
+  import { t, locale } from '../lib/i18n.svelte.js';
   // Seguridad de la cuenta: dónde tienes la sesión abierta y la verificación en dos pasos.
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
@@ -15,7 +15,7 @@
   let password = $state('');
   let busy = $state(false);
 
-  const when = (t) => new Date(t).toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const when = (t) => new Date(t).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
   async function load() {
     [sessions, twoFactor] = await Promise.all([api.sessions().catch(() => []), api.twoFactorStatus().catch(() => null)]);

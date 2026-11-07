@@ -1,5 +1,5 @@
 <script>
-  import { t } from '../lib/i18n.svelte.js';
+  import { t, locale } from '../lib/i18n.svelte.js';
   // Administración del servidor: estado (memoria, tráfico), workers del servidor de casa y funcionalidades.
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
@@ -73,7 +73,7 @@
     showAudit = !showAudit;
     if (showAudit) audit = await api.adminAudit().catch(() => []);
   }
-  const inviteState = (i) => (i.usedAt ? t('usada por {0}', [i.usedBy || '—']) : i.revoked ? 'anulada' : i.expiresAt < Date.now() ? 'caducada' : t('caduca el {0}', [new Date(i.expiresAt).toLocaleDateString('es')]));
+  const inviteState = (i) => (i.usedAt ? t('usada por {0}', [i.usedBy || '—']) : i.revoked ? 'anulada' : i.expiresAt < Date.now() ? 'caducada' : t('caduca el {0}', [new Date(i.expiresAt).toLocaleDateString(locale())]));
   onMount(load);
 
   async function create(e) {
@@ -147,7 +147,7 @@
             {w.online ? 'Conectado' : `Visto ${ago(w.lastSeen)}`}
             {#if w.capabilities.cpus} {t('· {0} núcleos, {1} GB', [w.capabilities.cpus, Math.round((w.capabilities.ramMb || 0) / 1024)])}{/if}
             {#if w.capabilities.gpu} · {w.capabilities.gpu}{/if}
-            {#if w.capabilities.busy} · ocupado{/if}
+            {#if w.capabilities.busy} {t('· ocupado')}{/if}
           </span>
           {#if w.capabilities.engines?.length}
             <span class="small muted block">{w.capabilities.engines.map((e) => engineNames[e] || e).join(', ')}</span>
@@ -227,7 +227,7 @@
   <button class="btn tonal" onclick={toggleAudit}>{showAudit ? 'Ocultar' : 'Ver'}</button>
   {#if showAudit}
     {#each audit as a (a.id)}
-      <div class="audit small"><span class="muted">{new Date(a.at).toLocaleString('es')}</span> <b>{a.actor}</b> {a.action} {a.detail}<span class="muted"> · {a.ip}</span></div>
+      <div class="audit small"><span class="muted">{new Date(a.at).toLocaleString(locale())}</span> <b>{a.actor}</b> {a.action} {a.detail}<span class="muted"> · {a.ip}</span></div>
     {:else}
       <p class="small muted">{t('Sin actividad todavía.')}</p>
     {/each}
@@ -239,7 +239,7 @@
   <p class="small muted" style="margin-top:0">{t('Apaga cualquiera si da problemas: desaparece en la web y en la app.')}</p>
   {#each flags as f (f.name)}
     <label class="toggle">
-      <span class="grow"><span class="block">{f.title}</span><span class="small muted block">{f.description}</span></span>
+      <span class="grow"><span class="block">{t(f.title)}</span><span class="small muted block">{t(f.description)}</span></span>
       <input type="checkbox" checked={f.enabled} onchange={(e) => act(() => api.adminSetFeature(f.name, e.currentTarget.checked))} />
     </label>
   {/each}

@@ -58,7 +58,7 @@
   <h1 class="page-title">{TITLE}</h1>
 
   {#each rows.filter((r) => r.id !== 'trending') as r (r.id)}
-    <Shelf title={r.title}>
+    <Shelf title={t(r.title)}>
       {#each r.items as d (d.anilistId)}
         <MediaCard title={d.title} cover={d.cover} color={d.color} onclick={() => openDiscover(d)} subtitle={line(d)} score={score10(d.score)} badges={badges(d)} detail={detail(d)} />
       {/each}

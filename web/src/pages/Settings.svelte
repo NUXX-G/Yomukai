@@ -184,11 +184,11 @@
           {#if checks[s.id]}
             {@const c = checks[s.id]}
             <span class="small check {c.state}">
-              {#if c.state === 'run'}Probando...{:else if c.state === 'ok'}{t('✓ Funciona · {0} obras · {1} s', [c.count, (c.ms / 1000).toFixed(1)])}{:else}✗ {c.error}{/if}
+              {#if c.state === 'run'}{t('Probando...')}{:else if c.state === 'ok'}{t('✓ Funciona · {0} obras · {1} s', [c.count, (c.ms / 1000).toFixed(1)])}{:else}✗ {c.error}{/if}
             </span>
           {/if}
         </span>
-        <button class="icon-btn" onclick={(e) => { e.preventDefault(); perSourceFor = s; perSourceOpen = true; }} aria-label="Géneros ocultos en {s.name}" title={t('Géneros ocultos en esta fuente')}>
+        <button class="icon-btn" onclick={(e) => { e.preventDefault(); perSourceFor = s; perSourceOpen = true; }} aria-label={t('Géneros ocultos en {0}', [s.name])} title={t('Géneros ocultos en esta fuente')}>
           <Icon name="tune" size={20} />{#if settings.exclusions.perSource?.[s.id]?.length}<span class="count">{settings.exclusions.perSource[s.id].length}</span>{/if}
         </button>
         <input type="checkbox" checked={enabledIds.has(s.id)} onchange={() => toggleSource(s.id)} />
@@ -218,7 +218,7 @@
       </p>
       <div class="sync-box"><span class="small muted">{t('Servidor')}</span><code>{location.origin}</code></div>
       <div class="sync-box"><span class="small muted">{t('Usuario')}</span><code>{session.user.name}</code></div>
-      <p class="small muted">y tu contraseña de aquí. {#if location.protocol !== 'https:'}<b>{t('Ojo:')}</b> la app solo se conecta a servidores con HTTPS (para que la contraseña no viaje sin cifrar). Pon el servidor detrás de nginx o Caddy con un certificado; el README explica cómo.{/if}</p>
+      <p class="small muted">{t('y tu contraseña de aquí.')} {#if location.protocol !== 'https:'}<b>{t('Ojo:')}</b> {t('la app solo se conecta a servidores con HTTPS (para que la contraseña no viaje sin cifrar). Pon el servidor detrás de nginx o Caddy con un certificado; el README explica cómo.')}{/if}</p>
     </section>
   {/if}
 
@@ -238,7 +238,7 @@
         {#if features.worker.online}
           {t('Encendido{0}: voces de calidad, OCR y subtítulos disponibles.', [features.worker.gpu ? t(' (con GPU)') : ''])}
         {:else}
-          Apagado ahora mismo: lo que necesite el servidor de casa se hará cuando vuelva, o con tu dispositivo.
+          {t('Apagado ahora mismo: lo que necesite el servidor de casa se hará cuando vuelva, o con tu dispositivo.')}
         {/if}
       </span>
     </section>

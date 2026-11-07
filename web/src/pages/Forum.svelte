@@ -1,5 +1,5 @@
 <script>
-  import { t } from '../lib/i18n.svelte.js';
+  import { t, locale } from '../lib/i18n.svelte.js';
   // /foro (categories and threads) and /foro/:id (one thread). Works' own threads live on their title pages too.
   import { api } from '../lib/api.js';
   import { route, navigate } from '../lib/router.svelte.js';
@@ -8,7 +8,7 @@
   import Sheet from '../components/Sheet.svelte';
 
   const threadId = route.params.id ? Number(route.params.id) : null;
-  const GENERAL = [['recomendaciones', 'Recomendaciones'], ['offtopic', 'Off-topic'], ['quejas', 'Quejas al admin'], ['work', 'Obras']];
+  const GENERAL = [['recomendaciones', t('Recomendaciones')], ['offtopic', t('Off-topic')], ['quejas', t('Quejas al admin')], ['work', t('Obras')]];
   let category = $state(route.query.get('c') || 'recomendaciones');
   let threads = $state(null);
   let creating = $state(false);
@@ -36,7 +36,7 @@
     } catch (err) { notify(err.message); }
   }
 
-  const when = (at) => new Date(at).toLocaleDateString('es', { day: 'numeric', month: 'short' });
+  const when = (at) => new Date(at).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
 </script>
 
 <div class="page forum">

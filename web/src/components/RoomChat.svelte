@@ -1,5 +1,5 @@
 <script>
-  import { t } from '../lib/i18n.svelte.js';
+  import { t, locale } from '../lib/i18n.svelte.js';
   // Room chat: messages (plain text, @mentions highlighted, spoilers hidden behind a tap), quick reactions that float
   // over the video, who is here and who hosts. Never renders HTML from messages.
   import Icon from './Icon.svelte';
@@ -36,7 +36,7 @@
     return out;
   }
 
-  const time = (at) => new Date(at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+  const time = (at) => new Date(at).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
   const me = $derived(session.user?.name);
 
   $effect(() => {
@@ -61,7 +61,7 @@
   <div class="members">
     {#each party.members as m (m.id)}
       <span class="member" class:host={m.id === party.host}>
-        {m.name}{#if m.id === party.host} · anfitrión{/if}
+        {m.name}{#if m.id === party.host} {t('· anfitrión')}{/if}
         {#if client.isHost && m.id !== party.you}<button class="give" onclick={() => client.giveHost(m.id)} title={t('Darle el mando')}>{t('ceder')}</button>{/if}
       </span>
     {/each}

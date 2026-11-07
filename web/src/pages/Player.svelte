@@ -491,7 +491,7 @@
               {settings.player.skipFiller ? 'Saltando relleno' : 'Saltar relleno'}
             </button>
           {/if}
-          {#if next}<button class="btn primary" onclick={() => go(next)}><Icon name="next" size={18} /> Siguiente{#if skipped} (sin relleno){/if}</button>{/if}
+          {#if next}<button class="btn primary" onclick={() => go(next)}><Icon name="next" size={18} /> {t('Siguiente')}{#if skipped} {t('(sin relleno)')}{/if}</button>{/if}
         </div>
       </div>
     </div>

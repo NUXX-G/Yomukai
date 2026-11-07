@@ -10,8 +10,8 @@
 
 <Sheet bind:open={installGuide.open} title="Pantalla completa en {isIPhone ? 'iPhone' : 'iPad'}">
   <p class="lead">
-    {#if isIPhone}Safari no deja que las webs se pongan a pantalla completa en el iPhone (solo los vídeos).{:else}En el iPad, Safari no siempre deja ponerse a pantalla completa.{/if}
-    Ya está puesto el <strong>{t('modo inmersivo')}</strong> {t('de Yomukai: sin barras de la app, solo la página. Para quitar también las barras de Safari,')} <strong>{t('abre Yomukai como una app')}</strong>:
+    {#if isIPhone}{t('Safari no deja que las webs se pongan a pantalla completa en el iPhone (solo los vídeos).')}{:else}{t('En el iPad, Safari no siempre deja ponerse a pantalla completa.')}{/if}
+    {t('Ya está puesto el')} <strong>{t('modo inmersivo')}</strong> {t('de Yomukai: sin barras de la app, solo la página. Para quitar también las barras de Safari,')} <strong>{t('abre Yomukai como una app')}</strong>:
   </p>
   <ol class="steps">
     <li><span class="badge"><Icon name="share" size={20} /></span><span>{t('Pulsa')} <strong>{t('Compartir')}</strong> {t('en la barra de Safari (el cuadrado con la flecha hacia arriba; en iOS 26 está en el menú «···»).')}</span></li>
@@ -19,8 +19,8 @@
     <li><span class="badge app">{t('Y')}</span><span>{t('Abre Yomukai desde su icono: ocupa toda la pantalla. La primera vez tendrás que volver a entrar con tu usuario (o como invitado).')}</span></li>
   </ol>
   <p class="small muted">
-    La hora y la batería de arriba no se pueden ocultar: Apple no se lo permite a ninguna web.
-    {#if isIPhone}Si giras el móvil en horizontal, desaparecen.{/if}
+    {t('La hora y la batería de arriba no se pueden ocultar: Apple no se lo permite a ninguna web.')}
+    {#if isIPhone}{t('Si giras el móvil en horizontal, desaparecen.')}{/if}
   </p>
   <button class="btn primary block" onclick={() => (installGuide.open = false)}>{t('Entendido')}</button>
 </Sheet>

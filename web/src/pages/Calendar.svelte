@@ -1,5 +1,5 @@
 <script>
-  import { t } from '../lib/i18n.svelte.js';
+  import { t, locale } from '../lib/i18n.svelte.js';
   // Calendario: this week, day by day. Your library first (anime from AniList's schedule, manga and novels from the
   // rhythm their sources actually keep), then what else airs this week.
   import { onMount } from 'svelte';
@@ -11,7 +11,7 @@
 
   const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + i); return d; });
   const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const dayName = (d, i) => (i === 0 ? t('Hoy') : i === 1 ? t('Mañana') : d.toLocaleDateString('es', { weekday: 'long' }));
+  const dayName = (d, i) => (i === 0 ? t('Hoy') : i === 1 ? t('Mañana') : d.toLocaleDateString(locale(), { weekday: 'long' }));
 
   onMount(async () => {
     api.calendar(7).then((l) => (mine = l), () => (mine = []));
@@ -25,7 +25,7 @@
 
   const mineOn = (d) => (mine || []).filter((e) => e.date === iso(d));
   const airingOn = (d) => airing.filter((e) => e.date === iso(d) && !(mine || []).some((m) => m.title === e.title));
-  const time = (s) => new Date(s * 1000).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+  const time = (s) => new Date(s * 1000).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
 </script>
 
 <div class="page">
@@ -41,7 +41,7 @@
         {#each mineOn(d) as e (e.workKey + e.label)}
           <div class="entry mine" style:--bg="url('{sized(e.cover, 160)}')">
             <span class="t">{e.title}</span>
-            <span class="l">{e.label}{#if e.estimated} · estimado{/if}</span>
+            <span class="l">{e.label}{#if e.estimated} {t('· estimado')}{/if}</span>
           </div>
         {/each}
         {#each airingOn(d) as e (e.anilistId)}

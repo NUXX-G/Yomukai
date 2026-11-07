@@ -1,5 +1,5 @@
 <script>
-  import { t } from '../lib/i18n.svelte.js';
+  import { t, locale } from '../lib/i18n.svelte.js';
   // /u/nombre: someone's profile. Banner and avatar, the title they picked (an achievement), bio, stats, favourite,
   // achievements and the part of their library they share. Your own profile has «Editar perfil».
   import { api } from '../lib/api.js';
@@ -62,7 +62,7 @@
     form.privateCategories = form.privateCategories.includes(c) ? form.privateCategories.filter((x) => x !== c) : [...form.privateCategories, c];
   }
 
-  const since = (ms) => new Date(ms).toLocaleDateString('es', { month: 'long', year: 'numeric' });
+  const since = (ms) => new Date(ms).toLocaleDateString(locale(), { month: 'long', year: 'numeric' });
 </script>
 
 {#if error}
@@ -82,7 +82,7 @@
         <div class="who">
           <h1>{p.name}</h1>
           {#if shown}<div class="title">{shown.emoji} {shown.name}</div>{/if}
-          <div class="small muted">{t('En Yomukai desde {0}', [since(p.since)])}{#if p.admin}&nbsp;· admin{/if}</div>
+          <div class="small muted">{t('En Yomukai desde {0}', [since(p.since)])}{#if p.admin}&nbsp;{t('· admin')}{/if}</div>
           {#if data.now}<div class="now"><span class="dot"></span> {data.now.kind === 'watching' ? 'Viendo' : 'Leyendo'} {data.now.title}{#if data.now.label} · {data.now.label}{/if}</div>{/if}
         </div>
         {#if mine}<button class="btn tonal" onclick={edit}><Icon name="text" size={18} /> {t('Editar perfil')}</button>{/if}
@@ -93,7 +93,7 @@
         <div><b>{data.stats.episodes}</b><span>{t('episodios')}</span></div>
         <div><b>{data.stats.chapters}</b><span>{t('capítulos')}</span></div>
         <div><b>{data.stats.hours}</b><span>{t('horas aprox.')}</span></div>
-        <div><b>{data.stats.streak}</b><span>días de racha{#if data.stats.longestStreak > data.stats.streak} {t('(récord {0})', [data.stats.longestStreak])}{/if}</span></div>
+        <div><b>{data.stats.streak}</b><span>{t('días de racha')}{#if data.stats.longestStreak > data.stats.streak} {t('(récord {0})', [data.stats.longestStreak])}{/if}</span></div>
         {#if data.stats.topGenre}<div><b class="genre">{genreName(data.stats.topGenre)}</b><span>{t('género favorito')}</span></div>{/if}
       </section>
 
@@ -127,9 +127,9 @@
             <div class="ach {a.rarity}" class:locked={!a.unlockedAt}>
               <span class="emoji" aria-hidden="true">{a.emoji}</span>
               <div class="grow">
-                <div class="ach-name">{a.name}</div>
-                <div class="small muted">{a.description}</div>
-                <div class="tiny">{t('{0} · {1} % del grupo', [RARITY[a.rarity], a.percent])}{#if a.unlockedAt} · {new Date(a.unlockedAt).toLocaleDateString('es')}{/if}</div>
+                <div class="ach-name">{t(a.name)}</div>
+                <div class="small muted">{t(a.description)}</div>
+                <div class="tiny">{t('{0} · {1} % del grupo', [RARITY[a.rarity], a.percent])}{#if a.unlockedAt} · {new Date(a.unlockedAt).toLocaleDateString(locale())}{/if}</div>
               </div>
             </div>
           {/each}

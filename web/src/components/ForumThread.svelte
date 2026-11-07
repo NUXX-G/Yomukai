@@ -1,5 +1,5 @@
 <script>
-  import { t } from '../lib/i18n.svelte.js';
+  import { t, locale } from '../lib/i18n.svelte.js';
   // A forum thread: posts (markdown drawn safely), reply with quote, reactions, spoilers "up to ep./ch. N" hidden from
   // whoever is behind, images uploaded to the server, and the admin's tools (pin, close, delete, mute).
   import { api } from '../lib/api.js';
@@ -88,7 +88,7 @@
     try { await api.adminMute(name, minutes, t('Desde el foro')); notify(minutes ? `${name} silenciado` : t('{0} ya puede escribir', [name])); } catch (err) { notify(err.message); }
   }
 
-  const when = (at) => new Date(at).toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const when = (at) => new Date(at).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   const unit = $derived(anime ? 'episodio' : t('capítulo'));
 </script>
 
@@ -114,7 +114,7 @@
     <article class="post" id="p{p.id}">
       <a class="avatar" href="/u/{encodeURIComponent(p.author)}" aria-label={p.author}>{#if p.authorAvatar}<img src={p.authorAvatar} alt="" />{:else}{p.author.slice(0, 1).toUpperCase()}{/if}</a>
       <div class="content">
-        <div class="meta"><a href="/u/{encodeURIComponent(p.author)}"><b>{p.author}</b></a> <span class="muted">{when(p.createdAt)}{#if p.editedAt} · editado{/if}</span>
+        <div class="meta"><a href="/u/{encodeURIComponent(p.author)}"><b>{p.author}</b></a> <span class="muted">{when(p.createdAt)}{#if p.editedAt} {t('· editado')}{/if}</span>
           {#if p.spoilerUntil != null}<span class="tag warn">{t('Spoiler hasta el {0} {1}', [unit, p.spoilerUntil])}</span>{/if}</div>
         {#if p.hidden}
           <p class="muted hidden-note">{t('Oculto: habla de lo que pasa hasta el {0} {1} y tú aún no has llegado.', [unit, p.spoilerUntil])}</p>

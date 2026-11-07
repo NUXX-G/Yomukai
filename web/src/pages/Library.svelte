@@ -1,5 +1,5 @@
 <script>
-  import { t } from '../lib/i18n.svelte.js';
+  import { t, locale } from '../lib/i18n.svelte.js';
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
   import { library, sources, updates, loadUpdates, READING_STATUSES, statusOf, categories, editCategory } from '../lib/store.svelte.js';
@@ -84,7 +84,7 @@
     history = history.filter((x) => x !== h);
     await api.removeHistory(h.sourceId, h.mediaId).catch(() => {});
   }
-  const when = (ms) => new Date(ms).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+  const when = (ms) => new Date(ms).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
   const newsLabel = (n, r) => `${n} ${kind(r.sourceId) === 'anime' ? (n === 1 ? t('episodio nuevo') : t('episodios nuevos')) : (n === 1 ? t('capítulo nuevo') : t('capítulos nuevos'))}`;
 </script>
 

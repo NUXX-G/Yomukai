@@ -334,7 +334,7 @@
       {/if}
 
       {#if list.abandoned}
-        <div class="notice"><Icon name="hourglass" size={16} /> Posible abandono o hiato prolongado{#if list.lastUpdate} {t('· último capítulo en {0}', [monthYear(list.lastUpdate)])}{/if}</div>
+        <div class="notice"><Icon name="hourglass" size={16} /> {t('Posible abandono o hiato prolongado')}{#if list.lastUpdate} {t('· último capítulo en {0}', [monthYear(list.lastUpdate)])}{/if}</div>
       {/if}
 
       {#if target}

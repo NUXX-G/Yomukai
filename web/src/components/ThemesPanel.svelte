@@ -28,7 +28,7 @@
       const r = await api.useTheme(body);
       applyTheme(r.theme || null);
       rememberTheme(r.theme || null);
-      notify(theme ? t('Tema «{0}» puesto', [theme.name]) : t('Tema por defecto'));
+      notify(theme ? t('Tema «{0}» puesto', [t(theme.name)]) : t('Tema por defecto'));
     } catch (e) { notify(e.message); }
   }
 
@@ -101,13 +101,13 @@
 {#snippet card(theme, onUse, extra)}
   {@const c = swatch(theme)}
   <div class="theme" class:on={themeState.current?.name === theme.name}>
-    <button class="preview" onclick={onUse} style:background={c.canvas} style:border-color={c.border} aria-label="Usar {theme.name}">
+    <button class="preview" onclick={onUse} style:background={c.canvas} style:border-color={c.border} aria-label={t('Usar {0}', [t(theme.name)])}>
       <span class="panel" style:background={c.surfaceHigh}></span>
       <span class="line" style:background={c.text}></span>
       <span class="line short" style:background={c.textDim}></span>
       <span class="pill" style:background={c.accent}></span>
     </button>
-    <div class="name">{theme.name}</div>
+    <div class="name">{t(theme.name)}</div>
     {@render extra?.()}
   </div>
 {/snippet}

@@ -230,7 +230,7 @@
           <button class="avatar" onclick={() => (menu = !menu)} aria-haspopup="menu" aria-expanded={menu} aria-label={t('Tu cuenta')}>{initial}</button>
           {#if menu}
             <div class="menu" role="menu">
-              <div class="who">{session.user.guest ? 'Invitado' : session.user.name}{#if session.user.admin} · admin{/if}</div>
+              <div class="who">{session.user.guest ? t('Invitado') : session.user.name}{#if session.user.admin} {t('· admin')}{/if}</div>
               {#if !session.user.guest}
                 <a role="menuitem" href="/u/{encodeURIComponent(session.user.name)}" onclick={() => (menu = false)}><Icon name="library" size={18} /> {t('Mi perfil')}</a>
                 <a role="menuitem" href="/amigos" onclick={() => (menu = false)}><Icon name="explore" size={18} /> {t('Amigos')}</a>
@@ -278,9 +278,9 @@
 {#if toast.text}<div class="toast" role="status">{toast.text}</div>{/if}
 {#if trophy}
   {#key trophy.id}
-    <button class="trophy {trophy.rarity}" role="status" onclick={() => (trophies = trophies.slice(1))} aria-label="Logro desbloqueado: {trophy.name}">
+    <button class="trophy {trophy.rarity}" role="status" onclick={() => (trophies = trophies.slice(1))} aria-label={t('Logro desbloqueado: {0}', [t(trophy.name)])}>
       <span class="t-emoji" aria-hidden="true">{trophy.emoji}</span>
-      <span class="t-text"><span class="t-kicker">{t('Logro desbloqueado')}</span><span class="t-name">{trophy.name}</span><span class="t-desc">{trophy.description}</span></span>
+      <span class="t-text"><span class="t-kicker">{t('Logro desbloqueado')}</span><span class="t-name">{t(trophy.name)}</span><span class="t-desc">{t(trophy.description)}</span></span>
     </button>
   {/key}
 {/if}
