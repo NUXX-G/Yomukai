@@ -9,6 +9,7 @@ import com.nelson.yomukai.data.source.parseJson
 import com.nelson.yomukai.data.source.str
 import com.nelson.yomukai.data.source.strings
 import com.nelson.yomukai.domain.model.MediaType
+import com.nelson.yomukai.i18n.tr
 import java.time.LocalDate
 
 /** One title as AniList describes it, for the home rows, the hero and the explorer. */
@@ -35,7 +36,7 @@ data class DiscoverEntry(
     val nextAiringAt: Long?
 )
 
-enum class DiscoverKind(val label: String) { ANIME("Anime"), MANGA("Manga y manhwa"), NOVEL("Novelas") }
+enum class DiscoverKind(val label: String) { ANIME(tr("Anime")), MANGA(tr("Manga y manhwa")), NOVEL(tr("Novelas")) }
 
 /** A filter set for the explorer (every field optional). */
 data class DiscoverFilter(

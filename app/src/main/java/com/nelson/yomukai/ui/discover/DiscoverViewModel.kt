@@ -8,6 +8,7 @@ import com.nelson.yomukai.data.discovery.DiscoverEntry
 import com.nelson.yomukai.data.discovery.DiscoverKind
 import com.nelson.yomukai.data.discovery.RandomKind
 import com.nelson.yomukai.data.discovery.RelatedTitle
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.details.LocateState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -21,10 +22,10 @@ import kotlinx.coroutines.launch
 
 /** AniList genre names, which its API needs in English, and how they are shown. */
 val RANDOM_GENRES = listOf(
-    "Action" to "Acción", "Adventure" to "Aventura", "Comedy" to "Comedia", "Drama" to "Drama", "Ecchi" to "Ecchi",
-    "Fantasy" to "Fantasía", "Horror" to "Terror", "Mahou Shoujo" to "Mahou shoujo", "Mecha" to "Mecha", "Music" to "Música",
-    "Mystery" to "Misterio", "Psychological" to "Psicológico", "Romance" to "Romance", "Sci-Fi" to "Ciencia ficción",
-    "Slice of Life" to "Recuentos de la vida", "Sports" to "Deportes", "Supernatural" to "Sobrenatural", "Thriller" to "Suspenso"
+    "Action" to tr("Acción"), "Adventure" to "Aventura", "Comedy" to "Comedia", "Drama" to "Drama", "Ecchi" to "Ecchi",
+    "Fantasy" to tr("Fantasía"), "Horror" to "Terror", "Mahou Shoujo" to "Mahou shoujo", "Mecha" to "Mecha", "Music" to tr("Música"),
+    "Mystery" to "Misterio", "Psychological" to tr("Psicológico"), "Romance" to "Romance", "Sci-Fi" to tr("Ciencia ficción"),
+    "Slice of Life" to tr("Recuentos de la vida"), "Sports" to "Deportes", "Supernatural" to "Sobrenatural", "Thriller" to "Suspenso"
 )
 
 @Immutable
@@ -67,10 +68,10 @@ class DiscoverViewModel(private val container: AppContainer) : ViewModel() {
             val anime = runCatching { container.aniListDiscover.rows(DiscoverKind.ANIME) }.getOrDefault(emptyMap())
             val manga = runCatching { container.aniListDiscover.rows(DiscoverKind.MANGA) }.getOrDefault(emptyMap())
             _shelves.value = listOf(
-                DiscoverShelf("anime_trending", "Anime en tendencia", anime["trending"].orEmpty()),
-                DiscoverShelf("anime_season", "En emisión esta temporada", anime["season"].orEmpty()),
-                DiscoverShelf("manga_trending", "Manga y manhwa en tendencia", manga["trending"].orEmpty()),
-                DiscoverShelf("manga_releasing", "Publicándose ahora", manga["releasing"].orEmpty())
+                DiscoverShelf("anime_trending", tr("Anime en tendencia"), anime["trending"].orEmpty()),
+                DiscoverShelf("anime_season", tr("En emisión esta temporada"), anime["season"].orEmpty()),
+                DiscoverShelf("manga_trending", tr("Manga y manhwa en tendencia"), manga["trending"].orEmpty()),
+                DiscoverShelf("manga_releasing", tr("Publicándose ahora"), manga["releasing"].orEmpty())
             ).filter { it.items.isNotEmpty() }
             shelvesLoading = false
         }
@@ -123,7 +124,7 @@ class DiscoverViewModel(private val container: AppContainer) : ViewModel() {
             val found = runCatching { container.discovery.randomAvailable(current.kind, current.genre) }
                 .onFailure { if (it is CancellationException) throw it }.getOrNull()
             _state.update {
-                if (found == null) it.copy(rolling = false, randomError = "Sin conexión ahora mismo. Prueba en un momento.")
+                if (found == null) it.copy(rolling = false, randomError = tr("Sin conexión ahora mismo. Prueba en un momento."))
                 else it.copy(rolling = false, random = found.first, randomPlaces = found.second)
             }
         }

@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.nelson.yomukai.data.source.DiagnosticStep
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.components.AppSpinner
 
@@ -48,9 +49,9 @@ fun DiagnosticsScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("Diagnóstico de fuentes") },
+                title = { Text(tr("Diagnóstico de fuentes")) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver") }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Volver")) }
                 }
             )
         }
@@ -63,11 +64,11 @@ fun DiagnosticsScreen(
             item(key = "intro") {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "Prueba novedades, búsqueda, detalle, capítulos y lectura/reproducción de cada fuente " +
-                            "con tu conexión actual.",
+                        tr("Prueba novedades, búsqueda, detalle, capítulos y lectura/reproducción de cada fuente ") +
+                            tr("con tu conexión actual."),
                         style = MaterialTheme.typography.bodyMedium
                     )
-                    OutlinedButton(onClick = viewModel::runAll, enabled = running.isEmpty()) { Text("Probar todas") }
+                    OutlinedButton(onClick = viewModel::runAll, enabled = running.isEmpty()) { Text(tr("Probar todas")) }
                 }
             }
             items(viewModel.sources, key = { it.id }) { source ->
@@ -77,10 +78,10 @@ fun DiagnosticsScreen(
                         Text(source.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                         when {
                             source.id in running -> AppSpinner(Modifier.size(20.dp), strokeWidth = 2.dp)
-                            steps == null -> OutlinedButton(onClick = { viewModel.run(source.id) }) { Text("Probar") }
+                            steps == null -> OutlinedButton(onClick = { viewModel.run(source.id) }) { Text(tr("Probar")) }
                             else -> {
                                 Text(if (steps.all { it.ok }) "OK" else "Error", style = MaterialTheme.typography.labelLarge)
-                                OutlinedButton(onClick = { viewModel.run(source.id) }) { Text("Repetir") }
+                                OutlinedButton(onClick = { viewModel.run(source.id) }) { Text(tr("Repetir")) }
                             }
                         }
                     }

@@ -22,6 +22,7 @@ import com.nelson.yomukai.data.source.AnimeSource
 import com.nelson.yomukai.data.source.NovelSource
 import com.nelson.yomukai.domain.model.PublicationStatus
 import com.nelson.yomukai.domain.model.VideoSource
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.navigation.Routes
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -205,7 +206,7 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
             ui.value = ui.value.copy(
                 second = false,
                 third = errors.firstOrNull()?.let { e ->
-                    val reason = e.message ?: "Error de conexión"
+                    val reason = e.message ?: tr("Error de conexión")
                     if (hasCache) "Mostrando datos guardados ($reason)" else reason
                 }
             )

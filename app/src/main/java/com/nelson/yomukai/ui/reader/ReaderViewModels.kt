@@ -8,6 +8,7 @@ import com.nelson.yomukai.AppContainer
 import com.nelson.yomukai.data.local.BookmarkEntity
 import com.nelson.yomukai.data.local.ChapterEntity
 import com.nelson.yomukai.data.repository.PageData
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.navigation.Routes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -106,7 +107,7 @@ abstract class BaseReaderViewModel<T>(handle: SavedStateHandle, protected val co
             // Re-read so resume positions reflect progress saved moments ago.
             val chapter = repo.getChapter(sourceId, chapterId) ?: chapters.firstOrNull { it.chapterId == chapterId }
             if (chapter == null) {
-                _state.update { it.copy(isLoading = false, error = "Capítulo no encontrado") }
+                _state.update { it.copy(isLoading = false, error = tr("Capítulo no encontrado")) }
                 return@launch
             }
             _state.update {
@@ -133,7 +134,7 @@ abstract class BaseReaderViewModel<T>(handle: SavedStateHandle, protected val co
                     repo.saveProgress(chapter, chapter.lastPageRead, chapter.totalPages, chapter.progress, markRead = false)
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(isLoading = false, error = e.message ?: "No se pudo cargar el capítulo") }
+                    _state.update { it.copy(isLoading = false, error = e.message ?: tr("No se pudo cargar el capítulo")) }
                 }
         }
     }
@@ -158,7 +159,7 @@ abstract class BaseReaderViewModel<T>(handle: SavedStateHandle, protected val co
                     }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(isLoadingNext = false, nextError = e.message ?: "No se pudo cargar el siguiente capítulo") }
+                    _state.update { it.copy(isLoadingNext = false, nextError = e.message ?: tr("No se pudo cargar el siguiente capítulo")) }
                 }
         }
     }

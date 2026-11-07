@@ -2,6 +2,7 @@ package com.nelson.yomukai.data.download
 
 import com.nelson.yomukai.data.network.HttpException
 import com.nelson.yomukai.domain.model.VideoSource
+import com.nelson.yomukai.i18n.tr
 import java.net.SocketTimeoutException
 import java.net.URI
 import javax.net.ssl.SSLException
@@ -34,22 +35,22 @@ object EpisodeServers {
     /** Short, user-facing reason for one server's failure. */
     fun reason(error: Throwable): String = when (error) {
         is HttpException -> when (error.code) {
-            401, 403 -> "el servidor bloquea la descarga (HTTP ${error.code})"
-            404, 410 -> "el vídeo ya no está disponible (HTTP ${error.code})"
+            401, 403 -> tr("el servidor bloquea la descarga (HTTP {0})", error.code)
+            404, 410 -> tr("el vídeo ya no está disponible (HTTP {0})", error.code)
             else -> "error del servidor (HTTP ${error.code})"
         }
-        is SocketTimeoutException -> "no responde (tiempo de espera agotado)"
-        is SSLException -> "se cortó la conexión segura (TLS)"
+        is SocketTimeoutException -> tr("no responde (tiempo de espera agotado)")
+        is SSLException -> tr("se cortó la conexión segura (TLS)")
         // Library messages can span several lines of internals; the first one is enough here.
         else -> error.message?.lineSequence()?.first()?.take(160) ?: error.javaClass.simpleName
     }
 
     /** Message stored on a failed episode download: every server tried and why it failed. */
     fun failureMessage(failures: List<Pair<String, String>>, browserOnly: List<String>): String {
-        val browserNote = if (browserOnly.isEmpty()) "" else " ${browserOnly.joinToString(", ")} solo se puede ver en el navegador."
-        if (failures.isEmpty()) return "Este episodio no tiene servidores descargables.$browserNote"
+        val browserNote = if (browserOnly.isEmpty()) "" else tr(" {0} solo se puede ver en el navegador.", browserOnly.joinToString(", "))
+        if (failures.isEmpty()) return tr("Este episodio no tiene servidores descargables.{0}", browserNote)
         val tried = failures.joinToString("; ") { (server, reason) -> "$server: $reason" }
-        return "No se pudo descargar con ningún servidor. $tried.$browserNote Toca el episodio fallido para elegir otro servidor."
+        return tr("No se pudo descargar con ningún servidor. {0}.{1} Toca el episodio fallido para elegir otro servidor.", tried, browserNote)
     }
 
     /** First variant of a master playlist, or null when [playlist] is already a media playlist. */

@@ -28,6 +28,7 @@ import com.nelson.yomukai.data.source.FilterValues
 import com.nelson.yomukai.data.source.MultiSelectFilter
 import com.nelson.yomukai.data.source.SelectFilter
 import com.nelson.yomukai.data.source.SourceFilter
+import com.nelson.yomukai.i18n.tr
 
 /** Generic filter sheet: renders whatever filters the source declares. Applies on "Aplicar". */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -73,8 +74,8 @@ fun FilterSheet(
                 }
             }
             Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = { draft = emptyMap() }) { Text("Restablecer") }
-                Button(onClick = { onApply(draft); onDismiss() }) { Text("Aplicar") }
+                OutlinedButton(onClick = { draft = emptyMap() }) { Text(tr("Restablecer")) }
+                Button(onClick = { onApply(draft); onDismiss() }) { Text(tr("Aplicar")) }
             }
         }
     }

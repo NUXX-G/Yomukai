@@ -28,6 +28,7 @@ import com.nelson.yomukai.data.source.MangaSource
 import com.nelson.yomukai.data.source.NovelSource
 import com.nelson.yomukai.data.source.SourceManager
 import com.nelson.yomukai.domain.model.MediaType
+import com.nelson.yomukai.i18n.tr
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -224,7 +225,7 @@ class DownloadManager(
                 }
                 val message = when (e) {
                     is HttpException -> "Error HTTP ${e.code}"
-                    else -> e.message ?: "Error desconocido"
+                    else -> e.message ?: tr("Error desconocido")
                 }
                 dao.updateState(download.sourceId, download.chapterId, DownloadStatus.FAILED, download.progress, download.total, message)
             }
@@ -242,7 +243,7 @@ class DownloadManager(
             is NovelSource -> downloadNovel(download, source, dir)
             is MangaSource -> downloadImages(download, source, dir)
             is AnimeSource -> downloadEpisode(download, source, dir)
-            else -> error("La fuente no admite descargas")
+            else -> error(tr("La fuente no admite descargas"))
         }
     }
 
@@ -300,10 +301,10 @@ class DownloadManager(
             .apply { headers.forEach { (k, v) -> header(k, v) } }.build()
         network.client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw HttpException(response.code, url)
-            val body = response.body ?: error("Respuesta vacía")
+            val body = response.body ?: error(tr("Respuesta vacía"))
             val contentType = response.header("Content-Type")
             if (!DownloadSecurity.isImageType(contentType)) {
-                throw IOException("La página ${index + 1} no es una imagen ($contentType)")
+                throw IOException(tr("La página {0} no es una imagen ({1})", index + 1, contentType))
             }
             val declared = body.contentLength()
             DownloadSecurity.checkDeclaredSize(declared, DownloadSecurity.MAX_IMAGE_BYTES)
@@ -311,16 +312,16 @@ class DownloadManager(
             val written = copyLimited(body.byteStream(), tmp, DownloadSecurity.MAX_IMAGE_BYTES)
             if (!DownloadSecurity.isComplete(declared, written)) {
                 tmp.delete()
-                throw IOException("La página ${index + 1} se descargó incompleta")
+                throw IOException(tr("La página {0} se descargó incompleta", index + 1))
             }
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(tmp.absolutePath, bounds)
             if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
                 tmp.delete()
-                throw IOException("La página ${index + 1} no es una imagen válida")
+                throw IOException(tr("La página {0} no es una imagen válida", index + 1))
             }
             val name = "$prefix.${DownloadSecurity.imageExtension(contentType)}"
-            if (!tmp.renameTo(File(dir, DownloadSecurity.sanitizeFileName(name)))) error("No se pudo guardar la página")
+            if (!tmp.renameTo(File(dir, DownloadSecurity.sanitizeFileName(name)))) error(tr("No se pudo guardar la página"))
         }
     }
 
@@ -367,12 +368,12 @@ class DownloadManager(
     private fun probeHls(url: String, headers: Map<String, String>) {
         var playlistUrl = url
         var playlist = fetchText(playlistUrl, headers)
-        if (!playlist.trimStart().startsWith("#EXTM3U")) throw IOException("la lista de reproducción no es válida")
+        if (!playlist.trimStart().startsWith("#EXTM3U")) throw IOException(tr("la lista de reproducción no es válida"))
         EpisodeServers.hlsFirstVariant(playlist, playlistUrl)?.let { variant ->
             playlistUrl = variant
             playlist = fetchText(variant, headers)
         }
-        val first = EpisodeServers.hlsFirstSegment(playlist, playlistUrl) ?: throw IOException("la lista de reproducción está vacía")
+        val first = EpisodeServers.hlsFirstSegment(playlist, playlistUrl) ?: throw IOException(tr("la lista de reproducción está vacía"))
         val request = Request.Builder().url(DownloadSecurity.requireSecureUrl(first))
             .apply { headers.forEach { (k, v) -> header(k, v) } }
             .header("Range", "bytes=0-1023")
@@ -386,7 +387,7 @@ class DownloadManager(
             .build()
         return network.client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw HttpException(response.code, url)
-            val body = response.body ?: throw IOException("Respuesta vacía")
+            val body = response.body ?: throw IOException(tr("Respuesta vacía"))
             DownloadSecurity.checkDeclaredSize(body.contentLength(), DownloadSecurity.MAX_TEXT_BYTES)
             body.string()
         }
@@ -413,7 +414,7 @@ class DownloadManager(
             val current = manager.downloadIndex.getDownload(url)
             when (current?.state) {
                 Download.STATE_COMPLETED -> break
-                Download.STATE_FAILED -> throw IOException("la descarga se interrumpió en el servidor")
+                Download.STATE_FAILED -> throw IOException(tr("la descarga se interrumpió en el servidor"))
                 else -> {
                     val percent = current?.percentDownloaded?.takeIf { it >= 0 }?.toInt() ?: 0
                     dao.updateState(download.sourceId, download.chapterId, DownloadStatus.DOWNLOADING, percent, 100, null)
@@ -449,12 +450,12 @@ class DownloadManager(
         network.videoClient.newCall(request).execute().use { response ->
             if (response.code == 416) { // our partial file does not match the server: start over
                 part.delete()
-                throw IOException("Reanudación rechazada, se reintentará desde cero")
+                throw IOException(tr("Reanudación rechazada, se reintentará desde cero"))
             }
             if (!response.isSuccessful) throw HttpException(response.code, url)
-            val body = response.body ?: error("Respuesta vacía")
+            val body = response.body ?: error(tr("Respuesta vacía"))
             val contentType = response.header("Content-Type")
-            if (!DownloadSecurity.isVideoType(contentType)) throw IOException("El servidor no devolvió un vídeo ($contentType)")
+            if (!DownloadSecurity.isVideoType(contentType)) throw IOException(tr("El servidor no devolvió un vídeo ({0})", contentType))
 
             val resumed = response.code == 206
             val offset = if (resumed) resumeFrom else 0L
@@ -475,7 +476,7 @@ class DownloadManager(
                         if (read < 0) break
                         out.write(buffer, 0, read)
                         written += read
-                        if (written > DownloadSecurity.MAX_VIDEO_BYTES) throw IOException("El vídeo supera el tamaño máximo")
+                        if (written > DownloadSecurity.MAX_VIDEO_BYTES) throw IOException(tr("El vídeo supera el tamaño máximo"))
                         // Works without a declared size too: cancelling and "Wi-Fi only" apply mid-file.
                         val now = System.currentTimeMillis()
                         if (now - lastCheck >= CHECK_MS) {
@@ -484,7 +485,7 @@ class DownloadManager(
                                 part.delete()
                                 return
                             }
-                            if (!networkAllowed()) throw IOException("Esperando Wi-Fi")
+                            if (!networkAllowed()) throw IOException(tr("Esperando Wi-Fi"))
                         }
                         if (total > 0) {
                             val percent = (written * 100 / total).toInt()
@@ -497,11 +498,11 @@ class DownloadManager(
                 }
             }
             val size = part.length()
-            if (!DownloadSecurity.isComplete(total, size)) throw IOException("Descarga incompleta ($size de $total bytes)")
+            if (!DownloadSecurity.isComplete(total, size)) throw IOException(tr("Descarga incompleta ({0} de {1} bytes)", size, total))
             val header = ByteArray(16).also { buf -> part.inputStream().use { it.read(buf) } }
             if (!DownloadSecurity.looksLikeMp4(header)) {
                 part.delete()
-                throw IOException("El archivo descargado no es un vídeo MP4 válido")
+                throw IOException(tr("El archivo descargado no es un vídeo MP4 válido"))
             }
         }
         check(part.renameTo(finalFile)) { "No se pudo guardar el vídeo" }
@@ -552,7 +553,7 @@ class DownloadManager(
                                 stopped.set(true)
                                 break
                             }
-                            if (!networkAllowed()) throw IOException("Esperando Wi-Fi")
+                            if (!networkAllowed()) throw IOException(tr("Esperando Wi-Fi"))
                             val from = index * CHUNK_BYTES
                             val to = minOf(from + CHUNK_BYTES, total) - 1
                             var attempt = 0
@@ -560,7 +561,7 @@ class DownloadManager(
                                 try {
                                     network.videoClient.newCall(request(from, to)).execute().use { response ->
                                         if (response.code != 206) throw HttpException(response.code, url)
-                                        val input = response.body?.byteStream() ?: throw IOException("Respuesta vacía")
+                                        val input = response.body?.byteStream() ?: throw IOException(tr("Respuesta vacía"))
                                         var position = from
                                         while (position <= to) {
                                             val read = input.read(buffer, 0, minOf(buffer.size.toLong(), to + 1 - position).toInt())
@@ -569,7 +570,7 @@ class DownloadManager(
                                             out.write(buffer, 0, read)
                                             position += read
                                         }
-                                        if (position != to + 1) throw IOException("Bloque incompleto")
+                                        if (position != to + 1) throw IOException(tr("Bloque incompleto"))
                                     }
                                     break
                                 } catch (e: IOException) {
@@ -598,7 +599,7 @@ class DownloadManager(
         val header = ByteArray(16).also { buf -> part.inputStream().use { it.read(buf) } }
         if (!DownloadSecurity.looksLikeMp4(header)) {
             part.delete()
-            throw IOException("El archivo descargado no es un vídeo MP4 válido")
+            throw IOException(tr("El archivo descargado no es un vídeo MP4 válido"))
         }
         check(part.renameTo(File(part.parentFile, VIDEO_FILE))) { "No se pudo guardar el vídeo" }
         dao.updateState(download.sourceId, download.chapterId, DownloadStatus.COMPLETED, 100, 100, null)
@@ -685,8 +686,8 @@ class DownloadManager(
                 try {
                     network.client.newCall(request).execute().use { response ->
                         if (!response.isSuccessful) throw HttpException(response.code, cover)
-                        if (!DownloadSecurity.isImageType(response.header("Content-Type"))) throw IOException("La portada no es una imagen")
-                        copyLimited(response.body?.byteStream() ?: throw IOException("Respuesta vacía"), tmp, DownloadSecurity.MAX_IMAGE_BYTES)
+                        if (!DownloadSecurity.isImageType(response.header("Content-Type"))) throw IOException(tr("La portada no es una imagen"))
+                        copyLimited(response.body?.byteStream() ?: throw IOException(tr("Respuesta vacía")), tmp, DownloadSecurity.MAX_IMAGE_BYTES)
                     }
                     tmp.inputStream().use { it.copyTo(out) }
                 } finally {
@@ -709,7 +710,7 @@ class DownloadManager(
                 total += read
                 if (total > limit) {
                     target.delete()
-                    throw IOException("El archivo supera el tamaño máximo permitido")
+                    throw IOException(tr("El archivo supera el tamaño máximo permitido"))
                 }
                 out.write(buffer, 0, read)
             }

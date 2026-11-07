@@ -3,12 +3,13 @@ package com.nelson.yomukai.ui.reader
 import androidx.compose.runtime.Immutable
 import com.nelson.yomukai.data.local.ChapterEntity
 import com.nelson.yomukai.data.repository.PageData
+import com.nelson.yomukai.i18n.tr
 
 /** Flat list entry of the continuous image reader (webtoon, paged and comic modes). */
 sealed interface ReaderItem {
     val key: String
 
-    /** Separator shown before the first page of a chapter ("Capítulo X"). */
+    /** Separator shown before the first page of a chapter (tr("Capítulo X")). */
     @Immutable
     data class Header(val chapter: ChapterEntity) : ReaderItem {
         override val key get() = "h:${chapter.chapterId}"

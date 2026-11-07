@@ -92,6 +92,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.nelson.yomukai.data.prefs.NovelFont
 import com.nelson.yomukai.data.prefs.NovelReaderSettings
 import com.nelson.yomukai.data.prefs.NovelTheme
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.components.AppSpinner
 import kotlinx.coroutines.FlowPreview
@@ -162,7 +163,7 @@ fun NovelReaderScreen(
     LaunchedEffect(reading, state.mediaTitle) {
         if (reading) {
             ReadAloud.onStop = { speech.stop() }
-            ReadAloudService.start(serviceContext, state.mediaTitle, "Leyendo en voz alta")
+            ReadAloudService.start(serviceContext, state.mediaTitle, tr("Leyendo en voz alta"))
         } else {
             ReadAloudService.stop(serviceContext)
         }
@@ -203,7 +204,7 @@ fun NovelReaderScreen(
             ) {
                 AppSpinner()
                 Spacer(Modifier.height(12.dp))
-                Text(state.chapter?.title ?: "Cargando...", color = textColor.copy(alpha = 0.7f))
+                Text(state.chapter?.title ?: tr("Cargando..."), color = textColor.copy(alpha = 0.7f))
             }
 
             state.error != null || items.none { it is NovelItem.Paragraph } -> Column(
@@ -213,11 +214,11 @@ fun NovelReaderScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(state.error ?: "El capítulo está vacío", color = textColor, textAlign = TextAlign.Center)
+                Text(state.error ?: tr("El capítulo está vacío"), color = textColor, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(onClick = onBack) { Text("Volver") }
-                    Button(onClick = viewModel::retry) { Text("Reintentar") }
+                    OutlinedButton(onClick = onBack) { Text(tr("Volver")) }
+                    Button(onClick = viewModel::retry) { Text(tr("Reintentar")) }
                 }
             }
 
@@ -341,22 +342,22 @@ fun NovelReaderScreen(
                                 state.isLoadingNext -> {
                                     AppSpinner()
                                     Spacer(Modifier.height(12.dp))
-                                    Text("Cargando ${state.next?.title ?: "el siguiente capítulo"}...", color = textColor.copy(alpha = 0.7f))
+                                    Text(tr("Cargando {0}...", state.next?.title ?: tr("el siguiente capítulo")), color = textColor.copy(alpha = 0.7f))
                                 }
                                 state.nextError != null -> {
                                     Text(state.nextError.orEmpty(), color = textColor.copy(alpha = 0.8f), textAlign = TextAlign.Center)
                                     Spacer(Modifier.height(12.dp))
-                                    Button(onClick = viewModel::loadNext) { Text("Reintentar") }
+                                    Button(onClick = viewModel::loadNext) { Text(tr("Reintentar")) }
                                 }
                                 else -> {
                                     Text(
-                                        if (state.next == null) "No hay más capítulos disponibles" else "Fin del capítulo",
+                                        if (state.next == null) tr("No hay más capítulos disponibles") else tr("Fin del capítulo"),
                                         color = textColor.copy(alpha = 0.7f)
                                     )
                                     Spacer(Modifier.height(16.dp))
                                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                        if (state.previous != null) OutlinedButton(onClick = viewModel::goToPrevious) { Text("Anterior") }
-                                        if (state.next != null) Button(onClick = viewModel::goToNext) { Text("Siguiente capítulo") }
+                                        if (state.previous != null) OutlinedButton(onClick = viewModel::goToPrevious) { Text(tr("Anterior")) }
+                                        if (state.next != null) Button(onClick = viewModel::goToNext) { Text(tr("Siguiente capítulo")) }
                                     }
                                 }
                             }
@@ -394,7 +395,7 @@ fun NovelReaderScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             IconButton(onClick = viewModel::goToPrevious, enabled = state.previous != null) {
-                                Icon(Icons.Default.SkipPrevious, "Capítulo anterior", tint = textColor.copy(alpha = if (state.previous != null) 1f else 0.3f))
+                                Icon(Icons.Default.SkipPrevious, tr("Capítulo anterior"), tint = textColor.copy(alpha = if (state.previous != null) 1f else 0.3f))
                             }
                             IconButton(
                                 enabled = speechReady,
@@ -409,14 +410,14 @@ fun NovelReaderScreen(
                             ) {
                                 Icon(
                                     if (spokenIndex != null) Icons.Default.Stop else Icons.Default.RecordVoiceOver,
-                                    contentDescription = if (spokenIndex != null) "Detener lectura en voz alta" else "Leer en voz alta",
+                                    contentDescription = if (spokenIndex != null) tr("Detener lectura en voz alta") else tr("Leer en voz alta"),
                                     tint = textColor.copy(alpha = if (speechReady) 1f else 0.3f)
                                 )
                             }
                             IconButton(onClick = { autoScroll = !autoScroll; if (autoScroll) overlayVisible = false }) {
                                 Icon(
                                     if (autoScroll) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                    contentDescription = if (autoScroll) "Detener desplazamiento automático" else "Desplazamiento automático",
+                                    contentDescription = if (autoScroll) tr("Detener desplazamiento automático") else tr("Desplazamiento automático"),
                                     tint = textColor
                                 )
                             }
@@ -428,7 +429,7 @@ fun NovelReaderScreen(
                                 modifier = Modifier.weight(1f)
                             )
                             IconButton(onClick = viewModel::goToNext, enabled = state.next != null) {
-                                Icon(Icons.Default.SkipNext, "Capítulo siguiente", tint = textColor.copy(alpha = if (state.next != null) 1f else 0.3f))
+                                Icon(Icons.Default.SkipNext, tr("Capítulo siguiente"), tint = textColor.copy(alpha = if (state.next != null) 1f else 0.3f))
                             }
                         }
                     }
@@ -462,7 +463,7 @@ fun NovelReaderScreen(
                     Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = textColor) }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Volver"), tint = textColor) }
                     Column(Modifier.weight(1f)) {
                         Text(state.mediaTitle, color = textColor, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(
@@ -474,27 +475,27 @@ fun NovelReaderScreen(
                         )
                     }
                     IconButton(onClick = { searchOpen = !searchOpen; if (!searchOpen) searchQuery = "" }) {
-                        Icon(Icons.Default.Search, "Buscar en el capítulo", tint = textColor)
+                        Icon(Icons.Default.Search, tr("Buscar en el capítulo"), tint = textColor)
                     }
                     IconButton(onClick = { currentChapterId?.let { viewModel.toggleBookmark(it, currentParagraph, paragraphPreview(items, it, currentParagraph)) } }) {
                         Icon(
                             if (bookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                            contentDescription = if (bookmarked) "Quitar marcador" else "Añadir marcador",
+                            contentDescription = if (bookmarked) "Quitar marcador" else tr("Añadir marcador"),
                             tint = textColor
                         )
                     }
-                    IconButton(onClick = { showBookmarks = true }) { Icon(Icons.Default.Bookmarks, "Marcadores", tint = textColor) }
+                    IconButton(onClick = { showBookmarks = true }) { Icon(Icons.Default.Bookmarks, tr("Marcadores"), tint = textColor) }
                     IconButton(onClick = { showIndex = true }) {
-                        Icon(Icons.AutoMirrored.Filled.FormatListBulleted, "Índice de capítulos", tint = textColor)
+                        Icon(Icons.AutoMirrored.Filled.FormatListBulleted, tr("Índice de capítulos"), tint = textColor)
                     }
-                    IconButton(onClick = { showSettings = true }) { Icon(Icons.Default.FormatSize, "Ajustes de texto", tint = textColor) }
+                    IconButton(onClick = { showSettings = true }) { Icon(Icons.Default.FormatSize, tr("Ajustes de texto"), tint = textColor) }
                 }
                 if (searchOpen) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it; searchPosition = 0 },
-                            placeholder = { Text("Buscar en este capítulo") },
+                            placeholder = { Text(tr("Buscar en este capítulo")) },
                             singleLine = true,
                             modifier = Modifier.weight(1f)
                         )
@@ -506,11 +507,11 @@ fun NovelReaderScreen(
                         IconButton(
                             enabled = matches.isNotEmpty(),
                             onClick = { searchPosition = (searchPosition - 1 + matches.size) % matches.size }
-                        ) { Icon(Icons.Default.KeyboardArrowUp, "Coincidencia anterior", tint = textColor) }
+                        ) { Icon(Icons.Default.KeyboardArrowUp, tr("Coincidencia anterior"), tint = textColor) }
                         IconButton(
                             enabled = matches.isNotEmpty(),
                             onClick = { searchPosition = (searchPosition + 1) % matches.size }
-                        ) { Icon(Icons.Default.KeyboardArrowDown, "Coincidencia siguiente", tint = textColor) }
+                        ) { Icon(Icons.Default.KeyboardArrowDown, tr("Coincidencia siguiente"), tint = textColor) }
                     }
                 }
             }
@@ -533,7 +534,7 @@ fun NovelReaderScreen(
     if (showBookmarks) {
         BookmarksSheet(
             bookmarks = bookmarks,
-            positionLabel = { "Párrafo ${it + 1}" },
+            positionLabel = { tr("Párrafo {0}", it + 1) },
             onOpen = { b ->
                 val index = NovelItems.indexOf(items, b.chapterId, b.position)
                 if (segments.any { it.chapter.chapterId == b.chapterId }) {
@@ -582,7 +583,7 @@ private fun NovelSettingsSheet(
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp)
         ) {
-            Text("Tema", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(tr("Tema"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 NovelTheme.entries.forEach { theme ->
@@ -606,7 +607,7 @@ private fun NovelSettingsSheet(
             }
 
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
-            Text("Fuente", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(tr("Fuente"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 NovelFont.entries.forEach { font ->
                     FilterChip(
@@ -617,23 +618,23 @@ private fun NovelSettingsSheet(
                 }
             }
 
-            LabeledSlider("Tamaño de letra", "${settings.fontSize.toInt()} sp", settings.fontSize, 12f..34f) { v ->
+            LabeledSlider(tr("Tamaño de letra"), "${settings.fontSize.toInt()} sp", settings.fontSize, 12f..34f) { v ->
                 onUpdate { it.copy(fontSize = v) }
             }
-            LabeledSlider("Interlineado", "%.1f".format(settings.lineHeight), settings.lineHeight, 1.1f..2.4f) { v ->
+            LabeledSlider(tr("Interlineado"), "%.1f".format(settings.lineHeight), settings.lineHeight, 1.1f..2.4f) { v ->
                 onUpdate { it.copy(lineHeight = v) }
             }
-            LabeledSlider("Márgenes", "${settings.horizontalPadding.toInt()} dp", settings.horizontalPadding, 4f..48f) { v ->
+            LabeledSlider(tr("Márgenes"), "${settings.horizontalPadding.toInt()} dp", settings.horizontalPadding, 4f..48f) { v ->
                 onUpdate { it.copy(horizontalPadding = v) }
             }
 
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
-            SettingSwitch("Texto justificado", settings.justify) { v -> onUpdate { it.copy(justify = v) } }
-            SettingSwitch("Mantener pantalla encendida", settings.keepScreenOn) { v -> onUpdate { it.copy(keepScreenOn = v) } }
-            SettingSwitch("Cargar el siguiente capítulo automáticamente", settings.infiniteScroll) { v -> onUpdate { it.copy(infiniteScroll = v) } }
+            SettingSwitch(tr("Texto justificado"), settings.justify) { v -> onUpdate { it.copy(justify = v) } }
+            SettingSwitch(tr("Mantener pantalla encendida"), settings.keepScreenOn) { v -> onUpdate { it.copy(keepScreenOn = v) } }
+            SettingSwitch(tr("Cargar el siguiente capítulo automáticamente"), settings.infiniteScroll) { v -> onUpdate { it.copy(infiniteScroll = v) } }
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
             voices()
-            LabeledSlider("Velocidad de lectura en voz alta", "%.2fx".format(settings.ttsRate), settings.ttsRate, 0.5f..2f) { v ->
+            LabeledSlider(tr("Velocidad de lectura en voz alta"), "%.2fx".format(settings.ttsRate), settings.ttsRate, 0.5f..2f) { v ->
                 onUpdate { it.copy(ttsRate = v) }
             }
         }

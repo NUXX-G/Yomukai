@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.google.gson.JsonObject
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.LocalAppContainer
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -38,8 +39,8 @@ import java.util.Locale
 private data class FriendOn(val name: String, val status: String, val last: String)
 
 private val STATUS = mapOf(
-    "READING" to "va por ella", "PLAN_TO_READ" to "la tiene pendiente", "COMPLETED" to "la terminó",
-    "ON_HOLD" to "la tiene en pausa", "DROPPED" to "la dejó"
+    "READING" to tr("va por ella"), "PLAN_TO_READ" to tr("la tiene pendiente"), "COMPLETED" to tr("la terminó"),
+    "ON_HOLD" to tr("la tiene en pausa"), "DROPPED" to tr("la dejó")
 )
 
 /**
@@ -77,7 +78,7 @@ fun WorkSocialSection(sourceId: String, mediaId: String, title: String, cover: S
 
     Column(modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AssistChip(onClick = { rating = true }, label = { Text(mine?.let { "Tu nota: $it" } ?: "Valorar") }, leadingIcon = { Icon(Icons.Default.Star, null) })
+            AssistChip(onClick = { rating = true }, label = { Text(mine?.let { tr("Tu nota: {0}", it) } ?: "Valorar") }, leadingIcon = { Icon(Icons.Default.Star, null) })
             if (anime) {
                 AssistChip(
                     onClick = {
@@ -88,7 +89,7 @@ fun WorkSocialSection(sourceId: String, mediaId: String, title: String, cover: S
                             }.onFailure { error = it.message }
                         }
                     },
-                    label = { Text("Ver con amigos") }, leadingIcon = { Icon(Icons.Default.Groups, null) }
+                    label = { Text(tr("Ver con amigos")) }, leadingIcon = { Icon(Icons.Default.Groups, null) }
                 )
             }
         }
@@ -115,7 +116,7 @@ fun WorkSocialSection(sourceId: String, mediaId: String, title: String, cover: S
         var pick by remember { mutableStateOf(mine) }
         AlertDialog(
             onDismissRequest = { rating = false },
-            title = { Text("Tu valoración") },
+            title = { Text(tr("Tu valoración")) },
             text = {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     for (n in 1..10) FilterChip(selected = pick == n, onClick = { pick = n }, label = { Text("$n") })
@@ -136,9 +137,9 @@ fun WorkSocialSection(sourceId: String, mediaId: String, title: String, cover: S
                             load()
                         }.onFailure { error = it.message }
                     }
-                }) { Text("Guardar") }
+                }) { Text(tr("Guardar")) }
             },
-            dismissButton = { TextButton(onClick = { pick = null }) { Text("Quitar nota") } }
+            dismissButton = { TextButton(onClick = { pick = null }) { Text(tr("Quitar nota")) } }
         )
     }
 }

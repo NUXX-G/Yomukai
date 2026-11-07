@@ -17,6 +17,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.nelson.yomukai.MainActivity
 import com.nelson.yomukai.R
+import com.nelson.yomukai.i18n.tr
 
 /**
  * Keeps reading aloud alive with the screen off: a foreground service (media playback) with its notification, a
@@ -45,7 +46,7 @@ class ReadAloudService : Service() {
     private fun show(title: String, text: String) {
         val manager = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            manager.createNotificationChannel(NotificationChannel(CHANNEL, "Lectura en voz alta", NotificationManager.IMPORTANCE_LOW))
+            manager.createNotificationChannel(NotificationChannel(CHANNEL, tr("Lectura en voz alta"), NotificationManager.IMPORTANCE_LOW))
         }
         session ?: MediaSession(this, "yomukai-read-aloud").also { s ->
             s.setCallback(object : MediaSession.Callback() {
@@ -66,13 +67,13 @@ class ReadAloudService : Service() {
         val stop = PendingIntent.getService(this, 1, Intent(this, ReadAloudService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_book)
-            .setContentTitle(title.ifBlank { "Leyendo en voz alta" })
+            .setContentTitle(title.ifBlank { tr("Leyendo en voz alta") })
             .setContentText(text)
             .setContentIntent(open)
             .setOngoing(true)
             .setSilent(true)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-            .addAction(0, "Parar", stop)
+            .addAction(0, tr("Parar"), stop)
             .build()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
         else startForeground(NOTIFICATION_ID, notification)

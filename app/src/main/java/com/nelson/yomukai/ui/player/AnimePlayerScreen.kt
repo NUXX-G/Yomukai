@@ -90,6 +90,7 @@ import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.LocalAppContainer
 import com.nelson.yomukai.ui.components.AppSpinner
@@ -336,10 +337,10 @@ fun AnimePlayerScreen(
             ) {
                 Text(message, color = Color.White)
                 ui.browserUrl?.let { url ->
-                    TextButton(onClick = { onOpenWeb(url) }) { Text("Ver en el navegador") }
+                    TextButton(onClick = { onOpenWeb(url) }) { Text(tr("Ver en el navegador")) }
                 }
-                TextButton(onClick = onBackClick) { Text("Volver") }
-                TextButton(onClick = viewModel::dismissError) { Text("Cerrar") }
+                TextButton(onClick = onBackClick) { Text(tr("Volver")) }
+                TextButton(onClick = viewModel::dismissError) { Text(tr("Cerrar")) }
             }
         }
 
@@ -378,7 +379,7 @@ fun AnimePlayerScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Volver",
+                            contentDescription = tr("Volver"),
                             tint = Color.White
                         )
                     }
@@ -399,7 +400,7 @@ fun AnimePlayerScreen(
 
                     if (viewModel.hasEpisodeContext) {
                         IconButton(onClick = { showIndex = true }) {
-                            Icon(Icons.AutoMirrored.Filled.FormatListBulleted, "Índice de episodios", tint = Color.White)
+                            Icon(Icons.AutoMirrored.Filled.FormatListBulleted, tr("Índice de episodios"), tint = Color.White)
                         }
                     }
 
@@ -418,12 +419,12 @@ fun AnimePlayerScreen(
                     }
 
                     IconButton(onClick = { landscape = !landscape }) {
-                        Icon(Icons.Default.ScreenRotation, if (landscape) "Ver en vertical" else "Ver en horizontal", tint = Color.White)
+                        Icon(Icons.Default.ScreenRotation, if (landscape) tr("Ver en vertical") else tr("Ver en horizontal"), tint = Color.White)
                     }
 
                     if (activity != null) {
                         IconButton(onClick = ::enterPip) {
-                            Icon(Icons.Default.PictureInPictureAlt, "Imagen en imagen", tint = Color.White)
+                            Icon(Icons.Default.PictureInPictureAlt, tr("Imagen en imagen"), tint = Color.White)
                         }
                     }
 
@@ -432,7 +433,7 @@ fun AnimePlayerScreen(
                     }) {
                         Icon(
                             imageVector = Icons.Default.AspectRatio,
-                            contentDescription = "Cambiar Relación de Aspecto",
+                            contentDescription = tr("Cambiar Relación de Aspecto"),
                             tint = Color.White
                         )
                     }
@@ -453,7 +454,7 @@ fun AnimePlayerScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Replay10,
-                            contentDescription = "Retroceder 10s",
+                            contentDescription = tr("Retroceder 10s"),
                             tint = Color.White,
                             modifier = Modifier.size(40.dp)
                         )
@@ -471,7 +472,7 @@ fun AnimePlayerScreen(
                     ) {
                         Icon(
                             imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = if (isPlaying) "Pausar" else "Reproducir",
+                            contentDescription = if (isPlaying) tr("Pausar") else tr("Reproducir"),
                             tint = Color.White,
                             modifier = Modifier.size(56.dp)
                         )
@@ -487,7 +488,7 @@ fun AnimePlayerScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Forward10,
-                            contentDescription = "Adelantar 10s",
+                            contentDescription = tr("Adelantar 10s"),
                             tint = Color.White,
                             modifier = Modifier.size(40.dp)
                         )
@@ -556,17 +557,17 @@ fun AnimePlayerScreen(
                         }) {
                             Icon(Icons.Default.FastForward, null, tint = Color.White, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("+85 s", color = Color.White)
+                            Text(tr("+85 s"), color = Color.White)
                         }
                         Spacer(Modifier.weight(1f))
                         if (viewModel.hasEpisodeContext) {
-                            Text("Auto", color = Color.White, fontSize = 12.sp)
+                            Text(tr("Auto"), color = Color.White, fontSize = 12.sp)
                             Switch(checked = settings.playerAutoNext, onCheckedChange = viewModel::setAutoNext)
                             if (viewModel.hasNext()) {
                                 Button(onClick = { viewModel.playNext() }) {
                                     Icon(Icons.Default.SkipNext, null, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(4.dp))
-                                    Text("Siguiente")
+                                    Text(tr("Siguiente"))
                                 }
                             }
                         }
@@ -582,7 +583,7 @@ fun AnimePlayerScreen(
             currentChapterId = playing.chapterId,
             onSelect = { viewModel.playEpisode(it) },
             onDismiss = { showIndex = false },
-            title = "Episodios"
+            title = tr("Episodios")
         )
     }
 }

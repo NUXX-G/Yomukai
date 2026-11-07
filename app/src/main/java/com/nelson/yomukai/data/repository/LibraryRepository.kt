@@ -14,6 +14,7 @@ import com.nelson.yomukai.data.local.YomukaiDatabase
 import com.nelson.yomukai.data.source.SourceManager
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
+import com.nelson.yomukai.i18n.tr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -128,7 +129,7 @@ class LibraryRepository(
     }
 
     suspend fun refreshDetails(sourceId: String, mediaId: String): Result<Unit> = withContext(Dispatchers.IO) {
-        val source = sources.get(sourceId) ?: return@withContext Result.failure(IllegalStateException("Fuente no disponible"))
+        val source = sources.get(sourceId) ?: return@withContext Result.failure(IllegalStateException(tr("Fuente no disponible")))
         val old = mediaDao.get(sourceId, mediaId)
         val seed = old?.toDomain() ?: MediaItem(mediaId, "", "", source.supportedTypes.first(), "", "", sourceId)
         source.fetchMediaDetails(seed).mapCatching { fresh ->
@@ -140,7 +141,7 @@ class LibraryRepository(
     val chapterHealth = com.nelson.yomukai.data.metadata.ChapterHealthRegistry()
 
     suspend fun refreshChapters(sourceId: String, mediaId: String): Result<Int> = withContext(Dispatchers.IO) {
-        val source = sources.get(sourceId) ?: return@withContext Result.failure(IllegalStateException("Fuente no disponible"))
+        val source = sources.get(sourceId) ?: return@withContext Result.failure(IllegalStateException(tr("Fuente no disponible")))
         source.fetchChapterList(mediaId).also { chapterHealth.record(sourceId, mediaId, it) }.mapCatching { chapters ->
             // Stable sort: chapters sharing a number keep the order the source returned.
             val ordered = chapters.withIndex()

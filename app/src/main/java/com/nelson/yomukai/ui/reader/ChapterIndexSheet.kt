@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.nelson.yomukai.data.local.ChapterEntity
 import com.nelson.yomukai.data.search.SmartSearch
+import com.nelson.yomukai.i18n.tr
 
 /** Pure filter so the index search can be unit tested: matches title or chapter number, accent-insensitive. */
 fun filterChapters(chapters: List<ChapterEntity>, query: String): List<ChapterEntity> {
@@ -54,7 +55,7 @@ fun ChapterIndexSheet(
     currentChapterId: String?,
     onSelect: (ChapterEntity) -> Unit,
     onDismiss: () -> Unit,
-    title: String = "Capítulos"
+    title: String = tr("Capítulos")
 ) {
     var query by remember { mutableStateOf("") }
     val shown = remember(chapters, query) { filterChapters(chapters, query).sortedByDescending { it.sortIndex } }
@@ -71,10 +72,10 @@ fun ChapterIndexSheet(
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = { Text("Buscar por título o número") },
+                placeholder = { Text(tr("Buscar por título o número")) },
                 leadingIcon = { Icon(Icons.Default.Search, null) },
                 trailingIcon = {
-                    if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Default.Clear, "Borrar") }
+                    if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Default.Clear, tr("Borrar")) }
                 },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
@@ -85,8 +86,8 @@ fun ChapterIndexSheet(
                     ListItem(
                         headlineContent = { Text(chapter.title) },
                         supportingContent = chapter.dateUploaded.takeIf { it.isNotBlank() }?.let { { Text(it) } },
-                        leadingContent = if (current) ({ Icon(Icons.Default.PlayArrow, "Capítulo actual") }) else null,
-                        trailingContent = if (chapter.read) ({ Icon(Icons.Default.CheckCircle, "Leído") }) else null,
+                        leadingContent = if (current) ({ Icon(Icons.Default.PlayArrow, tr("Capítulo actual")) }) else null,
+                        trailingContent = if (chapter.read) ({ Icon(Icons.Default.CheckCircle, tr("Leído")) }) else null,
                         colors = ListItemDefaults.colors(
                             containerColor = if (current) MaterialTheme.colorScheme.primaryContainer
                             else androidx.compose.ui.graphics.Color.Transparent,

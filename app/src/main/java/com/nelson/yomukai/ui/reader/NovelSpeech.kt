@@ -14,6 +14,7 @@ import com.nelson.yomukai.data.prefs.NovelReaderSettings
 import com.nelson.yomukai.data.speech.Dialogue
 import com.nelson.yomukai.data.speech.Gender
 import com.nelson.yomukai.data.sync.ServerSync
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.LocalAppContainer
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -180,7 +181,7 @@ class NovelSpeech(context: Context, private val server: ServerSync, private val 
         val text = if (lang == "en") "This is how I will read your novels. Do you like my voice?" else "Así leeré tus novelas. ¿Te gusta mi voz?"
         if (natural) {
             naturalJob = scope.launch {
-                runCatching { play(fetchAudio(text, voice)) }.onFailure { if (it !is kotlinx.coroutines.CancellationException) _notice.value = "No se pudo probar la voz: ${it.message}" }
+                runCatching { play(fetchAudio(text, voice)) }.onFailure { if (it !is kotlinx.coroutines.CancellationException) _notice.value = tr("No se pudo probar la voz: {0}", it.message) }
             }
         } else {
             val engine = tts ?: return
@@ -306,7 +307,7 @@ class NovelSpeech(context: Context, private val server: ServerSync, private val 
                         if (e is kotlinx.coroutines.CancellationException) throw e
                         // The server could not read it: the phone's voices go on from here.
                         naturalFailed = true
-                        _notice.value = "Las voces naturales del servidor no responden (${e.message}); sigo con las del móvil."
+                        _notice.value = tr("Las voces naturales del servidor no responden ({0}); sigo con las del móvil.", e.message)
                         startSystem(i)
                         return@launch
                     }
@@ -323,7 +324,12 @@ class NovelSpeech(context: Context, private val server: ServerSync, private val 
         player = mp
         mp.setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
         mp.setOnCompletionListener { it.release(); if (player === it) player = null; if (cont.isActive) cont.resume(Unit) }
-        mp.setOnErrorListener { p, _, _ -> p.release(); if (player === p) player = null; if (cont.isActive) cont.resumeWithException(IllegalStateException("No se pudo reproducir la voz")); true }
+        mp.setOnErrorListener { p, _, _ ->
+            p.release()
+            if (player === p) player = null
+            if (cont.isActive) cont.resumeWithException(IllegalStateException(tr("No se pudo reproducir la voz")))
+            true
+        }
         cont.invokeOnCancellation { runCatching { mp.stop(); mp.release() } }
         try {
             mp.setDataSource(file.absolutePath)
@@ -365,5 +371,5 @@ fun Voice.display(): String {
         else -> "calidad baja"
     }
     val region = locale.displayCountry.takeIf { it.isNotBlank() }
-    return listOfNotNull(name, region, quality, if (isNetworkConnectionRequired) "con internet" else null).joinToString(" · ")
+    return listOfNotNull(name, region, quality, if (isNetworkConnectionRequired) tr("con internet") else null).joinToString(" · ")
 }

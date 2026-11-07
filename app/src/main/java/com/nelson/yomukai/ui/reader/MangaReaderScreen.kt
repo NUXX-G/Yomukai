@@ -102,6 +102,7 @@ import com.nelson.yomukai.data.prefs.OrientationLock
 import com.nelson.yomukai.data.prefs.ReaderColorFilter
 import com.nelson.yomukai.data.prefs.ReaderFit
 import com.nelson.yomukai.data.repository.PageData
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.components.AppSpinner
 import com.nelson.yomukai.ui.components.rememberImageRequest
@@ -185,7 +186,7 @@ fun MangaReaderScreen(
             ) {
                 AppSpinner()
                 Spacer(Modifier.height(12.dp))
-                Text(chapter?.title ?: "Cargando...", color = Color.White.copy(alpha = 0.8f))
+                Text(chapter?.title ?: tr("Cargando..."), color = Color.White.copy(alpha = 0.8f))
             }
 
             state.error != null || items.none { it is ReaderItem.Page } -> Column(
@@ -197,11 +198,11 @@ fun MangaReaderScreen(
             ) {
                 Icon(Icons.Default.BrokenImage, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(56.dp))
                 Spacer(Modifier.height(12.dp))
-                Text(state.error ?: "El capítulo no tiene páginas", color = Color.White, textAlign = TextAlign.Center)
+                Text(state.error ?: tr("El capítulo no tiene páginas"), color = Color.White, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(onClick = onBack) { Text("Volver") }
-                    Button(onClick = viewModel::retry) { Text("Reintentar") }
+                    OutlinedButton(onClick = onBack) { Text(tr("Volver")) }
+                    Button(onClick = viewModel::retry) { Text(tr("Reintentar")) }
                 }
             }
 
@@ -302,7 +303,7 @@ fun MangaReaderScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Volver"), tint = Color.White)
                 }
                 Column(Modifier.weight(1f)) {
                     Text(
@@ -325,18 +326,18 @@ fun MangaReaderScreen(
                 }) {
                     Icon(
                         if (bookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                        contentDescription = if (bookmarked) "Quitar marcador" else "Añadir marcador",
+                        contentDescription = if (bookmarked) "Quitar marcador" else tr("Añadir marcador"),
                         tint = Color.White
                     )
                 }
                 IconButton(onClick = { showBookmarks = true }) {
-                    Icon(Icons.Default.Bookmarks, contentDescription = "Marcadores", tint = Color.White)
+                    Icon(Icons.Default.Bookmarks, contentDescription = tr("Marcadores"), tint = Color.White)
                 }
                 IconButton(onClick = { showIndex = true }) {
-                    Icon(Icons.AutoMirrored.Filled.FormatListBulleted, contentDescription = "Índice de capítulos", tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.FormatListBulleted, contentDescription = tr("Índice de capítulos"), tint = Color.White)
                 }
                 IconButton(onClick = { showSettings = true }) {
-                    Icon(Icons.Default.Settings, contentDescription = "Ajustes del lector", tint = Color.White)
+                    Icon(Icons.Default.Settings, contentDescription = tr("Ajustes del lector"), tint = Color.White)
                 }
             }
         }
@@ -356,13 +357,13 @@ fun MangaReaderScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = viewModel::goToPrevious, enabled = state.previous != null) {
-                    Icon(Icons.Default.SkipPrevious, "Capítulo anterior", tint = if (state.previous != null) Color.White else Color.Gray)
+                    Icon(Icons.Default.SkipPrevious, tr("Capítulo anterior"), tint = if (state.previous != null) Color.White else Color.Gray)
                 }
                 if (webtoon) {
                     IconButton(onClick = { autoScroll = !autoScroll; if (autoScroll) overlayVisible = false }) {
                         Icon(
                             if (autoScroll) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = if (autoScroll) "Detener desplazamiento automático" else "Desplazamiento automático",
+                            contentDescription = if (autoScroll) tr("Detener desplazamiento automático") else tr("Desplazamiento automático"),
                             tint = Color.White
                         )
                     }
@@ -392,7 +393,7 @@ fun MangaReaderScreen(
                     Spacer(Modifier.weight(1f))
                 }
                 IconButton(onClick = viewModel::goToNext, enabled = state.next != null) {
-                    Icon(Icons.Default.SkipNext, "Capítulo siguiente", tint = if (state.next != null) Color.White else Color.Gray)
+                    Icon(Icons.Default.SkipNext, tr("Capítulo siguiente"), tint = if (state.next != null) Color.White else Color.Gray)
                 }
             }
         }
@@ -412,7 +413,7 @@ fun MangaReaderScreen(
     if (showBookmarks) {
         BookmarksSheet(
             bookmarks = bookmarks,
-            positionLabel = { "Página ${it + 1}" },
+            positionLabel = { tr("Página {0}", it + 1) },
             onOpen = { b ->
                 val index = ReaderItems.indexOf(items, b.chapterId, b.position)
                 if (segments.any { it.chapter.chapterId == b.chapterId } && items.getOrNull(index) != null) {
@@ -692,7 +693,7 @@ internal fun ReaderPageImage(
             }
             AsyncImage(
                 model = rememberImageRequest(page.model, page.headers, cropBorders),
-                contentDescription = "Página ${index + 1}",
+                contentDescription = tr("Página {0}", index + 1),
                 contentScale = when {
                     !fitScreen -> ContentScale.FillWidth
                     fit == ReaderFit.WIDTH -> ContentScale.FillWidth
@@ -707,8 +708,8 @@ internal fun ReaderPageImage(
         when (imageState) {
             is AsyncImagePainter.State.Error -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Icons.Default.BrokenImage, null, tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(40.dp))
-                Text("Error en la página ${index + 1}", color = Color.White.copy(alpha = 0.7f))
-                TextButton(onClick = { retry++ }) { Text("Reintentar") }
+                Text(tr("Error en la página {0}", index + 1), color = Color.White.copy(alpha = 0.7f))
+                TextButton(onClick = { retry++ }) { Text(tr("Reintentar")) }
             }
             is AsyncImagePainter.State.Success -> Unit
             else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -740,25 +741,25 @@ private fun ChapterEndFooter(
             loadingNext -> {
                 AppSpinner()
                 Spacer(Modifier.height(12.dp))
-                Text("Cargando ${next?.title ?: "el siguiente capítulo"}...", color = Color.White.copy(alpha = 0.7f))
+                Text(tr("Cargando {0}...", next?.title ?: tr("el siguiente capítulo")), color = Color.White.copy(alpha = 0.7f))
             }
             nextError != null -> {
                 Text(nextError, color = Color.White.copy(alpha = 0.8f), textAlign = TextAlign.Center)
                 Spacer(Modifier.height(12.dp))
-                Button(onClick = onRetryNext) { Text("Reintentar") }
+                Button(onClick = onRetryNext) { Text(tr("Reintentar")) }
             }
             else -> {
-                Text("Fin del capítulo", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                Text(tr("Fin del capítulo"), color = Color.White, style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    next?.let { "Siguiente: ${it.title}" } ?: "No hay más capítulos disponibles",
+                    next?.let { "Siguiente: ${it.title}" } ?: tr("No hay más capítulos disponibles"),
                     color = Color.White.copy(alpha = 0.7f),
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(20.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (previous != null) OutlinedButton(onClick = onPrevious) { Text("Anterior") }
-                    if (next != null) Button(onClick = onNext) { Text("Siguiente capítulo") }
+                    if (previous != null) OutlinedButton(onClick = onPrevious) { Text(tr("Anterior")) }
+                    if (next != null) Button(onClick = onNext) { Text(tr("Siguiente capítulo")) }
                 }
             }
         }
@@ -780,35 +781,35 @@ private fun MangaReaderSettingsSheet(
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp)
         ) {
-            Text("Modo de lectura", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(tr("Modo de lectura"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             MangaReaderMode.entries.forEach { mode ->
                 RadioRow(mode.displayName, settings.mode == mode) { onUpdate { it.copy(mode = mode) } }
             }
-            SettingSwitch("Cargar el siguiente capítulo automáticamente", settings.infiniteScroll) { v ->
+            SettingSwitch(tr("Cargar el siguiente capítulo automáticamente"), settings.infiniteScroll) { v ->
                 onUpdate { it.copy(infiniteScroll = v) }
             }
 
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
-            Text("Ajuste de imagen (modo páginas)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(tr("Ajuste de imagen (modo páginas)"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             ReaderFit.entries.forEach { fit -> RadioRow(fit.displayName, settings.fit == fit) { onUpdate { it.copy(fit = fit) } } }
-            SettingSwitch("Recortar bordes blancos", settings.cropBorders) { v -> onUpdate { it.copy(cropBorders = v) } }
+            SettingSwitch(tr("Recortar bordes blancos"), settings.cropBorders) { v -> onUpdate { it.copy(cropBorders = v) } }
 
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
-            Text("Filtro de color", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(tr("Filtro de color"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             ReaderColorFilter.entries.forEach { f ->
                 RadioRow(f.displayName, settings.colorFilter == f) { onUpdate { it.copy(colorFilter = f) } }
             }
 
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
-            Text("Orientación", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(tr("Orientación"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             OrientationLock.entries.forEach { o ->
                 RadioRow(o.displayName, settings.orientation == o) { onUpdate { it.copy(orientation = o) } }
             }
 
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
-            Text("Desplazamiento automático", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(tr("Desplazamiento automático"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             var speed by remember(settings.autoScrollSpeed) { mutableFloatStateOf(settings.autoScrollSpeed) }
-            Text("Velocidad: ${AutoScrollSpeed.label(speed)} (también con − y + mientras se desplaza)", style = MaterialTheme.typography.bodySmall)
+            Text(tr("Velocidad: {0} (también con − y + mientras se desplaza)", AutoScrollSpeed.label(speed)), style = MaterialTheme.typography.bodySmall)
             Slider(
                 value = speed,
                 onValueChange = { speed = it },
@@ -817,8 +818,8 @@ private fun MangaReaderSettingsSheet(
             )
 
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
-            Text("Brillo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            SettingSwitch("Usar brillo del sistema", settings.brightness < 0f) { auto ->
+            Text(tr("Brillo"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            SettingSwitch(tr("Usar brillo del sistema"), settings.brightness < 0f) { auto ->
                 onUpdate { it.copy(brightness = if (auto) -1f else 0.5f) }
             }
             if (settings.brightness >= 0f) {
@@ -832,9 +833,9 @@ private fun MangaReaderSettingsSheet(
             }
 
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
-            SettingSwitch("Mantener pantalla encendida", settings.keepScreenOn) { v -> onUpdate { it.copy(keepScreenOn = v) } }
-            SettingSwitch("Tocar los bordes para pasar página", settings.tapToTurn) { v -> onUpdate { it.copy(tapToTurn = v) } }
-            SettingSwitch("Mostrar número de página", settings.showPageNumber) { v -> onUpdate { it.copy(showPageNumber = v) } }
+            SettingSwitch(tr("Mantener pantalla encendida"), settings.keepScreenOn) { v -> onUpdate { it.copy(keepScreenOn = v) } }
+            SettingSwitch(tr("Tocar los bordes para pasar página"), settings.tapToTurn) { v -> onUpdate { it.copy(tapToTurn = v) } }
+            SettingSwitch(tr("Mostrar número de página"), settings.showPageNumber) { v -> onUpdate { it.copy(showPageNumber = v) } }
         }
     }
 }

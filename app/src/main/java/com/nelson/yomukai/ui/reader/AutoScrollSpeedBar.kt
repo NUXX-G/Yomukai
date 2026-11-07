@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.nelson.yomukai.i18n.tr
 import java.util.Locale
 
 /** Auto-scroll speeds the controls step through: each step is 15 % faster or slower. */
@@ -48,7 +49,7 @@ fun AutoScrollSpeedBar(speed: Float, onSpeed: (Float) -> Unit, onStop: () -> Uni
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = { onSpeed(AutoScrollSpeed.slower(speed)) }, enabled = speed > AutoScrollSpeed.MIN) {
-            Icon(Icons.Default.Remove, contentDescription = "Más lento", tint = Color.White)
+            Icon(Icons.Default.Remove, contentDescription = tr("Más lento"), tint = Color.White)
         }
         Text(
             AutoScrollSpeed.label(speed),
@@ -59,10 +60,10 @@ fun AutoScrollSpeedBar(speed: Float, onSpeed: (Float) -> Unit, onStop: () -> Uni
             modifier = Modifier.widthIn(min = 52.dp)
         )
         IconButton(onClick = { onSpeed(AutoScrollSpeed.faster(speed)) }, enabled = speed < AutoScrollSpeed.MAX) {
-            Icon(Icons.Default.Add, contentDescription = "Más rápido", tint = Color.White)
+            Icon(Icons.Default.Add, contentDescription = tr("Más rápido"), tint = Color.White)
         }
         IconButton(onClick = onStop) {
-            Icon(Icons.Default.Pause, contentDescription = "Parar desplazamiento automático", tint = Color.White)
+            Icon(Icons.Default.Pause, contentDescription = tr("Parar desplazamiento automático"), tint = Color.White)
         }
     }
 }

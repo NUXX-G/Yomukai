@@ -54,6 +54,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.nelson.yomukai.data.local.HistoryWithMedia
 import com.nelson.yomukai.domain.model.MediaItem
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.components.AppSpinner
 import com.nelson.yomukai.ui.components.CoverImage
@@ -99,14 +100,14 @@ fun HomeScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("Yomukai", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+                        Text(tr("Yomukai"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
                     }
                 },
                 actions = {
                     NotificationsButton()
-                    IconButton(onClick = { shuffle = true }) { Icon(Icons.Default.Shuffle, contentDescription = "Descubrir al azar") }
-                    IconButton(onClick = onOpenWeb) { Icon(Icons.Default.Public, contentDescription = "Abrir enlace en el navegador integrado") }
-                    IconButton(onClick = onSearchClick) { Icon(Icons.Default.Search, contentDescription = "Buscar") }
+                    IconButton(onClick = { shuffle = true }) { Icon(Icons.Default.Shuffle, contentDescription = tr("Descubrir al azar")) }
+                    IconButton(onClick = onOpenWeb) { Icon(Icons.Default.Public, contentDescription = tr("Abrir enlace en el navegador integrado")) }
+                    IconButton(onClick = onSearchClick) { Icon(Icons.Default.Search, contentDescription = tr("Buscar")) }
                 }
             )
         }
@@ -151,7 +152,7 @@ fun HomeScreen(
                 }
 
                 if (state.continueReading.isNotEmpty()) {
-                    item { SectionHeader("Continuar") }
+                    item { SectionHeader(tr("Continuar")) }
                     item {
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = 16.dp),
@@ -173,7 +174,7 @@ fun HomeScreen(
                 if (state.sections.isEmpty() && !state.isRefreshing) {
                     item {
                         Text(
-                            "No hay fuentes activas para estos filtros. Actívalas en Ajustes.",
+                            tr("No hay fuentes activas para estos filtros. Actívalas en Ajustes."),
                             modifier = Modifier.padding(24.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -188,7 +189,7 @@ fun HomeScreen(
                             action = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     LanguageTag(section.language)
-                                    TextButton(onClick = { onBrowseSource(section.sourceId) }) { Text("Ver todo") }
+                                    TextButton(onClick = { onBrowseSource(section.sourceId) }) { Text(tr("Ver todo")) }
                                 }
                             }
                         )
@@ -202,14 +203,14 @@ fun HomeScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    "No disponible: ${section.error}",
+                                    tr("No disponible: {0}", section.error),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.error,
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f)
                                 )
-                                TextButton(onClick = viewModel::refresh) { Text("Reintentar") }
+                                TextButton(onClick = viewModel::refresh) { Text(tr("Reintentar")) }
                             }
 
                             else -> LazyRow(

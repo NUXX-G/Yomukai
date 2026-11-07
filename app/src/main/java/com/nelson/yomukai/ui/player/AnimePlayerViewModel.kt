@@ -8,6 +8,7 @@ import com.nelson.yomukai.AppContainer
 import com.nelson.yomukai.data.local.ChapterEntity
 import com.nelson.yomukai.data.source.AnimeSource
 import com.nelson.yomukai.domain.model.VideoSource
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.navigation.Routes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -82,7 +83,7 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
         PlayerUiState(
             Playing(
                 videoUrl = handle.get<String>("url").orEmpty(),
-                title = handle.get<String>("title") ?: "Anime",
+                title = handle.get<String>("title") ?: tr("Anime"),
                 referer = handle.get<String>("referer").orEmpty(),
                 serverName = handle.get<String>("server").orEmpty(),
                 chapterId = handle.get<String>(Routes.ARG_CHAPTER)?.takeIf { it.isNotBlank() },
@@ -161,7 +162,7 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
                     val servers = if (found.none { it.isDirect }) found + sniffEmbeds(found) else found
                     val server = pickServer(servers, _state.value.playing.serverName)
                     if (server == null) {
-                        _state.update { it.copy(isResolving = false, error = "Este episodio solo tiene servidores que se abren en el navegador") }
+                        _state.update { it.copy(isResolving = false, error = tr("Este episodio solo tiene servidores que se abren en el navegador")) }
                         return@onSuccess
                     }
                     val mediaTitle = repo.getMedia(sourceId, fresh.mediaId)?.title
@@ -181,7 +182,7 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
                         )
                     }
                 }
-                .onFailure { e -> _state.update { it.copy(isResolving = false, error = e.message ?: "No se pudo cargar el episodio") } }
+                .onFailure { e -> _state.update { it.copy(isResolving = false, error = e.message ?: tr("No se pudo cargar el episodio")) } }
         }
     }
 
@@ -238,7 +239,7 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
     }
 
     private fun playbackMessage(detail: String?) =
-        "No se pudo reproducir este vídeo en la app" + (detail?.let { " ($it)" } ?: "") +
+        tr("No se pudo reproducir este vídeo en la app") + (detail?.let { " ($it)" } ?: "") +
             ". Puede estar borrado en este servidor: prueba con «Buscar en otras fuentes» en la ficha del título."
 
     /**

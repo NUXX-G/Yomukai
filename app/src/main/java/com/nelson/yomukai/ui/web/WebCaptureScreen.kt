@@ -120,6 +120,7 @@ import com.nelson.yomukai.data.network.NetworkHelper
 import com.nelson.yomukai.data.prefs.BrowserHome
 import com.nelson.yomukai.data.prefs.BrowserPage
 import com.nelson.yomukai.data.repository.PageData
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.LocalAppContainer
 import com.nelson.yomukai.ui.components.AppSpinner
 import com.nelson.yomukai.ui.reader.ReaderWindowEffects
@@ -187,8 +188,8 @@ object WebCapture {
         if (home == BrowserHome.DDG_ONION && !viaTor) BrowserHome.DDG_HTML else home
 
     fun errorMessage(host: String?, reason: String?, viaTor: Boolean): String = buildString {
-        append("No se pudo abrir ").append(host ?: "la página").append('.')
-        if (host?.endsWith(".onion") == true && !viaTor) append(" Las direcciones .onion necesitan Tor (Ajustes › Tor).")
+        append(tr("No se pudo abrir ")).append(host ?: tr("la página")).append('.')
+        if (host?.endsWith(".onion") == true && !viaTor) append(tr(" Las direcciones .onion necesitan Tor (Ajustes › Tor)."))
         if (!reason.isNullOrBlank()) append("\n\n").append(reason)
     }
 
@@ -349,7 +350,7 @@ fun WebCaptureScreen(
 
     fun openOutside(url: String) {
         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            .onFailure { Toast.makeText(context, "Ninguna app puede abrir este enlace", Toast.LENGTH_SHORT).show() }
+            .onFailure { Toast.makeText(context, tr("Ninguna app puede abrir este enlace"), Toast.LENGTH_SHORT).show() }
     }
 
     // Selected a moment later: the tap that gave focus places the cursor right after this event.
@@ -413,11 +414,11 @@ fun WebCaptureScreen(
                             value = address,
                             onValueChange = { address = it },
                             singleLine = true,
-                            placeholder = { Text("Pega un enlace o busca...") },
+                            placeholder = { Text(tr("Pega un enlace o busca...")) },
                             trailingIcon = {
                                 if (address.text.isNotEmpty()) {
                                     IconButton(onClick = { address = TextFieldValue("") }) {
-                                        Icon(Icons.Default.Clear, contentDescription = "Borrar dirección")
+                                        Icon(Icons.Default.Clear, contentDescription = tr("Borrar dirección"))
                                     }
                                 }
                             },
@@ -437,7 +438,7 @@ fun WebCaptureScreen(
                         )
                     },
                     navigationIcon = {
-                        IconButton(onClick = ::close) { Icon(Icons.Default.Close, contentDescription = "Cerrar el navegador") }
+                        IconButton(onClick = ::close) { Icon(Icons.Default.Close, contentDescription = tr("Cerrar el navegador")) }
                     },
                     actions = {
                         IconButton(onClick = {
@@ -445,7 +446,7 @@ fun WebCaptureScreen(
                         }) {
                             Icon(
                                 if (isLoading) Icons.Default.Close else Icons.Default.Refresh,
-                                contentDescription = if (isLoading) "Detener" else "Recargar"
+                                contentDescription = if (isLoading) tr("Detener") else tr("Recargar")
                             )
                         }
                     }
@@ -463,7 +464,7 @@ fun WebCaptureScreen(
                             value = findQuery,
                             onValueChange = ::search,
                             singleLine = true,
-                            placeholder = { Text("Buscar en la página") },
+                            placeholder = { Text(tr("Buscar en la página")) },
                             modifier = Modifier.weight(1f)
                         )
                         Text(
@@ -471,12 +472,12 @@ fun WebCaptureScreen(
                             modifier = Modifier.padding(horizontal = 8.dp)
                         )
                         IconButton(onClick = { webView?.findNext(false) }, enabled = findResult.second > 0) {
-                            Icon(Icons.Default.KeyboardArrowUp, "Coincidencia anterior")
+                            Icon(Icons.Default.KeyboardArrowUp, tr("Coincidencia anterior"))
                         }
                         IconButton(onClick = { webView?.findNext(true) }, enabled = findResult.second > 0) {
-                            Icon(Icons.Default.KeyboardArrowDown, "Coincidencia siguiente")
+                            Icon(Icons.Default.KeyboardArrowDown, tr("Coincidencia siguiente"))
                         }
-                        IconButton(onClick = ::closeFind) { Icon(Icons.Default.Close, "Cerrar búsqueda") }
+                        IconButton(onClick = ::closeFind) { Icon(Icons.Default.Close, tr("Cerrar búsqueda")) }
                     }
                 }
             }
@@ -486,30 +487,30 @@ fun WebCaptureScreen(
                 Column(Modifier.navigationBarsPadding()) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         IconButton(onClick = { pageError = null; webView?.goBack() }, enabled = canGoBack && netState.ready) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Página anterior")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Página anterior"))
                         }
                         IconButton(onClick = { pageError = null; webView?.goForward() }, enabled = canGoForward && netState.ready) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowForward, "Página siguiente")
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, tr("Página siguiente"))
                         }
-                        IconButton(onClick = { open(home.url) }) { Icon(Icons.Default.Home, "Página de inicio") }
+                        IconButton(onClick = { open(home.url) }) { Icon(Icons.Default.Home, tr("Página de inicio")) }
                         IconButton(onClick = { container.preferences.toggleBrowserFavorite(currentUrl, pageTitle) }, enabled = currentUrl.isNotBlank()) {
                             Icon(
                                 if (isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
-                                if (isFavorite) "Quitar de favoritos" else "Añadir a favoritos"
+                                if (isFavorite) tr("Quitar de favoritos") else tr("Añadir a favoritos")
                             )
                         }
-                        IconButton(onClick = { showPages = true }) { Icon(Icons.Default.History, "Favoritos e historial") }
-                        IconButton(onClick = { immersive = true }) { Icon(Icons.Default.Fullscreen, "Pantalla completa") }
+                        IconButton(onClick = { showPages = true }) { Icon(Icons.Default.History, tr("Favoritos e historial")) }
+                        IconButton(onClick = { immersive = true }) { Icon(Icons.Default.Fullscreen, tr("Pantalla completa")) }
                         Box {
-                            IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, "Más opciones") }
+                            IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, tr("Más opciones")) }
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(
-                                    text = { Text("Buscar en la página") },
+                                    text = { Text(tr("Buscar en la página")) },
                                     leadingIcon = { Icon(Icons.Default.Search, null) },
                                     onClick = { menuOpen = false; findOpen = true }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Versión de escritorio") },
+                                    text = { Text(tr("Versión de escritorio")) },
                                     leadingIcon = { Icon(Icons.Default.Computer, null) },
                                     trailingIcon = { if (desktopMode) Icon(Icons.Default.Check, null) },
                                     onClick = {
@@ -519,17 +520,17 @@ fun WebCaptureScreen(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Copiar enlace") },
+                                    text = { Text(tr("Copiar enlace")) },
                                     leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
                                     onClick = {
                                         menuOpen = false
                                         context.getSystemService(ClipboardManager::class.java)
                                             ?.setPrimaryClip(ClipData.newPlainText("Enlace", currentUrl))
-                                        Toast.makeText(context, "Enlace copiado", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, tr("Enlace copiado"), Toast.LENGTH_SHORT).show()
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Compartir") },
+                                    text = { Text(tr("Compartir")) },
                                     leadingIcon = { Icon(Icons.Default.Share, null) },
                                     onClick = {
                                         menuOpen = false
@@ -538,7 +539,7 @@ fun WebCaptureScreen(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Abrir en otra app") },
+                                    text = { Text(tr("Abrir en otra app")) },
                                     leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, null) },
                                     onClick = { menuOpen = false; leaving = currentUrl }
                                 )
@@ -555,7 +556,7 @@ fun WebCaptureScreen(
                         OutlinedButton(onClick = { showVideos = true }, enabled = videos.isNotEmpty()) {
                             Icon(Icons.Default.Movie, null)
                             Spacer(Modifier.width(6.dp))
-                            Text("Vídeos (${videos.size})")
+                            Text(tr("Vídeos ({0})", videos.size))
                         }
                         OutlinedButton(onClick = ::scanPage) {
                             Icon(Icons.Default.Image, null)
@@ -575,7 +576,7 @@ fun WebCaptureScreen(
                         ) {
                             Icon(Icons.AutoMirrored.Filled.MenuBook, null)
                             Spacer(Modifier.width(6.dp))
-                            Text("Leer")
+                            Text(tr("Leer"))
                         }
                     }
                 }
@@ -681,7 +682,7 @@ fun WebCaptureScreen(
 
                             override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
                                 handler?.cancel()
-                                pageError = "La conexión con este sitio no es segura y se ha bloqueado."
+                                pageError = tr("La conexión con este sitio no es segura y se ha bloqueado.")
                             }
                         }
                         webView = this
@@ -695,7 +696,7 @@ fun WebCaptureScreen(
                         .align(Alignment.TopEnd)
                         .padding(8.dp)
                         .background(Color.Black.copy(alpha = 0.4f), CircleShape)
-                ) { Icon(Icons.Default.FullscreenExit, "Salir de pantalla completa", tint = Color.White) }
+                ) { Icon(Icons.Default.FullscreenExit, tr("Salir de pantalla completa"), tint = Color.White) }
             }
             pageError?.let { message ->
                 Column(
@@ -708,7 +709,7 @@ fun WebCaptureScreen(
                 ) {
                     Text(message, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
                     Spacer(Modifier.height(16.dp))
-                    Button(onClick = { pageError = null; if (netState.ready) webView?.reload() }) { Text("Reintentar") }
+                    Button(onClick = { pageError = null; if (netState.ready) webView?.reload() }) { Text(tr("Reintentar")) }
                 }
             }
             if (!netState.ready) {
@@ -723,13 +724,13 @@ fun WebCaptureScreen(
                     if (netState.viaTor) AppSpinner()
                     Spacer(Modifier.height(16.dp))
                     Text(
-                        netState.message ?: "Esperando a la red...",
+                        netState.message ?: tr("Esperando a la red..."),
                         style = MaterialTheme.typography.bodyLarge,
                         textAlign = TextAlign.Center
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "El navegador no carga páginas hasta que Tor esté listo, para no exponer tu conexión.",
+                        tr("El navegador no carga páginas hasta que Tor esté listo, para no exponer tu conexión."),
                         style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.Center
                     )
@@ -750,16 +751,16 @@ fun WebCaptureScreen(
     leaving?.let { url ->
         AlertDialog(
             onDismissRequest = { leaving = null },
-            title = { Text("¿Abrir en otra app?") },
+            title = { Text(tr("¿Abrir en otra app?")) },
             text = {
                 Text(
-                    url + if (netState.viaTor) "\n\nEsa app no usa Tor: la conexión saldrá sin protección." else "",
+                    url + if (netState.viaTor) tr("\n\nEsa app no usa Tor: la conexión saldrá sin protección.") else "",
                     maxLines = 8,
                     overflow = TextOverflow.Ellipsis
                 )
             },
-            confirmButton = { TextButton(onClick = { leaving = null; openOutside(url) }) { Text("Abrir") } },
-            dismissButton = { TextButton(onClick = { leaving = null }) { Text("Cancelar") } }
+            confirmButton = { TextButton(onClick = { leaving = null; openOutside(url) }) { Text(tr("Abrir")) } },
+            dismissButton = { TextButton(onClick = { leaving = null }) { Text(tr("Cancelar")) } }
         )
     }
 
@@ -770,11 +771,11 @@ fun WebCaptureScreen(
         }
         ModalBottomSheet(onDismissRequest = { showPages = false }) {
             LazyColumn(Modifier.padding(bottom = 24.dp)) {
-                item { SheetTitle("Favoritos") }
+                item { SheetTitle(tr("Favoritos")) }
                 if (favorites.isEmpty()) {
                     item {
                         Text(
-                            "Toca la estrella para guardar una página.",
+                            tr("Toca la estrella para guardar una página."),
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
                         )
@@ -783,11 +784,11 @@ fun WebCaptureScreen(
                 items(favorites, key = { "f:" + it.url }) { page ->
                     BrowserPageRow(page, onClick = { showPages = false; open(page.url) }) {
                         IconButton(onClick = { container.preferences.toggleBrowserFavorite(page.url, page.title) }) {
-                            Icon(Icons.Default.Delete, "Quitar de favoritos")
+                            Icon(Icons.Default.Delete, tr("Quitar de favoritos"))
                         }
                     }
                 }
-                item { SheetTitle("Esta sesión") }
+                item { SheetTitle(tr("Esta sesión")) }
                 items(session) { page -> BrowserPageRow(page, onClick = { showPages = false; open(page.url) }) }
             }
         }
@@ -795,7 +796,7 @@ fun WebCaptureScreen(
 
     if (showVideos) {
         ModalBottomSheet(onDismissRequest = { showVideos = false }) {
-            SheetTitle("Vídeos detectados")
+            SheetTitle(tr("Vídeos detectados"))
             LazyColumn(Modifier.padding(bottom = 24.dp)) {
                 items(videos) { video ->
                     ListItem(
@@ -830,9 +831,9 @@ private fun BrowserPageRow(page: BrowserPage, onClick: () -> Unit, trailing: @Co
 private fun TorBadge(net: BrowserNetwork) {
     val (label, color) = when {
         net.viaTor && net.ready -> "Conectado a Tor" to Color(0xFF2E7D32)
-        net.viaTor -> (net.message ?: "Conectando a Tor...") to Color(0xFFF9A825)
-        !net.ready -> (net.message ?: "Navegador no disponible") to MaterialTheme.colorScheme.error
-        else -> "Sin Tor (conexión directa)" to MaterialTheme.colorScheme.outline
+        net.viaTor -> (net.message ?: tr("Conectando a Tor...")) to Color(0xFFF9A825)
+        !net.ready -> (net.message ?: tr("Navegador no disponible")) to MaterialTheme.colorScheme.error
+        else -> tr("Sin Tor (conexión directa)") to MaterialTheme.colorScheme.outline
     }
     Row(
         Modifier

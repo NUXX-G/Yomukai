@@ -47,6 +47,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nelson.yomukai.data.discovery.RandomKind
 import com.nelson.yomukai.data.discovery.RelatedTitle
 import com.nelson.yomukai.domain.model.MediaItem
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.components.AppSpinner
 import com.nelson.yomukai.ui.components.CoverImage
 import com.nelson.yomukai.ui.components.LanguageTag
@@ -95,7 +96,7 @@ fun ForYouSection(viewModel: DiscoverViewModel) {
 
     if (!state.loading && state.forYou.isEmpty()) return
     Column {
-        SectionHeader("Para ti")
+        SectionHeader(tr("Para ti"))
         if (state.loading) {
             AppSpinner(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).size(28.dp), strokeWidth = 3.dp)
         } else {
@@ -130,7 +131,7 @@ fun ShuffleSheet(viewModel: DiscoverViewModel, onOpenMedia: (MediaItem) -> Unit,
                 }
             }
             LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { FilterChip(selected = state.genre == null, onClick = { viewModel.setGenre(null) }, label = { Text("Cualquier género") }) }
+                item { FilterChip(selected = state.genre == null, onClick = { viewModel.setGenre(null) }, label = { Text(tr("Cualquier género")) }) }
                 items(RANDOM_GENRES) { (value, label) ->
                     FilterChip(selected = state.genre == value, onClick = { viewModel.setGenre(value) }, label = { Text(label) })
                 }
@@ -145,7 +146,7 @@ fun ShuffleSheet(viewModel: DiscoverViewModel, onOpenMedia: (MediaItem) -> Unit,
                         rolling -> Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                             AppSpinner(Modifier.size(36.dp), strokeWidth = 3.dp)
                             Spacer(Modifier.height(8.dp))
-                            Text("Buscando uno que esté en tus fuentes...", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(tr("Buscando uno que esté en tus fuentes..."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         pick != null -> RandomPick(pick, onOpen = { state.randomPlaces.firstOrNull()?.let { onOpenMedia(it.item); onDismiss() } })
                         error != null -> Text(error, color = MaterialTheme.colorScheme.error)
@@ -155,7 +156,7 @@ fun ShuffleSheet(viewModel: DiscoverViewModel, onOpenMedia: (MediaItem) -> Unit,
             // Where the pick can be read, straight away: one tap opens it there.
             if (!state.rolling && state.random != null && state.randomPlaces.isNotEmpty()) {
                 Text(
-                    "Disponible en",
+                    tr("Disponible en"),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 24.dp)
@@ -176,11 +177,11 @@ fun ShuffleSheet(viewModel: DiscoverViewModel, onOpenMedia: (MediaItem) -> Unit,
             Row(Modifier.padding(horizontal = 24.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(onClick = viewModel::rollRandom, enabled = !state.rolling) {
                     Icon(Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text("Otro", modifier = Modifier.padding(start = 8.dp))
+                    Text(tr("Otro"), modifier = Modifier.padding(start = 8.dp))
                 }
                 state.randomPlaces.firstOrNull()?.takeIf { state.random != null }?.let { place ->
                     OutlinedButton(onClick = { onOpenMedia(place.item); onDismiss() }, enabled = !state.rolling) {
-                        Text("Abrir en ${place.sourceName}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(tr("Abrir en {0}", place.sourceName), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }

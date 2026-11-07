@@ -9,6 +9,7 @@ import com.nelson.yomukai.data.search.SearchGroup
 import com.nelson.yomukai.data.search.SmartSearch
 import com.nelson.yomukai.data.source.CatalogueSource
 import com.nelson.yomukai.domain.model.MediaItem
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.home.LanguageFilter
 import com.nelson.yomukai.ui.home.TypeFilter
 import com.nelson.yomukai.ui.home.matches
@@ -156,7 +157,7 @@ class SearchViewModel(handle: SavedStateHandle, private val container: AppContai
                     // A source slower than this is left out (marked), so the search does not stay "loading" for it.
                     val result = kotlinx.coroutines.withTimeoutOrNull(SOURCE_TIMEOUT_MS) {
                         com.nelson.yomukai.data.search.SourceSearch.search(source, query) { aliases.await() }
-                    } ?: com.nelson.yomukai.data.search.SourceSearchResult(emptyList(), "Tardó demasiado", emptySet())
+                    } ?: com.nelson.yomukai.data.search.SourceSearchResult(emptyList(), tr("Tardó demasiado"), emptySet())
                     trusted += result.trusted
                     val outcome = result.items to result.error
                     val allowed = container.contentFilter.screen(source, outcome.first)

@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.nelson.yomukai.domain.model.MediaItem
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.components.AppSpinner
 import com.nelson.yomukai.ui.components.LoadingState
@@ -72,18 +73,18 @@ fun BrowseScreen(
             TopAppBar(
                 title = { Text(state.sourceName) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver") }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Volver")) }
                 },
                 actions = {
                     if (state.filters.isNotEmpty()) {
                         IconButton(onClick = { showFilters = true }) {
-                            Icon(Icons.Default.FilterList, contentDescription = "Filtros")
+                            Icon(Icons.Default.FilterList, contentDescription = tr("Filtros"))
                         }
                     }
                     IconButton(onClick = { gridMode = !gridMode }) {
                         Icon(
                             if (gridMode) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
-                            contentDescription = if (gridMode) "Vista de lista" else "Vista de cuadrícula"
+                            contentDescription = if (gridMode) tr("Vista de lista") else tr("Vista de cuadrícula")
                         )
                     }
                 }
@@ -94,11 +95,11 @@ fun BrowseScreen(
         OutlinedTextField(
             value = text,
             onValueChange = { text = it; if (it.isEmpty()) viewModel.search("") },
-            placeholder = { Text("Buscar en ${state.sourceName}") },
+            placeholder = { Text(tr("Buscar en {0}", state.sourceName)) },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             trailingIcon = {
                 if (text.isNotEmpty()) {
-                    IconButton(onClick = { text = ""; viewModel.search("") }) { Icon(Icons.Default.Clear, contentDescription = "Borrar") }
+                    IconButton(onClick = { text = ""; viewModel.search("") }) { Icon(Icons.Default.Clear, contentDescription = tr("Borrar")) }
                 }
             },
             singleLine = true,
@@ -108,11 +109,11 @@ fun BrowseScreen(
         )
         Box(Modifier.fillMaxSize()) {
             when {
-                state.items.isEmpty() && state.isLoading -> LoadingState("Cargando...")
+                state.items.isEmpty() && state.isLoading -> LoadingState(tr("Cargando..."))
                 state.items.isEmpty() && state.query.isNotEmpty() && state.error == null ->
-                    MessageState("Sin resultados para \"${state.query}\"", icon = Icons.Default.Search)
+                    MessageState(tr("Sin resultados para \"{0}\"", state.query), icon = Icons.Default.Search)
                 state.items.isEmpty() && state.error != null ->
-                    MessageState(state.error!!, actionLabel = "Reintentar", onAction = viewModel::loadNextPage)
+                    MessageState(state.error!!, actionLabel = tr("Reintentar"), onAction = viewModel::loadNextPage)
 
                 gridMode -> LazyVerticalGrid(
                     columns = GridCells.Adaptive(110.dp),
@@ -153,7 +154,7 @@ private fun PagingFooter(state: BrowseUiState, loadMore: () -> Unit) {
     ) {
         when {
             state.isLoading -> AppSpinner()
-            state.error != null -> TextButton(onClick = loadMore) { Text("Error al cargar más. Reintentar") }
+            state.error != null -> TextButton(onClick = loadMore) { Text(tr("Error al cargar más. Reintentar")) }
         }
     }
 }

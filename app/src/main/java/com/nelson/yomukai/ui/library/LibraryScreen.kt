@@ -76,6 +76,7 @@ import com.nelson.yomukai.data.local.ReadingStatus
 import com.nelson.yomukai.data.repository.toDomain
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.components.CoverImage
 import com.nelson.yomukai.ui.components.LoadingState
@@ -118,13 +119,13 @@ fun LibraryScreen(
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text("Biblioteca") },
+                    title = { Text(tr("Biblioteca")) },
                     actions = {
                         when (tab) {
                             0 -> {
                                 Box {
                                     IconButton(onClick = { typeMenu = true }) {
-                                        Icon(Icons.Default.FilterList, contentDescription = "Filtrar por tipo")
+                                        Icon(Icons.Default.FilterList, contentDescription = tr("Filtrar por tipo"))
                                     }
                                     DropdownMenu(expanded = typeMenu, onDismissRequest = { typeMenu = false }) {
                                         TypeFilter.entries.forEach { f ->
@@ -139,15 +140,15 @@ fun LibraryScreen(
                                 IconButton(onClick = { gridMode = !gridMode }) {
                                     Icon(
                                         if (gridMode) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
-                                        contentDescription = "Cambiar vista"
+                                        contentDescription = tr("Cambiar vista")
                                     )
                                 }
                             }
                             1 -> if (state.history.isNotEmpty()) IconButton(onClick = { confirm = "history" }) {
-                                Icon(Icons.Default.DeleteSweep, contentDescription = "Borrar historial")
+                                Icon(Icons.Default.DeleteSweep, contentDescription = tr("Borrar historial"))
                             }
                             2 -> if (state.downloads.isNotEmpty()) IconButton(onClick = { confirm = "downloads" }) {
-                                Icon(Icons.Default.DeleteSweep, contentDescription = "Borrar descargas")
+                                Icon(Icons.Default.DeleteSweep, contentDescription = tr("Borrar descargas"))
                             }
                         }
                     }
@@ -189,15 +190,15 @@ fun LibraryScreen(
     confirm?.let { what ->
         AlertDialog(
             onDismissRequest = { confirm = null },
-            title = { Text(if (what == "history") "¿Borrar historial?" else "¿Borrar todas las descargas?") },
-            text = { Text("Esta acción no se puede deshacer.") },
+            title = { Text(if (what == "history") tr("¿Borrar historial?") else tr("¿Borrar todas las descargas?")) },
+            text = { Text(tr("Esta acción no se puede deshacer.")) },
             confirmButton = {
                 TextButton(onClick = {
                     if (what == "history") viewModel.clearHistory() else viewModel.deleteAllDownloads()
                     confirm = null
-                }) { Text("Borrar") }
+                }) { Text(tr("Borrar")) }
             },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text("Cancelar") } }
+            dismissButton = { TextButton(onClick = { confirm = null }) { Text(tr("Cancelar")) } }
         )
     }
 }
@@ -231,7 +232,7 @@ private fun FavoritesTab(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            item { FilterChip(selected = statusFilter == null, onClick = { statusFilter = null }, label = { Text("Todos") }) }
+            item { FilterChip(selected = statusFilter == null, onClick = { statusFilter = null }, label = { Text(tr("Todos")) }) }
             items(ReadingStatus.entries.filter { it != ReadingStatus.NONE }) { status ->
                 val count = state.library.count { ReadingStatus.parse(it.readingStatus) == status }
                 FilterChip(
@@ -256,15 +257,15 @@ private fun FavoritesTab(
             item {
                 AssistChip(
                     onClick = onManageCategories,
-                    label = { Text(if (state.categories.isEmpty()) "Crear categorías" else "Gestionar") },
+                    label = { Text(if (state.categories.isEmpty()) tr("Crear categorías") else tr("Gestionar")) },
                     leadingIcon = { Icon(Icons.Default.Edit, null, Modifier.size(16.dp)) }
                 )
             }
         }
         when {
             visible.isEmpty() -> MessageState(
-                if (state.library.isEmpty()) "Aún no hay títulos aquí. Añade títulos desde su página de detalles."
-                else "Ningún título coincide con estos filtros.",
+                if (state.library.isEmpty()) tr("Aún no hay títulos aquí. Añade títulos desde su página de detalles.")
+                else tr("Ningún título coincide con estos filtros."),
                 icon = Icons.Default.CollectionsBookmark
             )
 
@@ -292,7 +293,7 @@ private fun HistoryTab(
     onRemove: (HistoryWithMedia) -> Unit
 ) {
     if (history.isEmpty()) {
-        MessageState("Tu historial de lectura está vacío.", icon = Icons.Default.History)
+        MessageState(tr("Tu historial de lectura está vacío."), icon = Icons.Default.History)
         return
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
@@ -323,7 +324,7 @@ private fun HistoryTab(
                     )
                     Text(relativeTime(entry.readAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                IconButton(onClick = { onRemove(entry) }) { Icon(Icons.Default.Close, contentDescription = "Quitar del historial") }
+                IconButton(onClick = { onRemove(entry) }) { Icon(Icons.Default.Close, contentDescription = tr("Quitar del historial")) }
             }
         }
     }
@@ -338,7 +339,7 @@ private fun DownloadsTab(
 ) {
     if (downloads.isEmpty()) {
         MessageState(
-            "No hay descargas. Descarga capítulos desde la página de un título para leerlos sin conexión.",
+            tr("No hay descargas. Descarga capítulos desde la página de un título para leerlos sin conexión."),
             icon = Icons.Default.Download
         )
         return
@@ -348,7 +349,7 @@ private fun DownloadsTab(
         if (active > 0) {
             item {
                 Text(
-                    "$active en cola",
+                    tr("{0} en cola", active),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
@@ -367,17 +368,17 @@ private fun DownloadsTab(
                     Text(d.mediaTitle, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(d.chapterTitle, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     val statusText = when (d.status) {
-                        DownloadStatus.QUEUED -> "En cola"
+                        DownloadStatus.QUEUED -> tr("En cola")
                         // Episodes report a percentage (progress of 100); chapters report pages.
                         DownloadStatus.DOWNLOADING -> when {
-                            d.total <= 0 -> "Descargando..."
+                            d.total <= 0 -> tr("Descargando...")
                             d.isVideo -> "Descargando ${d.progress} %"
                             else -> "Descargando ${d.progress}/${d.total}"
                         }
                         DownloadStatus.COMPLETED -> when {
-                            d.isVideo -> "Disponible sin conexión" + if (d.videoServer.isNotBlank()) " • ${d.videoServer}" else ""
-                            d.isNovel -> "Disponible sin conexión"
-                            else -> "Disponible sin conexión • ${d.total} páginas"
+                            d.isVideo -> tr("Disponible sin conexión") + if (d.videoServer.isNotBlank()) " • ${d.videoServer}" else ""
+                            d.isNovel -> tr("Disponible sin conexión")
+                            else -> tr("Disponible sin conexión • {0} páginas", d.total)
                         }
                         DownloadStatus.FAILED -> "Error: ${d.error ?: "desconocido"}"
                     }
@@ -400,10 +401,10 @@ private fun DownloadsTab(
                     }
                 }
                 if (d.status == DownloadStatus.FAILED) {
-                    IconButton(onClick = { onRetry(d) }) { Icon(Icons.Default.Refresh, contentDescription = "Reintentar") }
+                    IconButton(onClick = { onRetry(d) }) { Icon(Icons.Default.Refresh, contentDescription = tr("Reintentar")) }
                 }
                 IconButton(onClick = { onDelete(d) }) {
-                    Icon(Icons.Default.Close, contentDescription = if (d.status == DownloadStatus.COMPLETED) "Borrar" else "Cancelar")
+                    Icon(Icons.Default.Close, contentDescription = if (d.status == DownloadStatus.COMPLETED) tr("Borrar") else tr("Cancelar"))
                 }
             }
         }
@@ -423,11 +424,11 @@ private fun ManageCategoriesDialog(
     var editName by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Categorías") },
+        title = { Text(tr("Categorías")) },
         text = {
             Column {
                 Text(
-                    "Agrupa tus títulos con etiquetas propias. Se asignan desde la página de cada título.",
+                    tr("Agrupa tus títulos con etiquetas propias. Se asignan desde la página de cada título."),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -442,15 +443,15 @@ private fun ManageCategoriesDialog(
                                 modifier = Modifier.weight(1f)
                             )
                             IconButton(onClick = { onRename(category.id, editName); editing = null }, enabled = editName.isNotBlank()) {
-                                Icon(Icons.Default.Check, contentDescription = "Guardar")
+                                Icon(Icons.Default.Check, contentDescription = tr("Guardar"))
                             }
                         } else {
                             Text(category.name, modifier = Modifier.weight(1f))
                             IconButton(onClick = { editing = category.id; editName = category.name }) {
-                                Icon(Icons.Default.Edit, contentDescription = "Renombrar")
+                                Icon(Icons.Default.Edit, contentDescription = tr("Renombrar"))
                             }
                             IconButton(onClick = { onDelete(category.id) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Eliminar")
+                                Icon(Icons.Default.Delete, contentDescription = tr("Eliminar"))
                             }
                         }
                     }
@@ -460,17 +461,17 @@ private fun ManageCategoriesDialog(
                     OutlinedTextField(
                         value = newName,
                         onValueChange = { newName = it.take(40) },
-                        label = { Text("Nueva categoría") },
+                        label = { Text(tr("Nueva categoría")) },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
                     IconButton(
                         onClick = { onCreate(newName); newName = "" },
                         enabled = newName.isNotBlank() && categories.none { it.name.equals(newName.trim(), ignoreCase = true) }
-                    ) { Icon(Icons.Default.Add, contentDescription = "Crear") }
+                    ) { Icon(Icons.Default.Add, contentDescription = tr("Crear")) }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Listo") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr("Listo")) } }
     )
 }

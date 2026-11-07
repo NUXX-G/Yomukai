@@ -147,6 +147,8 @@ class YomukaiApplication : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        // The interface language, before anything builds a text (enum labels are worked out once).
+        com.nelson.yomukai.i18n.I18n.use(getSharedPreferences(LanguagePrefs.FILE, MODE_PRIVATE).getString(LanguagePrefs.KEY, null))
         if (BuildConfig.DEBUG) enableStrictMode()
         // Android < 10 has no TLS 1.3; servers that require it (api.mangadex.org) refuse the handshake.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) Security.insertProviderAt(Conscrypt.newProvider(), 1)
@@ -196,4 +198,10 @@ class YomukaiApplication : Application(), SingletonImageLoader.Factory {
             }
             .crossfade(true)
             .build()
+}
+
+/** Where the interface language is kept: read synchronously at start, before any text is built. */
+object LanguagePrefs {
+    const val FILE = "yomukai_ui"
+    const val KEY = "lang"
 }

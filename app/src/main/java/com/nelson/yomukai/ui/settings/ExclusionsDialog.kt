@@ -33,8 +33,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.nelson.yomukai.data.prefs.GenreExclusions
 import com.nelson.yomukai.data.source.CatalogueSource
+import com.nelson.yomukai.i18n.tr
 
-private val SUGGESTIONS = listOf("BL", "GL", "Ecchi", "Harem", "Gore", "Terror", "Manhua", "Manhwa", "Novela", "Romance")
+private val SUGGESTIONS = listOf("BL", "GL", tr("Ecchi"), "Harem", "Gore", tr("Terror"), tr("Manhua"), tr("Manhwa"), tr("Novela"), tr("Romance"))
 
 /** Genres to hide: for every source, or for one. Any word works, not only the suggested ones. */
 @OptIn(ExperimentalLayoutApi::class)
@@ -51,12 +52,12 @@ fun ExclusionsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Géneros excluidos") },
+        title = { Text(tr("Géneros excluidos")) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Dónde se aplican", style = MaterialTheme.typography.titleSmall)
+                Text(tr("Dónde se aplican"), style = MaterialTheme.typography.titleSmall)
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = scope == null, onClick = { scope = null }, label = { Text("Todas las fuentes") })
+                    FilterChip(selected = scope == null, onClick = { scope = null }, label = { Text(tr("Todas las fuentes")) })
                     sources.forEach { source ->
                         val count = exclusions.bySource[source.id].orEmpty().size
                         FilterChip(
@@ -70,12 +71,12 @@ fun ExclusionsDialog(
                     OutlinedTextField(
                         value = text,
                         onValueChange = { text = it.take(40) },
-                        label = { Text("Género a excluir") },
+                        label = { Text(tr("Género a excluir")) },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
                     IconButton(onClick = { onToggle(scope, text.trim()); text = "" }, enabled = text.isNotBlank()) {
-                        Icon(Icons.Default.Add, contentDescription = "Añadir")
+                        Icon(Icons.Default.Add, contentDescription = tr("Añadir"))
                     }
                 }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -83,23 +84,23 @@ fun ExclusionsDialog(
                         AssistChip(
                             onClick = { onToggle(scope, genre) },
                             label = { Text(genre) },
-                            trailingIcon = { Icon(Icons.Default.Close, "Quitar", Modifier.size(16.dp)) }
+                            trailingIcon = { Icon(Icons.Default.Close, tr("Quitar"), Modifier.size(16.dp)) }
                         )
                     }
                 }
-                Text("Sugerencias", style = MaterialTheme.typography.titleSmall, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+                Text(tr("Sugerencias"), style = MaterialTheme.typography.titleSmall, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     SUGGESTIONS.filter { it !in current }.forEach { genre ->
                         AssistChip(onClick = { onToggle(scope, genre) }, label = { Text(genre) })
                     }
                 }
                 Text(
-                    "Muchas webs no indican los géneros en sus listas: Yomukai los consulta título a título, así que con exclusiones activas esas listas tardan algo más.",
+                    tr("Muchas webs no indican los géneros en sus listas: Yomukai los consulta título a título, así que con exclusiones activas esas listas tardan algo más."),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Listo") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr("Listo")) } }
     )
 }

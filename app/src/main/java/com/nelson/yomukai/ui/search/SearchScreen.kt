@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.nelson.yomukai.domain.model.MediaItem
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.components.LanguageTag
 import com.nelson.yomukai.ui.components.MediaCard
@@ -83,12 +84,12 @@ fun SearchScreen(
                 OutlinedTextField(
                     value = state.query,
                     onValueChange = viewModel::onQueryChange,
-                    placeholder = { Text("Buscar en todas las fuentes...") },
+                    placeholder = { Text(tr("Buscar en todas las fuentes...")) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     trailingIcon = {
                         if (state.query.isNotEmpty()) {
                             IconButton(onClick = { viewModel.onQueryChange("") }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Borrar")
+                                Icon(Icons.Default.Clear, contentDescription = tr("Borrar"))
                             }
                         }
                     },
@@ -121,7 +122,7 @@ fun SearchScreen(
                 if (state.query.trim().let { it.startsWith("http://") || it.startsWith("https://") }) {
                     androidx.compose.material3.AssistChip(
                         onClick = { onOpenUrl(state.query.trim()) },
-                        label = { Text("Abrir este enlace en el navegador integrado") },
+                        label = { Text(tr("Abrir este enlace en el navegador integrado")) },
                         leadingIcon = { Icon(Icons.Default.Public, null) },
                         modifier = Modifier.padding(top = 4.dp)
                     )
@@ -143,12 +144,12 @@ fun SearchScreen(
                     onClear = viewModel::clearHistory
                 )
 
-                state.sources.isEmpty() -> MessageState("No hay fuentes activas que coincidan con los filtros.")
+                state.sources.isEmpty() -> MessageState(tr("No hay fuentes activas que coincidan con los filtros."))
 
                 state.groups.isEmpty() && !state.isSearching ->
                     Column(Modifier.fillMaxSize()) {
                         SourceStatus(state.sources)
-                        MessageState("Sin resultados para \"${state.query}\"", icon = Icons.Default.Search)
+                        MessageState(tr("Sin resultados para \"{0}\"", state.query), icon = Icons.Default.Search)
                     }
 
                 else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -158,7 +159,7 @@ fun SearchScreen(
                             MediaListRow(group.primary, onClick = { onMediaClick(group.primary) })
                             if (group.others.isNotEmpty()) {
                                 Text(
-                                    "También en:",
+                                    tr("También en:"),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(start = 84.dp)
@@ -189,7 +190,7 @@ private fun SourceStatus(sources: List<SourceProgress>) {
     val failed = sources.filter { it.error != null }
     if (failed.isEmpty()) return
     Text(
-        "Sin respuesta: " + failed.joinToString { it.name },
+        tr("Sin respuesta: ") + failed.joinToString { it.name },
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.error,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
@@ -221,8 +222,8 @@ private fun SuggestionsAndHistory(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Búsquedas recientes", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onClear) { Text("Borrar todo") }
+                    Text(tr("Búsquedas recientes"), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                    TextButton(onClick = onClear) { Text(tr("Borrar todo")) }
                 }
             }
             items(state.history, key = { "h:$it" }) { text ->
@@ -230,7 +231,7 @@ private fun SuggestionsAndHistory(
                     headlineContent = { Text(text) },
                     leadingContent = { Icon(Icons.Default.History, null) },
                     trailingContent = {
-                        IconButton(onClick = { onRemove(text) }) { Icon(Icons.Default.Clear, contentDescription = "Quitar") }
+                        IconButton(onClick = { onRemove(text) }) { Icon(Icons.Default.Clear, contentDescription = tr("Quitar")) }
                     },
                     modifier = Modifier.clickable { onPick(text) }
                 )
@@ -238,7 +239,7 @@ private fun SuggestionsAndHistory(
         }
 
         else -> MessageState(
-            "Busca manga, cómics, novelas y anime en todas las fuentes activas a la vez.",
+            tr("Busca manga, cómics, novelas y anime en todas las fuentes activas a la vez."),
             icon = Icons.Default.Search
         )
     }

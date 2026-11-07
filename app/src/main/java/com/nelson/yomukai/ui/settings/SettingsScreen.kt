@@ -70,6 +70,7 @@ import com.nelson.yomukai.data.prefs.ProxyType
 import com.nelson.yomukai.data.prefs.ThemeMode
 import com.nelson.yomukai.data.prefs.TorMode
 import com.nelson.yomukai.data.updates.LibraryUpdateWorker
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.components.LanguageTag
 import kotlinx.coroutines.launch
@@ -112,7 +113,7 @@ fun SettingsScreen(
     Scaffold(
         modifier = modifier,
         contentWindowInsets = WindowInsets(0),
-        topBar = { TopAppBar(title = { Text("Ajustes") }) }
+        topBar = { TopAppBar(title = { Text(tr("Ajustes")) }) }
     ) { padding ->
         LazyColumn(
             Modifier
@@ -120,10 +121,12 @@ fun SettingsScreen(
                 .padding(padding),
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
-            item { GroupTitle("Sincronizar con servidor") }
+            item { GroupTitle(tr("Sincronizar con servidor")) }
             item { ServerSyncItem(sync, viewModel::connectServer, viewModel::syncNow, viewModel::disconnectServer, serverFeatures) }
 
-            item { GroupTitle("Apariencia") }
+            item { GroupTitle(tr("Idioma") + " · Language") }
+            item { LanguagePicker() }
+            item { GroupTitle(tr("Apariencia")) }
             item {
                 ChipRow {
                     ThemeMode.entries.forEach { mode ->
@@ -140,9 +143,9 @@ fun SettingsScreen(
                 val current = remember(app.customTheme) { com.nelson.yomukai.ui.theme.CustomTheme.parse(app.customTheme)?.name }
                 val scope = rememberCoroutineScope()
                 val container = com.nelson.yomukai.ui.LocalAppContainer.current
-                Text("Tema", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
+                Text(tr("Tema"), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
                 ChipRow {
-                    FilterChip(selected = current == null, onClick = { viewModel.updateApp { it.copy(customTheme = null) } }, label = { Text("Ninguno") })
+                    FilterChip(selected = current == null, onClick = { viewModel.updateApp { it.copy(customTheme = null) } }, label = { Text(tr("Ninguno")) })
                     com.nelson.yomukai.ui.theme.CustomTheme.builtIn.forEach { (id, spec) ->
                         FilterChip(
                             selected = current == spec.name,
@@ -158,12 +161,12 @@ fun SettingsScreen(
                 }
             }
             item {
-                SwitchItem("Color dinámico", "Usa los colores del fondo de pantalla (Android 12+)", app.dynamicColor) { v ->
+                SwitchItem(tr("Color dinámico"), tr("Usa los colores del fondo de pantalla (Android 12+)"), app.dynamicColor) { v ->
                     viewModel.updateApp { it.copy(dynamicColor = v) }
                 }
             }
 
-            item { GroupTitle("Lector de manga") }
+            item { GroupTitle(tr("Lector de manga")) }
             item {
                 Text(
                     "Modo predeterminado",
@@ -181,11 +184,11 @@ fun SettingsScreen(
                 }
             }
 
-            item { GroupTitle("Actualizaciones") }
+            item { GroupTitle(tr("Actualizaciones")) }
             item {
                 SwitchItem(
-                    "Buscar capítulos nuevos",
-                    "Comprueba en segundo plano los títulos de tu biblioteca y te avisa con una notificación",
+                    tr("Buscar capítulos nuevos"),
+                    tr("Comprueba en segundo plano los títulos de tu biblioteca y te avisa con una notificación"),
                     app.updatesEnabled
                 ) { v ->
                     if (v) ensureNotificationPermission()
@@ -194,19 +197,19 @@ fun SettingsScreen(
             }
             if (app.updatesEnabled) {
                 item {
-                    Text("Frecuencia", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp))
+                    Text(tr("Frecuencia"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp))
                     ChipRow {
                         listOf(6, 12, 24, 48).forEach { hours ->
                             FilterChip(
                                 selected = app.updateIntervalHours == hours,
                                 onClick = { viewModel.updateApp { it.copy(updateIntervalHours = hours) } },
-                                label = { Text("Cada $hours h") }
+                                label = { Text(tr("Cada {0} h", hours)) }
                             )
                         }
                     }
                 }
                 item {
-                    SwitchItem("Solo con Wi-Fi", "No usar datos móviles para comprobar novedades", app.updatesWifiOnly) { v ->
+                    SwitchItem(tr("Solo con Wi-Fi"), tr("No usar datos móviles para comprobar novedades"), app.updatesWifiOnly) { v ->
                         viewModel.updateApp { it.copy(updatesWifiOnly = v) }
                     }
                 }
@@ -214,29 +217,29 @@ fun SettingsScreen(
             item {
                 ListItem(
                     colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                    headlineContent = { Text("Buscar ahora") },
-                    supportingContent = { Text("Comprueba ya los títulos de tu biblioteca con avisos activos") },
+                    headlineContent = { Text(tr("Buscar ahora")) },
+                    supportingContent = { Text(tr("Comprueba ya los títulos de tu biblioteca con avisos activos")) },
                     leadingContent = { Icon(Icons.Default.Refresh, null) },
                     modifier = Modifier.clickable {
                         ensureNotificationPermission()
                         LibraryUpdateWorker.runNow(context)
-                        Toast.makeText(context, "Buscando novedades en segundo plano...", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, tr("Buscando novedades en segundo plano..."), Toast.LENGTH_SHORT).show()
                     }
                 )
             }
 
-            item { GroupTitle("Contenido") }
+            item { GroupTitle(tr("Contenido")) }
             item {
                 val total = exclusions.global.size + exclusions.bySource.values.sumOf { it.size }
                 ListItem(
                     colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                    headlineContent = { Text("Géneros excluidos") },
-                    supportingContent = { Text(if (total == 0) "Oculta géneros en todas las fuentes o solo en algunas" else "$total exclusiones activas") },
+                    headlineContent = { Text(tr("Géneros excluidos")) },
+                    supportingContent = { Text(if (total == 0) tr("Oculta géneros en todas las fuentes o solo en algunas") else "$total exclusiones activas") },
                     modifier = Modifier.clickable { showExclusions = true }
                 )
             }
 
-            item { GroupTitle("Fuentes") }
+            item { GroupTitle(tr("Fuentes")) }
             items(viewModel.sources, key = { it.id }) { source ->
                 ListItem(
                     colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
@@ -251,8 +254,8 @@ fun SettingsScreen(
                         val broken = viewModel.degradedReason(source.id)
                         Text(
                             when {
-                                broken != null -> "$types • Caída ahora mismo, oculta hasta que vuelva: $broken"
-                                source.isExperimental -> "$types • Experimental: el sitio puede no responder"
+                                broken != null -> tr("{0} • Caída ahora mismo, oculta hasta que vuelva: {1}", types, broken)
+                                source.isExperimental -> tr("{0} • Experimental: el sitio puede no responder", types)
                                 else -> types
                             }
                         )
@@ -269,23 +272,23 @@ fun SettingsScreen(
             item {
                 ListItem(
                     colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                    headlineContent = { Text("Diagnóstico de fuentes") },
-                    supportingContent = { Text("Probar cada fuente y ver si funciona") },
+                    headlineContent = { Text(tr("Diagnóstico de fuentes")) },
+                    supportingContent = { Text(tr("Probar cada fuente y ver si funciona")) },
                     modifier = Modifier.clickable(onClick = onOpenDiagnostics)
                 )
             }
 
-            item { GroupTitle("Red") }
+            item { GroupTitle(tr("Red")) }
             item {
                 SwitchItem(
                     "DNS seguro (DNS sobre HTTPS)",
-                    "Evita los bloqueos por DNS de algunos operadores usando Cloudflare 1.1.1.1",
+                    tr("Evita los bloqueos por DNS de algunos operadores usando Cloudflare 1.1.1.1"),
                     network.dnsOverHttps
                 ) { v -> viewModel.updateNetwork { it.copy(dnsOverHttps = v) } }
             }
             item {
                 Text(
-                    "Proxy (para sitios bloqueados por IP; p. ej. Orbot/Tor en 127.0.0.1:9050 con SOCKS5)",
+                    tr("Proxy (para sitios bloqueados por IP; p. ej. Orbot/Tor en 127.0.0.1:9050 con SOCKS5)"),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
@@ -303,11 +306,11 @@ fun SettingsScreen(
                 item { ProxyFields(network, onSave = { host, port -> viewModel.updateNetwork { it.copy(proxyHost = host, proxyPort = port) } }) }
             }
 
-            item { GroupTitle("Tor") }
+            item { GroupTitle(tr("Tor")) }
             item {
                 Text(
-                    "Enruta fuentes, descargas, vídeo y el navegador por Tor. Cloudflare suele bloquear las salidas de Tor: " +
-                        "desactiva Tor en las fuentes que fallen (lista de abajo) y pruébalas en Diagnóstico de fuentes.",
+                    tr("Enruta fuentes, descargas, vídeo y el navegador por Tor. Cloudflare suele bloquear las salidas de Tor: ") +
+                        tr("desactiva Tor en las fuentes que fallen (lista de abajo) y pruébalas en Diagnóstico de fuentes."),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp)
@@ -329,10 +332,10 @@ fun SettingsScreen(
                         headlineContent = {
                             Text(
                                 when (tor.phase) {
-                                    TorPhase.CONNECTED -> "Conectado a Tor"
+                                    TorPhase.CONNECTED -> tr("Conectado a Tor")
                                     TorPhase.STARTING -> tor.connectingLabel
-                                    TorPhase.ERROR -> "Error de Tor"
-                                    TorPhase.DISABLED -> "Tor inactivo"
+                                    TorPhase.ERROR -> tr("Error de Tor")
+                                    TorPhase.DISABLED -> tr("Tor inactivo")
                                 }
                             )
                         },
@@ -341,26 +344,26 @@ fun SettingsScreen(
                 }
                 item {
                     SwitchItem(
-                        "Fuentes, descargas y vídeo por Tor",
-                        "Mientras Tor no esté conectado, estas peticiones se bloquean en vez de salir sin protección",
+                        tr("Fuentes, descargas y vídeo por Tor"),
+                        tr("Mientras Tor no esté conectado, estas peticiones se bloquean en vez de salir sin protección"),
                         network.torRoutesApp
                     ) { v -> viewModel.updateNetwork { it.copy(torRoutesApp = v) } }
                 }
                 item {
                     SwitchItem(
-                        "Navegador por Tor",
-                        "El navegador de captura no carga nada hasta que Tor esté conectado",
+                        tr("Navegador por Tor"),
+                        tr("El navegador de captura no carga nada hasta que Tor esté conectado"),
                         network.torRoutesBrowser
                     ) { v -> viewModel.updateNetwork { it.copy(torRoutesBrowser = v) } }
                 }
                 item {
-                    Text("Usar Tor en cada fuente", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                    Text(tr("Usar Tor en cada fuente"), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                 }
                 items(viewModel.sources, key = { "tor-" + it.id }) { source ->
                     ListItem(
                         colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                         headlineContent = { Text(source.name) },
-                        supportingContent = { Text(if (source.id in network.torExcludedSources) "Conexión directa" else "Por Tor") },
+                        supportingContent = { Text(if (source.id in network.torExcludedSources) tr("Conexión directa") else tr("Por Tor")) },
                         trailingContent = {
                             Switch(
                                 checked = source.id !in network.torExcludedSources,
@@ -375,7 +378,7 @@ fun SettingsScreen(
                 }
             }
             item {
-                Text("Página de inicio y buscador del navegador", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                Text(tr("Página de inicio y buscador del navegador"), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                 ChipRow {
                     BrowserHome.entries.forEach { home ->
                         FilterChip(
@@ -387,18 +390,18 @@ fun SettingsScreen(
                 }
             }
 
-            item { GroupTitle("Descargas") }
+            item { GroupTitle(tr("Descargas")) }
             item {
                 SwitchItem(
-                    "Solo con Wi-Fi",
-                    "Las descargas esperan a una conexión sin tarifa de datos",
+                    tr("Solo con Wi-Fi"),
+                    tr("Las descargas esperan a una conexión sin tarifa de datos"),
                     app.downloadsWifiOnly
                 ) { v -> viewModel.updateApp { it.copy(downloadsWifiOnly = v) } }
             }
             item {
                 ListItem(
                     colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                    headlineContent = { Text("Descargas simultáneas") },
+                    headlineContent = { Text(tr("Descargas simultáneas")) },
                     supportingContent = {
                         ChipRow {
                             (1..4).forEach { count ->
@@ -415,11 +418,11 @@ fun SettingsScreen(
             item {
                 ListItem(
                     colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                    headlineContent = { Text("Seguridad de las descargas") },
+                    headlineContent = { Text(tr("Seguridad de las descargas")) },
                     supportingContent = {
                         Text(
-                            "Solo HTTPS (o .onion por Tor), se comprueba el tipo y tamaño de cada archivo, " +
-                                "se guardan en el almacenamiento privado de la app y se reanudan si se interrumpen."
+                            tr("Solo HTTPS (o .onion por Tor), se comprueba el tipo y tamaño de cada archivo, ") +
+                                tr("se guardan en el almacenamiento privado de la app y se reanudan si se interrumpen.")
                         )
                     }
                 )
@@ -427,14 +430,14 @@ fun SettingsScreen(
 
             item {
                 SwitchItem(
-                    "Guardar también en Descargas",
-                    "Copia cada capítulo en Download/Yomukai, por tipo y serie, para abrirlo desde cualquier explorador de archivos. Ocupa el doble",
+                    tr("Guardar también en Descargas"),
+                    tr("Copia cada capítulo en Download/Yomukai, por tipo y serie, para abrirlo desde cualquier explorador de archivos. Ocupa el doble"),
                     app.exportDownloads
                 ) { v -> viewModel.updateApp { it.copy(exportDownloads = v) } }
             }
             if (app.exportDownloads) {
                 item {
-                    Text("Formato de manga, manhwa y cómic", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp))
+                    Text(tr("Formato de manga, manhwa y cómic"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp))
                     ChipRow {
                         ComicFormat.entries.forEach { format ->
                             FilterChip(
@@ -444,7 +447,7 @@ fun SettingsScreen(
                             )
                         }
                     }
-                    Text("Formato de novela", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp))
+                    Text(tr("Formato de novela"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp))
                     ChipRow {
                         NovelFormat.entries.forEach { format ->
                             FilterChip(
@@ -458,22 +461,22 @@ fun SettingsScreen(
                 item {
                     ListItem(
                         colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                        headlineContent = { Text("Copiar lo ya descargado") },
-                        supportingContent = { Text("Pasa a Download/Yomukai lo que descargaste antes") },
+                        headlineContent = { Text(tr("Copiar lo ya descargado")) },
+                        supportingContent = { Text(tr("Pasa a Download/Yomukai lo que descargaste antes")) },
                         modifier = Modifier.clickable {
-                            Toast.makeText(context, "Copiando descargas...", Toast.LENGTH_SHORT).show()
-                            viewModel.exportDownloads { count -> Toast.makeText(context, "$count capítulos revisados", Toast.LENGTH_SHORT).show() }
+                            Toast.makeText(context, tr("Copiando descargas..."), Toast.LENGTH_SHORT).show()
+                            viewModel.exportDownloads { count -> Toast.makeText(context, tr("{0} capítulos revisados", count), Toast.LENGTH_SHORT).show() }
                         }
                     )
                 }
             }
 
-            item { GroupTitle("Almacenamiento") }
+            item { GroupTitle(tr("Almacenamiento")) }
             item {
                 ListItem(
                     colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                    headlineContent = { Text("Limpiar caché de imágenes") },
-                    supportingContent = { Text("En uso: ${Formatter.formatShortFileSize(context, storage.first)}") },
+                    headlineContent = { Text(tr("Limpiar caché de imágenes")) },
+                    supportingContent = { Text(tr("En uso: {0}", Formatter.formatShortFileSize(context, storage.first))) },
                     leadingContent = { Icon(Icons.Default.Image, null) },
                     modifier = Modifier.clickable { viewModel.clearImageCache(context) }
                 )
@@ -481,9 +484,9 @@ fun SettingsScreen(
             item {
                 ListItem(
                     colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                    headlineContent = { Text("Capítulos descargados") },
+                    headlineContent = { Text(tr("Capítulos descargados")) },
                     supportingContent = {
-                        Text("${Formatter.formatShortFileSize(context, storage.second)} • Gestiónalos en Biblioteca › Descargas")
+                        Text(tr("{0} • Gestiónalos en Biblioteca › Descargas", Formatter.formatShortFileSize(context, storage.second)))
                     },
                     leadingContent = { Icon(Icons.Default.Delete, null) }
                 )
@@ -491,7 +494,7 @@ fun SettingsScreen(
             item {
                 ListItem(
                     colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                    headlineContent = { Text("Borrar historial de lectura") },
+                    headlineContent = { Text(tr("Borrar historial de lectura")) },
                     leadingContent = { Icon(Icons.Default.History, null) },
                     modifier = Modifier.clickable { confirmHistory = true }
                 )
@@ -501,8 +504,8 @@ fun SettingsScreen(
             item {
                 ListItem(
                     colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-                    headlineContent = { Text("Yomukai ${BuildConfig.VERSION_NAME}") },
-                    supportingContent = { Text("Manga, manhwa, novelas ligeras y anime. Sin cuentas ni seguimiento.") },
+                    headlineContent = { Text(tr("Yomukai {0}", BuildConfig.VERSION_NAME)) },
+                    supportingContent = { Text(tr("Manga, manhwa, novelas ligeras y anime. Sin cuentas ni seguimiento.")) },
                     leadingContent = { Icon(Icons.Default.Info, null) }
                 )
             }
@@ -512,12 +515,12 @@ fun SettingsScreen(
     if (confirmHistory) {
         AlertDialog(
             onDismissRequest = { confirmHistory = false },
-            title = { Text("¿Borrar historial?") },
-            text = { Text("El progreso por capítulo se conserva; solo se borra la lista de historial.") },
+            title = { Text(tr("¿Borrar historial?")) },
+            text = { Text(tr("El progreso por capítulo se conserva; solo se borra la lista de historial.")) },
             confirmButton = {
-                TextButton(onClick = { viewModel.clearHistory(); confirmHistory = false }) { Text("Borrar") }
+                TextButton(onClick = { viewModel.clearHistory(); confirmHistory = false }) { Text(tr("Borrar")) }
             },
-            dismissButton = { TextButton(onClick = { confirmHistory = false }) { Text("Cancelar") } }
+            dismissButton = { TextButton(onClick = { confirmHistory = false }) { Text(tr("Cancelar")) } }
         )
     }
 }
@@ -569,7 +572,7 @@ private fun ProxyFields(settings: NetworkSettings, onSave: (String, Int) -> Unit
         OutlinedTextField(
             value = host,
             onValueChange = { host = it.trim() },
-            label = { Text("Host") },
+            label = { Text(tr("Host")) },
             singleLine = true,
             modifier = Modifier.weight(1f)
         )
@@ -577,7 +580,7 @@ private fun ProxyFields(settings: NetworkSettings, onSave: (String, Int) -> Unit
         OutlinedTextField(
             value = port,
             onValueChange = { port = it.filter(Char::isDigit).take(5) },
-            label = { Text("Puerto") },
+            label = { Text(tr("Puerto")) },
             singleLine = true,
             isError = portValue == null,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -587,6 +590,6 @@ private fun ProxyFields(settings: NetworkSettings, onSave: (String, Int) -> Unit
         OutlinedButton(
             onClick = { portValue?.let { onSave(host, it) } },
             enabled = host.isNotBlank() && portValue != null && (host != settings.proxyHost || portValue != settings.proxyPort)
-        ) { Text("Guardar") }
+        ) { Text(tr("Guardar")) }
     }
 }

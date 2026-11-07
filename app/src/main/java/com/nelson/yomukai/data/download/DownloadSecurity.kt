@@ -1,5 +1,6 @@
 package com.nelson.yomukai.data.download
 
+import com.nelson.yomukai.i18n.tr
 import java.io.File
 import java.net.URI
 
@@ -19,14 +20,14 @@ object DownloadSecurity {
         val uri = try {
             URI(url.trim())
         } catch (e: Exception) {
-            throw InsecureDownloadException("Dirección de descarga no válida")
+            throw InsecureDownloadException(tr("Dirección de descarga no válida"))
         }
-        val host = uri.host?.lowercase() ?: throw InsecureDownloadException("Dirección de descarga sin servidor")
+        val host = uri.host?.lowercase() ?: throw InsecureDownloadException(tr("Dirección de descarga sin servidor"))
         val scheme = uri.scheme?.lowercase()
         return when {
             scheme == "https" -> url.trim()
             scheme == "http" && host.endsWith(".onion") -> url.trim()
-            else -> throw InsecureDownloadException("Descarga bloqueada: solo se permite HTTPS ($host)")
+            else -> throw InsecureDownloadException(tr("Descarga bloqueada: solo se permite HTTPS ({0})", host))
         }
     }
 
@@ -51,7 +52,7 @@ object DownloadSecurity {
 
     /** Rejects a declared size over [max]; unknown sizes (-1) pass and are limited while streaming. */
     fun checkDeclaredSize(contentLength: Long, max: Long) {
-        if (contentLength > max) throw InsecureDownloadException("El archivo es demasiado grande (${contentLength / (1024 * 1024)} MB)")
+        if (contentLength > max) throw InsecureDownloadException(tr("El archivo es demasiado grande ({0} MB)", contentLength / (1024 * 1024)))
     }
 
     /** A file name safe to create inside the app directory: no separators, no dots-only names, bounded length. */

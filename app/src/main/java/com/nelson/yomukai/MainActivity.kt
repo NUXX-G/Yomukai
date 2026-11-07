@@ -65,6 +65,7 @@ import com.nelson.yomukai.data.source.NovelSource
 import com.nelson.yomukai.data.updates.LibraryUpdateWorker
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.VideoSource
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.LocalAppContainer
 import com.nelson.yomukai.ui.browse.BrowseScreen
@@ -149,10 +150,10 @@ private val NAV_SCRIM_DARK = android.graphics.Color.argb(0xE6, 0x00, 0x00, 0x00)
 private data class TopLevelTab(val route: String, val label: String, val icon: ImageVector)
 
 private val tabs = listOf(
-    TopLevelTab(Routes.HOME, "Inicio", Icons.Default.Home),
-    TopLevelTab(Routes.SEARCH, "Buscar", Icons.Default.Search),
-    TopLevelTab(Routes.LIBRARY, "Biblioteca", Icons.Default.CollectionsBookmark),
-    TopLevelTab(Routes.SETTINGS, "Ajustes", Icons.Default.Settings)
+    TopLevelTab(Routes.HOME, tr("Inicio"), Icons.Default.Home),
+    TopLevelTab(Routes.SEARCH, tr("Buscar"), Icons.Default.Search),
+    TopLevelTab(Routes.LIBRARY, tr("Biblioteca"), Icons.Default.CollectionsBookmark),
+    TopLevelTab(Routes.SETTINGS, tr("Ajustes"), Icons.Default.Settings)
 )
 
 @Composable
@@ -207,7 +208,7 @@ fun YomukaiApp(
             val repo = container.libraryRepository
             val chapter = repo.getChapter(sourceId, chapterId)
             if (chapter == null) {
-                snackbar.showSnackbar("Episodio no encontrado")
+                snackbar.showSnackbar(tr("Episodio no encontrado"))
                 return@launch
             }
             container.downloadManager.localVideo(sourceId, chapterId)?.let { local ->
@@ -221,7 +222,7 @@ fun YomukaiApp(
                 )
                 return@launch
             }
-            val loading = launch { snackbar.showSnackbar("Buscando servidores de ${chapter.title}...") }
+            val loading = launch { snackbar.showSnackbar(tr("Buscando servidores de {0}...", chapter.title)) }
             val result = source.fetchVideoSources(chapter.url)
             loading.cancel()
             result
@@ -232,7 +233,7 @@ fun YomukaiApp(
                         listOfNotNull(mediaTitle, chapter.title).joinToString(" - "), servers, sourceId, chapter.mediaId, chapter.chapterId
                     )
                 }
-                .onFailure { snackbar.showSnackbar(it.message ?: "No se pudo cargar el episodio") }
+                .onFailure { snackbar.showSnackbar(it.message ?: tr("No se pudo cargar el episodio")) }
         }
     }
 
@@ -342,7 +343,7 @@ fun YomukaiApp(
                     initialUrl = entry.arguments?.getString("url").orEmpty(),
                     onBack = { navController.popBackStack() },
                     onReadImages = { navController.navigate(Routes.QUICK_READER) },
-                    onPlayVideo = { video -> navController.navigate(Routes.animePlayer(video.url, "Vídeo capturado", video.pageUrl)) }
+                    onPlayVideo = { video -> navController.navigate(Routes.animePlayer(video.url, tr("Vídeo capturado"), video.pageUrl)) }
                 )
             }
             composable(Routes.QUICK_READER) {
@@ -415,7 +416,7 @@ private fun EpisodeServerDialog(
                         colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                         headlineContent = { Text(server.serverName) },
                         supportingContent = {
-                            Text(server.quality + if (server.isDirect) " • Reproducir en la app" else " • Abrir en el navegador")
+                            Text(server.quality + if (server.isDirect) tr(" • Reproducir en la app") else tr(" • Abrir en el navegador"))
                         },
                         leadingContent = {
                             Icon(if (server.isDirect) Icons.Default.PlayCircle else Icons.AutoMirrored.Filled.OpenInNew, null)
@@ -429,7 +430,7 @@ private fun EpisodeServerDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr("Cerrar")) } }
     )
 }
 

@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import com.nelson.yomukai.data.discovery.DiscoverEntry
 import com.nelson.yomukai.data.discovery.DiscoverLabels
 import com.nelson.yomukai.domain.model.MediaType
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.components.CoverImage
 import com.nelson.yomukai.ui.components.SectionHeader
 import com.nelson.yomukai.ui.discover.DiscoverShelf
@@ -86,7 +87,7 @@ fun HomeHero(entries: List<DiscoverEntry>, onOpen: (DiscoverEntry) -> Unit, modi
                     )
                 )
                 Column(Modifier.align(Alignment.BottomStart).padding(start = 16.dp, end = 16.dp, bottom = 36.dp)) {
-                    Text("Tendencia", color = DesignTokens.text, style = MaterialTheme.typography.labelLarge)
+                    Text(tr("Tendencia"), color = DesignTokens.text, style = MaterialTheme.typography.labelLarge)
                     Text(
                         e.title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black,
                         color = DesignTokens.text, maxLines = 2, overflow = TextOverflow.Ellipsis
@@ -98,7 +99,7 @@ fun HomeHero(entries: List<DiscoverEntry>, onOpen: (DiscoverEntry) -> Unit, modi
                     Button(onClick = { onOpen(e) }, modifier = Modifier.padding(top = 14.dp)) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
-                        Text(if (e.type == MediaType.ANIME) "Ver" else "Leer")
+                        Text(if (e.type == MediaType.ANIME) tr("Ver") else tr("Leer"))
                     }
                 }
             }

@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.LocalAppContainer
 import kotlinx.coroutines.launch
 
@@ -66,13 +67,13 @@ fun NotificationsButton() {
         if (unread > 0) scope.launch { runCatching { sync.api("POST", "/api/notifications/read") }; unread = 0 }
     }) {
         BadgedBox(badge = { if (unread > 0) Badge { Text(if (unread > 9) "9+" else "$unread") } }) {
-            Icon(Icons.Default.Notifications, contentDescription = if (unread > 0) "$unread avisos" else "Avisos")
+            Icon(Icons.Default.Notifications, contentDescription = if (unread > 0) "$unread avisos" else tr("Avisos"))
         }
     }
     if (open) {
         ModalBottomSheet(onDismissRequest = { open = false }) {
             if (notes.isEmpty()) {
-                Text("Nada nuevo por aquí.", modifier = Modifier.padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(tr("Nada nuevo por aquí."), modifier = Modifier.padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             LazyColumn {
                 items(notes) { n ->

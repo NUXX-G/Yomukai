@@ -28,6 +28,7 @@ import com.nelson.yomukai.data.local.ChapterEntity
 import com.nelson.yomukai.data.local.MediaEntity
 import com.nelson.yomukai.data.prefs.AppSettings
 import com.nelson.yomukai.data.source.AnimeSource
+import com.nelson.yomukai.i18n.tr
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -119,8 +120,8 @@ class LibraryUpdateWorker(context: Context, params: WorkerParameters) : Coroutin
             val manager = context.getSystemService(NotificationManager::class.java)
             if (manager.getNotificationChannel(CHANNEL_ID) == null) {
                 manager.createNotificationChannel(
-                    NotificationChannel(CHANNEL_ID, "Nuevos capítulos", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                        description = "Avisos cuando un título de tu biblioteca tiene capítulos o episodios nuevos"
+                    NotificationChannel(CHANNEL_ID, tr("Nuevos capítulos"), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                        description = tr("Avisos cuando un título de tu biblioteca tiene capítulos o episodios nuevos")
                     }
                 )
             }
@@ -142,9 +143,9 @@ class LibraryUpdateWorker(context: Context, params: WorkerParameters) : Coroutin
                 context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             val noun = if (isAnime) {
-                if (chapters.size == 1) "episodio nuevo" else "episodios nuevos"
+                if (chapters.size == 1) tr("episodio nuevo") else tr("episodios nuevos")
             } else {
-                if (chapters.size == 1) "capítulo nuevo" else "capítulos nuevos"
+                if (chapters.size == 1) tr("capítulo nuevo") else tr("capítulos nuevos")
             }
             val notification = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_book)

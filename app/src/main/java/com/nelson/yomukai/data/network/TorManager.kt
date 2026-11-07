@@ -11,6 +11,7 @@ import android.os.IBinder
 import android.util.Log
 import com.nelson.yomukai.data.prefs.NetworkSettings
 import com.nelson.yomukai.data.prefs.TorMode
+import com.nelson.yomukai.i18n.tr
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -42,7 +43,7 @@ data class TorState(
     val isConnected get() = phase == TorPhase.CONNECTED && socksPort > 0
 
     /** Shown while connecting; the embedded daemon reports its bootstrap percentage (Orbot does not). */
-    val connectingLabel get() = if (mode == TorMode.BUILTIN) "Conectando a Tor ($progress %)..." else "Conectando a Tor..."
+    val connectingLabel get() = if (mode == TorMode.BUILTIN) "Conectando a Tor ($progress %)..." else tr("Conectando a Tor...")
 }
 
 /**
@@ -82,7 +83,7 @@ class TorManager(
                         apply(mode)
                     } catch (e: Throwable) {
                         Log.e(TAG, "Tor no pudo iniciarse; la app sigue funcionando sin él", e)
-                        _state.value = TorState(TorPhase.ERROR, mode = mode, error = e.message ?: "Tor no pudo iniciarse")
+                        _state.value = TorState(TorPhase.ERROR, mode = mode, error = e.message ?: tr("Tor no pudo iniciarse"))
                     }
                 }
         }
@@ -117,7 +118,7 @@ class TorManager(
             registerStatusReceiver()
         } catch (e: Exception) {
             Log.e(TAG, "No se pudo iniciar Tor", e)
-            _state.value = TorState(TorPhase.ERROR, mode = TorMode.BUILTIN, error = e.message ?: "No se pudo iniciar Tor")
+            _state.value = TorState(TorPhase.ERROR, mode = TorMode.BUILTIN, error = e.message ?: tr("No se pudo iniciar Tor"))
         }
     }
 
@@ -138,7 +139,7 @@ class TorManager(
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(c: Context?, intent: Intent?) {
                 if (intent?.action == TorService.ACTION_ERROR) {
-                    _state.value = _state.value.copy(phase = TorPhase.ERROR, error = "Tor informó de un error")
+                    _state.value = _state.value.copy(phase = TorPhase.ERROR, error = tr("Tor informó de un error"))
                 }
             }
         }
@@ -178,7 +179,7 @@ class TorManager(
             if (waited > START_TIMEOUT_SECONDS && !_state.value.isConnected && _state.value.phase != TorPhase.ERROR) {
                 _state.value = _state.value.copy(
                     phase = TorPhase.ERROR,
-                    error = "Tor no logró conectar. La red puede bloquearlo; prueba con otra red u Orbot."
+                    error = tr("Tor no logró conectar. La red puede bloquearlo; prueba con otra red u Orbot.")
                 )
             }
             delay(1_000)
@@ -191,7 +192,7 @@ class TorManager(
             _state.value = if (up) {
                 TorState(TorPhase.CONNECTED, 100, ORBOT_SOCKS_PORT, 0, TorMode.ORBOT)
             } else {
-                TorState(TorPhase.STARTING, 0, 0, 0, TorMode.ORBOT, "Orbot no responde en 127.0.0.1:$ORBOT_SOCKS_PORT; ábrelo y conéctalo")
+                TorState(TorPhase.STARTING, 0, 0, 0, TorMode.ORBOT, tr("Orbot no responde en 127.0.0.1:{0}; ábrelo y conéctalo", ORBOT_SOCKS_PORT))
             }
             delay(3_000)
         }

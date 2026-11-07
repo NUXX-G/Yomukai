@@ -8,6 +8,7 @@ import com.nelson.yomukai.data.prefs.NetworkSettings
 import com.nelson.yomukai.data.prefs.ProxyType
 import com.nelson.yomukai.data.prefs.TorMode
 import com.nelson.yomukai.data.source.CloudflareResolver
+import com.nelson.yomukai.i18n.tr
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
@@ -52,8 +53,8 @@ private const val NO_RETRY_HEADER = "X-Yomukai-No-Retry"
 
 /** The site answered with a firewall/anti-bot page instead of content. */
 class SourceBlockedException(host: String, protection: String) : IOException(
-    "$host bloqueó la conexión ($protection). Abre el sitio en el navegador una vez, " +
-        "o prueba con DNS seguro o un proxy en Ajustes › Red."
+    tr("{0} bloqueó la conexión ({1}). Abre el sitio en el navegador una vez, ", host, protection) +
+        tr("o prueba con DNS seguro o un proxy en Ajustes › Red.")
 )
 
 /** Tor is on but not connected yet: the request is refused and must not be retried any other way. */
@@ -61,8 +62,8 @@ class TorNotReadyException(message: String) : IOException(message)
 
 /** The connection never reached the site (DNS or IP blocking by the ISP, or the site is down). */
 class SourceUnreachableException(host: String, cause: Throwable) : IOException(
-    "No se pudo conectar con $host. Puede estar caído o bloqueado por tu operador; " +
-        "activa DNS seguro o configura un proxy en Ajustes › Red.",
+    tr("No se pudo conectar con {0}. Puede estar caído o bloqueado por tu operador; ", host) +
+        tr("activa DNS seguro o configura un proxy en Ajustes › Red."),
     cause
 )
 
@@ -295,7 +296,7 @@ class NetworkHelper(
         imageCallFactory.newCall(request).await().use { response ->
             if (!response.isSuccessful) throw HttpException(response.code, url)
             val type = response.header("Content-Type").orEmpty()
-            if (!type.startsWith("image/")) throw IOException("No es una imagen: ${type.ifBlank { "sin tipo" }} en ${response.request.url.host}")
+            if (!type.startsWith("image/")) throw IOException(tr("No es una imagen: {0} en {1}", type.ifBlank { "sin tipo" }, response.request.url.host))
             type
         }
     }
@@ -401,7 +402,7 @@ private class RejectWebPagesInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val response = chain.proceed(chain.request())
         val isPage = response.header("Content-Type")?.startsWith("text/html", ignoreCase = true) == true
-        return if (response.isSuccessful && isPage) response.newBuilder().code(415).message("No es una imagen").build() else response
+        return if (response.isSuccessful && isPage) response.newBuilder().code(415).message(tr("No es una imagen")).build() else response
     }
 }
 
@@ -480,8 +481,8 @@ private class TorGuardInterceptor(private val directDomains: Set<String>, privat
         if (TorRouting.bypasses(host, directDomains) || TorRouting.isLoopback(host)) return chain.proceed(chain.request())
         throw TorNotReadyException(
             when (state.phase) {
-                TorPhase.ERROR -> state.error ?: "Tor no está disponible"
-                else -> "Tor aún se está conectando. Espera unos segundos o desactívalo en Ajustes › Red."
+                TorPhase.ERROR -> state.error ?: tr("Tor no está disponible")
+                else -> tr("Tor aún se está conectando. Espera unos segundos o desactívalo en Ajustes › Red.")
             }
         )
     }

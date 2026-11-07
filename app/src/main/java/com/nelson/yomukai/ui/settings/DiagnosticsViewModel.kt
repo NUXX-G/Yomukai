@@ -6,6 +6,7 @@ import com.nelson.yomukai.AppContainer
 import com.nelson.yomukai.data.source.CatalogueSource
 import com.nelson.yomukai.data.source.DiagnosticStep
 import com.nelson.yomukai.data.source.SourceDiagnostics
+import com.nelson.yomukai.i18n.tr
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,7 +40,7 @@ class DiagnosticsViewModel(private val container: AppContainer) : ViewModel() {
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        listOf(DiagnosticStep("Diagnóstico", false, e.message ?: e::class.java.simpleName))
+        listOf(DiagnosticStep(tr("Diagnóstico"), false, e.message ?: e::class.java.simpleName))
     }
 
     /** Sources are tested one after another so the per-host rate limiter and the network are not flooded. */

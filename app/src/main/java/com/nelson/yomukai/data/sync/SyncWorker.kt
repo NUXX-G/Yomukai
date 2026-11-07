@@ -23,7 +23,7 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         // A dropped connection is retried later; a refused session waits for the user.
         return when {
             result.isSuccess -> Result.success()
-            result.exceptionOrNull()?.message?.contains("sesión") == true -> Result.success()
+            result.exceptionOrNull()?.message?.let { "sesión" in it || "session" in it } == true -> Result.success()
             runAttemptCount < 5 -> Result.retry()
             else -> Result.success()
         }

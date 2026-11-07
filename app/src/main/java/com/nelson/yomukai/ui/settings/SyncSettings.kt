@@ -27,6 +27,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.nelson.yomukai.data.sync.SyncState
+import com.nelson.yomukai.i18n.tr
 import kotlinx.coroutines.launch
 
 /**
@@ -46,29 +47,29 @@ fun ServerSyncItem(
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (!state.connected) {
             Text(
-                "Guarda tu biblioteca, categorías, progreso, historial, marcadores, fuentes y géneros excluidos en tu servidor de Yomukai, " +
-                    "y tenlos iguales en la web y en otros móviles. Es opcional: sin conectarte, todo se queda solo en este móvil.",
+                tr("Guarda tu biblioteca, categorías, progreso, historial, marcadores, fuentes y géneros excluidos en tu servidor de Yomukai, ") +
+                    tr("y tenlos iguales en la web y en otros móviles. Es opcional: sin conectarte, todo se queda solo en este móvil."),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Button(onClick = { connecting = true }) { Text("Conectar con mi servidor") }
+            Button(onClick = { connecting = true }) { Text(tr("Conectar con mi servidor")) }
         } else {
-            Text("Conectado como ${state.user}", style = MaterialTheme.typography.titleSmall)
+            Text(tr("Conectado como {0}", state.user), style = MaterialTheme.typography.titleSmall)
             Text(state.server.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            val last = if (state.lastSyncAt > 0) "Última vez: " + ago(state.lastSyncAt) else "Aún no se ha sincronizado"
+            val last = if (state.lastSyncAt > 0) tr("Última vez: ") + ago(state.lastSyncAt) else tr("Aún no se ha sincronizado")
             Text(last, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             state.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
             if (features != null && features.on("worker_jobs")) {
                 val home = if (features.workerOnline) {
-                    "Servidor de casa encendido" + (if (features.workerGpu) " (con GPU)" else "") + ": voces de calidad, OCR y subtítulos disponibles"
+                    tr("Servidor de casa encendido") + (if (features.workerGpu) tr(" (con GPU)") else "") + tr(": voces de calidad, OCR y subtítulos disponibles")
                 } else {
-                    "Servidor de casa apagado: lo pesado se hará cuando vuelva, o con este móvil"
+                    tr("Servidor de casa apagado: lo pesado se hará cuando vuelva, o con este móvil")
                 }
                 Text(home, style = MaterialTheme.typography.bodySmall, color = if (features.workerOnline) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(onClick = onSyncNow, enabled = !state.running) { Text(if (state.running) "Sincronizando..." else "Sincronizar ahora") }
-                TextButton(onClick = { confirmDisconnect = true }) { Text("Desconectar") }
+                OutlinedButton(onClick = onSyncNow, enabled = !state.running) { Text(if (state.running) "Sincronizando..." else tr("Sincronizar ahora")) }
+                TextButton(onClick = { confirmDisconnect = true }) { Text(tr("Desconectar")) }
                 if (state.running) CircularProgressIndicator(Modifier.padding(start = 4.dp), strokeWidth = 2.dp)
             }
         }
@@ -79,10 +80,10 @@ fun ServerSyncItem(
     if (confirmDisconnect) {
         AlertDialog(
             onDismissRequest = { confirmDisconnect = false },
-            title = { Text("¿Desconectar?") },
-            text = { Text("Lo que tienes en este móvil se queda aquí, y lo del servidor allí. Dejarán de sincronizarse.") },
-            confirmButton = { TextButton(onClick = { confirmDisconnect = false; onDisconnect() }) { Text("Desconectar") } },
-            dismissButton = { TextButton(onClick = { confirmDisconnect = false }) { Text("Cancelar") } }
+            title = { Text(tr("¿Desconectar?")) },
+            text = { Text(tr("Lo que tienes en este móvil se queda aquí, y lo del servidor allí. Dejarán de sincronizarse.")) },
+            confirmButton = { TextButton(onClick = { confirmDisconnect = false; onDisconnect() }) { Text(tr("Desconectar")) } },
+            dismissButton = { TextButton(onClick = { confirmDisconnect = false }) { Text(tr("Cancelar")) } }
         )
     }
 }
@@ -108,39 +109,39 @@ private fun ConnectDialog(onConnect: suspend (String, String, String, String?) -
 
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("Conectar con tu servidor") },
+        title = { Text(tr("Conectar con tu servidor")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "La dirección de tu web de Yomukai y tu usuario y contraseña de allí. Lo que ya tienes en este móvil se junta con lo del servidor; no se borra nada.",
+                    tr("La dirección de tu web de Yomukai y tu usuario y contraseña de allí. Lo que ya tienes en este móvil se junta con lo del servidor; no se borra nada."),
                     style = MaterialTheme.typography.bodySmall
                 )
                 OutlinedTextField(
-                    value = server, onValueChange = { server = it }, singleLine = true, label = { Text("Servidor") },
+                    value = server, onValueChange = { server = it }, singleLine = true, label = { Text(tr("Servidor")) },
                     placeholder = { Text("https://yomukai.tudominio.com") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next)
                 )
                 OutlinedTextField(
-                    value = user, onValueChange = { user = it }, singleLine = true, label = { Text("Usuario") },
+                    value = user, onValueChange = { user = it }, singleLine = true, label = { Text(tr("Usuario")) },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
                 )
                 OutlinedTextField(
-                    value = password, onValueChange = { password = it }, singleLine = true, label = { Text("Contraseña") },
+                    value = password, onValueChange = { password = it }, singleLine = true, label = { Text(tr("Contraseña")) },
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done)
                 )
                 if (needsCode) {
                     OutlinedTextField(
                         value = code, onValueChange = { code = it.take(20) }, singleLine = true,
-                        label = { Text("Código de verificación") },
-                        supportingText = { Text("De tu app de autenticación, o un código de recuperación") },
+                        label = { Text(tr("Código de verificación")) },
+                        supportingText = { Text(tr("De tu app de autenticación, o un código de recuperación")) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done)
                     )
                 }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                 if (busy) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     CircularProgressIndicator(strokeWidth = 2.dp)
-                    Text("Conectando y juntando tus datos...", style = MaterialTheme.typography.bodySmall)
+                    Text(tr("Conectando y juntando tus datos..."), style = MaterialTheme.typography.bodySmall)
                 }
             }
         },
@@ -165,9 +166,9 @@ private fun ConnectDialog(onConnect: suspend (String, String, String, String?) -
                     }
                     if (needsLocalNetwork(context, server)) { afterPermission = go; localNetwork.launch(LOCAL_NETWORK) } else go()
                 }
-            ) { Text("Conectar") }
+            ) { Text(tr("Conectar")) }
         },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Cancelar") } }
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text(tr("Cancelar")) } }
     )
 }
 
@@ -175,10 +176,10 @@ private fun ConnectDialog(onConnect: suspend (String, String, String, String?) -
 private fun ago(at: Long): String {
     val minutes = (System.currentTimeMillis() - at).coerceAtLeast(0) / 60_000
     return when {
-        minutes < 1 -> "hace un momento"
+        minutes < 1 -> tr("hace un momento")
         minutes < 60 -> "hace $minutes min"
         minutes < 24 * 60 -> "hace ${minutes / 60} h"
-        else -> (minutes / (24 * 60)).let { d -> if (d == 1L) "hace 1 día" else "hace $d días" }
+        else -> (minutes / (24 * 60)).let { d -> if (d == 1L) tr("hace 1 día") else tr("hace {0} días", d) }
     }
 }
 

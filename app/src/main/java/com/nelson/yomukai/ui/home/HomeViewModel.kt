@@ -9,6 +9,7 @@ import com.nelson.yomukai.data.local.HistoryWithMedia
 import com.nelson.yomukai.data.source.CatalogueSource
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
+import com.nelson.yomukai.i18n.tr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -26,15 +27,15 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
 
 enum class TypeFilter(val label: String, val types: Set<MediaType>) {
-    ALL("Todo", MediaType.entries.toSet()),
-    MANGA("Manga", setOf(MediaType.MANGA)),
-    COMIC("Cómics", setOf(MediaType.COMIC)),
-    MANHWA("Manhwa", setOf(MediaType.MANHWA, MediaType.MANHUA)),
-    NOVEL("Novelas", setOf(MediaType.NOVEL)),
-    ANIME("Anime", setOf(MediaType.ANIME))
+    ALL(tr("Todo"), MediaType.entries.toSet()),
+    MANGA(tr("Manga"), setOf(MediaType.MANGA)),
+    COMIC(tr("Cómics"), setOf(MediaType.COMIC)),
+    MANHWA(tr("Manhwa"), setOf(MediaType.MANHWA, MediaType.MANHUA)),
+    NOVEL(tr("Novelas"), setOf(MediaType.NOVEL)),
+    ANIME(tr("Anime"), setOf(MediaType.ANIME))
 }
 
-enum class LanguageFilter(val label: String) { ALL("Todos"), ES("Español"), EN("Inglés"), ZH("Chino") }
+enum class LanguageFilter(val label: String) { ALL(tr("Todos")), ES(tr("Español")), EN(tr("Inglés")), ZH(tr("Chino")) }
 
 fun CatalogueSource.matches(language: LanguageFilter) =
     language == LanguageFilter.ALL || this.language == "MULTI" || this.language == language.name
@@ -123,7 +124,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                 async {
                     val result = withTimeoutOrNull(SOURCE_TIMEOUT_MS) {
                         source.fetchLatestUpdates(1).mapCatching { container.contentFilter.screen(source, it) }
-                    } ?: Result.failure(IOException("${source.name} tardó demasiado en responder"))
+                    } ?: Result.failure(IOException(tr("{0} tardó demasiado en responder", source.name)))
                     updateSection(source.id) {
                         val fresh = result.getOrDefault(emptyList())
                         val failure = result.exceptionOrNull()?.also { e -> Log.w("YomukaiHome", "Fuente ${source.id} falló", e) }
@@ -131,7 +132,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                             items = fresh.ifEmpty { it.items },
                             isLoading = false,
                             // Old titles beat an error message; a real error only shows when there is nothing else.
-                            error = failure?.takeIf { _ -> it.items.isEmpty() }?.let { e -> e.message ?: "Error de conexión" }
+                            error = failure?.takeIf { _ -> it.items.isEmpty() }?.let { e -> e.message ?: tr("Error de conexión") }
                         )
                     }
                 }

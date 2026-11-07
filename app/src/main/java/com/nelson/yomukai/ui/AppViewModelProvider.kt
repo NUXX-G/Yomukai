@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.nelson.yomukai.AppContainer
 import com.nelson.yomukai.YomukaiApplication
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.browse.BrowseViewModel
 import com.nelson.yomukai.ui.details.DetailsViewModel
 import com.nelson.yomukai.ui.home.HomeViewModel
@@ -19,7 +20,7 @@ import com.nelson.yomukai.ui.search.SearchViewModel
 import com.nelson.yomukai.ui.settings.DiagnosticsViewModel
 import com.nelson.yomukai.ui.settings.SettingsViewModel
 
-val LocalAppContainer = staticCompositionLocalOf<AppContainer> { error("AppContainer no proporcionado") }
+val LocalAppContainer = staticCompositionLocalOf<AppContainer> { error(tr("AppContainer no proporcionado")) }
 
 private fun CreationExtras.container(): AppContainer =
     (this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as YomukaiApplication).container

@@ -1,36 +1,37 @@
 package com.nelson.yomukai.data.prefs
 
 import android.content.Context
+import com.nelson.yomukai.i18n.tr
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-enum class ThemeMode(val displayName: String) { SYSTEM("Sistema"), LIGHT("Claro"), DARK("Oscuro") }
+enum class ThemeMode(val displayName: String) { SYSTEM(tr("Sistema")), LIGHT(tr("Claro")), DARK(tr("Oscuro")) }
 
 enum class MangaReaderMode(val displayName: String) {
-    WEBTOON("Vertical (Webtoon)"),
-    PAGED_LTR("Páginas (izq. → der.)"),
-    PAGED_RTL("Páginas (der. → izq.)")
+    WEBTOON(tr("Vertical (Webtoon)")),
+    PAGED_LTR(tr("Páginas (izq. → der.)")),
+    PAGED_RTL(tr("Páginas (der. → izq.)"))
 }
 
 enum class ReaderFit(val displayName: String) {
-    SCREEN("Ajustar a pantalla"), WIDTH("Ajustar al ancho"), HEIGHT("Ajustar al alto")
+    SCREEN(tr("Ajustar a pantalla")), WIDTH(tr("Ajustar al ancho")), HEIGHT(tr("Ajustar al alto"))
 }
 
 enum class ReaderColorFilter(val displayName: String) {
-    NONE("Ninguno"), GRAYSCALE("Gris"), SEPIA("Sepia"), INVERT("Invertir")
+    NONE(tr("Ninguno")), GRAYSCALE(tr("Gris")), SEPIA(tr("Sepia")), INVERT(tr("Invertir"))
 }
 
-enum class OrientationLock(val displayName: String) { AUTO("Automática"), PORTRAIT("Vertical"), LANDSCAPE("Horizontal") }
+enum class OrientationLock(val displayName: String) { AUTO(tr("Automática")), PORTRAIT(tr("Vertical")), LANDSCAPE(tr("Horizontal")) }
 
 enum class NovelTheme(val displayName: String, val background: Long, val text: Long) {
-    DARK("Oscuro", 0xFF1B1B1F, 0xFFE3E2E6),
-    OLED("OLED", 0xFF000000, 0xFFC8C8C8),
-    SEPIA("Sepia", 0xFFF4ECD8, 0xFF5B4636),
-    LIGHT("Claro", 0xFFFFFFFF, 0xFF1F1F1F)
+    DARK(tr("Oscuro"), 0xFF1B1B1F, 0xFFE3E2E6),
+    OLED(tr("OLED"), 0xFF000000, 0xFFC8C8C8),
+    SEPIA(tr("Sepia"), 0xFFF4ECD8, 0xFF5B4636),
+    LIGHT(tr("Claro"), 0xFFFFFFFF, 0xFF1F1F1F)
 }
 
-enum class NovelFont(val displayName: String) { SERIF("Serif"), SANS("Sans"), MONO("Mono") }
+enum class NovelFont(val displayName: String) { SERIF(tr("Serif")), SANS(tr("Sans")), MONO("Mono") }
 
 data class MangaReaderSettings(
     val mode: MangaReaderMode = MangaReaderMode.WEBTOON,
@@ -70,10 +71,10 @@ data class NovelReaderSettings(
     val ttsVoices: Map<String, String> = emptyMap()
 )
 
-enum class ProxyType(val displayName: String) { NONE("Sin proxy"), HTTP("HTTP"), SOCKS("SOCKS5 (Tor/Orbot)") }
+enum class ProxyType(val displayName: String) { NONE(tr("Sin proxy")), HTTP("HTTP"), SOCKS(tr("SOCKS5 (Tor/Orbot)")) }
 
 /** Where Tor comes from: embedded (tor-android), an external Orbot on 127.0.0.1:9050, or not used. */
-enum class TorMode(val displayName: String) { OFF("Desactivado"), BUILTIN("Tor integrado"), ORBOT("Orbot (externo)") }
+enum class TorMode(val displayName: String) { OFF(tr("Desactivado")), BUILTIN(tr("Tor integrado")), ORBOT(tr("Orbot (externo)")) }
 
 /** Presets for the capture browser start page / search; the user can also type any address. */
 enum class BrowserHome(val displayName: String, val url: String, val searchUrl: String) {
@@ -82,9 +83,9 @@ enum class BrowserHome(val displayName: String, val url: String, val searchUrl: 
         "https://duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion/",
         "https://duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion/?q="
     ),
-    DDG_HTML("DuckDuckGo (HTML ligero)", "https://html.duckduckgo.com/html/", "https://html.duckduckgo.com/html/?q="),
-    BRAVE("Brave Search", "https://search.brave.com/", "https://search.brave.com/search?q="),
-    AHMIA("Ahmia (buscador de .onion)", "https://ahmia.fi/", "https://ahmia.fi/search/?q=")
+    DDG_HTML(tr("DuckDuckGo (HTML ligero)"), "https://html.duckduckgo.com/html/", "https://html.duckduckgo.com/html/?q="),
+    BRAVE(tr("Brave Search"), "https://search.brave.com/", "https://search.brave.com/search?q="),
+    AHMIA(tr("Ahmia (buscador de .onion)"), "https://ahmia.fi/", "https://ahmia.fi/search/?q=")
 }
 
 /** Genres to hide, everywhere and per source id. */
@@ -111,7 +112,7 @@ data class NetworkSettings(
     val browserHome: BrowserHome = BrowserHome.DDG_ONION
 )
 
-enum class ComicFormat(val displayName: String) { CBZ("CBZ (un archivo)"), IMAGES("Carpeta de imágenes") }
+enum class ComicFormat(val displayName: String) { CBZ(tr("CBZ (un archivo)")), IMAGES(tr("Carpeta de imágenes")) }
 
 enum class NovelFormat(val displayName: String) { EPUB("EPUB"), TXT("TXT") }
 

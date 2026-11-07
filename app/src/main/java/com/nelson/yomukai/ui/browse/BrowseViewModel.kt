@@ -8,6 +8,7 @@ import com.nelson.yomukai.AppContainer
 import com.nelson.yomukai.data.source.FilterValues
 import com.nelson.yomukai.data.source.SourceFilter
 import com.nelson.yomukai.domain.model.MediaItem
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.navigation.Routes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -64,7 +65,7 @@ class BrowseViewModel(handle: SavedStateHandle, private val container: AppContai
                     val hidden = container.contentFilter.check(source, items)
                     if (hidden.isNotEmpty()) _state.update { st -> st.copy(items = st.items.filterNot { it.id in hidden }) }
                 }
-                .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message ?: "Error de conexión") } }
+                .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message ?: tr("Error de conexión")) } }
         }
     }
 
@@ -104,7 +105,7 @@ class BrowseViewModel(handle: SavedStateHandle, private val container: AppContai
                         )
                     }
                 }
-                .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message ?: "Error de conexión") } }
+                .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message ?: tr("Error de conexión")) } }
         }
     }
 }

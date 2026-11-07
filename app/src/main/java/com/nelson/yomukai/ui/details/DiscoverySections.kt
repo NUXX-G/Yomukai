@@ -34,6 +34,7 @@ import com.nelson.yomukai.data.discovery.Alternative
 import com.nelson.yomukai.data.discovery.MatchConfidence
 import com.nelson.yomukai.data.discovery.RelatedTitle
 import com.nelson.yomukai.domain.model.MediaItem
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.components.AppSpinner
 import com.nelson.yomukai.ui.components.LanguageTag
 import com.nelson.yomukai.ui.components.MediaCard
@@ -45,7 +46,7 @@ fun SimilarSection(state: SimilarState, onLoad: () -> Unit, onOpen: (RelatedTitl
     LaunchedEffect(Unit) { onLoad() }
     if (!state.loading && state.items.isEmpty()) return
     Column {
-        SectionHeader("Similares")
+        SectionHeader(tr("Similares"))
         if (state.loading) {
             AppSpinner(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).size(24.dp), strokeWidth = 2.5.dp)
         } else {
@@ -68,15 +69,15 @@ fun SimilarSection(state: SimilarState, onLoad: () -> Unit, onOpen: (RelatedTitl
 
 /** "episodio" or "capítulos", agreeing with [count]. */
 internal fun chapterNoun(count: Int, isAnime: Boolean) = when {
-    isAnime -> if (count == 1) "episodio" else "episodios"
-    else -> if (count == 1) "capítulo" else "capítulos"
+    isAnime -> if (count == 1) "episodio" else tr("episodios")
+    else -> if (count == 1) tr("capítulo") else tr("capítulos")
 }
 
 /** "12 capítulos • hasta el 12,5". */
 private fun chaptersLine(alternative: Alternative, isAnime: Boolean): String {
-    val count = alternative.chapterCount ?: return "No se pudo leer la lista de " + chapterNoun(2, isAnime)
+    val count = alternative.chapterCount ?: return tr("No se pudo leer la lista de ") + chapterNoun(2, isAnime)
     val last = alternative.lastChapter?.takeIf { it > 0f }?.let { if (it % 1f == 0f) it.toInt().toString() else it.toString() }
-    return "$count ${chapterNoun(count, isAnime)}" + (last?.let { " • hasta el $it" } ?: "")
+    return "$count ${chapterNoun(count, isAnime)}" + (last?.let { tr(" • hasta el {0}", it) } ?: "")
 }
 
 @Composable
@@ -88,7 +89,7 @@ private fun AlternativeRow(alternative: Alternative, isAnime: Boolean, onClick: 
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(alternative.sourceName)
                 LanguageTag(alternative.language)
-                if (sure) Icon(Icons.Default.Verified, "Misma obra", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                if (sure) Icon(Icons.Default.Verified, tr("Misma obra"), Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
             }
         },
         supportingContent = {
@@ -97,8 +98,8 @@ private fun AlternativeRow(alternative: Alternative, isAnime: Boolean, onClick: 
                 Text(chaptersLine(alternative, isAnime), color = MaterialTheme.colorScheme.primary)
                 if (!sure) {
                     Text(
-                        if (alternative.confidence == MatchConfidence.DIFFERENT_AUTHOR) "Mismo título, otro autor: puede ser otra obra"
-                        else "Mismo título, sin confirmar que sea la misma obra",
+                        if (alternative.confidence == MatchConfidence.DIFFERENT_AUTHOR) tr("Mismo título, otro autor: puede ser otra obra")
+                        else tr("Mismo título, sin confirmar que sea la misma obra"),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error
                     )
@@ -122,9 +123,9 @@ fun AlternativesSheet(
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
-            Text("Otras fuentes", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp))
+            Text(tr("Otras fuentes"), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp))
             Text(
-                "Aquí, en $currentSource: $currentCount ${chapterNoun(currentCount, isAnime)}",
+                tr("Aquí, en {0}: {1} {2}", currentSource, currentCount, chapterNoun(currentCount, isAnime)),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
@@ -136,11 +137,11 @@ fun AlternativesSheet(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     AppSpinner(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    Text("Buscando en tus fuentes...", style = MaterialTheme.typography.bodyMedium)
+                    Text(tr("Buscando en tus fuentes..."), style = MaterialTheme.typography.bodyMedium)
                 }
             } else if (state.items.isEmpty()) {
                 Text(
-                    "No está en ninguna otra de tus fuentes activas.",
+                    tr("No está en ninguna otra de tus fuentes activas."),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
                 )
@@ -173,17 +174,17 @@ fun LocateSheet(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     AppSpinner(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    Text("Buscando en tus fuentes...", style = MaterialTheme.typography.bodyMedium)
+                    Text(tr("Buscando en tus fuentes..."), style = MaterialTheme.typography.bodyMedium)
                 }
                 state.options.isEmpty() -> Column(Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) {
                     Text(
-                        "Ninguna de tus fuentes activas la tiene con este nombre.",
+                        tr("Ninguna de tus fuentes activas la tiene con este nombre."),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     if (onSearch != null) {
                         TextButton(onClick = { onSearch(state.title) }, modifier = Modifier.padding(top = 4.dp)) {
                             Icon(Icons.Default.Search, null, Modifier.size(18.dp))
-                            Text("Buscar «${state.title}» en todas", modifier = Modifier.padding(start = 6.dp), maxLines = 1)
+                            Text(tr("Buscar «{0}» en todas", state.title), modifier = Modifier.padding(start = 6.dp), maxLines = 1)
                         }
                     }
                 }
@@ -197,7 +198,7 @@ fun LocateSheet(
                                     Text(option.item.title, maxLines = 1)
                                     if (option.approximate) {
                                         Text(
-                                            "Nombre parecido: comprueba que es la misma obra",
+                                            tr("Nombre parecido: comprueba que es la misma obra"),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )

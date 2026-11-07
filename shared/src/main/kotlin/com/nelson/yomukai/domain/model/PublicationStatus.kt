@@ -1,12 +1,14 @@
 package com.nelson.yomukai.domain.model
 
+import com.nelson.yomukai.i18n.tr
+
 /** Normalizes the free-form status strings sources return into a small set the UI can badge. */
 enum class PublicationStatus(val displayName: String) {
-    ONGOING("En emisión"),
-    COMPLETED("Finalizado"),
-    HIATUS("En pausa"),
-    CANCELLED("Cancelado"),
-    UNKNOWN("Desconocido");
+    ONGOING(tr("En emisión")),
+    COMPLETED(tr("Finalizado")),
+    HIATUS(tr("En pausa")),
+    CANCELLED(tr("Cancelado")),
+    UNKNOWN(tr("Desconocido"));
 
     companion object {
         fun parse(raw: String): PublicationStatus {

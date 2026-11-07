@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.nelson.yomukai.i18n.tr
 
 /** Cached metadata for any title the user has opened; [inLibrary] marks favourites. */
 @Entity(
@@ -37,12 +38,12 @@ data class MediaEntity(
 )
 
 enum class ReadingStatus(val displayName: String) {
-    NONE("Sin estado"),
-    READING("Leyendo"),
-    PLAN_TO_READ("Pendiente"),
-    COMPLETED("Completado"),
-    ON_HOLD("En pausa"),
-    DROPPED("Abandonado");
+    NONE(tr("Sin estado")),
+    READING(tr("Leyendo")),
+    PLAN_TO_READ(tr("Pendiente")),
+    COMPLETED(tr("Completado")),
+    ON_HOLD(tr("En pausa")),
+    DROPPED(tr("Abandonado"));
 
     companion object {
         fun parse(name: String?) = entries.firstOrNull { it.name == name } ?: NONE

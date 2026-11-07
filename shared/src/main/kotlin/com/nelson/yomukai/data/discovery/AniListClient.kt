@@ -14,6 +14,7 @@ import com.nelson.yomukai.data.source.str
 import com.nelson.yomukai.data.source.strings
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
+import com.nelson.yomukai.i18n.tr
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.IOException
@@ -39,8 +40,8 @@ data class RelatedTitle(
 
 /** What the random pick may be; a null [type] leaves that to chance too. */
 enum class RandomKind(val label: String, val type: MediaType?) {
-    ANY("Lo que sea", null), ANIME("Anime", MediaType.ANIME), MANGA("Manga", MediaType.MANGA),
-    MANHWA("Manhwa", MediaType.MANHWA), NOVEL("Novela", MediaType.NOVEL)
+    ANY(tr("Lo que sea"), null), ANIME(tr("Anime"), MediaType.ANIME), MANGA(tr("Manga"), MediaType.MANGA),
+    MANHWA(tr("Manhwa"), MediaType.MANHWA), NOVEL(tr("Novela"), MediaType.NOVEL)
 }
 
 /** What AniList knows about a title. */

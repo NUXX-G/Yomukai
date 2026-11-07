@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.nelson.yomukai.data.local.BookmarkEntity
+import com.nelson.yomukai.i18n.tr
 
 /** Bookmarks of the current title, newest first. [positionLabel] says "Página 4" / "Párrafo 12". */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,10 +35,10 @@ fun BookmarksSheet(
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.navigationBarsPadding()) {
-            Text("Marcadores", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp))
+            Text(tr("Marcadores"), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp))
             if (bookmarks.isEmpty()) {
                 Text(
-                    "Aún no hay marcadores. Usa el icono de marcador del lector para guardar tu posición.",
+                    tr("Aún no hay marcadores. Usa el icono de marcador del lector para guardar tu posición."),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(24.dp)
                 )
@@ -50,7 +51,7 @@ fun BookmarksSheet(
                         supportingContent = bookmark.label.takeIf { it.isNotBlank() }?.let { { Text(it, maxLines = 2) } },
                         leadingContent = { Icon(Icons.Default.Bookmark, null) },
                         trailingContent = {
-                            IconButton(onClick = { onDelete(bookmark) }) { Icon(Icons.Default.Delete, "Eliminar marcador") }
+                            IconButton(onClick = { onDelete(bookmark) }) { Icon(Icons.Default.Delete, tr("Eliminar marcador")) }
                         },
                         modifier = Modifier.clickable { onOpen(bookmark); onDismiss() }
                     )

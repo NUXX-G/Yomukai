@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.nelson.yomukai.data.prefs.NovelReaderSettings
+import com.nelson.yomukai.i18n.tr
 
 /**
  * Voices for reading aloud: natural (the server's) or the phone's, and which voice reads the
@@ -46,11 +47,11 @@ fun SpeechVoicesSection(
     val naturalHere = natural.filter { it.lang == lang }
     val useNatural = naturalHere.isNotEmpty() && settings.ttsEngine != "system"
 
-    Text("Voz", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    Text(tr("Voz"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     if (naturalHere.isNotEmpty()) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = useNatural, onClick = { onUpdate { it.copy(ttsEngine = "natural") } }, label = { Text("Naturales del servidor") })
-            FilterChip(selected = !useNatural, onClick = { onUpdate { it.copy(ttsEngine = "system") } }, label = { Text("Del móvil") })
+            FilterChip(selected = useNatural, onClick = { onUpdate { it.copy(ttsEngine = "natural") } }, label = { Text(tr("Naturales del servidor")) })
+            FilterChip(selected = !useNatural, onClick = { onUpdate { it.copy(ttsEngine = "system") } }, label = { Text(tr("Del móvil")) })
         }
     }
 
@@ -62,7 +63,7 @@ fun SpeechVoicesSection(
         val key = "$engine.$lang.$role"
         val current = settings.ttsVoices[key]
         val options: List<Pair<String, String>> = if (useNatural) naturalHere.map { it.id to it.display() }
-        else listOf("" to "La del sistema") + system.map { it.name to it.display() }
+        else listOf("" to tr("La del sistema")) + system.map { it.name to it.display() }
         val shownId = current ?: if (useNatural) defaults.getValue(role) else ""
         VoicePicker(
             label = label,
@@ -73,13 +74,13 @@ fun SpeechVoicesSection(
         )
     }
     Text(
-        if (useNatural) "Voces neuronales de tu servidor de Yomukai. La primera vez que se usa una, el servidor la descarga (unos segundos)."
-        else if (naturalHere.isEmpty()) "Para voces más naturales conecta la app a un servidor de Yomukai (Ajustes › Sincronizar), o instala voces de calidad alta en Ajustes de Android › Texto a voz."
-        else "Las de calidad más alta salen primero; las «con internet» suenan mejor pero necesitan conexión.",
+        if (useNatural) tr("Voces neuronales de tu servidor de Yomukai. La primera vez que se usa una, el servidor la descarga (unos segundos).")
+        else if (naturalHere.isEmpty()) tr("Para voces más naturales conecta la app a un servidor de Yomukai (Ajustes › Sincronizar), o instala voces de calidad alta en Ajustes de Android › Texto a voz.")
+        else tr("Las de calidad más alta salen primero; las «con internet» suenan mejor pero necesitan conexión."),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
-    SettingSwitch("Voces por personaje (los diálogos con la voz de quien habla)", settings.ttsCharacters) { v -> onUpdate { it.copy(ttsCharacters = v) } }
+    SettingSwitch(tr("Voces por personaje (los diálogos con la voz de quien habla)"), settings.ttsCharacters) { v -> onUpdate { it.copy(ttsCharacters = v) } }
 }
 
 @Composable
@@ -101,6 +102,6 @@ private fun VoicePicker(label: String, value: String, options: List<Pair<String,
                 }
             }
         }
-        IconButton(onClick = onSample) { Icon(Icons.Default.PlayArrow, contentDescription = "Probar la voz") }
+        IconButton(onClick = onSample) { Icon(Icons.Default.PlayArrow, contentDescription = tr("Probar la voz")) }
     }
 }

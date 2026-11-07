@@ -123,6 +123,7 @@ import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
 import com.nelson.yomukai.domain.model.PublicationStatus
 import com.nelson.yomukai.domain.model.VideoSource
+import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.LocalAppContainer
 import com.nelson.yomukai.ui.components.AppSpinner
@@ -256,33 +257,33 @@ private fun DetailsContent(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = fill)
                 ),
                 navigationIcon = {
-                    IconButton(onClick = onBack, colors = discs) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver") }
+                    IconButton(onClick = onBack, colors = discs) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Volver")) }
                 },
                 actions = {
                     var menu by remember { mutableStateOf(false) }
-                    IconButton(onClick = { menu = true }, colors = discs) { Icon(Icons.Default.MoreVert, contentDescription = "Más") }
+                    IconButton(onClick = { menu = true }, colors = discs) { Icon(Icons.Default.MoreVert, contentDescription = tr("Más")) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(
-                            text = { Text("Descargar todo") },
+                            text = { Text(tr("Descargar todo")) },
                             leadingIcon = { Icon(Icons.Default.Download, null) },
                             onClick = { menu = false; viewModel.downloadAll() }
                         )
                         DropdownMenuItem(
-                            text = { Text(if (state.isAnime) "Descargar no vistos" else "Descargar no leídos") },
+                            text = { Text(if (state.isAnime) tr("Descargar no vistos") else tr("Descargar no leídos")) },
                             leadingIcon = { Icon(Icons.Default.Download, null) },
                             onClick = { menu = false; viewModel.downloadUnread() }
                         )
                         DropdownMenuItem(
-                            text = { Text("Descargar un rango...") },
+                            text = { Text(tr("Descargar un rango...")) },
                             leadingIcon = { Icon(Icons.Default.Download, null) },
                             onClick = { menu = false; showRange = true }
                         )
                         DropdownMenuItem(
-                            text = { Text("Buscar en otras fuentes") },
+                            text = { Text(tr("Buscar en otras fuentes")) },
                             leadingIcon = { Icon(Icons.Default.Search, null) },
                             onClick = { menu = false; viewModel.openAlternatives() }
                         )
-                        DropdownMenuItem(text = { Text("Actualizar") }, onClick = { menu = false; viewModel.refresh() })
+                        DropdownMenuItem(text = { Text(tr("Actualizar")) }, onClick = { menu = false; viewModel.refresh() })
                     }
                 }
             )
@@ -298,8 +299,8 @@ private fun DetailsContent(
                         Text(
                             when {
                                 started -> "Continuar · $label"
-                                state.isAnime -> "Empezar a ver · $label"
-                                else -> "Empezar a leer · $label"
+                                state.isAnime -> tr("Empezar a ver · {0}", label)
+                                else -> tr("Empezar a leer · {0}", label)
                             },
                             maxLines = 1
                         )
@@ -322,8 +323,8 @@ private fun DetailsContent(
         ) {
             val media = state.media
             if (media == null) {
-                if (state.isRefreshing) LoadingState("Cargando información...")
-                else MessageState(state.error ?: "No se encontró el título", actionLabel = "Reintentar", onAction = viewModel::refresh)
+                if (state.isRefreshing) LoadingState(tr("Cargando información..."))
+                else MessageState(state.error ?: tr("No se encontró el título"), actionLabel = tr("Reintentar"), onAction = viewModel::refresh)
                 return@PullToRefreshBox
             }
 
@@ -347,8 +348,8 @@ private fun DetailsContent(
                         containerColor = MaterialTheme.colorScheme.background,
                         modifier = Modifier.padding(top = 8.dp)
                     ) {
-                        Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("${if (state.isAnime) "Episodios" else "Capítulos"} · $count") })
-                        Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Relacionadas") })
+                        Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(tr("{0} · {1}", if (state.isAnime) tr("Episodios") else tr("Capítulos"), count)) })
+                        Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(tr("Relacionadas")) })
                     }
                 }
                 if (tab == 0) {
@@ -365,7 +366,7 @@ private fun DetailsContent(
                     if (state.chapters.isEmpty() && !state.isRefreshing) {
                         item(key = "empty") {
                             Text(
-                                "No se encontraron capítulos.",
+                                tr("No se encontraron capítulos."),
                                 modifier = Modifier.padding(24.dp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -523,7 +524,7 @@ private fun Header(state: DetailsUiState, metadata: TitleMetadata?, insights: Ch
                         }
                         metadata?.malScore?.let { score ->
                             MetaDot()
-                            ScoreLabel(score, "MAL")
+                            ScoreLabel(score, tr("MAL"))
                         }
                     }
                 }
@@ -536,8 +537,8 @@ private fun Header(state: DetailsUiState, metadata: TitleMetadata?, insights: Ch
                         Icon(Icons.Default.HourglassEmpty, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            "Posible abandono o hiato prolongado" +
-                                (insights.lastUpdate?.let { " · último capítulo en ${formatMonthYear(it)}" } ?: ""),
+                            tr("Posible abandono o hiato prolongado") +
+                                (insights.lastUpdate?.let { tr(" · último capítulo en {0}", formatMonthYear(it)) } ?: ""),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onTertiaryContainer
                         )
@@ -553,7 +554,7 @@ private fun Header(state: DetailsUiState, metadata: TitleMetadata?, insights: Ch
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(Modifier.width(8.dp))
-                Text(if (media.inLibrary) "En tu biblioteca" else "Añadir a la biblioteca")
+                Text(if (media.inLibrary) tr("En tu biblioteca") else tr("Añadir a la biblioteca"))
             }
 
             // The source's synopsis is in the user's language; the official one fills in when it has none.
@@ -571,7 +572,7 @@ private fun Header(state: DetailsUiState, metadata: TitleMetadata?, insights: Ch
                         .clickable { expanded = !expanded }
                 )
                 Text(
-                    if (expanded) "Mostrar menos" else "Mostrar más",
+                    if (expanded) "Mostrar menos" else tr("Mostrar más"),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
@@ -579,7 +580,7 @@ private fun Header(state: DetailsUiState, metadata: TitleMetadata?, insights: Ch
                         .clickable { expanded = !expanded }
                 )
                 if (media.description.isBlank() && metadata?.scoreSource == "AniList") {
-                    Text("Sinopsis de AniList", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(tr("Sinopsis de AniList"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -593,7 +594,7 @@ private fun Header(state: DetailsUiState, metadata: TitleMetadata?, insights: Ch
                 }
                 if (metadata?.inferredGenres == true) {
                     Text(
-                        "Etiquetas deducidas de la sinopsis",
+                        tr("Etiquetas deducidas de la sinopsis"),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp)
@@ -652,7 +653,7 @@ private fun androidx.compose.foundation.layout.RowScope.ChapterNameAndKind(
         // Blurred on Android 12+; older phones cannot blur text, so the name is replaced.
         val canBlur = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S
         Text(
-            if (hideName && !canBlur) "  · título oculto" else "  $name",
+            if (hideName && !canBlur) tr("  · título oculto") else "  $name",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha * 0.9f),
             maxLines = 1,
@@ -663,7 +664,7 @@ private fun androidx.compose.foundation.layout.RowScope.ChapterNameAndKind(
     if (kind == null) return
     val filler = kind == com.nelson.yomukai.data.work.EpisodeKind.FILLER
     Text(
-        if (filler) "Relleno" else "Mixto",
+        if (filler) tr("Relleno") else tr("Mixto"),
         style = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.Bold,
         color = if (filler) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -686,7 +687,7 @@ private fun ChaptersBar(state: DetailsUiState, onToggleSort: () -> Unit, shield:
     ) {
         val readCount = state.chapters.count { it.read }
         Text(
-            if (readCount > 0) (if (state.isAnime) "$readCount vistos" else "$readCount leídos") + " de ${state.chapters.size}" else "",
+            if (readCount > 0) (if (state.isAnime) "$readCount vistos" else tr("{0} leídos", readCount)) + tr(" de {0}", state.chapters.size) else "",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f)
@@ -694,12 +695,12 @@ private fun ChaptersBar(state: DetailsUiState, onToggleSort: () -> Unit, shield:
         TextButton(onClick = onToggleShield) {
             Icon(if (shield) Icons.Default.VisibilityOff else Icons.Default.Visibility, null, Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text(if (shield) "Sin spoilers" else "Títulos visibles", style = MaterialTheme.typography.labelLarge)
+            Text(if (shield) tr("Sin spoilers") else tr("Títulos visibles"), style = MaterialTheme.typography.labelLarge)
         }
         TextButton(onClick = onToggleSort) {
             Icon(Icons.AutoMirrored.Filled.Sort, null, Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text(if (state.sortDescending) "Más recientes" else "Desde el principio", style = MaterialTheme.typography.labelLarge)
+            Text(if (state.sortDescending) tr("Más recientes") else tr("Desde el principio"), style = MaterialTheme.typography.labelLarge)
         }
     }
 }
@@ -724,7 +725,7 @@ private fun IntegrityNotice(issues: List<ChapterIssue>, isAnime: Boolean) {
                 Spacer(Modifier.width(8.dp))
                 Text(
                     if (issues.size == 1) ChapterIntegrity.describe(issues.first(), isAnime)
-                    else "La lista de la fuente tiene ${issues.size} irregularidades",
+                    else tr("La lista de la fuente tiene {0} irregularidades", issues.size),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f)
@@ -737,7 +738,7 @@ private fun IntegrityNotice(issues: List<ChapterIssue>, isAnime: Boolean) {
                     }
                 }
                 Text(
-                    "Viene de la fuente, no de la app. Prueba «Buscar en otras fuentes» si falta algo.",
+                    tr("Viene de la fuente, no de la app. Prueba «Buscar en otras fuentes» si falta algo."),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp)
@@ -776,7 +777,7 @@ private fun RelatedTab(
         when {
             loading -> AppSpinner(Modifier.padding(16.dp).size(24.dp), strokeWidth = 2.5.dp)
             relations.isNotEmpty() -> {
-                SectionHeader("Universo de la obra")
+                SectionHeader(tr("Universo de la obra"))
                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     itemsIndexed(relations, key = { index, _ -> index }) { _, related ->
                         RelatedCard(
@@ -790,13 +791,13 @@ private fun RelatedTab(
         SimilarSection(state = similar, onLoad = onLoadSimilar, onOpen = onOpenRelated)
         AssistChip(
             onClick = onOtherSources,
-            label = { Text("Buscar en otras fuentes") },
+            label = { Text(tr("Buscar en otras fuentes")) },
             leadingIcon = { Icon(Icons.Default.Search, null, Modifier.size(18.dp)) },
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
         )
         if (!loading && relations.isEmpty() && !similar.loading && similar.items.isEmpty()) {
             Text(
-                "No se conocen obras relacionadas.",
+                tr("No se conocen obras relacionadas."),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp)
@@ -849,10 +850,10 @@ private fun ChapterRow(
                     chapter.read -> null
                     // Episodes store seconds in lastPageRead/totalPages, not pages.
                     isAnime -> if (chapter.lastPageRead > 0 && chapter.totalPages > 0) {
-                        "Vas por ${formatEpisodeTime(chapter.lastPageRead)} de ${formatEpisodeTime(chapter.totalPages)}"
+                        tr("Vas por {0} de {1}", formatEpisodeTime(chapter.lastPageRead), formatEpisodeTime(chapter.totalPages))
                     } else null
-                    !isNovel && chapter.lastPageRead > 0 && chapter.totalPages > 0 -> "Página ${chapter.lastPageRead + 1} de ${chapter.totalPages}"
-                    isNovel && chapter.progress > 0.01f -> "${(chapter.progress * 100).toInt()}% leído"
+                    !isNovel && chapter.lastPageRead > 0 && chapter.totalPages > 0 -> tr("Página {0} de {1}", chapter.lastPageRead + 1, chapter.totalPages)
+                    isNovel && chapter.progress > 0.01f -> tr("{0}% leído", (chapter.progress * 100).toInt())
                     else -> null
                 }
                 if (chapter.dateUploaded.isNotBlank() || progressText != null) {
@@ -879,12 +880,12 @@ private fun ChapterRow(
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(
-                text = { Text(if (chapter.read) "Marcar como no visto/leído" else "Marcar como visto/leído") },
+                text = { Text(if (chapter.read) tr("Marcar como no visto/leído") else tr("Marcar como visto/leído")) },
                 leadingIcon = { Icon(Icons.Default.CheckCircle, null) },
                 onClick = { menu = false; onToggleRead() }
             )
-            DropdownMenuItem(text = { Text("Marcar anteriores como leídos") }, onClick = { menu = false; onMarkPrevious() })
-            DropdownMenuItem(text = { Text("Quitar la marca a los anteriores") }, onClick = { menu = false; onUnmarkPrevious() })
+            DropdownMenuItem(text = { Text(tr("Marcar anteriores como leídos")) }, onClick = { menu = false; onMarkPrevious() })
+            DropdownMenuItem(text = { Text(tr("Quitar la marca a los anteriores")) }, onClick = { menu = false; onUnmarkPrevious() })
         }
     }
 }
@@ -896,7 +897,7 @@ private fun ReadToggle(read: Boolean, isAnime: Boolean, onToggle: () -> Unit) {
         if (read) {
             Icon(
                 Icons.Default.CheckCircle,
-                contentDescription = if (isAnime) "Marcar como no visto" else "Marcar como no leído",
+                contentDescription = if (isAnime) tr("Marcar como no visto") else tr("Marcar como no leído"),
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
             )
@@ -922,13 +923,13 @@ internal fun formatEpisodeTime(seconds: Int): String {
 private fun DownloadIndicator(download: DownloadEntity?, onDownload: () -> Unit, onDelete: () -> Unit) {
     when (download?.status) {
         null -> IconButton(onClick = onDownload) {
-            Icon(Icons.Default.Download, contentDescription = "Descargar", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f))
+            Icon(Icons.Default.Download, contentDescription = tr("Descargar"), modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f))
         }
         DownloadStatus.COMPLETED -> IconButton(onClick = onDelete) {
-            Icon(Icons.Default.DownloadDone, contentDescription = "Borrar descarga", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f))
+            Icon(Icons.Default.DownloadDone, contentDescription = tr("Borrar descarga"), modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f))
         }
         DownloadStatus.FAILED -> IconButton(onClick = onDownload) {
-            Icon(Icons.Default.ErrorOutline, contentDescription = "Reintentar descarga", tint = MaterialTheme.colorScheme.error)
+            Icon(Icons.Default.ErrorOutline, contentDescription = tr("Reintentar descarga"), tint = MaterialTheme.colorScheme.error)
         }
         DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING -> IconButton(onClick = onDelete) {
             val progress = if (download.total > 0) download.progress.toFloat() / download.total else 0f
@@ -956,15 +957,15 @@ private fun FailedDownloadDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("La descarga falló") },
+        title = { Text(tr("La descarga falló")) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(error ?: "Error desconocido", color = MaterialTheme.colorScheme.error)
+                Text(error ?: tr("Error desconocido"), color = MaterialTheme.colorScheme.error)
                 if (isAnime) {
-                    Text("Elige con qué servidor reintentar:", style = MaterialTheme.typography.titleSmall)
+                    Text(tr("Elige con qué servidor reintentar:"), style = MaterialTheme.typography.titleSmall)
                     when {
                         servers == null -> AppSpinner(Modifier.size(24.dp))
-                        servers.isFailure -> Text("No se pudieron cargar los servidores: ${servers.exceptionOrNull()?.message}")
+                        servers.isFailure -> Text(tr("No se pudieron cargar los servidores: {0}", servers.exceptionOrNull()?.message))
                         else -> {
                             val all = servers.getOrThrow()
                             all.filter(EpisodeServers::isDownloadable).forEach { server ->
@@ -973,15 +974,15 @@ private fun FailedDownloadDialog(
                                 }
                             }
                             EpisodeServers.browserOnly(all).takeIf { it.isNotEmpty() }?.let { names ->
-                                Text("Solo en el navegador: ${names.joinToString(", ")}", style = MaterialTheme.typography.bodySmall)
+                                Text(tr("Solo en el navegador: {0}", names.joinToString(", ")), style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onRetry(null) }) { Text(if (isAnime) "Probar todos" else "Reintentar") } },
-        dismissButton = { TextButton(onClick = onCancel) { Text("Quitar descarga") } }
+        confirmButton = { TextButton(onClick = { onRetry(null) }) { Text(if (isAnime) tr("Probar todos") else tr("Reintentar")) } },
+        dismissButton = { TextButton(onClick = onCancel) { Text(tr("Quitar descarga")) } }
     )
 }
 
@@ -1007,7 +1008,7 @@ private fun LibraryControls(
         Box {
             AssistChip(
                 onClick = { statusMenu = true },
-                label = { Text("Estado: " + state.readingStatus.displayName) },
+                label = { Text(tr("Estado: ") + state.readingStatus.displayName) },
                 leadingIcon = { Icon(Icons.Default.Bookmark, null, Modifier.size(18.dp)) }
             )
             DropdownMenu(expanded = statusMenu, onDismissRequest = { statusMenu = false }) {
@@ -1023,13 +1024,13 @@ private fun LibraryControls(
         val selectedNames = state.categories.filter { it.id in state.selectedCategoryIds }.map { it.name }
         AssistChip(
             onClick = { categoriesDialog = true },
-            label = { Text(if (selectedNames.isEmpty()) "Categorías" else selectedNames.joinToString(", "), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            label = { Text(if (selectedNames.isEmpty()) tr("Categorías") else selectedNames.joinToString(", "), maxLines = 1, overflow = TextOverflow.Ellipsis) },
             leadingIcon = { Icon(Icons.AutoMirrored.Filled.Label, null, Modifier.size(18.dp)) }
         )
         FilterChip(
             selected = media.notifyUpdates,
             onClick = { onNotify(!media.notifyUpdates) },
-            label = { Text(if (media.notifyUpdates) "Avisos activos" else "Sin avisos") },
+            label = { Text(if (media.notifyUpdates) "Avisos activos" else tr("Sin avisos")) },
             leadingIcon = {
                 Icon(if (media.notifyUpdates) Icons.Default.NotificationsActive else Icons.Default.NotificationsOff, null, Modifier.size(18.dp))
             }
@@ -1059,11 +1060,11 @@ private fun CategoriesDialog(
     var newName by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Categorías") },
+        title = { Text(tr("Categorías")) },
         text = {
             Column {
                 if (categories.isEmpty()) {
-                    Text("Aún no tienes categorías. Crea una abajo (p. ej. Favoritos, Isekai, Para releer).")
+                    Text(tr("Aún no tienes categorías. Crea una abajo (p. ej. Favoritos, Isekai, Para releer)."))
                 }
                 categories.forEach { category ->
                     Row(
@@ -1084,19 +1085,19 @@ private fun CategoriesDialog(
                     OutlinedTextField(
                         value = newName,
                         onValueChange = { newName = it.take(40) },
-                        label = { Text("Nueva categoría") },
+                        label = { Text(tr("Nueva categoría")) },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
                     IconButton(
                         onClick = { onCreate(newName); newName = "" },
                         enabled = newName.isNotBlank() && categories.none { it.name.equals(newName.trim(), ignoreCase = true) }
-                    ) { Icon(Icons.Default.Add, contentDescription = "Crear") }
+                    ) { Icon(Icons.Default.Add, contentDescription = tr("Crear")) }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(selected) }) { Text("Guardar") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+        confirmButton = { TextButton(onClick = { onSave(selected) }) { Text(tr("Guardar")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancelar")) } }
     )
 }
 
@@ -1108,20 +1109,20 @@ private fun RangeDialog(onConfirm: (Float, Float) -> Unit, onDismiss: () -> Unit
     val toValue = to.replace(',', '.').toFloatOrNull()
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Descargar un rango") },
+        title = { Text(tr("Descargar un rango")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Números de capítulo o episodio, ambos incluidos.")
-                androidx.compose.material3.OutlinedTextField(from, { from = it }, label = { Text("Desde") }, singleLine = true)
-                androidx.compose.material3.OutlinedTextField(to, { to = it }, label = { Text("Hasta") }, singleLine = true)
+                Text(tr("Números de capítulo o episodio, ambos incluidos."))
+                androidx.compose.material3.OutlinedTextField(from, { from = it }, label = { Text(tr("Desde")) }, singleLine = true)
+                androidx.compose.material3.OutlinedTextField(to, { to = it }, label = { Text(tr("Hasta")) }, singleLine = true)
             }
         },
         confirmButton = {
             androidx.compose.material3.TextButton(
                 enabled = fromValue != null && toValue != null,
                 onClick = { onConfirm(fromValue!!, toValue!!); onDismiss() }
-            ) { Text("Descargar") }
+            ) { Text(tr("Descargar")) }
         },
-        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Cancelar") } }
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text(tr("Cancelar")) } }
     )
 }

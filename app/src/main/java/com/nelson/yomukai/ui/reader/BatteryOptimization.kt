@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import com.nelson.yomukai.i18n.tr
 
 /**
  * Some phones stop apps that run with the screen off even when they play audio. Reading aloud asks once (explaining
@@ -33,19 +34,19 @@ fun BatteryOptimizationDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Leer con la pantalla apagada") },
+        title = { Text(tr("Leer con la pantalla apagada")) },
         text = {
             Text(
-                "Para que la lectura no se corte al apagar la pantalla, algunos móviles necesitan que Yomukai no esté en " +
-                    "«optimización de batería». Solo gasta batería mientras lee. Busca Yomukai en la lista y elige «No optimizar»."
+                tr("Para que la lectura no se corte al apagar la pantalla, algunos móviles necesitan que Yomukai no esté en ") +
+                    tr("«optimización de batería». Solo gasta batería mientras lee. Busca Yomukai en la lista y elige «No optimizar».")
             )
         },
         confirmButton = {
             TextButton(onClick = {
                 onDismiss()
                 runCatching { context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            }) { Text("Abrir ajustes") }
+            }) { Text(tr("Abrir ajustes")) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Ahora no") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Ahora no")) } }
     )
 }

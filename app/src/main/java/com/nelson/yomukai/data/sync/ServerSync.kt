@@ -20,6 +20,7 @@ import com.nelson.yomukai.data.prefs.GenreExclusions
 import com.nelson.yomukai.data.repository.TOMBSTONE_BOOKMARK
 import com.nelson.yomukai.data.repository.TOMBSTONE_CATEGORY
 import com.nelson.yomukai.data.repository.TOMBSTONE_HISTORY
+import com.nelson.yomukai.i18n.tr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -114,16 +115,16 @@ class ServerSync(
                 pendingTwoFactor = server to challenge
                 Result.failure(IOException(TWO_FACTOR_NEEDED))
             }
-            session.isNullOrBlank() -> Result.failure(IOException("Eso no parece un servidor de Yomukai"))
-            guest -> Result.failure(IOException("Las cuentas de invitado no se pueden sincronizar"))
+            session.isNullOrBlank() -> Result.failure(IOException(tr("Eso no parece un servidor de Yomukai")))
+            guest -> Result.failure(IOException(tr("Las cuentas de invitado no se pueden sincronizar")))
             else -> Result.success(session)
         }
     }
 
     suspend fun connect(serverInput: String, user: String, password: String, code: String? = null): String? = withContext(Dispatchers.IO) {
-        val server = normalizeServer(serverInput) ?: return@withContext "Esa dirección no es válida. Ejemplo: https://yomukai.tudominio.com"
+        val server = normalizeServer(serverInput) ?: return@withContext tr("Esa dirección no es válida. Ejemplo: https://yomukai.tudominio.com")
         if (!server.startsWith("https://") && !allowsPlainHttp(server)) {
-            return@withContext "El servidor tiene que usar HTTPS: la contraseña viajaría sin cifrar."
+            return@withContext tr("El servidor tiene que usar HTTPS: la contraseña viajaría sin cifrar.")
         }
         val pending = pendingTwoFactor?.takeIf { it.first == server && !code.isNullOrBlank() }
         val request = if (pending != null) {
@@ -136,14 +137,14 @@ class ServerSync(
         val result = runCatching {
             client.newCall(request).execute().use { r ->
                 when {
-                    r.code == 401 && pending != null -> Result.failure(IOException("Código incorrecto o caducado"))
-                    r.code == 401 -> Result.failure(IOException("Usuario o contraseña incorrectos"))
-                    r.code == 429 -> Result.failure(IOException(errorOf(r.body?.string()) ?: "Demasiados intentos; espera un rato"))
-                    !r.isSuccessful -> Result.failure(IOException(errorOf(r.body?.string()) ?: "El servidor respondió ${r.code}"))
+                    r.code == 401 && pending != null -> Result.failure(IOException(tr("Código incorrecto o caducado")))
+                    r.code == 401 -> Result.failure(IOException(tr("Usuario o contraseña incorrectos")))
+                    r.code == 429 -> Result.failure(IOException(errorOf(r.body?.string()) ?: tr("Demasiados intentos; espera un rato")))
+                    !r.isSuccessful -> Result.failure(IOException(errorOf(r.body?.string()) ?: tr("El servidor respondió {0}", r.code)))
                     else -> loginAnswer(server, r.headers("Set-Cookie"), r.body?.string())
                 }
             }
-        }.getOrElse { Result.failure(IOException("No se pudo conectar con el servidor: ${it.message}")) }
+        }.getOrElse { Result.failure(IOException(tr("No se pudo conectar con el servidor: {0}", it.message))) }
         val session = result.getOrElse { return@withContext it.message }
         pendingTwoFactor = null
         prefs.edit()
@@ -307,9 +308,9 @@ class ServerSync(
             val text = r.body?.string().orEmpty()
             if (r.code == 401) {
                 // The session was closed (password changed, account deleted): connecting again is needed.
-                throw IOException("La sesión ya no vale. Vuelve a conectar con tu usuario y contraseña.")
+                throw IOException(tr("La sesión ya no vale. Vuelve a conectar con tu usuario y contraseña."))
             }
-            if (!r.isSuccessful) throw IOException(errorOf(text) ?: "El servidor respondió ${r.code}")
+            if (!r.isSuccessful) throw IOException(errorOf(text) ?: tr("El servidor respondió {0}", r.code))
             return JsonParser.parseString(text).asJsonObject
         }
     }
@@ -478,7 +479,7 @@ class ServerSync(
         val request = Request.Builder().url(server + path).method(method, body?.toString()?.toRequestBody(json) ?: if (method == "GET") null else ByteArray(0).toRequestBody(json))
         client.newCall(authed(request, session).build()).execute().use { r ->
             val text = r.body?.string().orEmpty()
-            if (!r.isSuccessful) throw IOException(errorOf(text) ?: "El servidor respondió ${r.code}")
+            if (!r.isSuccessful) throw IOException(errorOf(text) ?: tr("El servidor respondió {0}", r.code))
             if (text.isBlank()) null else JsonParser.parseString(text)
         }
     }
@@ -505,12 +506,12 @@ class ServerSync(
 
     /** WAV audio of [text] read by the server's [voice]; throws when the server cannot. */
     suspend fun speak(text: String, voice: String, rate: Float): ByteArray = withContext(Dispatchers.IO) {
-        val server = _state.value.server ?: throw IOException("Sin servidor")
-        val session = token ?: throw IOException("Sin sesión")
+        val server = _state.value.server ?: throw IOException(tr("Sin servidor"))
+        val session = token ?: throw IOException(tr("Sin sesión"))
         val body = obj("text" to text, "voice" to voice, "rate" to rate).toString().toRequestBody(json)
         client.newCall(authed(Request.Builder().url("$server/api/tts").post(body), session).build()).execute().use { r ->
-            if (!r.isSuccessful) throw IOException(errorOf(r.body?.string()) ?: "El servidor respondió ${r.code}")
-            r.body?.bytes() ?: throw IOException("Sin audio")
+            if (!r.isSuccessful) throw IOException(errorOf(r.body?.string()) ?: tr("El servidor respondió {0}", r.code))
+            r.body?.bytes() ?: throw IOException(tr("Sin audio"))
         }
     }
 
@@ -539,7 +540,7 @@ class ServerSync(
         }.getOrDefault(ServerFeatures())
 
         /** [connect] answers this when the account has 2FA: ask for the code and call again with it. */
-        const val TWO_FACTOR_NEEDED = "Escribe el código de verificación en dos pasos"
+        val TWO_FACTOR_NEEDED: String get() = tr("Escribe el código de verificación en dos pasos")
 
         fun normalizeServer(input: String): String? {
             val trimmed = input.trim().trimEnd('/')

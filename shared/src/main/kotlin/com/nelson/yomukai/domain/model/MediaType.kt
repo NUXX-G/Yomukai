@@ -1,12 +1,14 @@
 package com.nelson.yomukai.domain.model
 
+import com.nelson.yomukai.i18n.tr
+
 enum class MediaType(val displayName: String) {
-    MANGA("Manga"),
-    MANHWA("Manhwa"),
-    MANHUA("Manhua"),
-    COMIC("Cómic"),
-    NOVEL("Novela"),
-    ANIME("Anime");
+    MANGA(tr("Manga")),
+    MANHWA(tr("Manhwa")),
+    MANHUA(tr("Manhua")),
+    COMIC(tr("Cómic")),
+    NOVEL(tr("Novela")),
+    ANIME(tr("Anime"));
 
     val isReadableAsImages: Boolean get() = this != NOVEL && this != ANIME
 

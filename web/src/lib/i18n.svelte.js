@@ -13,13 +13,13 @@ function initial() {
     if (saved === 'es' || saved === 'en') return saved;
   } catch { /* private mode */ }
   const langs = navigator.languages?.length ? navigator.languages : [navigator.language || 'es'];
-  // Spanish for anyone whose browser speaks it first among the two; English otherwise.
+  // Spanish for anyone whose browser puts it before English; English for everyone else.
   for (const l of langs) {
     const base = String(l).toLowerCase().slice(0, 2);
     if (base === 'es') return 'es';
     if (base === 'en') return 'en';
   }
-  return 'es';
+  return 'en';
 }
 
 export const i18n = $state({ lang: initial(), dict: null, ready: false });
