@@ -54,3 +54,16 @@ Cada dato prueba primero lo configurado y luego respaldos genéricos, así que u
 fuente: páginas → JSON configurado → selector → imágenes dentro de los scripts → el contenedor con más imágenes;
 ficha → JSON → selector → ld+json → metas `og:`. Un dominio que redirige a otro se sigue solo y avisa al admin.
 El canario (`server canary`) detecta lo que siga roto y lo oculta hasta que se arregla.
+
+## Fuentes de otros repositorios (para quien monte su propio Yomukai)
+
+Cualquiera puede publicar sus propias fuentes en JSON con el mismo formato, firmadas con **su** clave Ed25519:
+
+1. Genera una clave: `java scripts/SignSources.java --new-key` (o cualquier herramienta Ed25519) y guarda la privada fuera del repositorio.
+2. Publica `bundle.json` y `bundle.json.sig` en una dirección HTTPS (p. ej. GitHub raw).
+3. En el servidor que las quiera usar, añade al `.env`:
+   `SOURCE_REPOS=https://tu.dominio/bundle.json#CLAVE_PUBLICA_BASE64` (varias, separadas por comas).
+
+Reglas de seguridad: solo HTTPS, solo con firma válida de esa clave, solo JSON (nunca código), y un repositorio extra
+**no puede reemplazar** una fuente oficial (si usa un id ya tomado, se rechaza y sale en el panel). El admin las ve en
+Administración › Catálogo de fuentes, con su origen, y puede quitarlas para todos con un toque.

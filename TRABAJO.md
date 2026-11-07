@@ -3,7 +3,7 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
-Última actualización: 2026-11-07, commit `feat(instalación): todo en uno...`.
+Última actualización: 2026-11-07, commit `feat(fuentes): catálogo de fuentes...`.
 
 ### PEDIDO DEL USUARIO EL 2026-11-07 (sesión nueva, modo autónomo total; no está mirando)
 Al acabar TODO avisarle: lo instalará en el VPS y en su móvil, lo probará un día y dirá qué corregir. Orden elegido por mí:
@@ -16,7 +16,7 @@ Al acabar TODO avisarle: lo instalará en el VPS y en su móvil, lo probará un 
 4. [ ] **Todo por obras, no por fuentes** (ya acordado en la Fase 5): revisar que ninguna pantalla vuelva a organizarse por
    fuente. **Más páginas de metadatos** además de AniList/MAL/Kitsu/MangaUpdates/Open Library (p. ej. TMDB para series y
    películas no anime, NovelUpdates para novelas, Comick/MangaUpdates para manhwa/manhua), con caché y prioridad.
-5. [ ] **Catálogo de fuentes tipo plugin, SOLO JSON firmado** (nunca código descargado: decidido con el usuario por
+5. [x] HECHO (`server/…/SourceCatalog.kt`, migración 14 `source_settings`, `SourceManager.hidden/applyExtra/origins`, panel `SourceCatalogPanel.svelte`, tests `SourceCatalogTest` y `SourceCatalogRoutesTest`): el admin quita/pone fuentes para todos, ve origen/versión/salud, «Buscar actualizaciones»; `SOURCE_REPOS=https://…/bundle.json#CLAVE` añade repos firmados de terceros que nunca pueden sustituir una oficial. Pendiente: pasar a JSON más fuentes Kotlin que encajen. Original: **Catálogo de fuentes tipo plugin, SOLO JSON firmado** (nunca código descargado: decidido con el usuario por
    seguridad): pasar a JSON las fuentes que encajen, pantalla de catálogo (instalar/quitar con un toque, versión nueva,
    caída), y que cada instalación pueda aceptar **claves públicas extra** (`SOURCE_KEYS`) para sus propias fuentes. El
    código es público (portfolio y para quien lo quiera montar): seguro y privado para él y para los demás.

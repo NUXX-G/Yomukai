@@ -155,6 +155,7 @@ class Services(val config: Config) {
     val setup = SetupWizard(db, config.dataDir)
     val addressLimiter = KeyedRateLimiter()
     val health = SourceHealthStore(db)
+    val sourceCatalog by lazy { SourceCatalog(db, sources, http, config.sourceRepos, health) }
 
     /** Signed source configurations: the bundled ones, then newer ones from the repository (see SourceBundles). */
     val bundles = com.nelson.yomukai.data.source.declarative.SourceBundleUpdater(http, File(config.dataDir, "sources"), config.sourcesUrl)
@@ -213,6 +214,7 @@ class Services(val config: Config) {
 /** Everything the server does on its own: start-up work, sweeps, the canary's view, backups, resolvers. */
 private fun Application.startBackgroundJobs(config: Config, services: Services) {
     launch { runCatching { refreshDegraded(services.health, services.sources) } }
+    launch { runCatching { services.sourceCatalog.loadHidden() }.onFailure { log.warn("Fuentes quitadas", it) } }
     // Top AniList titles are looked for in the sources, one every 20 s, so the home rows can open them directly.
     launch {
         while (true) {
@@ -230,6 +232,7 @@ private fun Application.startBackgroundJobs(config: Config, services: Services) 
     }
     launch {
         while (true) {
+            runCatching { services.sourceCatalog.refreshExtra() }.onFailure { log.info("Repositorios de fuentes: {}", it.message) }
             runCatching { services.bundles.fetchNewer(services.sources.bundleVersion) }
                 .onSuccess { b ->
                     if (b != null) {
@@ -377,6 +380,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 integrationAdminRoutes(services)
                 mediaLibraryAdminRoutes(services)
                 jellyfinLinkAdminRoutes(services)
+                sourceCatalogAdminRoutes(services)
                 get("/status") { call.respond(mapOf("bandwidth" to services.bandwidth.summary(), "memory" to memoryStatus())) }
             }
         }
@@ -538,7 +542,9 @@ private fun Route.catalogRoutes(s: Services) {
         val prefs = s.prefs(call.user)
         // "enabled" is what the user chose; broken sources are flagged so lists hide them and Settings says why.
         val chosen = prefs.enabledSources ?: s.sources.defaultEnabledIds
-        call.respond(s.sources.all.map { it.toDto(it.id in chosen, s.sources.degraded[it.id]) })
+        // Sources the admin took out of the catalogue do not exist for anyone else.
+        val visible = if (call.user.isAdmin) s.sources.all else s.sources.all.filter { it.id !in s.sources.hidden }
+        call.respond(visible.map { it.toDto(it.id in chosen, s.sources.degraded[it.id]) })
     }
     get("/sources/{id}/latest") {
         val page = call.request.queryParameters["page"]?.toIntOrNull() ?: 1

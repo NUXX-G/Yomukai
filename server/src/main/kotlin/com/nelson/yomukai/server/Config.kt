@@ -48,6 +48,8 @@ data class Config(
     val bandwidthCapBytes: Long = 0,
     /** "All in one" install: the worker in the same docker compose uses this token, registered at start-up. */
     val localWorkerToken: String? = null,
+    /** Extra signed source repositories the admin trusts: "https://…/bundle.json#BASE64_ED25519_KEY", comma separated. */
+    val sourceRepos: List<SourceCatalog.Repo> = emptyList(),
     /** Upload of the home connection in Mbit/s: rooms watching from the NAS are advised a quality that fits. */
     val nasUploadMbps: Int = 20,
     /** Admin warnings: Discord webhook and/or ntfy topic URL (with optional token). */
@@ -94,6 +96,7 @@ data class Config(
                 resultCacheBytes = (env["RESULT_CACHE_MB"]?.toLongOrNull()?.coerceIn(64, 1_000_000) ?: 2048) * 1024 * 1024,
                 imageCacheBytes = (env["IMAGE_CACHE_MB"]?.toLongOrNull()?.coerceIn(64, 1_000_000) ?: 2048) * 1024 * 1024,
                 nasUploadMbps = env["NAS_UPLOAD_MBPS"]?.toIntOrNull()?.coerceIn(1, 10_000) ?: 20,
+                sourceRepos = SourceCatalog.parseRepos(env["SOURCE_REPOS"]),
                 localWorkerToken = env["LOCAL_WORKER_TOKEN"]?.trim()?.takeIf { it.startsWith("ykw_") && it.length in 30..100 },
                 bandwidthCapBytes = ((env["BANDWIDTH_CAP_GB"]?.toDoubleOrNull()?.coerceIn(0.0, 1_000_000.0) ?: 0.0) * 1_073_741_824).toLong(),
                 discordWebhook = env["DISCORD_WEBHOOK_URL"]?.trim()?.takeIf { it.startsWith("https://") },

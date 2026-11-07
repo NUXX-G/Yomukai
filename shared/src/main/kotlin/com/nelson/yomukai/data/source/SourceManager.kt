@@ -53,6 +53,47 @@ class SourceManager(
     @Volatile
     private var declarative: List<CatalogueSource> = emptyList()
 
+    @Volatile
+    private var official: com.nelson.yomukai.data.source.declarative.SourceBundle? = null
+
+    /** JSON sources from other signed repositories (each with its own key), never replacing an official one. */
+    @Volatile
+    private var extraConfigs: List<com.nelson.yomukai.data.source.declarative.SourceConfig> = emptyList()
+
+    /** Where each declarative source came from: "oficial" or the extra repository's host. */
+    @Volatile
+    var origins: Map<String, String> = emptyMap()
+        private set
+
+    /**
+     * Adds the sources of extra signed repositories ([byRepo]: repository host → its verified configurations). An id
+     * already taken (by the code or by the official bundle) is skipped and reported, so nothing official can be
+     * replaced from outside. Returns the ids rejected that way.
+     */
+    fun applyExtra(byRepo: Map<String, List<com.nelson.yomukai.data.source.declarative.SourceConfig>>): List<String> {
+        val taken = kotlinSources.map { it.id }.toMutableSet().apply { addAll(official?.configs.orEmpty().map { it.id }) }
+        val accepted = mutableListOf<com.nelson.yomukai.data.source.declarative.SourceConfig>()
+        val rejected = mutableListOf<String>()
+        val origin = mutableMapOf<String, String>()
+        for ((repo, configs) in byRepo) {
+            for (c in configs) {
+            if (!taken.add(c.id)) rejected += "${c.id} ($repo)" else { accepted += c; origin[c.id] = repo }
+        }
+        }
+        extraConfigs = accepted
+        origins = origin
+        val base = official ?: com.nelson.yomukai.data.source.declarative.SourceBundle(bundleVersion, emptyList(), emptyList())
+        apply(base)
+        return rejected
+    }
+
+    /**
+     * Sources the admin took out of the catalogue: gone from every list and search for everyone (a title already in
+     * a library still opens). Put back with the same switch.
+     */
+    @Volatile
+    var hidden: Set<String> = emptySet()
+
     /** Sources only one host has (the server's Jellyfin): put first, and replaced as a whole when they change. */
     @Volatile
     private var extra: List<CatalogueSource> = emptyList()
@@ -69,7 +110,7 @@ class SourceManager(
     @Volatile
     private var byId: Map<String, CatalogueSource> = all.associateBy { it.id }
 
-    val defaultEnabledIds: Set<String> get() = all.filter { it.enabledByDefault }.map { it.id }.toSet()
+    val defaultEnabledIds: Set<String> get() = all.filter { it.enabledByDefault && it.id !in hidden }.map { it.id }.toSet()
 
     init {
         bundle?.let(::apply)
@@ -80,7 +121,9 @@ class SourceManager(
      * source moves to a JSON file); the order of the Kotlin list is kept, new ones go at the end.
      */
     fun apply(bundle: com.nelson.yomukai.data.source.declarative.SourceBundle) {
-        val made = bundle.configs.map { com.nelson.yomukai.data.source.declarative.declarativeSource(it, network) { id, from, to -> onDomainChange(id, from, to) } }
+        official = bundle
+        val all = bundle.configs + extraConfigs.filter { e -> bundle.configs.none { it.id == e.id } && kotlinSources.none { it.id == e.id } }
+        val made = all.map { com.nelson.yomukai.data.source.declarative.declarativeSource(it, network) { id, from, to -> onDomainChange(id, from, to) } }
         val byConfig = made.associateBy { it.id }
         declarative = made
         rebuild(byConfig)
@@ -119,7 +162,8 @@ class SourceManager(
     fun enabled(enabledIds: Set<String>?): List<CatalogueSource> {
         val ids = enabledIds ?: defaultEnabledIds
         val broken = degraded
-        return all.filter { it.id in ids && it.id !in broken }
+        val off = hidden
+        return all.filter { it.id in ids && it.id !in broken && it.id !in off }
     }
 
     fun require(id: String): CatalogueSource = byId[id] ?: error("Fuente desconocida: $id")

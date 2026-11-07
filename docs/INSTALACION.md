@@ -75,5 +75,6 @@ Si el equipo de casa se apaga, los trabajos esperan en la cola y lo demás sigue
 | `BACKUP_HOUR`, `BACKUP_KEEP_DAYS`, `BACKUP_COPY_DIR` | Copias nocturnas de la base de datos | 4, 14, — |
 | `COMPOSE_PROFILES`, `LOCAL_WORKER_TOKEN`, `WORKER_MEMORY`, `WORKER_CPUS` | Todo en uno | — |
 | `MAL_CLIENT_ID` | Notas de MyAnimeList | — |
+| `SOURCE_REPOS` | Repositorios extra de fuentes JSON firmadas: `https://…/bundle.json#CLAVE` (ver sources/README.md) | — |
 
 Más detalles del VPS pequeño (swap de colchón, medir memoria, canario de fuentes, yt-dlp) en [VPS.md](VPS.md).

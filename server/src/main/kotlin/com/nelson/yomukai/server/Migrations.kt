@@ -247,6 +247,9 @@ object Migrations {
         },
         Migration(13, "Usuario de Jellyfin vinculado a cada cuenta (progreso en las dos direcciones)") {
             addColumn("users", "jellyfin_user", "TEXT")
+        },
+        Migration(14, "Catálogo de fuentes: las que el admin quita para todos") {
+            exec("CREATE TABLE IF NOT EXISTS source_settings(id TEXT PRIMARY KEY, hidden INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL)")
         }
     )
 

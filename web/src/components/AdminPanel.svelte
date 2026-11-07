@@ -6,6 +6,7 @@
   import { notify, loadFeatures } from '../lib/store.svelte.js';
   import Icon from './Icon.svelte';
   import IntegrationsPanel from './IntegrationsPanel.svelte';
+  import SourceCatalogPanel from './SourceCatalogPanel.svelte';
 
   let status = $state(null);
   let workers = $state(null);
@@ -184,6 +185,8 @@
 
 <IntegrationsPanel />
 
+<SourceCatalogPanel />
+
 <section class="card">
   <h3 class="sub">{t('Salud de las fuentes')}</h3>
   <p class="small muted" style="margin-top:0">
@@ -196,7 +199,7 @@
         <span class="block">{h.name} <span class="small muted">· {statusText[h.status] || h.status}{h.checkedAt ? `, ${ago(h.checkedAt)}` : ''}</span></span>
         {#if h.status !== 'OK' && h.summary}<span class="small muted block">{h.summary}</span>{/if}
       </span>
-      <button class="btn tonal small-btn" onclick={() => runCanary(h.id)} disabled={!!testing}>{testing === h.id ? 'Probando…' : 'Probar'}</button>
+      <button class="btn tonal small-btn" onclick={() => runCanary(h.id)} disabled={!!testing}>{testing === h.id ? t('Probando…') : t('Probar')}</button>
     </div>
   {/each}
 </section>

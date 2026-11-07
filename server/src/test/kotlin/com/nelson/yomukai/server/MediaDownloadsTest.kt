@@ -8,6 +8,7 @@ import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
@@ -92,5 +93,47 @@ class MediaDownloadsTest {
         assertTrue(bell, bell.contains("Ya está en tu Jellyfin: Frieren ep. 3"))
         s.library.failed(job.copy(status = JobStatus.FAILED, error = "Queda poco espacio", payload = JsonObject().apply { addProperty("title", "Frieren"); addProperty("number", 4.0) }))
         assertTrue(admin.get("/api/notifications").bodyAsText().contains("No se pudo descargar Frieren (4): Queda poco espacio"))
+    }
+}
+
+class SourceCatalogRoutesTest {
+    private suspend fun HttpClient.login(name: String, password: String) {
+        repeat(50) {
+            val r = post("/auth/login") { contentType(ContentType.Application.Json); setBody("""{"name":"$name","password":"$password"}""") }
+            if (r.status == HttpStatusCode.OK) return
+            delay(100)
+        }
+        error("no se pudo entrar como $name")
+    }
+
+    @Test
+    fun adminTakesASourceOutForEveryone() = testApplication {
+        val c = Config.fromEnv(
+            mapOf(
+                "DATA_DIR" to Files.createTempDirectory("ykcat").toString(), "ADMIN_USER" to "admin", "ADMIN_PASSWORD" to "admin-password-1",
+                "BACKUPS_ENABLED" to "false"
+            )
+        )
+        val s = Services(c)
+        application { yomukai(c, s) }
+        val admin = createClient { install(HttpCookies) }.also { it.login("admin", "admin-password-1") }
+        admin.post("/api/admin/users") { setBody("""{"name":"ana","password":"ana-password-1"}""") }
+        val ana = createClient { install(HttpCookies) }.also { it.login("ana", "ana-password-1") }
+        assertEquals(HttpStatusCode.Forbidden, ana.get("/api/admin/sources/catalog").status)
+        assertEquals(HttpStatusCode.Forbidden, ana.put("/api/admin/sources/asura") { setBody("""{"hidden":true}""") }.status)
+        val catalog = admin.get("/api/admin/sources/catalog").bodyAsText()
+        assertTrue(catalog, catalog.contains("\"asura\"") && catalog.contains("oficial"))
+        assertEquals(HttpStatusCode.OK, admin.put("/api/admin/sources/asura") { setBody("""{"hidden":true}""") }.status)
+        assertTrue(ana.get("/api/sources").bodyAsText().let { !it.contains("\"asura\"") })
+        assertTrue("the admin still sees it, to put it back", admin.get("/api/sources").bodyAsText().contains("\"asura\""))
+        admin.put("/api/admin/sources/asura") { setBody("""{"hidden":false}""") }
+        assertTrue(ana.get("/api/sources").bodyAsText().contains("\"asura\""))
+    }
+
+    @Test
+    fun onlyHttpsRepositoriesWithARealKey() {
+        val key = java.util.Base64.getEncoder().encodeToString(ByteArray(32) { 1 })
+        val repos = SourceCatalog.parseRepos("https://a.dev/bundle.json#$key, http://b.dev/bundle.json#$key, https://c.dev/x#corta, ")
+        assertEquals(listOf("a.dev"), repos.map { it.host })
     }
 }
