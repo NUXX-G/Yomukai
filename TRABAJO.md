@@ -3,7 +3,12 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
-Última actualización: 2026-11-07, commit `feat(fuentes): catálogo de fuentes...`.
+Última actualización: 2026-11-07, commit `feat(app): inicio por obras...`.
+
+### PEDIDO DEL USUARIO EL 2026-11-07 (2ª parte, también hecho)
+- [x] App: el inicio ya no tiene filas por fuente: «Recién actualizado» + Anime / Manga, manhwa y manhua / Cómics / Novelas, por obra (`WorkGrouper`, «En N fuentes»), y «Explorar por fuente» plegado al final.
+- [x] Portadas a la mayor resolución: `HighResCovers` (MangaDex original en vez de .512, WordPress sin -WxH) con respaldo a la miniatura (param `o` firmado); la web pide su ancho real hasta 3× (teles 4K) en vez del tope fijo de 720.
+- [x] Comprobado en vivo (2026-11-07): canario 15/18 OK; asura, lectortmo y animeav1 fallan SOLO en la red de casa (el operador intercepta con un certificado falso «Packetland»: bloqueo, no fallo de código). Descargas web probadas: CBZ (MangaDex, Olympus), EPUB (SkyNovels), MP4 (AnimeFLV, Anitaku).
 
 ### PEDIDO DEL USUARIO EL 2026-11-07 (sesión nueva, modo autónomo total; no está mirando)
 Al acabar TODO avisarle: lo instalará en el VPS y en su móvil, lo probará un día y dirá qué corregir. Orden elegido por mí:

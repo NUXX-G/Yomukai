@@ -51,16 +51,29 @@ data class SourceSection(
     val error: String? = null
 )
 
+/**
+ * One row of the home screen by work, never by source: everything the sources published lately, merged and with one
+ * card per work (a title on three sources is one card that says so). Sources stay behind "Explorar por fuente".
+ */
+@Immutable
+data class WorkRow(val id: String, val title: String, val cards: List<com.nelson.yomukai.data.work.WorkCard>)
+
 @Immutable
 data class HomeUiState(
     val typeFilter: TypeFilter = TypeFilter.ALL,
     val languageFilter: LanguageFilter = LanguageFilter.ALL,
     val sections: List<SourceSection> = emptyList(),
+    val rows: List<WorkRow> = emptyList(),
+    /** Still waiting for some source (rows fill in as they answer). */
+    val loadingSources: Boolean = false,
+    /** Sources that could not answer, by name (shown as one quiet line). */
+    val failedSources: List<String> = emptyList(),
     val continueReading: List<HistoryWithMedia> = emptyList(),
     val isRefreshing: Boolean = false
 )
 
 private const val SOURCE_TIMEOUT_MS = 40_000L
+private const val ROW_SIZE = 40
 
 class HomeViewModel(private val container: AppContainer) : ViewModel() {
 
@@ -72,14 +85,18 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     val uiState: StateFlow<HomeUiState> = combine(
         filters, rawSections, refreshing, container.libraryRepository.observeHistory()
     ) { (type, language), sections, isRefreshing, history ->
+        val visible = sections
+            .filter { s -> (language == LanguageFilter.ALL || s.language == "MULTI" || s.language == language.name) }
+            .filter { s -> s.types.any { it in type.types } }
+            .map { s -> s.copy(items = s.items.filter { it.type in type.types }) }
+            .filter { it.isLoading || it.error != null || it.items.isNotEmpty() }
         HomeUiState(
             typeFilter = type,
             languageFilter = language,
-            sections = sections
-                .filter { s -> (language == LanguageFilter.ALL || s.language == "MULTI" || s.language == language.name) }
-                .filter { s -> s.types.any { it in type.types } }
-                .map { s -> s.copy(items = s.items.filter { it.type in type.types }) }
-                .filter { it.isLoading || it.error != null || it.items.isNotEmpty() },
+            sections = visible,
+            rows = workRows(visible),
+            loadingSources = visible.any { it.isLoading },
+            failedSources = visible.filter { it.error != null }.map { it.sourceName },
             continueReading = history.take(12),
             isRefreshing = isRefreshing
         )
@@ -101,6 +118,21 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                 refresh()
             }
         }
+    }
+
+    /** Rows by work: all the latest together (one source's titles interleaved with the next), then one row per kind. */
+    private fun workRows(sections: List<SourceSection>): List<WorkRow> {
+        val lists = sections.map { it.items }
+        val interleaved = buildList { for (i in 0 until (lists.maxOfOrNull { it.size } ?: 0)) lists.forEach { l -> l.getOrNull(i)?.let(::add) } }
+        fun row(id: String, title: String, types: Set<MediaType>) =
+            WorkRow(id, title, com.nelson.yomukai.data.work.WorkGrouper.group(interleaved.filter { it.type in types }).take(ROW_SIZE))
+        return listOf(
+            row("latest", tr("Recién actualizado"), MediaType.entries.toSet()),
+            row("anime", tr("Anime nuevo"), setOf(MediaType.ANIME)),
+            row("manga", tr("Manga, manhwa y manhua nuevos"), setOf(MediaType.MANGA, MediaType.MANHWA, MediaType.MANHUA)),
+            row("comics", tr("Cómics nuevos"), setOf(MediaType.COMIC)),
+            row("novels", tr("Novelas nuevas"), setOf(MediaType.NOVEL))
+        ).filter { it.cards.isNotEmpty() }
     }
 
     fun setTypeFilter(filter: TypeFilter) = filters.update { it.copy(first = filter) }

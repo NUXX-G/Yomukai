@@ -171,7 +171,7 @@ fun HomeScreen(
                     item(key = "shelf_" + shelf.id) { DiscoverShelfRow(shelf, onOpen = discoverViewModel::openEntry) }
                 }
 
-                if (state.sections.isEmpty() && !state.isRefreshing) {
+                if (state.rows.isEmpty() && !state.loadingSources && !state.isRefreshing) {
                     item {
                         Text(
                             tr("No hay fuentes activas para estos filtros. Actívalas en Ajustes."),
@@ -181,46 +181,51 @@ fun HomeScreen(
                     }
                 }
 
-                state.sections.forEach { section ->
-                    item(key = "header_${section.sourceId}") {
-                        SectionHeader(
-                            title = section.sourceName,
-                            modifier = Modifier.clickable { onBrowseSource(section.sourceId) },
-                            action = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    LanguageTag(section.language)
-                                    TextButton(onClick = { onBrowseSource(section.sourceId) }) { Text(tr("Ver todo")) }
+                if (state.rows.isEmpty() && state.loadingSources) {
+                    item(key = "rows_loading") { SkeletonRow() }
+                }
+                state.rows.forEach { row ->
+                    item(key = "wh_" + row.id) { SectionHeader(title = row.title) }
+                    item(key = "wr_" + row.id) {
+                        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            items(row.cards, key = { it.primary.sourceId + "|" + it.primary.id }) { card ->
+                                Column(Modifier.width(120.dp)) {
+                                    MediaCard(card.primary, onClick = { onMediaClick(card.primary) }, modifier = Modifier.width(120.dp))
+                                    if (card.sources.size > 1) {
+                                        Text(
+                                            tr("En {0} fuentes", card.sources.size),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 }
                             }
-                        )
+                        }
                     }
-                    item(key = "row_${section.sourceId}") {
-                        when {
-                            section.isLoading -> SkeletonRow()
-
-                            section.error != null -> Row(
-                                Modifier.padding(horizontal = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    tr("No disponible: {0}", section.error),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                TextButton(onClick = viewModel::refresh) { Text(tr("Reintentar")) }
-                            }
-
-                            else -> LazyRow(
-                                contentPadding = PaddingValues(horizontal = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                items(section.items, key = { it.id }) { item ->
-                                    MediaCard(item, onClick = { onMediaClick(item) }, modifier = Modifier.width(120.dp))
+                }
+                if (state.sections.isNotEmpty()) {
+                    item(key = "by_source") {
+                        var open by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            TextButton(onClick = { open = !open }) { Text(tr("Explorar por fuente")) }
+                            if (open) {
+                                state.sections.forEach { section ->
+                                    TextButton(onClick = { onBrowseSource(section.sourceId) }) { Text(section.sourceName + " · " + section.language) }
                                 }
                             }
+                        }
+                    }
+                }
+                if (state.failedSources.isNotEmpty()) {
+                    item(key = "failed") {
+                        Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                tr("Sin respuesta ahora: {0}", state.failedSources.joinToString(", ")),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(onClick = viewModel::refresh) { Text(tr("Reintentar")) }
                         }
                     }
                 }

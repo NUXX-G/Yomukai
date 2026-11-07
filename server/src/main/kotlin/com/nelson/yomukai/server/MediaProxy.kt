@@ -85,9 +85,18 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
         return "/api/img?u=${enc(url)}&h=$h&k=${sign("img", url, h)}"
     }
 
-    /** A cover: never shown wider than a card or the title page, so huge ones come shrunk. */
-    fun cover(url: String, headers: Map<String, String>): String =
-        image(url, headers).let { if (it.startsWith("/api/img?")) "$it&w=$COVER_WIDTH" else it }
+    /**
+     * A cover at the best resolution the site has: thumbnails are swapped for their original ([HighResCovers]) and the
+     * browser asks for its own width (big screens and TVs get more), the server shrinking and caching. If the
+     * original cannot be fetched, the thumbnail it came from is served instead ("o").
+     */
+    fun cover(url: String, headers: Map<String, String>): String {
+        if (url.isBlank() || !url.startsWith("http")) return url
+        val hi = HighResCovers.upgrade(url)
+        if (hi == url) return image(url, headers) + "&w=$COVER_WIDTH"
+        val h = encodeHeaders(headers)
+        return "/api/img?u=${enc(hi)}&o=${enc(url)}&h=$h&k=${sign("img", hi, h, url)}&w=$COVER_WIDTH"
+    }
 
     /** Link to a video or playlist at [url] with [headers]. */
     fun stream(url: String, headers: Map<String, String>): String {
@@ -99,7 +108,10 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
         val url = call.request.queryParameters["u"] ?: return null
         val h = call.request.queryParameters["h"].orEmpty()
         val k = call.request.queryParameters["k"] ?: return null
-        if (!MessageDigest.isEqual(sign(kind, url, h).toByteArray(), k.toByteArray())) return null
+        val fallback = call.request.queryParameters["o"]
+        val expected = if (fallback != null) sign(kind, url, h, fallback) else sign(kind, url, h)
+        if (!MessageDigest.isEqual(expected.toByteArray(), k.toByteArray())) return null
+        if (fallback != null && fallback.toHttpUrlOrNull() == null) return null
         if (url.toHttpUrlOrNull() == null) return null
         return url to decodeHeaders(h)
     }
@@ -108,7 +120,9 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
         val (url, headers) = verified("img", call) ?: return call.respond(HttpStatusCode.Forbidden)
         // "w": the reader's width in pixels. Pages much wider than it come shrunk (and stay cached so).
         val width = ImageShrinker.bucket(call.request.queryParameters["w"])
-        val (bytes, type) = (if (width != null) fetchShrunk(url, headers, width) else fetchImage(url, headers))
+        suspend fun get(u: String) = if (width != null) fetchShrunk(u, headers, width) else fetchImage(u, headers)
+        // A cover upgraded to its original falls back to the thumbnail it came from (already checked by the signature).
+        val (bytes, type) = get(url) ?: call.request.queryParameters["o"]?.let { get(it) }
             ?: return call.respond(HttpStatusCode.BadGateway)
         // Proxied links never change for the same address: the browser may keep the image for a month.
         call.response.header(HttpHeaders.CacheControl, "public, max-age=2592000, immutable")
@@ -388,4 +402,18 @@ internal class ImageCache(private val dir: File, private val maxBytes: Long = 2L
         }
         approxSize = size
     }
+}
+
+/**
+ * Larger versions of the thumbnails sites put in their lists. Only patterns whose original is known to exist next to
+ * the thumbnail; anything else stays as it is.
+ */
+object HighResCovers {
+    private val MANGADEX = Regex("""^(https://uploads\.mangadex\.org/covers/[^/?#]+/[^/?#]+\.(?:jpe?g|png|webp|gif))\.(?:256|512)\.jpg$""", RegexOption.IGNORE_CASE)
+    private val WORDPRESS = Regex("""^(https?://[^?#]+/wp-content/uploads/[^?#]+?)-\d{2,4}x\d{2,4}(\.(?:jpe?g|png|webp))$""", RegexOption.IGNORE_CASE)
+
+    fun upgrade(url: String): String =
+        MANGADEX.matchEntire(url)?.groupValues?.get(1)
+            ?: WORDPRESS.matchEntire(url)?.let { it.groupValues[1] + it.groupValues[2] }
+            ?: url
 }

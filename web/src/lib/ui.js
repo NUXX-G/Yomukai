@@ -6,8 +6,10 @@ import { t, tk } from './i18n.svelte.js';
 /** A proxied image at about [width] CSS pixels (the proxy keeps a shrunk copy); other addresses as they are. */
 export function sized(url, width) {
   if (!url || !url.startsWith('/api/img')) return url || '';
-  const px = Math.round(width * Math.min(window.devicePixelRatio || 1, 2));
-  return url + (url.includes('?') ? '&' : '?') + 'w=' + px;
+  // Up to 3x for 4K screens and TVs; the server keeps shrunk copies in a few sizes and never enlarges.
+  const px = Math.round(width * Math.min(window.devicePixelRatio || 1, 3));
+  const base = url.replace(/([?&])w=\d+(&|$)/, (m, a, b) => (b ? a : '')).replace(/[?&]$/, '');
+  return base + (base.includes('?') ? '&' : '?') + 'w=' + px;
 }
 
 /** "8,4" from AniList's 0..100. */

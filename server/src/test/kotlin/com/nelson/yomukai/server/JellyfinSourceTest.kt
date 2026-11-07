@@ -118,3 +118,19 @@ class JellyfinSourceTest {
         assertEquals(HttpStatusCode.ServiceUnavailable, admin.get("/api/jellyfin/stream/${FakeJellyfin.EP1}").status)
     }
 }
+
+class HighResCoversTest {
+    @Test
+    fun thumbnailsBecomeTheirOriginals() {
+        assertEquals(
+            "https://uploads.mangadex.org/covers/abc-123/f00.jpg",
+            HighResCovers.upgrade("https://uploads.mangadex.org/covers/abc-123/f00.jpg.512.jpg")
+        )
+        assertEquals(
+            "https://marmota.me/wp-content/uploads/2024/05/portada.webp",
+            HighResCovers.upgrade("https://marmota.me/wp-content/uploads/2024/05/portada-193x278.webp")
+        )
+        val other = "https://cdn.example.com/covers/thumb-200x300.jpg"
+        assertEquals("anything else stays", other, HighResCovers.upgrade(other))
+    }
+}
