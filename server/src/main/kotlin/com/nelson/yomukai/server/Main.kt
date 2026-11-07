@@ -382,7 +382,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 jellyfinLinkAdminRoutes(services)
                 sourceCatalogAdminRoutes(services)
                 get("/status") {
-                    call.respond(mapOf<String, Any?>("bandwidth" to services.bandwidth.summary(), "memory" to memoryStatus(), "machine" to machineStatus(File(config.dataDir))))
+                    call.respond(mapOf<String, Any?>("bandwidth" to services.bandwidth.summary(), "memory" to memoryStatus(), "machine" to machineStatus(config.dataDir)))
                 }
             }
         }
