@@ -154,7 +154,7 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 - [x] App Android: mismos colores y radios (tokens), inicio con destacado de AniList y filas de tendencias/temporada
 - [x] App Android: ficha con banner de AniList y portada nítida
 - [x] App Android: marcas de relleno/mixto y anti-spoilers (difuminado en Android 12+, texto sustituido en anteriores) en la ficha
-- [ ] App Android: tarjeta «¿Dónde sigo?» (necesita el servidor: las correcciones son compartidas)
+- [x] App Android: tarjeta «¿Dónde sigo?» (`WhereNextSection.kt`, con servidor conectado)
 
 ### Fase 6 — Social
 - [x] 6.1 Salas: una persistente por usuario (código de 6 sin caracteres ambiguos, enlace /sala/CODIGO) y hasta 3 temporales; fila «Salas activas» en Inicio con quién está y qué ve; botón «Ver con amigos» en el reproductor (abre tu sala y copia el enlace para Discord)

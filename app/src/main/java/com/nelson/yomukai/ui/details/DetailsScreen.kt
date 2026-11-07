@@ -585,6 +585,7 @@ private fun Header(state: DetailsUiState, metadata: TitleMetadata?, insights: Ch
             }
 
             WorkSocialSection(media.sourceId, media.mediaId, media.title, cover = "", anime = type == MediaType.ANIME)
+            WhereNextSection(media.sourceId, media.mediaId, anime = type == MediaType.ANIME, lastDone = state.chapters.filter { it.read }.maxOfOrNull { it.number } ?: 0f)
 
             val genres = metadata?.genres?.takeIf { it.isNotEmpty() } ?: media.genres.split('|').filter { it.isNotBlank() }
             if (genres.isNotEmpty()) {
