@@ -353,9 +353,9 @@
     if (e.target.closest?.('input[type=search], input[type=text], textarea') || serversOpen || episodesOpen) return;
     if (e.key === ' ' || e.key === 'k') { e.preventDefault(); toggle(); }
     if (e.key === 'ArrowRight') { seek(e.shiftKey ? 85 : 10); showFlash(e.shiftKey ? t('+85 s') : t('10 s »')); }
-    if (e.key === 'ArrowLeft') { seek(-10); showFlash('« 10 s'); }
-    if (e.key === 'ArrowUp') { e.preventDefault(); setVolume(volume + 0.1); showFlash(`Volumen ${Math.round(volume * 100)}%`); }
-    if (e.key === 'ArrowDown') { e.preventDefault(); setVolume(volume - 0.1); showFlash(`Volumen ${Math.round(volume * 100)}%`); }
+    if (e.key === 'ArrowLeft') { seek(-10); showFlash(t('« 10 s')); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); setVolume(volume + 0.1); showFlash(t('Volumen {0}%', [Math.round(volume * 100)])); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setVolume(volume - 0.1); showFlash(t('Volumen {0}%', [Math.round(volume * 100)])); }
     if (e.key === 'm') toggleMute();
     if (e.key === 'f') fullscreen();
     if (e.key === 'n' && next) go(next);

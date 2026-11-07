@@ -11,6 +11,7 @@
   import { openDiscover, score10, genreName, seasonName, formatName } from '../lib/ui.js';
   import { groupBadges } from '../lib/format.js';
   import Hero from '../components/Hero.svelte';
+  import Welcome from '../components/Welcome.svelte';
   import Shelf from '../components/Shelf.svelte';
   import MediaCard from '../components/MediaCard.svelte';
   import WideCard from '../components/WideCard.svelte';
@@ -139,6 +140,7 @@
 
 <div class="page home">
   <Hero {slides} />
+  <Welcome />
 
   {#each layout.filter((r) => !r.hidden) as r (r.id)}
     {#if r.id === 'rooms' && items('rooms').length}
