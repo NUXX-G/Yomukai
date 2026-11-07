@@ -43,7 +43,23 @@ object Capabilities {
         addProperty("maxConcurrent", concurrency)
         add("engines", JsonArray().also { a -> handlers.map { it.type }.distinct().forEach(a::add) })
         handlers.filterIsInstance<TtsHandler>().firstOrNull()?.let { add("voices", it.info()) }
+        add("disks", disks())
     }
+
+    /**
+     * Free and total space where the worker writes: the NAS libraries mounted under /media (one per folder), the
+     * backups folder and its work folder. Only the folder names travel, never the files in them.
+     */
+    fun disks(roots: List<File> = listOf(File("/media"), File("/backups"), File(System.getenv("WORKER_WORK_DIR") ?: "/work"))): JsonArray =
+        JsonArray().also { out ->
+            roots.flatMap { root -> if (root.name == "media") root.listFiles()?.filter { it.isDirectory }.orEmpty() else listOf(root) }
+                .filter { it.isDirectory && it.totalSpace > 0 }
+                .distinctBy { it.absolutePath }
+                .take(12)
+                .forEach { d ->
+                    out.add(JsonObject().apply { addProperty("path", d.absolutePath); addProperty("free", d.usableSpace); addProperty("total", d.totalSpace) })
+                }
+        }
 
     /** True when [command] can be started (it is on the PATH or is an existing file). */
     fun installed(command: String, vararg probeArgs: String = arrayOf("--version")): Boolean = runCatching {

@@ -129,6 +129,16 @@ class WorkerRegistry(private val db: Database, private val clock: () -> Long = S
         fun hash(token: String): String = MessageDigest.getInstance("SHA-256").digest(token.toByteArray()).joinToString("") { "%02x".format(it) }
 
         /** Only known, bounded fields are kept from what a worker says about itself. */
+
+        /** Disks the worker writes to (NAS libraries, backups): a short path and two numbers each. */
+        private fun sanitizeDisks(input: JsonObject) = com.google.gson.JsonArray().also { arr ->
+            input.getAsJsonArray("disks")?.mapNotNull { it as? JsonObject }?.take(12)?.forEach { d ->
+                val path = d.get("path")?.takeIf { it.isJsonPrimitive }?.asString?.take(120)?.takeIf { p -> p.startsWith("/") || p.matches(Regex("[A-Za-z]:.*")) } ?: return@forEach
+                fun n(k: String) = d.get(k)?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }?.asLong?.coerceIn(0, Long.MAX_VALUE / 2) ?: 0L
+                arr.add(JsonObject().apply { addProperty("path", path); addProperty("free", n("free")); addProperty("total", n("total")) })
+            }
+        }
+
         fun sanitize(input: JsonObject): JsonObject = JsonObject().apply {
             fun num(name: String, max: Long) = input.get(name)?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }
                 ?.asLong?.coerceIn(0, max)?.let { addProperty(name, it) }
@@ -136,6 +146,7 @@ class WorkerRegistry(private val db: Database, private val clock: () -> Long = S
             input.get("gpu")?.takeIf { it.isJsonPrimitive }?.asString?.take(80)?.let { addProperty("gpu", it) }
             input.get("os")?.takeIf { it.isJsonPrimitive }?.asString?.take(80)?.let { addProperty("os", it) }
             input.get("busy")?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isBoolean }?.asBoolean?.let { addProperty("busy", it) }
+            add("disks", sanitizeDisks(input))
             add("engines", com.google.gson.JsonArray().also { arr ->
                 input.getAsJsonArray("engines")?.mapNotNull { e -> e.takeIf { it.isJsonPrimitive }?.asString }
                     ?.filter { it in JobTypes.ALL }?.distinct()?.forEach(arr::add)

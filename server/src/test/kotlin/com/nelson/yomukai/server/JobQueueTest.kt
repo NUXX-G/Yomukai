@@ -146,6 +146,10 @@ class JobQueueTest {
         assertEquals(listOf("tts", "ocr"), clean.getAsJsonArray("engines").map { it.asString })
         assertEquals(1024, clean.get("cpus").asInt)
         assertFalse(clean.has("evil"))
+        val disks = WorkerRegistry.sanitize(com.google.gson.JsonParser.parseString(
+            """{"disks":[{"path":"/media/anime","free":5,"total":10},{"path":"<script>","free":1,"total":2}]}"""
+        ).asJsonObject).getAsJsonArray("disks")
+        assertEquals(listOf("/media/anime"), disks.map { it.asJsonObject.get("path").asString })
     }
 
     @Test

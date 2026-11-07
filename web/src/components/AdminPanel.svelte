@@ -154,6 +154,9 @@
             {#if w.capabilities.gpu} · {w.capabilities.gpu}{/if}
             {#if w.capabilities.busy} {t('· ocupado')}{/if}
           </span>
+          {#each w.capabilities.disks || [] as d (d.path)}
+            <span class="small block" class:warn={d.free < 5 * 1024 ** 3}>{t('Disco {0}: {1} libres de {2}', [d.path, gb(d.free), gb(d.total)])}</span>
+          {/each}
           {#if w.capabilities.engines?.length}
             <span class="small muted block">{w.capabilities.engines.map((e) => engineNames[e] || e).join(', ')}</span>
           {/if}
