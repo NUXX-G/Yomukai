@@ -98,5 +98,8 @@ class ImportsTest {
         val adminId = s.db.tx { queryOne("SELECT id FROM users WHERE name = 'admin'") { getLong(1) } }!!
         s.imports.enqueue(adminId, "anilist", listOf(Imports.Entry("Frieren", emptyList(), MediaType.ANIME, "READING", 3f)))
         assertTrue(admin.get("/api/import/status").bodyAsText().contains("\"pending\":1"))
+        // One user's queue has a cap, whatever they try.
+        val many = (1..Imports.MAX_ENTRIES).map { Imports.Entry("Obra $it", emptyList(), MediaType.MANGA, "READING", 0f) }
+        assertTrue(runCatching { s.imports.enqueue(adminId, "anilist", many) }.isFailure)
     }
 }

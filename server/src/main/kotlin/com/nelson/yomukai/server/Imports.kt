@@ -44,6 +44,9 @@ class Imports(
         val now = clock()
         val kept = entries.filter { it.title.isNotBlank() }.distinctBy { it.title.lowercase() + "|" + it.type.isReadableAsImages }.take(MAX_ENTRIES)
         db.tx {
+            // One user's queue never grows past the cap, however many imports they start.
+            val pending = queryOne("SELECT COUNT(*) FROM imports WHERE user_id = ? AND state = 'pending'", userId) { getInt(1) } ?: 0
+            require(pending + kept.size <= MAX_ENTRIES) { "Ya tienes una importación en marcha; espera a que termine" }
             kept.forEach { e ->
                 update(
                     "INSERT INTO imports(user_id, origin, data, state, created_at, updated_at) VALUES(?,?,?,'pending',?,?)",
@@ -64,14 +67,22 @@ class Imports(
 
     suspend fun clear(userId: Long) = db.tx { update("DELETE FROM imports WHERE user_id = ? AND state != 'pending'", userId) }
 
-    /** Works through the next pending title of anyone (oldest first). Called every few seconds in the background. */
+    @Volatile
+    private var lastUser = 0L
+
+    /**
+     * Works through the next pending title, taking users in turns (one big import never holds up anyone else's).
+     * Suspended accounts and guests are skipped. Called every few seconds in the background.
+     */
     suspend fun resolveNext(): Boolean {
-        val next = db.tx {
-            queryOne("SELECT i.id, i.user_id, i.data, u.name, u.is_admin FROM imports i JOIN users u ON u.id = i.user_id WHERE i.state = 'pending' ORDER BY i.id LIMIT 1") {
-                Triple(getLong(1), User(getLong(2), getString(4), isAdmin = getInt(5) == 1, isGuest = false, createdAt = 0, expiresAt = null), getString(3))
-            }
+        val pick = """SELECT i.id, i.user_id, i.data FROM imports i JOIN users u ON u.id = i.user_id
+            WHERE i.state = 'pending' AND u.suspended_at IS NULL AND u.is_guest = 0 AND i.user_id > ? ORDER BY i.user_id, i.id LIMIT 1"""
+        val row = db.tx {
+            queryOne(pick, lastUser) { Triple(getLong(1), getLong(2), getString(3)) } ?: queryOne(pick, 0L) { Triple(getLong(1), getLong(2), getString(3)) }
         } ?: return false
-        val (id, user, data) = next
+        val (id, userId, data) = row
+        lastUser = userId
+        val user = db.userById(userId) ?: return false
         val entry = runCatching { gson.fromJson(data, Entry::class.java) }.getOrNull()
         val found = entry != null && runCatching { resolve(user, entry) }.getOrElse {
             log.debug("Importar {}: {}", entry.title, it.message)
@@ -159,6 +170,7 @@ class Imports(
         private const val ANILIST = "https://graphql.anilist.co"
         const val MAX_ENTRIES = 3_000
         const val MAX_BACKUP_BYTES = 30L * 1024 * 1024
+        private const val MAX_UNPACKED_BYTES = 64 * 1024 * 1024
 
         private fun JsonArray?.orEmptyArray(): List<com.google.gson.JsonElement> = this?.toList().orEmpty()
 
@@ -194,7 +206,9 @@ class Imports(
          * title (field 3) and its chapters (field 16: read = 4, number = 9). Favorites only (field 100 = favorite).
          */
         fun fromMihon(input: InputStream): List<Entry> {
-            val bytes = GZIPInputStream(input).use { it.readNBytes(MAX_BACKUP_BYTES.toInt() * 4) }
+            // A small file can unpack into a huge one: past the cap it is refused, never cut and parsed.
+            val bytes = GZIPInputStream(input).use { it.readNBytes(MAX_UNPACKED_BYTES + 1) }
+            require(bytes.size <= MAX_UNPACKED_BYTES) { "Copia demasiado grande" }
             val out = mutableListOf<Entry>()
             Proto(bytes).fields { field, value ->
                 if (field == 1 && value is ByteArray) {
