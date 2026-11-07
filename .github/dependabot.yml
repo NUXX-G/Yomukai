@@ -9,6 +9,10 @@ updates:
     groups:
       gradle-menores:
         update-types: ["minor", "patch"]
+    ignore:
+      # Desde 0.4.9.14 exige un minSdk mayor: dejaría fuera los móviles con Android 8 que la app soporta.
+      - dependency-name: "info.guardianproject:tor-android"
+        versions: [">= 0.4.9.14"]
   - package-ecosystem: npm
     directory: "/web"
     schedule:
@@ -28,3 +32,7 @@ updates:
     directory: "/"
     schedule:
       interval: monthly
+    ignore:
+      # Solo versiones LTS de Node (las impares no tienen soporte largo).
+      - dependency-name: "node"
+        versions: ["25", "27", "29"]
