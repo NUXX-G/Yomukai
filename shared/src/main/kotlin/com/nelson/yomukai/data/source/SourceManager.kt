@@ -30,6 +30,7 @@ class SourceManager(
     private val kotlinSources: List<CatalogueSource> = listOf(
         // Manga / manhwa
         MangaDexSource(network),
+        MangaDexSource(network, com.nelson.yomukai.data.source.manga.MangaDexProfile.ENGLISH),
         MangaDexSource(network, com.nelson.yomukai.data.source.manga.MangaDexProfile.CHINESE),
         OlympusScansSource(network),
         AsuraScansSource(network),

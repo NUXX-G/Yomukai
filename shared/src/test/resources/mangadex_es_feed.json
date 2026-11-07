@@ -1,0 +1,233 @@
+{
+ "result": "ok",
+ "response": "collection",
+ "data": [
+  {
+   "id": "60b029e6-5c75-461b-8e89-4c672bfdbc9d",
+   "type": "chapter",
+   "attributes": {
+    "volume": null,
+    "chapter": "252",
+    "title": "Bind",
+    "translatedLanguage": "es-la",
+    "externalUrl": null,
+    "isUnavailable": false,
+    "publishAt": "2024-10-31T00:27:37+00:00",
+    "readableAt": "2024-10-31T00:27:37+00:00",
+    "createdAt": "2024-10-31T00:27:36+00:00",
+    "updatedAt": "2024-10-31T00:27:40+00:00",
+    "version": 3,
+    "pages": 17
+   },
+   "relationships": [
+    {
+     "id": "7963a16a-68a3-44d6-9424-c19330a2944b",
+     "type": "scanlation_group"
+    },
+    {
+     "id": "d8a959f7-648e-4c8d-8f23-f1f3f8e129f3",
+     "type": "manga"
+    },
+    {
+     "id": "80419401-fddb-4b53-8fff-c07abd7ac148",
+     "type": "user"
+    }
+   ]
+  },
+  {
+   "id": "000d7819-680b-49a3-82f9-292fb6f11874",
+   "type": "chapter",
+   "attributes": {
+    "volume": "4",
+    "chapter": "22",
+    "title": "Voces",
+    "translatedLanguage": "es",
+    "externalUrl": null,
+    "isUnavailable": false,
+    "publishAt": "2018-06-24T16:38:11+00:00",
+    "readableAt": "2018-06-24T16:38:11+00:00",
+    "createdAt": "2018-06-24T16:38:11+00:00",
+    "updatedAt": "2018-06-24T16:38:11+00:00",
+    "version": 1,
+    "pages": 39
+   },
+   "relationships": [
+    {
+     "id": "7963a16a-68a3-44d6-9424-c19330a2944b",
+     "type": "scanlation_group"
+    },
+    {
+     "id": "d8a959f7-648e-4c8d-8f23-f1f3f8e129f3",
+     "type": "manga"
+    },
+    {
+     "id": "f0ef39e1-f723-4385-b548-c4dff1cbb596",
+     "type": "user"
+    }
+   ]
+  },
+  {
+   "id": "171d674b-f753-413c-82ba-8879265c164c",
+   "type": "chapter",
+   "attributes": {
+    "volume": "4",
+    "chapter": "22",
+    "title": "Voces",
+    "translatedLanguage": "es-la",
+    "externalUrl": null,
+    "isUnavailable": false,
+    "publishAt": "2018-06-24T16:38:05+00:00",
+    "readableAt": "2018-06-24T16:38:05+00:00",
+    "createdAt": "2018-06-24T16:38:05+00:00",
+    "updatedAt": "2018-06-24T16:38:05+00:00",
+    "version": 1,
+    "pages": 41
+   },
+   "relationships": [
+    {
+     "id": "3fbce7cb-7bc8-4864-af84-e5ad287fe0f9",
+     "type": "scanlation_group"
+    },
+    {
+     "id": "d8a959f7-648e-4c8d-8f23-f1f3f8e129f3",
+     "type": "manga"
+    },
+    {
+     "id": "f0ef39e1-f723-4385-b548-c4dff1cbb596",
+     "type": "user"
+    }
+   ]
+  },
+  {
+   "id": "952e336e-58c8-4dd3-9b58-ffa9ef1ef5e7",
+   "type": "chapter",
+   "attributes": {
+    "volume": "4",
+    "chapter": "21",
+    "title": "Meteorito gigante",
+    "translatedLanguage": "es-la",
+    "externalUrl": null,
+    "isUnavailable": false,
+    "publishAt": "2018-06-24T16:37:37+00:00",
+    "readableAt": "2018-06-24T16:37:37+00:00",
+    "createdAt": "2018-06-24T16:37:37+00:00",
+    "updatedAt": "2018-06-24T16:37:37+00:00",
+    "version": 1,
+    "pages": 123
+   },
+   "relationships": [
+    {
+     "id": "3fbce7cb-7bc8-4864-af84-e5ad287fe0f9",
+     "type": "scanlation_group"
+    },
+    {
+     "id": "d8a959f7-648e-4c8d-8f23-f1f3f8e129f3",
+     "type": "manga"
+    },
+    {
+     "id": "f0ef39e1-f723-4385-b548-c4dff1cbb596",
+     "type": "user"
+    }
+   ]
+  },
+  {
+   "id": "f9aa5936-166c-4b4b-ab81-2806804d1616",
+   "type": "chapter",
+   "attributes": {
+    "volume": "4",
+    "chapter": "21",
+    "title": "Meteorito gigante",
+    "translatedLanguage": "es",
+    "externalUrl": null,
+    "isUnavailable": false,
+    "publishAt": "2018-06-24T16:37:51+00:00",
+    "readableAt": "2018-06-24T16:37:51+00:00",
+    "createdAt": "2018-06-24T16:37:51+00:00",
+    "updatedAt": "2018-06-24T16:37:51+00:00",
+    "version": 1,
+    "pages": 115
+   },
+   "relationships": [
+    {
+     "id": "7963a16a-68a3-44d6-9424-c19330a2944b",
+     "type": "scanlation_group"
+    },
+    {
+     "id": "d8a959f7-648e-4c8d-8f23-f1f3f8e129f3",
+     "type": "manga"
+    },
+    {
+     "id": "f0ef39e1-f723-4385-b548-c4dff1cbb596",
+     "type": "user"
+    }
+   ]
+  },
+  {
+   "id": "1696c95a-bfc9-400c-912f-bae46e6029e0",
+   "type": "chapter",
+   "attributes": {
+    "volume": "3",
+    "chapter": "20",
+    "title": "Rumor",
+    "translatedLanguage": "es-la",
+    "externalUrl": null,
+    "isUnavailable": false,
+    "publishAt": "2018-06-24T16:36:11+00:00",
+    "readableAt": "2018-06-24T16:36:11+00:00",
+    "createdAt": "2018-06-24T16:36:11+00:00",
+    "updatedAt": "2018-06-24T16:36:11+00:00",
+    "version": 1,
+    "pages": 45
+   },
+   "relationships": [
+    {
+     "id": "3fbce7cb-7bc8-4864-af84-e5ad287fe0f9",
+     "type": "scanlation_group"
+    },
+    {
+     "id": "d8a959f7-648e-4c8d-8f23-f1f3f8e129f3",
+     "type": "manga"
+    },
+    {
+     "id": "f0ef39e1-f723-4385-b548-c4dff1cbb596",
+     "type": "user"
+    }
+   ]
+  },
+  {
+   "id": "dda5b2e7-5bb9-4056-8ad4-1d52ac98824b",
+   "type": "chapter",
+   "attributes": {
+    "volume": "3",
+    "chapter": "20",
+    "title": "Rumor",
+    "translatedLanguage": "es",
+    "externalUrl": null,
+    "isUnavailable": false,
+    "publishAt": "2018-06-24T16:36:18+00:00",
+    "readableAt": "2018-06-24T16:36:18+00:00",
+    "createdAt": "2018-06-24T16:36:18+00:00",
+    "updatedAt": "2018-06-24T16:36:18+00:00",
+    "version": 1,
+    "pages": 41
+   },
+   "relationships": [
+    {
+     "id": "7963a16a-68a3-44d6-9424-c19330a2944b",
+     "type": "scanlation_group"
+    },
+    {
+     "id": "d8a959f7-648e-4c8d-8f23-f1f3f8e129f3",
+     "type": "manga"
+    },
+    {
+     "id": "f0ef39e1-f723-4385-b548-c4dff1cbb596",
+     "type": "user"
+    }
+   ]
+  }
+ ],
+ "limit": 500,
+ "offset": 0,
+ "total": 7
+}

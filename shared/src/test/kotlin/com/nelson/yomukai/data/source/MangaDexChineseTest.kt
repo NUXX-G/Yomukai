@@ -55,6 +55,36 @@ class MangaDexChineseTest {
     }
 
     @Test
+    fun spanishEnglishAndChineseAreSeparateSources() {
+        val manager = SourceManager(FakeHttp("{}"))
+        assertEquals("ES", manager.require("mangadex").language)
+        assertEquals("EN", manager.require("mangadex_en").language)
+        assertEquals("ZH", manager.require("mangadex_zh").language)
+        assertTrue("mangadex_en" in manager.defaultEnabledIds)
+    }
+
+    @Test
+    fun spanishChaptersKeepOneVersionPerNumberAndNoEnglish() = runBlocking {
+        // Real feed (One-Punch Man): 20, 21 and 22 exist both as es and es-la.
+        val http = FakeHttp(javaClass.getResource("/mangadex_es_feed.json")!!.readText())
+        val chapters = MangaDexSource(http).fetchChapterList("d8a959f7-648e-4c8d-8f23-f1f3f8e129f3").getOrThrow()
+        assertEquals(listOf(252f, 22f, 21f, 20f), chapters.map { it.chapterNumber })
+        assertEquals("es (Spain) wins over es-la when both exist", "000d7819", chapters[1].id.take(8))
+        assertEquals("f9aa5936", chapters[2].id.take(8))
+        assertTrue(chapters.none { "[" in it.title })
+        val url = http.urls.single()
+        assertTrue("translatedLanguage[]=es-la" in url && "translatedLanguage[]=en" !in url)
+    }
+
+    @Test
+    fun englishSourceAsksOnlyForEnglish() = runBlocking {
+        val http = FakeHttp(latest)
+        MangaDexSource(http, MangaDexProfile.ENGLISH).fetchLatestUpdates(1).getOrThrow()
+        val url = http.urls.single()
+        assertTrue("availableTranslatedLanguage[]=en" in url && "availableTranslatedLanguage[]=es" !in url)
+    }
+
+    @Test
     fun catalogueUsesTheProfileLanguages() {
         val request = MangaDexSource.catalogueRequest(1, emptyMap(), 24, listOf("zh", "zh-hk"))
         assertTrue("availableTranslatedLanguage[]=zh-hk" in request && "availableTranslatedLanguage[]=en" !in request)

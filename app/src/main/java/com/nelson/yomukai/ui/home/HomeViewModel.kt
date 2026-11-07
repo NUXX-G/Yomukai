@@ -34,7 +34,7 @@ enum class TypeFilter(val label: String, val types: Set<MediaType>) {
     ANIME("Anime", setOf(MediaType.ANIME))
 }
 
-enum class LanguageFilter(val label: String) { ALL("Todos"), ES("Español"), EN("Inglés") }
+enum class LanguageFilter(val label: String) { ALL("Todos"), ES("Español"), EN("Inglés"), ZH("Chino") }
 
 fun CatalogueSource.matches(language: LanguageFilter) =
     language == LanguageFilter.ALL || this.language == "MULTI" || this.language == language.name

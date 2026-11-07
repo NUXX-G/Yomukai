@@ -52,7 +52,7 @@
   const canSpeak = typeof window !== 'undefined' && ('speechSynthesis' in window || 'Audio' in window);
   const voice = new SpeechReader();
   voice.onFallback = (msg) => notify('Voces naturales no disponibles ahora (' + msg + '): sigo con las del navegador');
-  const speechLang = $derived(sourceById(sourceId)?.language === 'EN' ? 'en' : 'es');
+  const speechLang = $derived({ EN: 'en', ZH: 'zh' }[sourceById(sourceId)?.language] ?? 'es');
   const nextOf = (c) => c && chapters.find((x) => x.index === c.index + 1);
   const prevOf = (c) => c && chapters.find((x) => x.index === c.index - 1);
   const indexList = $derived.by(() => {

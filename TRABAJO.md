@@ -3,7 +3,30 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
-Última actualización: 2026-11-06, commit `fix(social): lo guardado en categorías privadas...`.
+Última actualización: 2026-11-07, commit `feat(fuentes): MangaDex separado en español, inglés y chino`.
+
+### PEDIDO DEL USUARIO EL 2026-11-07 (sesión nueva, modo autónomo total; no está mirando)
+Al acabar TODO avisarle: lo instalará en el VPS y en su móvil, lo probará un día y dirá qué corregir. Orden elegido por mí:
+1. [x] Separar idiomas: MangaDex era una fuente con ES+EN mezclados en la misma obra → `mangadex` (ES, conserva el id),
+   `mangadex_en` (EN, activa por defecto) y `mangadex_zh` (ZH, apagada). Filtro de idioma con «Chino» en web y app.
+   No olvidar el chino en ningún sitio (filtros, voz, OCR, aprendizaje).
+2. [ ] Fase 10 pendiente (obras seguidas → Jellyfin como fuente → progreso bidireccional → salas con Jellyfin).
+3. [ ] **Interfaz en español e inglés** (solo el idioma del sistema; el contenido de cualquier idioma se ve igual):
+   web (diccionario por clave, lazy por idioma, detecta el del navegador, Ajustes › Idioma) y app (strings.xml + values-en).
+4. [ ] **Todo por obras, no por fuentes** (ya acordado en la Fase 5): revisar que ninguna pantalla vuelva a organizarse por
+   fuente. **Más páginas de metadatos** además de AniList/MAL/Kitsu/MangaUpdates/Open Library (p. ej. TMDB para series y
+   películas no anime, NovelUpdates para novelas, Comick/MangaUpdates para manhwa/manhua), con caché y prioridad.
+5. [ ] **Catálogo de fuentes tipo plugin, SOLO JSON firmado** (nunca código descargado: decidido con el usuario por
+   seguridad): pasar a JSON las fuentes que encajen, pantalla de catálogo (instalar/quitar con un toque, versión nueva,
+   caída), y que cada instalación pueda aceptar **claves públicas extra** (`SOURCE_KEYS`) para sus propias fuentes. El
+   código es público (portfolio y para quien lo quiera montar): seguro y privado para él y para los demás.
+6. [ ] Fase 11, con **modo «todo en uno»**: servidor + worker en la misma máquina con un comando (red de Docker
+   compartida; el worker apunta al servidor por su nombre) y guía con las 3 formas: solo servidor / todo en uno / VPS + worker.
+7. [ ] PRs de Dependabot: #6 Tor y #7 (30 menores) fallan en CI → arreglar; #4 Compose y #5 OkHttp 5 → probar en emulador;
+   #1 Temurin 25 → probar Docker; #2 Node 25 → cerrar (no LTS) y subir a node 24.
+8. [ ] Pendientes de Fases 8 y 9 (sherpa-onnx/Kokoro en dispositivo, ML Kit en la app, diccionario offline…).
+Todo con HUD moderno tipo Netflix/Seanime, bonito y eficiente («que sea top de verdad»).
+- El secreto `SOURCES_SIGNING_KEY` YA está puesto (2026-11-07).
 - **Fase en curso: 6 (Social).** Hecho y probado en el SERVIDOR: salas + watch party + chat (6.1-6.3, también en la web), perfiles, estadísticas, privacidad, feed, presencia, valoraciones, recomendaciones y motor de logros (6.4-6.7 y 6.11) → `server/…/Social.kt`, `Achievements.kt`, `server/src/main/resources/achievements.json`, migración 8, tests `SocialTest` y `RoomsTest`.
 - **Web de 6.4-6.7 y 6.11 HECHA** (commit «feat(social): perfiles, amigos, actividad, valoraciones...»): `Profile.svelte` (/u/nombre con edición, logros, estadísticas), `Friends.svelte` (/amigos), `WorkSocial.svelte` en la ficha (amigos que la tienen, nota 1-10 + reseña, media, recomendar), filas «Te recomiendan» y «Actividad de tus amigos» en Inicio, presencia desde reproductor y lectores (`lib/presence.js`), aviso animado de logros en `App.svelte`, evento skip_opening. Probado en vivo con dos usuarios.
 - **Servidor de 6.8-6.10 HECHO** (`Forum.kt`, `Notifications.kt`, migración 9, `ForumTest`): API `/api/forum*`, `/api/notifications*` (SSE `/api/notifications/stream`, push ntfy `/api/notifications/push`), moderación `/api/admin/forum/threads/{id}` y `/api/admin/mute`, flag `forum`.
@@ -26,8 +49,8 @@ Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este ficher
 - **Descargas HECHAS**: `POST /worker/videos` (vídeo directo fresco al empezar), `POST /api/admin/jellyfin/download` y `POST /api/admin/cbz/export {sourceId, mediaId, chapterIds}` (solo admins, auditado, cola BACKGROUND, 30 días, deduplicado), `JellyfinDownloadHandler` (espacio libre ≥5 GB, ffmpeg -c copy a MKV, nombres de Jellyfin dentro de la biblioteca, tvshow/season/episodio .nfo con ids, poster, escaneo solo de esa carpeta) y `CbzExportHandler` (CBZ con ComicInfo.xml en la carpeta de cómics). Pendiente: evento `jellyfin_download` para el logro (registrar en el servidor cuando el trabajo termine) y aviso a Kavita/Komga para escanear.
 - Web HECHA: `IntegrationsPanel.svelte` en el panel de admin (Jellyfin, carpetas, Kavita/Komga, probar desde el VPS; las claves no se muestran) y en el menú de la ficha, para admins, «Al Jellyfin» (anime) / «A Kavita/Komga» (cómics) con los no vistos o todos.
 - **SIGUIENTE PASO CONCRETO (Fase 10)**: 6) obras seguidas (tabla `follows`): tarea periódica que mira capítulos nuevos y encola descargas, con aviso; 7) Jellyfin como fuente (biblioteca por su API, insignia «en tu NAS», prioridad en el modelo de obra), progreso en las dos direcciones, salas con Jellyfin.
-  (detalle en `docs/ENCARGO.md` FASE 6, puntos 8-10). Ideas ya decididas: hilo automático por obra (clave = work_key) + categorías Recomendaciones/Off-topic/Quejas al admin; markdown SANEADO en el servidor (o solo texto con formato mínimo; nunca `{@html}` con datos de usuario sin sanear); spoilers «hasta el ep./cap. N» ocultos a quien vaya por detrás (`SpoilerShield.hideComment` ya existe en shared); al revivir un hilo con >3 meses sin actividad registrar evento `thread_revived`; mensajes marcados spoiler → evento `forum_spoiler`. Moderación: borrar/editar/fijar/cerrar/silenciar con caducidad, todo en `AuditLog`. Notificaciones: canal en tiempo real (SSE ya instalado en Ktor: `install(SSE)`) para menciones, respuestas, recomendaciones y logros; ntfy (ya hay `Notifier.kt` con Discord/ntfy para avisos de admin) y webhook de Discord solo para salas abiertas e hilos nuevos (`DISCORD_WEBHOOK_URL`).
-- **Luego la app Android de la Fase 6** (paridad mínima: salas con el mismo protocolo WebSocket, perfil y feed) y seguir con Fases 7 → 11 en orden.
+  (Notas antiguas de la Fase 6, ya hecha:) Ideas ya decididas: hilo automático por obra (clave = work_key) + categorías Recomendaciones/Off-topic/Quejas al admin; markdown SANEADO en el servidor (o solo texto con formato mínimo; nunca `{@html}` con datos de usuario sin sanear); spoilers «hasta el ep./cap. N» ocultos a quien vaya por detrás (`SpoilerShield.hideComment` ya existe en shared); al revivir un hilo con >3 meses sin actividad registrar evento `thread_revived`; mensajes marcados spoiler → evento `forum_spoiler`. Moderación: borrar/editar/fijar/cerrar/silenciar con caducidad, todo en `AuditLog`. Notificaciones: canal en tiempo real (SSE ya instalado en Ktor: `install(SSE)`) para menciones, respuestas, recomendaciones y logros; ntfy (ya hay `Notifier.kt` con Discord/ntfy para avisos de admin) y webhook de Discord solo para salas abiertas e hilos nuevos (`DISCORD_WEBHOOK_URL`).
+- Pendiente de la app Android de la Fase 6: salas nativas con el mismo protocolo WebSocket, perfil y feed.
 
 ### Lo que el usuario pidió por el camino (no olvidar)
 - Todo autónomo, sin esperar confirmación entre fases; subir a GitHub a menudo (puede quedarse sin tokens). Si una sesión se corta, la siguiente sigue desde aquí.
@@ -38,9 +61,8 @@ Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este ficher
 - Portadas grandes en baja resolución → hecho: el servidor usa la portada extraLarge de AniList cuando la página está unida a una obra (`Works.betterCover`, cola en segundo plano que identifica lo que sale en listas). Si vuelve a quejarse, ampliar la identificación o pedir `w=` mayores.
 
 ### Cosas que necesitan al usuario (decírselo al terminar)
-- `gh secret set SOURCES_SIGNING_KEY < ~/.yomukai/sources-signing.key` (no tengo permiso para escribir secretos).
 - Medir en el VPS real con `scripts/bench.sh` (no tengo acceso).
-- PRs de Dependabot #1/#2 (subidas mayores de imágenes Docker) sin fusionar a propósito: revisarlas.
+- PRs de Dependabot: me encargo yo (el usuario no quiere revisarlos).
 - Una revisión de seguridad automática no terminó por un 429: detalles en `C:\Users\nelso\.claude\security\log.txt`.
 
 ### Cómo trabajo aquí (para no perder tiempo)

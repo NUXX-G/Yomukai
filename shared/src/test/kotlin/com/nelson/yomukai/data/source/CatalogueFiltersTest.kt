@@ -15,13 +15,13 @@ class CatalogueFiltersTest {
             3,
             mapOf(
                 FilterKeys.SORT to setOf("popular"), FilterKeys.STATUS to setOf("ongoing", "hiatus"),
-                FilterKeys.TYPE to setOf("ko"), FilterKeys.LANGUAGE to setOf("es")
+                FilterKeys.TYPE to setOf("ko")
             ),
             24
         )
         assertTrue("order[followedCount]=desc" in filtered && "offset=48" in filtered)
         assertTrue("status[]=ongoing" in filtered && "status[]=hiatus" in filtered && "originalLanguage[]=ko" in filtered)
-        assertTrue("availableTranslatedLanguage[]=es-la" in filtered && "availableTranslatedLanguage[]=en" !in filtered)
+        assertTrue("the Spanish source only lists works in Spanish", "availableTranslatedLanguage[]=es-la" in filtered && "availableTranslatedLanguage[]=en" !in filtered)
     }
 
     @Test

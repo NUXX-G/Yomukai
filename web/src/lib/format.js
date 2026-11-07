@@ -12,7 +12,7 @@ export const TYPE_FILTERS = [
   { key: 'ANIME', label: 'Anime', types: ['ANIME'] }
 ];
 
-export const LANGUAGES = [{ key: '', label: 'Todos' }, { key: 'ES', label: 'Español' }, { key: 'EN', label: 'Inglés' }];
+export const LANGUAGES = [{ key: '', label: 'Todos' }, { key: 'ES', label: 'Español' }, { key: 'EN', label: 'Inglés' }, { key: 'ZH', label: 'Chino' }];
 
 export const RANDOM_KINDS = [
   { key: 'ANY', label: 'Lo que sea' }, { key: 'ANIME', label: 'Anime' }, { key: 'MANGA', label: 'Manga' },

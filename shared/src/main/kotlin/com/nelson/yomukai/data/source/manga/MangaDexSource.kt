@@ -24,8 +24,10 @@ import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
 
 /**
- * Which chapters and titles a MangaDex source shows. [DEFAULT] is Spanish + English; [CHINESE] is for reading
- * in Chinese (zh, zh-hk), e.g. to learn the language, and is off until the user turns it on.
+ * Which chapters and titles a MangaDex source shows. One source per language, so a work's Spanish and English
+ * chapters never mix in one list: the work model (ChapterMerge) picks the user's language when several have it.
+ * [DEFAULT] (Spanish) keeps the old "mangadex" id so libraries and progress survive; [CHINESE] (zh, zh-hk), e.g.
+ * to learn the language, is off until the user turns it on.
  */
 enum class MangaDexProfile(
     val sourceId: String,
@@ -36,7 +38,8 @@ enum class MangaDexProfile(
     val textLanguages: List<String>,
     val enabledByDefault: Boolean
 ) {
-    DEFAULT("mangadex", "MangaDex", "MULTI", listOf("es", "es-la", "en"), listOf("es", "en", "ja-ro"), true),
+    DEFAULT("mangadex", "MangaDex ES", "ES", listOf("es", "es-la"), listOf("es", "es-la", "en", "ja-ro"), true),
+    ENGLISH("mangadex_en", "MangaDex EN", "EN", listOf("en"), listOf("en", "ja-ro"), true),
     CHINESE("mangadex_zh", "MangaDex 中文", "ZH", listOf("zh", "zh-hk"), listOf("zh", "zh-hk", "zh-ro", "en", "ja-ro"), false)
 }
 
@@ -69,7 +72,7 @@ class MangaDexSource(private val network: HttpFetcher, private val profile: Mang
         return root
     }
 
-    override val filters: List<SourceFilter> = if (profile == MangaDexProfile.DEFAULT) FILTERS else FILTERS - LANGUAGE
+    override val filters: List<SourceFilter> = FILTERS
 
     override suspend fun browse(page: Int, values: FilterValues): Result<List<MediaItem>> = runCatching {
         get(catalogueRequest(page, values, pageSize, languages)).arr("data").objects().map(::toMediaItem)
@@ -96,7 +99,7 @@ class MangaDexSource(private val network: HttpFetcher, private val profile: Mang
     override suspend fun fetchChapterList(mediaId: String): Result<List<Chapter>> = runCatching {
         val mangaId = mediaId.substringAfterLast("/")
         val langQuery = languages.joinToString("&") { "translatedLanguage[]=$it" }
-        val chapters = mutableListOf<Chapter>()
+        val chapters = mutableListOf<Pair<Chapter, Int>>()
         var offset = 0
         var total: Int
         do {
@@ -109,7 +112,7 @@ class MangaDexSource(private val network: HttpFetcher, private val profile: Mang
                 val attrs = ch.obj("attributes") ?: return@forEach
                 if (attrs.str("externalUrl") != null) return@forEach
                 val numberRaw = attrs.str("chapter")
-                val lang = attrs.str("translatedLanguage").orEmpty().uppercase()
+                val langRank = languages.indexOf(attrs.str("translatedLanguage").orEmpty()).let { if (it < 0) languages.size else it }
                 val title = attrs.str("title").orEmpty()
                 val chapterId = ch.str("id") ?: return@forEach
                 val label = numberRaw?.let { "Capítulo $it" } ?: "Oneshot"
@@ -119,18 +122,18 @@ class MangaDexSource(private val network: HttpFetcher, private val profile: Mang
                     title = buildString {
                         append(label)
                         if (title.isNotBlank()) append(": ").append(title)
-                        append(" [").append(lang).append("]")
                     },
                     chapterNumber = numberRaw?.toFloatOrNull() ?: 0f,
                     url = "https://mangadex.org/chapter/$chapterId",
                     dateUploaded = formatIsoDate(attrs.str("publishAt"))
-                )
+                ) to langRank
             }
             offset += 500
         } while (offset < total && offset < 5000)
-        // The same chapter is often uploaded by several groups; keep one per number+language.
-        // Unnumbered chapters all report 0, so they are told apart by id.
-        chapters.distinctBy { if (it.title.startsWith("Oneshot")) it.id else "${it.chapterNumber}|${it.title.substringAfterLast("[")}" }
+        // The same chapter is often uploaded by several groups (or as es and es-la): keep one per number, in the
+        // profile's language order. Unnumbered chapters all report 0, so they are told apart by id.
+        chapters.sortedBy { it.second }.distinctBy { (c, _) -> if (c.title.startsWith("Oneshot")) c.id else c.chapterNumber.toString() }
+            .map { it.first }.sortedByDescending { it.chapterNumber }
     }
 
     override suspend fun fetchPageList(chapterUrl: String): Result<List<String>> = runCatching {
@@ -148,7 +151,7 @@ class MangaDexSource(private val network: HttpFetcher, private val profile: Mang
         val attrs = manga.obj("attributes") ?: JsonObject()
         val titles = attrs.obj("title")
         val altTitles = attrs.arr("altTitles").objects()
-        val title = pickTitle(titles, altTitles, profile.textLanguages, altFirst = profile != MangaDexProfile.DEFAULT)
+        val title = pickTitle(titles, altTitles, profile.textLanguages, altFirst = profile == MangaDexProfile.CHINESE)
         val description = attrs.obj("description").let { d -> (profile.chapterLanguages + profile.textLanguages).firstNotNullOfOrNull { d?.str(it) } }.orEmpty()
 
         val relationships = manga.arr("relationships").objects()
@@ -203,10 +206,6 @@ class MangaDexSource(private val network: HttpFetcher, private val profile: Mang
                 FilterOption("zh", "Manhua"), FilterOption("en", "Cómic")
             )
         )
-        private val LANGUAGE = SelectFilter(
-            FilterKeys.LANGUAGE, "Idioma de capítulos",
-            listOf(FilterOption("all", "Español e inglés"), FilterOption("es", "Español"), FilterOption("en", "Inglés"))
-        )
 
         /** Genre tag ids from https://api.mangadex.org/manga/tag. */
         private val GENRES = MultiSelectFilter(
@@ -223,7 +222,7 @@ class MangaDexSource(private val network: HttpFetcher, private val profile: Mang
                 "07251805-a27e-4d59-b488-f0bfbec15168" to "Suspenso", "acc803a4-c95a-4c22-86fc-eb6b582d82a2" to "Wuxia"
             ).map { FilterOption(it.first, it.second) }
         )
-        val FILTERS: List<SourceFilter> = listOf(SORT, STATUS, TYPE, GENRES, LANGUAGE)
+        val FILTERS: List<SourceFilter> = listOf(SORT, STATUS, TYPE, GENRES)
 
         private val CONTENT_LANGS = MangaDexProfile.DEFAULT.chapterLanguages
 
@@ -246,15 +245,10 @@ class MangaDexSource(private val network: HttpFetcher, private val profile: Mang
                 CommonSort.TITLE -> "order[title]=asc"
                 else -> "order[latestUploadedChapter]=desc"
             }
-            val langs = when (values.single(LANGUAGE)) {
-                "es" -> listOf("es", "es-la")
-                "en" -> listOf("en")
-                else -> chapterLanguages
-            }
             return buildString {
                 append("/manga?limit=$pageSize&offset=${(page - 1).coerceAtLeast(0) * pageSize}&$order&hasAvailableChapters=true")
                 append("&includes[]=cover_art&includes[]=author&contentRating[]=safe&contentRating[]=suggestive")
-                langs.forEach { append("&availableTranslatedLanguage[]=$it") }
+                chapterLanguages.forEach { append("&availableTranslatedLanguage[]=$it") }
                 values.selected(FilterKeys.STATUS).forEach { append("&status[]=$it") }
                 values.selected(FilterKeys.TYPE).forEach { append("&originalLanguage[]=$it") }
                 values.selected(FilterKeys.GENRE).forEach { append("&includedTags[]=$it") }
