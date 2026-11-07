@@ -124,9 +124,9 @@ dependencies {
     androidTestImplementation(libs.androidx.room.testing)
     // room-testing reads schemas with a newer kotlinx-serialization than the app otherwise brings in;
     // without this the test APK fails with AbstractMethodError.
-    constraints { implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.9.0") }
+    constraints { implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.12.0") }
     // Room testing reads the exported schemas with this; the app itself does not use it.
-    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
