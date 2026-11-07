@@ -2,7 +2,7 @@
 #   docker compose -f docker-compose.worker.yml up -d
 # Engines are optional: the worker announces only the ones it finds installed.
 
-FROM eclipse-temurin:21-jdk AS build
+FROM eclipse-temurin:25-jdk AS build
 WORKDIR /src
 ENV YOMUKAI_SERVER_ONLY=true GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.configuration-cache=false"
 COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
@@ -13,7 +13,7 @@ COPY server/ server/
 COPY worker/ worker/
 RUN ./gradlew :worker:installDist --console=plain -q
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 # ffmpeg (HLS to MKV, audio for whisper), chromaprint (opening/ending fingerprints), util-linux (ionice).
 ARG WITH_MEDIA=true
 RUN apt-get update \
