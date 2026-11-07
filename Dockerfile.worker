@@ -8,7 +8,7 @@
 # Published as ghcr.io/nuxx-g/yomukai-worker (light) and ghcr.io/nuxx-g/yomukai-worker-full (all engines).
 # Translation (LibreTranslate) runs as its own container: see docker-compose.worker.yml.
 
-FROM eclipse-temurin:21-jdk AS build
+FROM eclipse-temurin:25-jdk AS build
 WORKDIR /src
 ENV YOMUKAI_SERVER_ONLY=true GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.configuration-cache=false"
 COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
@@ -32,7 +32,7 @@ RUN mkdir -p /out/bin /out/models && if [ "$WITH_WHISPER" = "true" ]; then \
       && curl -fsSL -o /out/models/ggml-base.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin; \
     fi
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 ARG WITH_MEDIA=true
 ARG WITH_OCR=true
 ARG WITH_TTS=false
