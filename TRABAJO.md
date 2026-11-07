@@ -3,11 +3,11 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
-Última actualización: 2026-11-07 (noche), commit . Versión de la app: **2.0.0** (versionCode 26).
+Última actualización: 2026-11-07 (noche), commit `docs(trabajo): estado al cerrar la sesión`. Versión de la app: **2.0.0** (versionCode 26).
 
-**ESTADO AL CERRAR ESTA SESIÓN**: todo lo pedido el 2026-11-07 está hecho y subido (ver la lista de abajo). El usuario va a instalarlo en el VPS y en el móvil, probarlo un día y traer correcciones. **Siguiente paso**: esperar su lista de fallos; mientras, lo pendiente (por prioridad): app Android con Jellyfin/salas/foro/perfil nativos; voces en el dispositivo (sherpa-onnx, Kokoro en el navegador); ML Kit en la app (OCR y traducción); diccionario offline (kaikki.org); mazos compartidos y ranking; voces por personaje con clonación; pregeneración nocturna de voces; más metadatos (TMDB para series no anime con clave opcional); pasar más fuentes Kotlin a JSON; espacio del NAS en el panel; 3.6 avisar de cambios de dominio (ya hay , falta revisarlo).
-**Release**:  publica al subir la etiqueta  (yo no pude crearla: el sistema exige permiso del usuario para publicar). APK firmada local de prueba en el scratchpad de la sesión.
-**Bug importante encontrado y arreglado**: en Android las regex con  sin escapar fallan (ICU); las fuentes JSON (Marmota) no cargaban en la app. Test  lo vigila.
+**ESTADO AL CERRAR ESTA SESIÓN**: todo lo pedido el 2026-11-07 está hecho y subido (ver la lista de abajo). El usuario va a instalarlo en el VPS y en el móvil, probarlo un día y traer correcciones. **Siguiente paso**: esperar su lista de fallos; mientras, lo pendiente (por prioridad): app Android con Jellyfin/salas/foro/perfil nativos; voces en el dispositivo (sherpa-onnx, Kokoro en el navegador); ML Kit en la app (OCR y traducción); diccionario offline (kaikki.org); mazos compartidos y ranking; voces por personaje con clonación; pregeneración nocturna de voces; más metadatos (TMDB para series no anime con clave opcional); pasar más fuentes Kotlin a JSON; espacio del NAS en el panel; 3.6 avisar de cambios de dominio (ya hay `onDomainChange`, falta revisarlo).
+**Release**: `.github/workflows/release.yml` publica la APK al subir la etiqueta `v2.0.0` (no pude crearla yo: publicar necesita el permiso del usuario). APK firmada de prueba en el scratchpad de la sesión.
+**Bug importante encontrado y arreglado**: en Android, una regex con `}` sin escapar falla (ICU) aunque en el JVM vaya; por eso las fuentes JSON (Marmota) no cargaban en la app. `AndroidRegexTest` lo vigila.
 
 ### PEDIDO DEL USUARIO EL 2026-11-07 (2ª parte, también hecho)
 - [x] App: el inicio ya no tiene filas por fuente: «Recién actualizado» + Anime / Manga, manhwa y manhua / Cómics / Novelas, por obra (`WorkGrouper`, «En N fuentes»), y «Explorar por fuente» plegado al final.
