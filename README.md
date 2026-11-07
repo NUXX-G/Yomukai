@@ -1,6 +1,8 @@
 # Yomukai 読む会
 
-**Manga · Manhwa · Novelas ligeras · Anime** — un cliente Android local-first, sin cuentas ni seguimiento.
+**Manga · Manhwa · Manhua · Cómics · Novelas · Anime** — app Android, web instalable y servidor propio para un grupo de amigos. Se navega por **obras**, no por webs: cada título junta todas sus fuentes. En español y en inglés.
+
+Cómo está hecho: [ARCHITECTURE.md](ARCHITECTURE.md) · Instalar: [docs/INSTALACION.md](docs/INSTALACION.md)
 
 [Español](#español) · [English](#english)
 
@@ -86,7 +88,15 @@ adb logcat -d -s YomukaiLive:I
 
 ### Versión web (PC, iPhone, servidor propio)
 
-La misma app en el navegador: inicio, búsqueda, biblioteca, lectores de manga y novela, reproductor de anime, notas y recomendaciones. Se instala como app (PWA) en iPhone y Android desde «Añadir a pantalla de inicio».
+La misma app en el navegador, con todo lo del servidor:
+
+- **Obras, no fuentes**: búsqueda y novedades con una tarjeta por obra, capítulos unidos de todas las fuentes, «¿Dónde sigo?» entre anime, manga y novela, anti-spoilers, relleno y saltar opening/ending.
+- **Social**: perfiles, amigos, valoraciones, recomendaciones, salas para ver juntos con chat, foro por obra, logros, avisos en el móvil (ntfy).
+- **Lectura y voz**: lectores de manga y novela, voces naturales (worker de casa), traducción de bocadillos, autoscroll inteligente, modo aprendizaje de idiomas con repaso espaciado.
+- **Tu NAS**: Jellyfin como fuente («en tu NAS»), descargas al Jellyfin y CBZ a Kavita/Komga, obras seguidas que se descargan solas, progreso en los dos sentidos.
+- **Temas** con editor y galería entre amigos, **interfaz en español o inglés**, **importar** de AniList, MyAnimeList o Mihon/Tachiyomi, catálogo de fuentes para el admin.
+
+Se instala como app (PWA) en iPhone y Android desde «Añadir a pantalla de inicio».
 
 **Instalar con una línea** (necesita Docker con Compose). Tres formas: solo el servidor, todo en uno en una máquina potente (`YOMUKAI_MODE=todo-en-uno`) o VPS + worker en casa por Tailscale: guía completa en [docs/INSTALACION.md](docs/INSTALACION.md).
 
