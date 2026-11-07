@@ -366,7 +366,7 @@
       <WorkSocial {sourceId} {mediaId} title={item.title} cover={item.cover} />
 
       {#if genres.length}
-        <div class="genres">{#each genres as g}<span class="pill">{g}</span>{/each}</div>
+        <div class="genres">{#each genres as g}<span class="pill">{t(g)}</span>{/each}</div>
         {#if meta?.inferredGenres}<div class="small muted">{t('Etiquetas deducidas de la sinopsis')}</div>{/if}
       {/if}
     </section>

@@ -204,7 +204,7 @@ private fun RandomPick(pick: RelatedTitle, onOpen: () -> Unit) {
             if (pick.genres.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    pick.genres.take(3).joinToString(" · ") { com.nelson.yomukai.data.metadata.GenreTaxonomy.canonical(it) },
+                    pick.genres.take(3).joinToString(" · ") { tr(com.nelson.yomukai.data.metadata.GenreTaxonomy.canonical(it)) },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2

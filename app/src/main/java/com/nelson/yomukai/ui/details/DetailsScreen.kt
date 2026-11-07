@@ -590,7 +590,7 @@ private fun Header(state: DetailsUiState, metadata: TitleMetadata?, insights: Ch
             if (genres.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    genres.forEach { GenrePill(it) }
+                    genres.forEach { GenrePill(tr(it)) }
                 }
                 if (metadata?.inferredGenres == true) {
                     Text(
