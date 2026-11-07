@@ -1,7 +1,7 @@
 # Yomukai web: the server (Kotlin, :shared sources) and the web app, in one small image.
 
 # 1. Web app
-FROM node:22-alpine AS web
+FROM node:24-alpine AS web
 WORKDIR /web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
