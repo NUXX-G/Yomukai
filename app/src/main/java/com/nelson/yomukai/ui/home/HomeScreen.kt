@@ -165,6 +165,7 @@ fun HomeScreen(
                     }
                 }
 
+                item(key = "update") { UpdateBanner() }
                 item(key = "for_you") { ForYouSection(discoverViewModel) }
 
                 shelves.forEach { shelf ->

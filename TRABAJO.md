@@ -3,7 +3,7 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
-Última actualización: 2026-11-07, commit `feat(app): inicio por obras...`.
+Última actualización: 2026-11-07, commit `feat(app): aviso de versión nueva y releases automáticas`.
 
 ### PEDIDO DEL USUARIO EL 2026-11-07 (2ª parte, también hecho)
 - [x] App: el inicio ya no tiene filas por fuente: «Recién actualizado» + Anime / Manga, manhwa y manhua / Cómics / Novelas, por obra (`WorkGrouper`, «En N fuentes»), y «Explorar por fuente» plegado al final.
@@ -27,7 +27,7 @@ Al acabar TODO avisarle: lo instalará en el VPS y en su móvil, lo probará un 
    código es público (portfolio y para quien lo quiera montar): seguro y privado para él y para los demás.
 6. [~] Fase 11. HECHO 11.6 en parte: **modo «todo en uno»** (servicio `worker` con perfil `todo-en-uno` en docker-compose.yml, `LOCAL_WORKER_TOKEN` que el servidor registra solo al arrancar con `WorkerRegistry.ensureLocal`, el worker acepta nombres de servicio Docker sin punto, instalador con `YOMUKAI_MODE=todo-en-uno`) y guía `docs/INSTALACION.md` (3 formas, Tailscale paso a paso, variables). FALTA: motores opcionales en la imagen del worker (tesseract, whisper.cpp, Pocket TTS, LibreTranslate), resto de la Fase 11. Original:: servidor + worker en la misma máquina con un comando (red de Docker
    compartida; el worker apunta al servidor por su nombre) y guía con las 3 formas: solo servidor / todo en uno / VPS + worker.
-7. [ ] PRs de Dependabot: #6 Tor y #7 (30 menores) fallan en CI → arreglar; #4 Compose y #5 OkHttp 5 → probar en emulador;
+7. [x] PRs de Dependabot RESUELTOS (2026-11-07): #2 cerrado (Node 24 LTS a mano), #6 cerrado (Tor 0.4.9.14 exige minSdk mayor: fuera Android 8; excluido en dependabot.yml), #4 y #5 incorporados a mano tras probar con LiveSourcesTest en el emulador (OkHttp 5.5.1, Compose BOM 2026.09.00), #7 falla por JSpecify (añadido `api(libs.jspecify)` en shared y pedido rebase), #1 Temurin 25: pedido rebase; las imágenes se construyen sin publicar en PRs (docker.yml) para validarlo. Antes: #6 Tor y #7 (30 menores) fallan en CI → arreglar; #4 Compose y #5 OkHttp 5 → probar en emulador;
    #1 Temurin 25 → probar Docker; #2 Node 25 → cerrar (no LTS) y subir a node 24.
 8. [ ] Pendientes de Fases 8 y 9 (sherpa-onnx/Kokoro en dispositivo, ML Kit en la app, diccionario offline…).
 Todo con HUD moderno tipo Netflix/Seanime, bonito y eficiente («que sea top de verdad»).
@@ -186,7 +186,7 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 - [x] 10.5 Progreso bidireccional  - [x] 10.6 Salas con Jellyfin (calidad según los que estén)  - [x] 10.7 CBZ + ComicInfo + aviso de escaneo a Kavita/Komga  - [x] 10.8 Tests con Jellyfin falso (descarga, escaneo, fuente, vídeo, progreso)
 
 ### Fase 11 — Pulido, instalación y documentación
-- [ ] 11.1 Panel de admin  - [ ] 11.2 Releases automáticas  - [ ] 11.3 Continuar en otro dispositivo
+- [~] 11.1 Panel de admin (CPU, disco, memoria, ancho de banda, workers, catálogo de fuentes, integraciones; falta espacio del NAS)  - [x] 11.2 Releases automáticas (`.github/workflows/release.yml` al subir una etiqueta v*: APK firmada con DEBUG_KEYSTORE_B64, .sha256, changelog de commits; la app avisa de versiones nuevas con `AppUpdates` + `UpdateBanner`)  - [ ] 11.3 Continuar en otro dispositivo
 - [ ] 11.4 Importar/exportar  - [ ] 11.5 UX  - [ ] 11.6 Dos docker-compose + guía Tailscale  - [ ] 11.7 ARCHITECTURE.md, README
 
 ### Presupuesto de rendimiento

@@ -1,0 +1,69 @@
+# Publica una versión al subir una etiqueta: git tag v2.0.0 && git push origin v2.0.0
+# Compila la APK release, la firma con la misma clave que las versiones anteriores (se instala encima sin perder
+# datos), la sube a GitHub Releases con su .sha256 y un changelog hecho con los commits convencionales.
+# La app avisa sola de que hay versión nueva (consulta la última release).
+name: Publicar versión
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: SDK de Android
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" >/dev/null
+      - name: Clave de firma
+        env:
+          DEBUG_KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE_B64 }}
+          MAL_CLIENT_ID: ${{ secrets.MAL_CLIENT_ID }}
+        run: |
+          [ -n "$DEBUG_KEYSTORE_B64" ] || { echo "Falta el secreto DEBUG_KEYSTORE_B64"; exit 1; }
+          echo "$DEBUG_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/firma.keystore"
+          [ -n "$MAL_CLIENT_ID" ] && echo "mal.clientId=$MAL_CLIENT_ID" >> local.properties || true
+      - name: Comprobar la versión
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          NAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          [ "$TAG" = "$NAME" ] || { echo "La etiqueta ($TAG) no coincide con versionName ($NAME)"; exit 1; }
+      - run: chmod +x gradlew
+      - name: Compilar
+        run: ./gradlew assembleRelease --console=plain
+      - name: Firmar
+        run: |
+          BT="$ANDROID_HOME/build-tools/36.0.0"
+          APK="Yomukai-${GITHUB_REF_NAME}.apk"
+          "$BT/zipalign" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk aligned.apk
+          "$BT/apksigner" sign --ks "$RUNNER_TEMP/firma.keystore" --ks-pass pass:android --key-pass pass:android --out "$APK" aligned.apk
+          "$BT/apksigner" verify "$APK"
+          sha256sum "$APK" > "$APK.sha256"
+      - name: Changelog
+        run: |
+          PREV=$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)
+          RANGE="${PREV:+$PREV..}${GITHUB_REF_NAME}"
+          {
+            echo "## Novedades"
+            git log --format='%s' $RANGE | grep -E '^feat(\(|:)' | sed -E 's/^feat(\([^)]*\))?: /- /' || true
+            echo
+            echo "## Arreglos"
+            git log --format='%s' $RANGE | grep -E '^fix(\(|:)' | sed -E 's/^fix(\([^)]*\))?: /- /' || true
+            echo
+            echo "Se instala encima de la versión anterior sin perder datos. Comprueba el archivo con su .sha256."
+          } > NOTAS.md
+      - name: Publicar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "Yomukai-${GITHUB_REF_NAME}.apk" "Yomukai-${GITHUB_REF_NAME}.apk.sha256" --title "Yomukai ${GITHUB_REF_NAME#v}" --notes-file NOTAS.md
