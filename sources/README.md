@@ -59,7 +59,10 @@ El canario (`server canary`) detecta lo que siga roto y lo oculta hasta que se a
 
 Cualquiera puede publicar sus propias fuentes en JSON con el mismo formato, firmadas con **su** clave Ed25519:
 
-1. Genera una clave: `java scripts/SignSources.java --new-key` (o cualquier herramienta Ed25519) y guarda la privada fuera del repositorio.
+1. Genera un par de claves Ed25519, por ejemplo con OpenSSL:
+   `openssl genpkey -algorithm ed25519 -outform DER | base64 -w0 > mi-clave.key` (la privada, PKCS#8 en Base64; fuera del repositorio)
+   y la pública en Base64: `base64 -d mi-clave.key | openssl pkey -inform DER -pubout -outform DER | tail -c 32 | base64`.
+   Firma tu carpeta `sources/` con `java scripts/SignSources.java "$(cat mi-clave.key)"`.
 2. Publica `bundle.json` y `bundle.json.sig` en una dirección HTTPS (p. ej. GitHub raw).
 3. En el servidor que las quiera usar, añade al `.env`:
    `SOURCE_REPOS=https://tu.dominio/bundle.json#CLAVE_PUBLICA_BASE64` (varias, separadas por comas).
