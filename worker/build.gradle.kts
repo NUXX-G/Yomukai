@@ -17,8 +17,8 @@ application {
 dependencies {
     implementation(project(":shared"))
     implementation(libs.okhttp)
-    implementation("ch.qos.logback:logback-classic:1.5.18")
+    implementation("ch.qos.logback:logback-classic:1.6.6")
     testImplementation(libs.junit)
     testImplementation(project(":server"))
-    testImplementation("io.ktor:ktor-server-netty:3.2.3")
+    testImplementation("io.ktor:ktor-server-netty:3.6.1")
 }
