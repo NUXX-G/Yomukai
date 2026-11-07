@@ -1,6 +1,12 @@
 # Yomukai en el VPS. Ajustes en .env junto a este fichero (el instalador lo crea).
 # Ligero a propósito: lo pesado (voces, OCR, subtítulos, descargas) lo hace el worker de casa (docker-compose.worker.yml).
 #
+# Tres formas de instalarlo (docs/INSTALACION.md):
+#   1. Solo este servidor: lo pesado se apaga con elegancia (voces del dispositivo, +85 s para saltar el opening...).
+#   2. Todo en uno: este servidor y el worker juntos en la misma máquina, si es potente. Se activa con
+#      COMPOSE_PROFILES=todo-en-uno y LOCAL_WORKER_TOKEN en .env (el instalador lo hace con YOMUKAI_MODE=todo-en-uno).
+#   3. VPS + worker en casa (docker-compose.worker.yml en el otro equipo, por Tailscale).
+#
 # Límites: el VPS es compartido (p. ej. con un portfolio) y Yomukai nunca debe dejarlo sin memoria.
 #   YOMUKAI_MEMORY  memoria máxima del contenedor (1g por defecto; la JVM usa el 55 % para el heap)
 #   YOMUKAI_CPUS    núcleos como máximo (1.0 por defecto)
@@ -56,8 +62,40 @@ services:
       NTFY_URL: ${NTFY_URL:-}
       NTFY_TOKEN: ${NTFY_TOKEN:-}
       FLARESOLVERR_URL: http://flaresolverr:8191
+      NAS_UPLOAD_MBPS: ${NAS_UPLOAD_MBPS:-20}
+      # Todo en uno: el worker de este mismo compose entra con este token (se registra solo al arrancar).
+      LOCAL_WORKER_TOKEN: ${LOCAL_WORKER_TOKEN:-}
     depends_on:
       - flaresolverr
+
+  # Todo en uno: el worker en la misma máquina, con prioridad baja y sus propios límites para no ahogar al servidor.
+  # Solo arranca con COMPOSE_PROFILES=todo-en-uno. Habla con Yomukai por la red interna de Docker (no sale a internet).
+  worker:
+    profiles: ["todo-en-uno"]
+    image: ${YOMUKAI_WORKER_IMAGE:-ghcr.io/nuxx-g/yomukai-worker:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    mem_limit: ${WORKER_MEMORY:-2g}
+    cpus: ${WORKER_CPUS:-1.5}
+    cpu_shares: 256
+    pids_limit: 1024
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
+    environment:
+      YOMUKAI_URL: http://yomukai:8080
+      WORKER_TOKEN: ${LOCAL_WORKER_TOKEN:-}
+      WORKER_ENGINES: ${WORKER_ENGINES:-}
+      TZ: ${TZ:-Europe/Madrid}
+    volumes:
+      - worker-work:/work
+      # Bibliotecas de Jellyfin y carpeta de cómics, si están en esta máquina:
+      # - /srv/media/anime:/media/anime
+      # - /srv/media/comics:/media/comics
+    depends_on:
+      - yomukai
 
   # Un navegador real para las pocas webs con desafío de Cloudflare. Solo lo ve Yomukai.
   # Chrome es lo que más memoria gasta: con límite propio y reinicio automático si se pasa.
@@ -74,3 +112,4 @@ services:
 
 volumes:
   yomukai-data:
+  worker-work:

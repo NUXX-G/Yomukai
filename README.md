@@ -88,7 +88,7 @@ adb logcat -d -s YomukaiLive:I
 
 La misma app en el navegador: inicio, búsqueda, biblioteca, lectores de manga y novela, reproductor de anime, notas y recomendaciones. Se instala como app (PWA) en iPhone y Android desde «Añadir a pantalla de inicio».
 
-**Instalar con una línea** (necesita Docker con Compose):
+**Instalar con una línea** (necesita Docker con Compose). Tres formas: solo el servidor, todo en uno en una máquina potente (`YOMUKAI_MODE=todo-en-uno`) o VPS + worker en casa por Tailscale: guía completa en [docs/INSTALACION.md](docs/INSTALACION.md).
 
 ```bash
 # Linux / macOS

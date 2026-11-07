@@ -49,10 +49,14 @@ data class WorkerConfig(
             )
         }
 
-        /** Tailscale (100.64.0.0/10, *.ts.net), private ranges and localhost. */
+        /**
+         * Tailscale (100.64.0.0/10, *.ts.net), private ranges, localhost, and a single-label name (a Docker service
+         * such as "yomukai" in the all-in-one install: such names only resolve inside a private network).
+         */
         fun isPrivateHost(url: String): Boolean {
             val host = url.substringAfter("://").substringBefore('/').substringBefore(':').lowercase()
             if (host == "localhost" || host.endsWith(".ts.net") || host.endsWith(".local")) return true
+            if (host.isNotEmpty() && '.' !in host && Regex("[a-z][a-z0-9-]*").matches(host)) return true
             val parts = host.split('.').mapNotNull { it.toIntOrNull() }
             if (parts.size != 4) return false
             return parts[0] == 10 || parts[0] == 127 || (parts[0] == 192 && parts[1] == 168) ||

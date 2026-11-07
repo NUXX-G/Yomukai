@@ -35,6 +35,7 @@ class WorkerTest {
     fun privateHosts() {
         listOf("http://100.64.0.1", "http://vps.tail1234.ts.net:8080", "http://192.168.1.10", "http://10.0.0.2", "http://localhost:8080", "http://172.20.0.1")
             .forEach { assertTrue(it, WorkerConfig.isPrivateHost(it)) }
+        assertTrue("docker service name", WorkerConfig.isPrivateHost("http://yomukai:8080"))
         listOf("http://8.8.8.8", "http://example.com", "http://100.128.0.1", "http://172.32.0.1").forEach { assertFalse(it, WorkerConfig.isPrivateHost(it)) }
     }
 

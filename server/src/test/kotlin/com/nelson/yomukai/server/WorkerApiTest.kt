@@ -170,4 +170,27 @@ class WorkerApiTest {
         // The same texts again come from the cache, without the worker.
         assertEquals("""{"translations":["hola","mundo"]}""", admin.post("/api/translate") { setBody("""{"texts":["hello","world"],"from":"en","to":"es"}""") }.bodyAsText())
     }
+
+    @Test
+    fun allInOneWorkerIsRegisteredFromTheEnvironment() = testApplication {
+        val token = "ykw_" + "a".repeat(40)
+        val c = Config.fromEnv(
+            mapOf(
+                "DATA_DIR" to Files.createTempDirectory("ykloc").toString(), "ADMIN_USER" to "admin", "ADMIN_PASSWORD" to "admin-password-1",
+                "BACKUPS_ENABLED" to "false", "LOCAL_WORKER_TOKEN" to token
+            )
+        )
+        val s = Services(c)
+        application { yomukai(c, s) }
+        login("admin", "admin-password-1")
+        var status = HttpStatusCode.Unauthorized
+        repeat(50) {
+            status = client.post("/worker/claim") { header("Authorization", "Bearer $token") }.status
+            if (status != HttpStatusCode.Unauthorized) return@repeat
+            delay(100)
+        }
+        assertTrue("the local worker can ask for jobs: $status", status == HttpStatusCode.NoContent || status == HttpStatusCode.OK)
+        s.workers.ensureLocal(token)
+        assertEquals("registered once", 1, s.workers.all().size)
+    }
 }

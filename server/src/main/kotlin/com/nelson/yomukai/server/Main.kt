@@ -242,6 +242,7 @@ private fun Application.startBackgroundJobs(config: Config, services: Services) 
             delay(6 * 3_600_000L)
         }
     }
+    config.localWorkerToken?.let { token -> launch { runCatching { services.workers.ensureLocal(token) }.onFailure { log.warn("Worker local", it) } } }
     launch {
         services.auth.bootstrap()
         services.setup.prepare(config.publicUrl)

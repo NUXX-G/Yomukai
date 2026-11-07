@@ -3,7 +3,7 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
-Última actualización: 2026-11-07, commit `feat(idiomas): la app Android en inglés...`.
+Última actualización: 2026-11-07, commit `feat(instalación): todo en uno...`.
 
 ### PEDIDO DEL USUARIO EL 2026-11-07 (sesión nueva, modo autónomo total; no está mirando)
 Al acabar TODO avisarle: lo instalará en el VPS y en su móvil, lo probará un día y dirá qué corregir. Orden elegido por mí:
@@ -20,7 +20,7 @@ Al acabar TODO avisarle: lo instalará en el VPS y en su móvil, lo probará un 
    seguridad): pasar a JSON las fuentes que encajen, pantalla de catálogo (instalar/quitar con un toque, versión nueva,
    caída), y que cada instalación pueda aceptar **claves públicas extra** (`SOURCE_KEYS`) para sus propias fuentes. El
    código es público (portfolio y para quien lo quiera montar): seguro y privado para él y para los demás.
-6. [ ] Fase 11, con **modo «todo en uno»**: servidor + worker en la misma máquina con un comando (red de Docker
+6. [~] Fase 11. HECHO 11.6 en parte: **modo «todo en uno»** (servicio `worker` con perfil `todo-en-uno` en docker-compose.yml, `LOCAL_WORKER_TOKEN` que el servidor registra solo al arrancar con `WorkerRegistry.ensureLocal`, el worker acepta nombres de servicio Docker sin punto, instalador con `YOMUKAI_MODE=todo-en-uno`) y guía `docs/INSTALACION.md` (3 formas, Tailscale paso a paso, variables). FALTA: motores opcionales en la imagen del worker (tesseract, whisper.cpp, Pocket TTS, LibreTranslate), resto de la Fase 11. Original:: servidor + worker en la misma máquina con un comando (red de Docker
    compartida; el worker apunta al servidor por su nombre) y guía con las 3 formas: solo servidor / todo en uno / VPS + worker.
 7. [ ] PRs de Dependabot: #6 Tor y #7 (30 menores) fallan en CI → arreglar; #4 Compose y #5 OkHttp 5 → probar en emulador;
    #1 Temurin 25 → probar Docker; #2 Node 25 → cerrar (no LTS) y subir a node 24.

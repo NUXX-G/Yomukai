@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Yomukai web: install or update with one line.
 #   curl -fsSL https://raw.githubusercontent.com/NUXX-G/Yomukai/main/install.sh | bash
-# Options (environment): YOMUKAI_DIR (default ~/yomukai), PORT (default 8080), GUESTS_ENABLED (true/false).
+# Options (environment): YOMUKAI_DIR (default ~/yomukai), PORT (default 8080), GUESTS_ENABLED (true/false),
+#   YOMUKAI_MODE=todo-en-uno to run the worker on this same machine too (only if it has RAM and CPU to spare).
+#   curl -fsSL https://raw.githubusercontent.com/NUXX-G/Yomukai/main/install.sh | YOMUKAI_MODE=todo-en-uno bash
 set -euo pipefail
 
 REPO="https://github.com/NUXX-G/Yomukai"
@@ -50,12 +52,32 @@ EOF
   NEW=1
 fi
 
+# All in one: the worker joins the same compose with a token both sides share (never leaves this machine).
+if [ "${YOMUKAI_MODE:-}" = "todo-en-uno" ]; then
+  if ! grep -q '^LOCAL_WORKER_TOKEN=ykw_' .env; then
+    TOKEN_LOCAL="ykw_$(head -c 32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 40)"
+    sed -i '/^LOCAL_WORKER_TOKEN=/d; /^COMPOSE_PROFILES=/d' .env
+    printf '
+# Todo en uno: el worker en esta misma máquina.
+COMPOSE_PROFILES=todo-en-uno
+LOCAL_WORKER_TOKEN=%s
+# Límites del worker (memoria y núcleos).
+WORKER_MEMORY=2g
+WORKER_CPUS=1.5
+' "$TOKEN_LOCAL" >> .env
+  fi
+  say "Modo todo en uno: el worker se instala en esta misma máquina."
+fi
+
 # The ready-made image when it is published; otherwise it is built here from the code.
 if ! docker compose pull --quiet yomukai 2>/dev/null; then
   say "Compilando la imagen (la primera vez tarda unos minutos)..."
   rm -rf src && git clone --depth 1 "$REPO" src >/dev/null 2>&1 || fail "No se pudo descargar el código de $REPO"
   docker build -t ghcr.io/nuxx-g/yomukai:latest src
+  if grep -q '^COMPOSE_PROFILES=todo-en-uno' .env; then docker build -f src/Dockerfile.worker -t ghcr.io/nuxx-g/yomukai-worker:latest src; fi
   rm -rf src
+elif grep -q '^COMPOSE_PROFILES=todo-en-uno' .env; then
+  docker compose pull --quiet worker || fail "No se pudo descargar la imagen del worker"
 fi
 docker compose pull --quiet flaresolverr || true
 docker compose up -d

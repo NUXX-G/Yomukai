@@ -58,6 +58,20 @@ class WorkerRegistry(private val db: Database, private val clock: () -> Long = S
         return get(id)!! to token
     }
 
+    /**
+     * The worker of an "all in one" install (same machine, same docker compose): registered with the token from the
+     * environment, so nothing has to be copied by hand. A token already known is left as it is (also if revoked).
+     */
+    suspend fun ensureLocal(token: String, name: String = "este servidor") {
+        val now = clock()
+        db.tx {
+            if (queryOne("SELECT 1 FROM workers WHERE token_hash = ?", hash(token)) { 1 } != null) return@tx
+            val free = generateSequence(name) { "$name " + (it.substringAfterLast(' ').toIntOrNull()?.plus(1) ?: 2) }
+                .first { candidate -> queryOne("SELECT 1 FROM workers WHERE name = ?", candidate) { 1 } == null }
+            update("INSERT INTO workers(name, token_hash, created_at) VALUES(?,?,?)", free, hash(token), now)
+        }
+    }
+
     suspend fun revoke(id: Long) {
         db.tx { update("UPDATE workers SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL", clock(), id) }
         byToken.entries.removeIf { it.value.first.id == id }
