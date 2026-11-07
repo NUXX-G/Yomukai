@@ -250,6 +250,13 @@ object Migrations {
         },
         Migration(14, "Catálogo de fuentes: las que el admin quita para todos") {
             exec("CREATE TABLE IF NOT EXISTS source_settings(id TEXT PRIMARY KEY, hidden INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL)")
+        },
+        Migration(15, "Importar bibliotecas de AniList, MyAnimeList y Mihon: cola de títulos por resolver") {
+            exec(
+                """CREATE TABLE IF NOT EXISTS imports(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                   origin TEXT NOT NULL, data TEXT NOT NULL, state TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS imports_pending ON imports(state, id)")
         }
     )
 

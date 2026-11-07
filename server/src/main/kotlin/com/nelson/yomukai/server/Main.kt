@@ -184,6 +184,7 @@ class Services(val config: Config) {
     val words = Words(db, events)
     val integrations = Integrations(db, config.secret)
     val jellyfin = JellyfinLink(integrations, features, sources)
+    val imports = Imports(db, catalog, http, config.malClientId, { prefs(it) })
     val jellyfinSync = JellyfinSync(db, jellyfin)
     val library = MediaDownloads(db, catalog, works, integrations, jobs, notifications, events)
     val language by lazy { WorkerLanguage(this) }
@@ -271,6 +272,13 @@ private fun Application.startBackgroundJobs(config: Config, services: Services) 
             }
         }
     }
+    // Imported titles (AniList, MyAnimeList, Mihon) are looked for in the sources one at a time, gently.
+    launch {
+        while (true) {
+            val worked = runCatching { services.imports.resolveNext() }.onFailure { log.debug("Importar: {}", it.message) }.getOrDefault(false)
+            delay(if (worked) 4_000L else 60_000L)
+        }
+    }
     // The home Jellyfin as a source only while it is set up and answering.
     launch {
         var jellyfinTicks = 0
@@ -347,6 +355,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 }
                 featureRoutes(services)
                 jellyfinMediaRoutes(services)
+                importRoutes(services)
                 accountUserRoutes(services)
                 workRoutes(services)
                 discoverRoutes(services)

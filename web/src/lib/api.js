@@ -119,6 +119,15 @@ export const api = {
   adminAudit: () => request('GET', '/api/admin/audit'),
   adminCanary: () => request('GET', '/api/admin/canary'),
   sourceCatalog: () => request('GET', '/api/admin/sources/catalog'),
+  importList: (origin, user) => request('POST', `/api/import/${origin}`, { user }),
+  importMihon: async (file) => {
+    if (!file) throw new ApiError(t('Elige el archivo de la copia'), 400);
+    const res = await fetch('/api/import/mihon', { method: 'POST', credentials: 'same-origin', body: file });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(data.error || 'Error ' + res.status, res.status);
+    return data;
+  },
+  importStatus: () => request('GET', '/api/import/status'),
   setSourceHidden: (id, hidden) => request('PUT', `/api/admin/sources/${encodeURIComponent(id)}`, { hidden }),
   refreshSources: () => request('POST', '/api/admin/sources/refresh'),
   adminRunCanary: (id) => request('POST', `/api/admin/canary/${encodeURIComponent(id)}`),

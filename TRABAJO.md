@@ -3,7 +3,7 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
-Última actualización: 2026-11-07, commit `feat(app): aviso de versión nueva y releases automáticas`.
+Última actualización: 2026-11-07, commit `feat(importar): AniList, MyAnimeList y Mihon`.
 
 ### PEDIDO DEL USUARIO EL 2026-11-07 (2ª parte, también hecho)
 - [x] App: el inicio ya no tiene filas por fuente: «Recién actualizado» + Anime / Manga, manhwa y manhua / Cómics / Novelas, por obra (`WorkGrouper`, «En N fuentes»), y «Explorar por fuente» plegado al final.
@@ -186,8 +186,8 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 - [x] 10.5 Progreso bidireccional  - [x] 10.6 Salas con Jellyfin (calidad según los que estén)  - [x] 10.7 CBZ + ComicInfo + aviso de escaneo a Kavita/Komga  - [x] 10.8 Tests con Jellyfin falso (descarga, escaneo, fuente, vídeo, progreso)
 
 ### Fase 11 — Pulido, instalación y documentación
-- [~] 11.1 Panel de admin (CPU, disco, memoria, ancho de banda, workers, catálogo de fuentes, integraciones; falta espacio del NAS)  - [x] 11.2 Releases automáticas (`.github/workflows/release.yml` al subir una etiqueta v*: APK firmada con DEBUG_KEYSTORE_B64, .sha256, changelog de commits; la app avisa de versiones nuevas con `AppUpdates` + `UpdateBanner`)  - [ ] 11.3 Continuar en otro dispositivo
-- [ ] 11.4 Importar/exportar  - [ ] 11.5 UX  - [ ] 11.6 Dos docker-compose + guía Tailscale  - [ ] 11.7 ARCHITECTURE.md, README
+- [~] 11.1 Panel de admin (CPU, disco, memoria, ancho de banda, workers, catálogo de fuentes, integraciones; falta espacio del NAS)  - [x] 11.2 Releases automáticas (`.github/workflows/release.yml` al subir una etiqueta v*: APK firmada con DEBUG_KEYSTORE_B64, .sha256, changelog de commits; la app avisa de versiones nuevas con `AppUpdates` + `UpdateBanner`)  - [x] 11.3 Continuar en otro dispositivo (la sincronización ya lleva historial y progreso: «Seguir viendo/leyendo» sale igual en web y app)
+- [x] 11.4 Importar/exportar (`server/…/Imports.kt`, migración 15 `imports`: AniList por usuario, MyAnimeList con MAL_CLIENT_ID, copias de Mihon/Tachiyomi .tachibk leídas a mano en protobuf; cola resuelta en segundo plano con `catalog.locate` (solo misma obra confirmada) que añade a la biblioteca con estado y marca lo leído; `/api/import/{origin}`, `/api/import/status`; web: `ImportPanel.svelte` en Ajustes › Tus datos. Probado en vivo con una lista pública de AniList)  - [ ] 11.5 UX  - [ ] 11.6 Dos docker-compose + guía Tailscale  - [ ] 11.7 ARCHITECTURE.md, README
 
 ### Presupuesto de rendimiento
 | Momento | RAM server reposo | RAM bajo carga | CPU | API p95 | Bundle web (JS+CSS gz) | APK release |

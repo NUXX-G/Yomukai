@@ -7,6 +7,7 @@
   import { session, settings, sources, saveSettings, notify, resetUserState, loadUserData, features } from '../lib/store.svelte.js';
   import Icon from '../components/Icon.svelte';
   import Sheet from '../components/Sheet.svelte';
+  import ImportPanel from '../components/ImportPanel.svelte';
 
   const COMMON_GENRES = ['BL', 'GL', 'Ecchi', 'Gore', 'Harem', 'Terror', 'Adulto', 'Violencia sexual', 'Romance', 'Isekai', 'Mecha', 'Deportes'];
 
@@ -168,10 +169,11 @@
     <p class="small muted" style="margin-top:0">{t('Una copia con tu biblioteca, lo que llevas leído, el historial y estos ajustes. Puedes importarla en otra cuenta o en otro servidor de Yomukai.')}</p>
     <div class="actions">
       <a class="btn tonal" href={api.exportUrl} download><Icon name="download" size={18} /> {t('Exportar')}</a>
-      <button class="btn outline" onclick={() => fileInput.click()} disabled={importing}><Icon name="upload" size={18} /> {importing ? 'Importando...' : 'Importar'}</button>
+      <button class="btn outline" onclick={() => fileInput.click()} disabled={importing}><Icon name="upload" size={18} /> {importing ? t('Importando...') : t('Importar')}</button>
       <input type="file" accept="application/json,.json" hidden bind:this={fileInput} onchange={importFile} />
     </div>
   </section>
+  <ImportPanel />
   {/if}
 
   <h2 class="h">{t('Fuentes')}</h2>
