@@ -381,7 +381,9 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 mediaLibraryAdminRoutes(services)
                 jellyfinLinkAdminRoutes(services)
                 sourceCatalogAdminRoutes(services)
-                get("/status") { call.respond(mapOf("bandwidth" to services.bandwidth.summary(), "memory" to memoryStatus())) }
+                get("/status") {
+                    call.respond(mapOf<String, Any?>("bandwidth" to services.bandwidth.summary(), "memory" to memoryStatus(), "machine" to machineStatus(File(config.dataDir))))
+                }
             }
         }
         workerRoutes(services)
@@ -396,6 +398,18 @@ fun memoryStatus(): Map<String, Long?> {
     val rt = Runtime.getRuntime()
     val rss = runCatching { java.io.File("/proc/self/status").readLines().firstOrNull { it.startsWith("VmRSS:") }?.filter(Char::isDigit)?.toLong()?.times(1024) }.getOrNull()
     return mapOf("heapUsed" to rt.totalMemory() - rt.freeMemory(), "heapMax" to rt.maxMemory(), "rss" to rss)
+}
+
+/** The machine as the server sees it: load per core and the disk that holds the data (and its caches). */
+fun machineStatus(dataDir: File): Map<String, Any?> {
+    val os = java.lang.management.ManagementFactory.getOperatingSystemMXBean()
+    val cores = os.availableProcessors
+    val load = os.systemLoadAverage.takeIf { it >= 0 }
+    val cpu = (os as? com.sun.management.OperatingSystemMXBean)?.cpuLoad?.takeIf { it >= 0 }
+    return mapOf(
+        "cores" to cores, "loadPerCore" to load?.let { it / cores }, "cpu" to cpu,
+        "diskFree" to dataDir.usableSpace, "diskTotal" to dataDir.totalSpace
+    )
 }
 
 suspend fun ApplicationCall.fail(e: Throwable) =

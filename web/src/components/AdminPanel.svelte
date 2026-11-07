@@ -117,6 +117,10 @@
     <div class="stats">
       <div><span class="small muted">{t('Memoria (heap)')}</span><b>{mb(status.memory.heapUsed)} / {mb(status.memory.heapMax)}</b></div>
       <div><span class="small muted">{t('Memoria del proceso')}</span><b>{mb(status.memory.rss)}</b></div>
+      {#if status.machine}
+        <div><span class="small muted">{t('CPU')}</span><b class:warn={(status.machine.cpu ?? 0) > 0.85}>{status.machine.cpu != null ? Math.round(status.machine.cpu * 100) + ' %' : status.machine.loadPerCore != null ? status.machine.loadPerCore.toFixed(2) : '—'} · {t('{0} núcleos', [status.machine.cores])}</b></div>
+        <div><span class="small muted">{t('Disco libre')}</span><b class:warn={status.machine.diskFree < 2 * 1024 ** 3}>{gb(status.machine.diskFree)} / {gb(status.machine.diskTotal)}</b></div>
+      {/if}
       <div>
         <span class="small muted">{t('Vídeo por el servidor ({0})', [status.bandwidth.month])}</span>
         <b class:warn={status.bandwidth.level !== 'OK'}>{gb(status.bandwidth.usedBytes)}{status.bandwidth.capBytes > 0 ? ` / ${gb(status.bandwidth.capBytes)}` : ''}</b>
