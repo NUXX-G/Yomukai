@@ -197,6 +197,7 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 | Después de Fase 1 (Docker local, límite 1 GB / 1 CPU) | 107 MB | 165 MB | 21 % de 1 CPU en el pico | 8 ms local · 925 ms novedades | 85 KB + AdminPanel 3,9 KB (solo admins) | ~igual (+1 pantalla de texto) |
 | Después de Fase 2 (local) | sin cambio apreciable (las comprobaciones son hashes y buckets en memoria) | — | — | 5-8 ms local | 77 KB + paneles de admin (4,4 KB) y seguridad (2,3 KB) bajo demanda | ~igual |
 | Después de Fase 5 (local, arranque limpio con el heap de Docker: SerialGC, -Xmx550m) | 198 MB | 256 MB | 6,0 s en 300 peticiones + novedades | 7 ms local · 370 ms novedades | 99,6 KB (JS 86,7 + CSS 12,9) + Inter (woff2 latin ~48 KB, en caché) + hls.js 178 KB solo en el reproductor; Explorar 2,8 KB y Calendario 1,6 KB bajo demanda | 55 MB debug (release sin medir) |
+| Después de Fases 6-10 + idiomas + catálogo (2026-11-07, local, scripts/bench.sh) | 208 MB | 240 MB | 6,0 s en 300 peticiones + novedades | 6 ms local · 851 ms novedades | inicial 91 KB gz (index) + api 25,5 KB; inglés 33,8 KB solo si se elige; hls.js 180 KB solo en el reproductor | ~igual (debug); OkHttp 5 y Compose 2026 |
 
 Cómo medir: `./gradlew :server:installDist`, `cd web && npm run build`, `bash scripts/bench.sh` (o `scripts/bench.sh https://tu-vps PID` en el VPS con `BENCH_USER`/`BENCH_PASSWORD`). En el VPS real aún no se ha medido (no tengo acceso): pendiente de que el usuario lance el script allí.
 

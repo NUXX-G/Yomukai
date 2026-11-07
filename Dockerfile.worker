@@ -48,7 +48,10 @@ RUN apt-get update \
 # from Hugging Face the first time it speaks, into the worker's home.
 RUN if [ "$WITH_TTS" = "true" ]; then \
       python3 -m venv /opt/tts \
-      && /opt/tts/bin/pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu "pocket-tts==$POCKET_TTS_VERSION" \
+      # Each package from one index only (no mixing indexes: no dependency confusion). PyTorch's CPU build first, from
+      # PyTorch's own index; then Pocket TTS and the rest from PyPI, where torch is already satisfied.
+      && /opt/tts/bin/pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch \
+      && /opt/tts/bin/pip install --no-cache-dir --index-url https://pypi.org/simple "pocket-tts==$POCKET_TTS_VERSION" \
       && ln -s /opt/tts/bin/pocket-tts /usr/local/bin/pocket-tts; \
     fi
 COPY --from=whisper /out/bin/ /usr/local/bin/
