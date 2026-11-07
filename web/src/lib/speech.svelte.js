@@ -7,6 +7,7 @@
 // the text says a woman speaks ("—dijo ella", "she said"...), a man's when a man does.
 
 import { settings } from './store.svelte.js';
+import { t } from './i18n.svelte.js';
 
 export const speechVoices = $state({ loaded: false, natural: false, server: [], browser: [] });
 
@@ -142,7 +143,7 @@ function naturalAudio(text, voice, rate) {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, voice, rate })
     }).then(async (r) => {
-      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Sin voz');
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || t('Sin voz'));
       return URL.createObjectURL(await r.blob());
     });
     p.catch(() => audioCache.delete(key));
@@ -224,14 +225,14 @@ export class SpeechReader {
     await a.play();
     await new Promise((resolve, reject) => {
       a.onended = () => resolve();
-      a.onerror = () => reject(new Error('No se pudo reproducir la voz'));
+      a.onerror = () => reject(new Error(t('No se pudo reproducir la voz')));
       this.cancel = () => reject(new Error('stopped'));
     });
   }
 
   playBrowser(text, voiceName, lang, token) {
     return new Promise((resolve, reject) => {
-      if (typeof speechSynthesis === 'undefined') return reject(new Error('Sin voz'));
+      if (typeof speechSynthesis === 'undefined') return reject(new Error(t('Sin voz')));
       const u = new SpeechSynthesisUtterance(text);
       u.lang = lang === 'en' ? 'en-US' : 'es-ES';
       const all = speechVoices.browser.length ? speechVoices.browser : [...speechSynthesis.getVoices()].sort((a, b) => browserScore(b) - browserScore(a));

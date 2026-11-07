@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   import { onMount, onDestroy, tick } from 'svelte';
   import { startPresence } from '../lib/presence.js';
   // Friends see "reading now" (unless the title is private or the profile hidden).
@@ -20,7 +21,7 @@
   const startId = route.params.chapter;
   // "original" shows each page at its own size, like the sites do: stretching a 720 px webtoon to a
   // wide screen is what made pages look blurry on computers.
-  const WIDTHS = [['original', 'Tamaño original'], ['narrow', 'Estrecho'], ['normal', 'Normal'], ['wide', 'Ancho'], ['full', 'Toda la pantalla']];
+  const WIDTHS = [['original', t('Tamaño original')], ['narrow', 'Estrecho'], ['normal', 'Normal'], ['wide', 'Ancho'], ['full', t('Toda la pantalla')]];
   const FILTERS = [['none', 'Normal'], ['sepia', 'Sepia'], ['gray', 'Grises'], ['invert', 'Invertido']];
 
   let indexTab = $state('chapters');
@@ -75,7 +76,7 @@
       ? { ...existing, deleted: true }
       : { sourceId, mediaId, chapterId: current.id, chapterTitle: current.label, position: page, label: '', createdAt: Date.now(), deleted: false };
     bookmarks = existing ? bookmarks.filter((b) => b !== existing) : [row, ...bookmarks];
-    notify(existing ? 'Marcador quitado' : `Marcador en la página ${page + 1}`);
+    notify(existing ? t('Marcador quitado') : t('Marcador en la página {0}', [page + 1]));
     await api.saveBookmark(row).catch((e) => notify(e.message));
   }
 
@@ -96,7 +97,7 @@
   const ocrOn = $derived(features.flags.ocr !== false);
   const pageKey = (url, i) => url + '#' + i;
   const chapterUrlOf = (id) => loaded.find((l) => l.chapter.id === id)?.chapter.url;
-  const textLang = $derived(sourceById(sourceId)?.language === 'ES' ? 'es' : 'en');
+  const textLang = $derived({ ES: 'es', EN: 'en', ZH: 'zh' }[sourceById(sourceId)?.language] ?? 'en');
 
   async function ensureOcr(chapter, i) {
     const key = pageKey(chapter.url, i);
@@ -108,7 +109,7 @@
       // Nobody has read this page yet: the home worker can, for the whole chapter at once.
       if (!features.available?.ocr && translating && !ocrRequested.has(chapter.url)) {
         ocrRequested.add(chapter.url);
-        notify('Esta página aún no tiene el texto reconocido; hace falta el servidor de casa (o leerla antes en la app)');
+        notify(t('Esta página aún no tiene el texto reconocido; hace falta el servidor de casa (o leerla antes en la app)'));
       }
       if (!ocrRequested.has(chapter.url) && features.available?.ocr) {
         ocrRequested.add(chapter.url);
@@ -128,7 +129,7 @@
       ocr[pageKey(chapter.url, i)] = { ...data, tr: r.translations };
     } catch (e) {
       translating = false;
-      notify(e.status === 503 ? 'Traducir necesita el servidor de casa encendido' : e.message);
+      notify(e.status === 503 ? t('Traducir necesita el servidor de casa encendido') : e.message);
     }
   }
 
@@ -390,7 +391,7 @@
     if (target >= flat.length) {
       const next = current && nextOf(current);
       if (next && !loaded.some((l) => l.chapter.id === next.id)) loadChapter(next).then(() => { pagedIndex = target; showPaged(); });
-      else if (!next) notify('Es el último capítulo');
+      else if (!next) notify(t('Es el último capítulo'));
       return;
     }
     pagedIndex = target;
@@ -435,7 +436,7 @@
       item = m;
       chapters = list.chapters;
       const start = chapters.find((c) => c.id === startId) || chapters[0];
-      if (!start) { error = 'No hay capítulos'; return; }
+      if (!start) { error = t('No hay capítulos'); return; }
       const saved = progress[start.id];
       // A bookmark opens at its page; otherwise back where the user stopped.
       const asked = parseInt(route.query.get('p') || '', 10);
@@ -464,7 +465,7 @@
 <div class="reader f-{filter}" class:paged={mode === 'paged'}>
   {#if brightness < 1}<div class="dim" style:opacity={1 - brightness}></div>{/if}
   {#if error}
-    <div class="center"><p>{error}</p><button class="btn tonal" onclick={() => back(mediaHref(sourceId, mediaId))}>Volver</button></div>
+    <div class="center"><p>{error}</p><button class="btn tonal" onclick={() => back(mediaHref(sourceId, mediaId))}>{t('Volver')}</button></div>
   {:else if mode === 'vertical'}
     <div class="strip w-{width}" style:max-width={width === 'original' && column ? column + 'px' : null} onclick={() => { if (scrolling) { scrolling = false; return; } ui = !ui; }} role="presentation">
       {#each loaded as l, li (l.chapter.id)}
@@ -491,9 +492,9 @@
           </div>
         {/each}
       {/each}
-      {#if current && !nextOf(current) && loaded.at(-1)?.pages.length}<div class="divider">Fin. No hay más capítulos.</div>{/if}
+      {#if current && !nextOf(current) && loaded.at(-1)?.pages.length}<div class="divider">{t('Fin. No hay más capítulos.')}</div>{/if}
       {#if current && nextOf(current) && !settings.reader.infinite}
-        <div class="center"><button class="btn primary" onclick={(e) => { e.stopPropagation(); open(nextOf(current)); }}>Siguiente: {nextOf(current).label}</button></div>
+        <div class="center"><button class="btn primary" onclick={(e) => { e.stopPropagation(); open(nextOf(current)); }}>{t('Siguiente: {0}', [nextOf(current).label])}</button></div>
       {/if}
     </div>
   {:else}
@@ -509,31 +510,31 @@
 
   {#if ui}
     <header class="top">
-      <button class="icon-btn" onclick={() => back(mediaHref(sourceId, mediaId))} aria-label="Volver"><Icon name="back" /></button>
+      <button class="icon-btn" onclick={() => back(mediaHref(sourceId, mediaId))} aria-label={t('Volver')}><Icon name="back" /></button>
       <div class="titles">
         <div class="t1">{item?.title ?? ''}</div>
         <div class="t2">{current?.label ?? ''}{current?.name ? ' · ' + current.name : ''}</div>
       </div>
-      <button class="icon-btn" class:on={marked} onclick={toggleBookmark} aria-label={marked ? 'Quitar marcador' : 'Poner marcador en esta página'} title="Marcador"><Icon name="bookmark" /></button>
-      <button class="icon-btn" onclick={() => (indexOpen = true)} aria-label="Índice de capítulos" title="Índice"><Icon name="list" /></button>
-      {#if canFullscreen}<button class="icon-btn" class:on={screen.full} onclick={toggleFullscreen} aria-label={screen.full ? 'Salir de pantalla completa' : 'Pantalla completa'} title="Pantalla completa"><Icon name="fullscreen" /></button>{/if}
-      <button class="icon-btn" onclick={() => (optionsOpen = true)} aria-label="Ajustes de lectura" title="Ajustes de lectura"><Icon name="tune" /></button>
+      <button class="icon-btn" class:on={marked} onclick={toggleBookmark} aria-label={marked ? 'Quitar marcador' : t('Poner marcador en esta página')} title={t('Marcador')}><Icon name="bookmark" /></button>
+      <button class="icon-btn" onclick={() => (indexOpen = true)} aria-label={t('Índice de capítulos')} title={t('Índice')}><Icon name="list" /></button>
+      {#if canFullscreen}<button class="icon-btn" class:on={screen.full} onclick={toggleFullscreen} aria-label={screen.full ? t('Salir de pantalla completa') : 'Pantalla completa'} title={t('Pantalla completa')}><Icon name="fullscreen" /></button>{/if}
+      <button class="icon-btn" onclick={() => (optionsOpen = true)} aria-label={t('Ajustes de lectura')} title={t('Ajustes de lectura')}><Icon name="tune" /></button>
     </header>
     <footer class="bottom">
       <div class="track">
         {#if currentPages > 1}
-          <input class="slider" type="range" min="0" max={currentPages - 1} value={page} dir={mode === 'paged' && rtl ? 'rtl' : 'ltr'} onchange={(e) => jumpTo(+e.target.value)} aria-label="Página" />
+          <input class="slider" type="range" min="0" max={currentPages - 1} value={page} dir={mode === 'paged' && rtl ? 'rtl' : 'ltr'} onchange={(e) => jumpTo(+e.target.value)} aria-label={t('Página')} />
         {/if}
         <span class="small count">{current ? `${page + 1} / ${currentPages || '…'}` : ''}</span>
       </div>
       <div class="actions">
-        <button class="btn text" disabled={!current || !prevOf(current)} onclick={() => open(prevOf(current))}>Anterior</button>
+        <button class="btn text" disabled={!current || !prevOf(current)} onclick={() => open(prevOf(current))}>{t('Anterior')}</button>
         {#if ocrOn}
-          <button class="btn text" aria-pressed={translating} onclick={() => (translating = !translating)} title="Traducir los bocadillos">{translating ? 'Ver original' : 'Traducir'}</button>
-          {#if mode === 'vertical'}<button class="icon-btn" class:active={readingBubbles} onclick={toggleBubbles} aria-label={readingBubbles ? 'Parar la lectura' : 'Leer los bocadillos en voz alta'} title="Leer los bocadillos"><Icon name="speech" /></button>{/if}
+          <button class="btn text" aria-pressed={translating} onclick={() => (translating = !translating)} title={t('Traducir los bocadillos')}>{translating ? t('Ver original') : 'Traducir'}</button>
+          {#if mode === 'vertical'}<button class="icon-btn" class:active={readingBubbles} onclick={toggleBubbles} aria-label={readingBubbles ? t('Parar la lectura') : t('Leer los bocadillos en voz alta')} title={t('Leer los bocadillos')}><Icon name="speech" /></button>{/if}
         {/if}
-        {#if mode === 'vertical'}<button class="icon-btn" onclick={toggleScroll} aria-label={scrolling ? 'Parar desplazamiento' : 'Desplazamiento automático'} title="Desplazamiento automático"><Icon name={scrolling ? 'pause' : 'play'} /></button>{/if}
-        <button class="btn text" disabled={!current || !nextOf(current)} onclick={() => open(nextOf(current))}>Siguiente</button>
+        {#if mode === 'vertical'}<button class="icon-btn" onclick={toggleScroll} aria-label={scrolling ? 'Parar desplazamiento' : t('Desplazamiento automático')} title={t('Desplazamiento automático')}><Icon name={scrolling ? 'pause' : 'play'} /></button>{/if}
+        <button class="btn text" disabled={!current || !nextOf(current)} onclick={() => open(nextOf(current))}>{t('Siguiente')}</button>
       </div>
     </footer>
   {:else}
@@ -550,13 +551,13 @@
   {/if}
 </div>
 
-<Sheet bind:open={indexOpen} title="Índice">
+<Sheet bind:open={indexOpen} title={t('Índice')}>
   <div class="wrap" style="margin-top:0">
-    <button class="chip" class:on={indexTab === 'chapters'} onclick={() => (indexTab = 'chapters')}>Capítulos</button>
-    <button class="chip" class:on={indexTab === 'marks'} onclick={() => (indexTab = 'marks')}>Marcadores · {bookmarks.length}</button>
+    <button class="chip" class:on={indexTab === 'chapters'} onclick={() => (indexTab = 'chapters')}>{t('Capítulos')}</button>
+    <button class="chip" class:on={indexTab === 'marks'} onclick={() => (indexTab = 'marks')}>{t('Marcadores · {0}', [bookmarks.length])}</button>
   </div>
   {#if indexTab === 'chapters'}
-    <input class="field" type="search" placeholder="Buscar capítulo" bind:value={indexQuery} />
+    <input class="field" type="search" placeholder={t('Buscar capítulo')} bind:value={indexQuery} />
     <div class="index">
       {#each indexList as c (c.id)}
         <button class="list-item idx" class:here={c.id === current?.id} onclick={() => { indexOpen = false; if (c.id !== current?.id) open(c); }}>
@@ -566,54 +567,54 @@
       {/each}
     </div>
   {:else if !bookmarks.length}
-    <p class="muted">Sin marcadores. Pulsa el marcador de arriba para guardar la página que estás viendo.</p>
+    <p class="muted">{t('Sin marcadores. Pulsa el marcador de arriba para guardar la página que estás viendo.')}</p>
   {:else}
     {#each bookmarks as b (b.chapterId + '|' + b.position)}
       <button class="list-item idx" onclick={() => openBookmark(b)}>
-        <Icon name="bookmark" size={18} /><span class="grow">{b.chapterTitle} · página {b.position + 1}</span>
+        <Icon name="bookmark" size={18} /><span class="grow">{t('{0} · página {1}', [b.chapterTitle, b.position + 1])}</span>
       </button>
     {/each}
   {/if}
   {#if current && item}
-    <button class="btn outline block" style="margin-top:14px" onclick={() => { indexOpen = false; downloadChapters({ sourceId, mediaId, title: item.title, chapterIds: [current.id] }, (m) => notify('No se pudo descargar: ' + m)); }}>
-      <Icon name="download" size={18} /> Descargar {current.label} en este dispositivo
+    <button class="btn outline block" style="margin-top:14px" onclick={() => { indexOpen = false; downloadChapters({ sourceId, mediaId, title: item.title, chapterIds: [current.id] }, (m) => notify(t('No se pudo descargar: ') + m)); }}>
+      <Icon name="download" size={18} /> {t('Descargar {0} en este dispositivo', [current.label])}
     </button>
   {/if}
 </Sheet>
 
-<Sheet bind:open={optionsOpen} title="Lectura">
-  <div class="small muted">Modo</div>
+<Sheet bind:open={optionsOpen} title={t('Lectura')}>
+  <div class="small muted">{t('Modo')}</div>
   <div class="wrap">
-    <button class="chip" class:on={mode === 'vertical'} onclick={() => setReader('mode', 'vertical')}>Vertical (webtoon)</button>
-    <button class="chip" class:on={mode === 'paged'} onclick={() => setReader('mode', 'paged')}>Por páginas</button>
+    <button class="chip" class:on={mode === 'vertical'} onclick={() => setReader('mode', 'vertical')}>{t('Vertical (webtoon)')}</button>
+    <button class="chip" class:on={mode === 'paged'} onclick={() => setReader('mode', 'paged')}>{t('Por páginas')}</button>
   </div>
   {#if mode === 'paged'}
-    <div class="small muted">Sentido</div>
+    <div class="small muted">{t('Sentido')}</div>
     <div class="wrap">
-      <button class="chip" class:on={!rtl} onclick={() => setReader('direction', 'ltr')}>Izquierda a derecha</button>
-      <button class="chip" class:on={rtl} onclick={() => setReader('direction', 'rtl')}>Derecha a izquierda (manga)</button>
+      <button class="chip" class:on={!rtl} onclick={() => setReader('direction', 'ltr')}>{t('Izquierda a derecha')}</button>
+      <button class="chip" class:on={rtl} onclick={() => setReader('direction', 'rtl')}>{t('Derecha a izquierda (manga)')}</button>
     </div>
   {:else}
-    <div class="small muted">Ancho de las páginas</div>
+    <div class="small muted">{t('Ancho de las páginas')}</div>
     <div class="wrap">
       {#each WIDTHS as [k, label]}<button class="chip" class:on={width === k} onclick={() => setReader('width', k)}>{label}</button>{/each}
     </div>
   {/if}
-  <label class="toggle"><span class="grow">Pasar solo al siguiente capítulo</span><input type="checkbox" checked={settings.reader.infinite} onchange={(e) => setReader('infinite', e.target.checked)} /></label>
-  {#if canFullscreen}<label class="toggle"><span class="grow">Pantalla completa al leer (oculta las barras del navegador y del móvil)</span><input type="checkbox" checked={!!settings.reader.fullscreen} onchange={(e) => { setReader('fullscreen', e.target.checked); if (e.target.checked) enterFullscreen(); }} /></label>{/if}
-  <label class="toggle"><span class="grow">Calidad original (más lenta; si no, las páginas enormes llegan al tamaño de tu pantalla)</span><input type="checkbox" checked={settings.reader.quality === 'original'} onchange={(e) => setReader('quality', e.target.checked ? 'original' : 'fast')} /></label>
-  <label class="toggle"><span class="grow">Recortar bordes blancos o negros</span><input type="checkbox" checked={!!settings.reader.crop} onchange={(e) => setReader('crop', e.target.checked)} /></label>
-  <div class="small muted" style="margin-top:12px">Brillo</div>
-  <input class="range" type="range" min="0.2" max="1" step="0.05" value={brightness} oninput={(e) => setReader('brightness', +e.target.value)} aria-label="Brillo" />
-  <div class="small muted">Color</div>
+  <label class="toggle"><span class="grow">{t('Pasar solo al siguiente capítulo')}</span><input type="checkbox" checked={settings.reader.infinite} onchange={(e) => setReader('infinite', e.target.checked)} /></label>
+  {#if canFullscreen}<label class="toggle"><span class="grow">{t('Pantalla completa al leer (oculta las barras del navegador y del móvil)')}</span><input type="checkbox" checked={!!settings.reader.fullscreen} onchange={(e) => { setReader('fullscreen', e.target.checked); if (e.target.checked) enterFullscreen(); }} /></label>{/if}
+  <label class="toggle"><span class="grow">{t('Calidad original (más lenta; si no, las páginas enormes llegan al tamaño de tu pantalla)')}</span><input type="checkbox" checked={settings.reader.quality === 'original'} onchange={(e) => setReader('quality', e.target.checked ? 'original' : 'fast')} /></label>
+  <label class="toggle"><span class="grow">{t('Recortar bordes blancos o negros')}</span><input type="checkbox" checked={!!settings.reader.crop} onchange={(e) => setReader('crop', e.target.checked)} /></label>
+  <div class="small muted" style="margin-top:12px">{t('Brillo')}</div>
+  <input class="range" type="range" min="0.2" max="1" step="0.05" value={brightness} oninput={(e) => setReader('brightness', +e.target.value)} aria-label={t('Brillo')} />
+  <div class="small muted">{t('Color')}</div>
   <div class="wrap">
     {#each FILTERS as [k, label]}<button class="chip" class:on={filter === k} onclick={() => setReader('filter', k)}>{label}</button>{/each}
   </div>
   {#if mode === 'vertical'}
-    <div class="small muted">Velocidad del desplazamiento automático</div>
-    <input class="range" type="range" min="15" max="800" step="5" value={settings.reader.autoSpeed || 80} oninput={(e) => setReader('autoSpeed', +e.target.value)} aria-label="Velocidad" />
+    <div class="small muted">{t('Velocidad del desplazamiento automático')}</div>
+    <input class="range" type="range" min="15" max="800" step="5" value={settings.reader.autoSpeed || 80} oninput={(e) => setReader('autoSpeed', +e.target.value)} aria-label={t('Velocidad')} />
   {/if}
-  <p class="small muted">Teclado: ← → para pasar página, Esc para salir. En el móvil puedes pellizcar para hacer zoom.</p>
+  <p class="small muted">{t('Teclado: ← → para pasar página, Esc para salir. En el móvil puedes pellizcar para hacer zoom.')}</p>
 </Sheet>
 
 <style>

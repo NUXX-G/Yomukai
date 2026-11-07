@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // Global search (Ctrl+K, "/" or the search bar): type and press Enter; recent searches and sections a key away.
   import { onMount } from 'svelte';
   import { navigate } from '../lib/router.svelte.js';
@@ -11,13 +12,13 @@
   let active = $state(0);
 
   const jumps = [
-    { label: 'Anime', href: '/anime', icon: 'tv' }, { label: 'Manga y manhwa', href: '/manga', icon: 'book' },
-    { label: 'Novelas', href: '/novelas', icon: 'novel' }, { label: 'Biblioteca', href: '/biblioteca', icon: 'library' },
-    { label: 'Calendario', href: '/calendario', icon: 'calendar' }, { label: 'Ajustes', href: '/ajustes', icon: 'settings' }
+    { label: t('Anime'), href: '/anime', icon: 'tv' }, { label: t('Manga y manhwa'), href: '/manga', icon: 'book' },
+    { label: t('Novelas'), href: '/novelas', icon: 'novel' }, { label: t('Biblioteca'), href: '/biblioteca', icon: 'library' },
+    { label: t('Calendario'), href: '/calendario', icon: 'calendar' }, { label: t('Ajustes'), href: '/ajustes', icon: 'settings' }
   ];
   const recent = $derived((settings.searchHistory || []).filter((h) => !query || h.toLowerCase().includes(query.toLowerCase())).slice(0, 6));
   const options = $derived([
-    ...(query.trim() ? [{ label: `Buscar «${query.trim()}»`, run: () => go(query) }] : []),
+    ...(query.trim() ? [{ label: t('Buscar «{0}»', [query.trim()]), run: () => go(query) }] : []),
     ...recent.map((h) => ({ label: h, icon: 'hourglass', run: () => go(h) })),
     ...(query.trim() ? [] : jumps.map((j) => ({ label: j.label, icon: j.icon, run: () => { onclose(); navigate(j.href); } })))
   ]);
@@ -40,13 +41,13 @@
 </script>
 
 <div class="scrim" role="presentation" onclick={onclose}></div>
-<div class="palette" role="dialog" aria-modal="true" aria-label="Buscar">
+<div class="palette" role="dialog" aria-modal="true" aria-label={t('Buscar')}>
   <div class="field-row">
     <Icon name="search" />
-    <input bind:this={input} bind:value={query} onkeydown={key} placeholder="Buscar anime, manga, manhwa, novelas..." aria-label="Buscar" enterkeyhint="search" />
+    <input bind:this={input} bind:value={query} onkeydown={key} placeholder={t('Buscar anime, manga, manhwa, novelas...')} aria-label={t('Buscar')} enterkeyhint="search" />
     <kbd>Esc</kbd>
   </div>
-  <ul role="listbox" aria-label="Sugerencias">
+  <ul role="listbox" aria-label={t('Sugerencias')}>
     {#each options as o, i (o.label)}
       <li role="option" aria-selected={i === active}>
         <button class:on={i === active} onmouseenter={() => (active = i)} onclick={o.run}>

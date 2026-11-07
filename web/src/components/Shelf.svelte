@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // A titled row: big section title, optional "Ver todo", then a horizontal shelf of cards (posters or wide cards).
   import Row from './Row.svelte';
   import Icon from './Icon.svelte';
@@ -12,7 +13,7 @@
       {#if subtitle}<p>{subtitle}</p>{/if}
     </div>
     {@render actions?.()}
-    {#if href}<a class="all" {href}>Ver todo <Icon name="chevronRight" size={18} /></a>{/if}
+    {#if href}<a class="all" {href}>{t('Ver todo')} <Icon name="chevronRight" size={18} /></a>{/if}
   </header>
   <Row class={wide ? 'wide' : 'posters'}>
     {#if loading}

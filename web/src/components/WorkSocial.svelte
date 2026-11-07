@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // On a title page: friends who have it and how far they are, your rating (1-10 + short review) with the group's
   // average, and «Recomendar» to send it to a friend with a message.
   import { api } from '../lib/api.js';
@@ -17,7 +18,7 @@
   let to = $state('');
   let message = $state('');
 
-  const STATUS = { READING: 'va por ella', PLAN_TO_READ: 'la tiene pendiente', COMPLETED: 'la terminó', ON_HOLD: 'la tiene en pausa', DROPPED: 'la dejó', NONE: 'la guardó' };
+  const STATUS = { READING: t('va por ella'), PLAN_TO_READ: t('la tiene pendiente'), COMPLETED: t('la terminó'), ON_HOLD: t('la tiene en pausa'), DROPPED: t('la dejó'), NONE: t('la guardó') };
 
   async function load() {
     if (!session.user || session.user.guest) return;
@@ -36,7 +37,7 @@
     try {
       await api.rate({ sourceId, mediaId, title, cover, score: myScore === '' ? null : Number(myScore), review });
       rateOpen = false;
-      notify(myScore === '' ? 'Valoración quitada' : 'Valoración guardada');
+      notify(myScore === '' ? t('Valoración quitada') : t('Valoración guardada'));
       load();
     } catch (err) { notify(err.message); }
   }
@@ -53,7 +54,7 @@
       await api.recommend(to, { sourceId, mediaId, title, cover, message });
       recOpen = false;
       message = '';
-      notify('Recomendación enviada a ' + to);
+      notify(t('Recomendación enviada a ') + to);
     } catch (err) { notify(err.message); }
   }
 
@@ -61,18 +62,18 @@
 </script>
 
 {#if session.user && !session.user.guest}
-  <section class="social" aria-label="Con tus amigos">
+  <section class="social" aria-label={t('Con tus amigos')}>
     <div class="actions">
       <button class="chip" onclick={() => (rateOpen = true)}>
-        <Icon name="star" size={16} /> {myScore ? 'Tu nota: ' + myScore : 'Valorar'}
+        <Icon name="star" size={16} /> {myScore ? t('Tu nota: ') + myScore : 'Valorar'}
       </button>
-      {#if ratings.count}<span class="avg">Media del grupo <b>{score(ratings.average)}</b> · {ratings.count} {ratings.count === 1 ? 'nota' : 'notas'}</span>{/if}
-      <button class="chip" onclick={openRecommend}><Icon name="open" size={16} /> Recomendar</button>
+      {#if ratings.count}<span class="avg">{t('Media del grupo')} <b>{score(ratings.average)}</b> · {ratings.count} {ratings.count === 1 ? 'nota' : 'notas'}</span>{/if}
+      <button class="chip" onclick={openRecommend}><Icon name="open" size={16} /> {t('Recomendar')}</button>
     </div>
     {#if friends.length}
       <div class="friends">
         {#each friends as f (f.name)}
-          <a class="friend" href="/u/{encodeURIComponent(f.name)}"><b>{f.name}</b> {STATUS[f.status] || 'la tiene'}{#if f.last} · {f.last}{/if}</a>
+          <a class="friend" href="/u/{encodeURIComponent(f.name)}"><b>{f.name}</b> {STATUS[f.status] || t('la tiene')}{#if f.last} · {f.last}{/if}</a>
         {/each}
       </div>
     {/if}
@@ -85,31 +86,31 @@
     {/if}
   </section>
 
-  <Sheet bind:open={rateOpen} title="Tu valoración">
+  <Sheet bind:open={rateOpen} title={t('Tu valoración')}>
     <form class="form" onsubmit={saveRating}>
-      <div class="scores" role="radiogroup" aria-label="Nota del 1 al 10">
+      <div class="scores" role="radiogroup" aria-label={t('Nota del 1 al 10')}>
         {#each Array.from({ length: 10 }, (_, i) => String(i + 1)) as n (n)}
           <button type="button" class="score" class:on={myScore === n} role="radio" aria-checked={myScore === n} onclick={() => (myScore = n)}>{n}</button>
         {/each}
       </div>
-      <textarea class="field" rows="3" maxlength="500" placeholder="Una reseña corta (opcional)" bind:value={review}></textarea>
+      <textarea class="field" rows="3" maxlength="500" placeholder={t('Una reseña corta (opcional)')} bind:value={review}></textarea>
       <div class="row">
-        {#if myScore}<button type="button" class="btn text" onclick={() => (myScore = '')}>Quitar nota</button>{/if}
-        <button class="btn primary">Guardar</button>
+        {#if myScore}<button type="button" class="btn text" onclick={() => (myScore = '')}>{t('Quitar nota')}</button>{/if}
+        <button class="btn primary">{t('Guardar')}</button>
       </div>
     </form>
   </Sheet>
 
   <Sheet bind:open={recOpen} title="Recomendar «{title}»">
     {#if !users.length}
-      <p class="muted">Aún no hay nadie más en este servidor.</p>
+      <p class="muted">{t('Aún no hay nadie más en este servidor.')}</p>
     {:else}
       <form class="form" onsubmit={sendRecommendation}>
-        <select class="field" bind:value={to} aria-label="A quién">
+        <select class="field" bind:value={to} aria-label={t('A quién')}>
           {#each users as u (u.name)}<option value={u.name}>{u.name}</option>{/each}
         </select>
-        <textarea class="field" rows="3" maxlength="280" placeholder="¿Por qué le va a gustar? (opcional)" bind:value={message}></textarea>
-        <button class="btn primary block">Enviar</button>
+        <textarea class="field" rows="3" maxlength="280" placeholder={t('¿Por qué le va a gustar? (opcional)')} bind:value={message}></textarea>
+        <button class="btn primary block">{t('Enviar')}</button>
       </form>
     {/if}
   </Sheet>

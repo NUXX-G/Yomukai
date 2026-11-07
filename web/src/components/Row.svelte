@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // A horizontal shelf. Fingers swipe it; on a computer, arrows on the sides move it a screen at a time.
   let { children, class: extra = '' } = $props();
   let el = $state();
@@ -26,8 +27,8 @@
 
 <div class="shelf">
   <div class="row {extra}" bind:this={el} onscroll={update}>{@render children?.()}</div>
-  {#if !atStart}<button class="arrow left" onclick={() => move(-1)} aria-label="Anteriores">‹</button>{/if}
-  {#if !atEnd}<button class="arrow right" onclick={() => move(1)} aria-label="Siguientes">›</button>{/if}
+  {#if !atStart}<button class="arrow left" onclick={() => move(-1)} aria-label={t('Anteriores')}>‹</button>{/if}
+  {#if !atEnd}<button class="arrow right" onclick={() => move(1)} aria-label={t('Siguientes')}>›</button>{/if}
 </div>
 
 <style>

@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // /sala/CODIGO: the link friends get. If something is already playing it goes straight to that episode (the player
   // keeps the room); if not, it waits here with the chat until the host picks one.
   import { onDestroy } from 'svelte';
@@ -21,7 +22,7 @@
   });
   onDestroy(() => client?.close());
 
-  async function copy() { notify((await copyRoomLink(code)) ? 'Enlace copiado' : roomLink(code)); }
+  async function copy() { notify((await copyRoomLink(code)) ? t('Enlace copiado') : roomLink(code)); }
 </script>
 
 <div class="page room">
@@ -29,15 +30,15 @@
     <div class="center">
       <Icon name="warning" size={40} />
       <p>{client.party.closed}</p>
-      <a class="btn tonal" href="/">Ir al inicio</a>
+      <a class="btn tonal" href="/">{t('Ir al inicio')}</a>
     </div>
   {:else}
     <header class="head">
-      <h1>{client?.party.room?.name ?? 'Sala ' + code}</h1>
-      <p class="muted">Cuando el anfitrión ponga un episodio, entrarás a la vez que los demás. Si alguien se queda cargando, se espera a todos.</p>
+      <h1>{client?.party.room?.name ?? t('Sala ') + code}</h1>
+      <p class="muted">{t('Cuando el anfitrión ponga un episodio, entrarás a la vez que los demás. Si alguien se queda cargando, se espera a todos.')}</p>
       <div class="actions">
-        <button class="btn primary" onclick={copy}><Icon name="open" size={18} /> Copiar enlace</button>
-        <span class="code" aria-label="Código de la sala">{code}</span>
+        <button class="btn primary" onclick={copy}><Icon name="open" size={18} /> {t('Copiar enlace')}</button>
+        <span class="code" aria-label={t('Código de la sala')}>{code}</span>
       </div>
     </header>
     <div class="panel">{#if client}<RoomChat {client} />{/if}</div>

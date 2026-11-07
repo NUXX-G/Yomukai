@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // Learning mode only (long press on a word): translation of the word and of its sentence, pronunciation with the
   // browser's voice, and «Guardar» with the sentence as context and the work as source.
   import { api } from '../lib/api.js';
@@ -27,7 +28,7 @@
     const current = pick;
     api.translate([current.word, current.sentence], current.lang, settings.learning.target).then(
       (r) => { if (pick === current) result = r.translations; },
-      (e) => { if (pick === current) error = e.status === 503 ? 'Traducir necesita el servidor de casa encendido.' : e.message; }
+      (e) => { if (pick === current) error = e.status === 503 ? t('Traducir necesita el servidor de casa encendido.') : e.message; }
     );
   });
   $effect(() => { if (!open) pick = null; });
@@ -43,7 +44,7 @@
   async function save() {
     try {
       await api.saveWord({ word: pick.word, lang: pick.lang, meaning: result?.[0] || '', context: pick.sentence.slice(0, 500), source: pick.source });
-      notify('Guardada para repasar');
+      notify(t('Guardada para repasar'));
       open = false;
     } catch (e) { notify(e.message); }
   }
@@ -55,10 +56,10 @@
   {#if pick}
     <div class="word">
       <div class="row">
-        <button class="btn tonal" onclick={say}><Icon name="speech" size={18} /> Escuchar</button>
-        <a class="btn text" href={dictionary} target="_blank" rel="noopener noreferrer">Diccionario</a>
+        <button class="btn tonal" onclick={say}><Icon name="speech" size={18} /> {t('Escuchar')}</button>
+        <a class="btn text" href={dictionary} target="_blank" rel="noopener noreferrer">{t('Diccionario')}</a>
         <span class="grow"></span>
-        <button class="btn primary" onclick={save}>Guardar</button>
+        <button class="btn primary" onclick={save}>{t('Guardar')}</button>
       </div>
       {#if error}
         <p class="muted">{error}</p>
@@ -69,7 +70,7 @@
         <blockquote>{pick.sentence}</blockquote>
         <p class="muted">{result[1]}</p>
         {#if pick.paragraph && pick.paragraph !== pick.sentence}
-          {#if paragraph}<p class="para">{paragraph}</p>{:else}<button class="btn text" onclick={translateParagraph}>Traducir el párrafo entero</button>{/if}
+          {#if paragraph}<p class="para">{paragraph}</p>{:else}<button class="btn text" onclick={translateParagraph}>{t('Traducir el párrafo entero')}</button>{/if}
         {/if}
       {/if}
     </div>

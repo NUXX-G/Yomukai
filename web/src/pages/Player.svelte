@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   import { onMount, onDestroy } from 'svelte';
   import { api } from '../lib/api.js';
   import { route, back, navigate, media as mediaHref, reader } from '../lib/router.svelte.js';
@@ -31,8 +32,8 @@
     try {
       const res = await api.subtitles(sourceId, episode.url, item?.language === 'EN' ? 'en' : undefined);
       if (res.status === 200) subtitlesUrl = URL.createObjectURL(new Blob([await res.text()], { type: 'text/vtt' }));
-      else if (res.status === 202) notify('Generando los subtítulos en el servidor de casa; vuelve a pulsar en unos minutos');
-      else notify('Los subtítulos necesitan el servidor de casa encendido');
+      else if (res.status === 202) notify(t('Generando los subtítulos en el servidor de casa; vuelve a pulsar en unos minutos'));
+      else notify(t('Los subtítulos necesitan el servidor de casa encendido'));
     } catch (e) { notify(e.message); } finally { subtitlesBusy = false; }
   }
   $effect(() => { const url = subtitlesUrl; return () => { if (url) URL.revokeObjectURL(url); }; });
@@ -100,7 +101,7 @@
       history.replaceState(history.state, '', withRoom(location.pathname));
       if (!client) startParty(room.code);
       chatOpen = true;
-      notify((await copyRoomLink(room.code)) ? 'Enlace de la sala copiado: pásalo a tus amigos' : 'Sala ' + room.code);
+      notify((await copyRoomLink(room.code)) ? t('Enlace de la sala copiado: pásalo a tus amigos') : t('Sala ') + room.code);
       setTimeout(shareState, 500);
     } catch (e) { notify(e.message); }
   }
@@ -161,7 +162,7 @@
   async function play(index) {
     const list = order(servers);
     const server = list[index];
-    if (!server) { error = 'Ningún servidor respondió. Prueba con otro desde «Servidores».'; loading = false; return; }
+    if (!server) { error = t('Ningún servidor respondió. Prueba con otro desde «Servidores».'); loading = false; return; }
     serverIndex = index;
     error = '';
     loading = true;
@@ -199,7 +200,7 @@
     const now = order(servers)[serverIndex];
     if (!now || qualityOf(now.url) === advice.q) return;
     resumeAt = video.currentTime;
-    notify(advice.viewers > 1 ? `Sala de ${advice.viewers}: calidad «${advice.server.quality}» para que vaya fluido a todos` : `Calidad «${advice.server.quality}»`);
+    notify(advice.viewers > 1 ? t('Sala de {0}: calidad «{1}» para que vaya fluido a todos', [advice.viewers, advice.server.quality]) : t('Calidad «{0}»', [advice.server.quality]));
     play(order(servers).indexOf(advice.server));
   });
 
@@ -298,7 +299,7 @@
       lastTap = { at: 0, x: 0 };
       const delta = x < 0.5 ? -10 : 10;
       seek(delta);
-      showFlash(delta < 0 ? '« 10 s' : '10 s »');
+      showFlash(delta < 0 ? t('« 10 s') : t('10 s »'));
       return;
     }
     lastTap = { at: now, x };
@@ -320,7 +321,7 @@
     video.muted = muted;
     try { localStorage.setItem('player.volume', String(volume)); } catch {}
   }
-  function toggleMute() { muted = !muted; video.muted = muted; showFlash(muted ? 'Silencio' : `Volumen ${Math.round(volume * 100)}%`); }
+  function toggleMute() { muted = !muted; video.muted = muted; showFlash(muted ? t('Silencio') : t('Volumen {0}%', [Math.round(volume * 100)])); }
 
   /** Full screen and landscape on Android; on iPhone, Safari's own full-screen video. */
   async function fullscreen() {
@@ -351,7 +352,7 @@
   function key(e) {
     if (e.target.closest?.('input[type=search], input[type=text], textarea') || serversOpen || episodesOpen) return;
     if (e.key === ' ' || e.key === 'k') { e.preventDefault(); toggle(); }
-    if (e.key === 'ArrowRight') { seek(e.shiftKey ? 85 : 10); showFlash(e.shiftKey ? '+85 s' : '10 s »'); }
+    if (e.key === 'ArrowRight') { seek(e.shiftKey ? 85 : 10); showFlash(e.shiftKey ? t('+85 s') : t('10 s »')); }
     if (e.key === 'ArrowLeft') { seek(-10); showFlash('« 10 s'); }
     if (e.key === 'ArrowUp') { e.preventDefault(); setVolume(volume + 0.1); showFlash(`Volumen ${Math.round(volume * 100)}%`); }
     if (e.key === 'ArrowDown') { e.preventDefault(); setVolume(volume - 0.1); showFlash(`Volumen ${Math.round(volume * 100)}%`); }
@@ -382,7 +383,7 @@
       loadFillers();
       stopPresence = startPresence('watching', () => ({ title: item?.title, label: episode?.label, sourceId, mediaId }));
       if (roomCode) startParty(roomCode);
-      if (!direct.length) { loading = false; serversOpen = true; error = 'Este episodio solo se puede ver en la web del servidor.'; return; }
+      if (!direct.length) { loading = false; serversOpen = true; error = t('Este episodio solo se puede ver en la web del servidor.'); return; }
       play(0);
     } catch (e) {
       error = e.message;
@@ -413,27 +414,27 @@
     onpause={() => { playing = false; poke(); shareState(); }}
     onseeked={shareState}
     onloadedmetadata={onLoaded} ontimeupdate={onTime} onended={onEnded} onerror={onError}
-  >{#if subtitlesUrl}<track kind="subtitles" label="Subtítulos" src={subtitlesUrl} default />{/if}</video>
+  >{#if subtitlesUrl}<track kind="subtitles" label={t('Subtítulos')} src={subtitlesUrl} default />{/if}</video>
 
   {#each floats as f (f.id)}<span class="float" style:left="{f.x}%" aria-hidden="true">{f.emoji}</span>{/each}
   {#if client && client.party.waiting.length}
-    <div class="waiting">Esperando a {client.party.waiting.join(', ')}...</div>
+    <div class="waiting">{t('Esperando a {0}...', [client.party.waiting.join(', ')])}</div>
   {/if}
   {#if chatOpen && client}
     <div class="chat-panel"><RoomChat {client} onclose={() => (chatOpen = false)} /></div>
   {/if}
   {#if inOpening}
-    <button class="skip" onclick={skipOpening}><Icon name="skip" size={20} /> Saltar opening</button>
+    <button class="skip" onclick={skipOpening}><Icon name="skip" size={20} /> {t('Saltar opening')}</button>
   {:else if inEnding}
-    <button class="skip" onclick={skipEnding}><Icon name="skip" size={20} /> {next ? 'Siguiente episodio' : 'Saltar ending'}</button>
+    <button class="skip" onclick={skipEnding}><Icon name="skip" size={20} /> {next ? t('Siguiente episodio') : t('Saltar ending')}</button>
   {/if}
   {#if countdown != null && next}
     <div class="upnext" role="status" aria-live="polite">
-      <div class="small">Siguiente episodio en {countdown} s{#if skipped} · saltando {skipped} de relleno{/if}</div>
+      <div class="small">{t('Siguiente episodio en {0} s', [countdown])}{#if skipped} {t('· saltando {0} de relleno', [skipped])}{/if}</div>
       <div class="upnext-title">{next.label}{#if next.name} · {next.name}{/if}</div>
       <div class="upnext-actions">
-        <button class="btn primary" onclick={() => go(next)}><Icon name="play" size={18} /> Ver ahora</button>
-        <button class="btn text light" onclick={cancelCountdown}>Cancelar</button>
+        <button class="btn primary" onclick={() => go(next)}><Icon name="play" size={18} /> {t('Ver ahora')}</button>
+        <button class="btn text light" onclick={cancelCountdown}>{t('Cancelar')}</button>
       </div>
     </div>
   {/if}
@@ -442,47 +443,47 @@
   {#if error}
     <div class="message">
       <p>{error}</p>
-      <button class="btn tonal" onclick={() => (serversOpen = true)}>Servidores</button>
-      <button class="btn text" onclick={() => back(mediaHref(sourceId, mediaId))}>Volver</button>
+      <button class="btn tonal" onclick={() => (serversOpen = true)}>{t('Servidores')}</button>
+      <button class="btn text" onclick={() => back(mediaHref(sourceId, mediaId))}>{t('Volver')}</button>
     </div>
   {/if}
 
   {#if ui}
     <div class="hud" onpointerup={(e) => { if (e.target === e.currentTarget) press(e); }} ondblclick={(e) => { if (e.target === e.currentTarget) fullscreen(); }} onpointermove={(e) => { if (e.pointerType === 'mouse' && playing) poke(); }} role="presentation">
       <div class="top">
-        <button class="icon-btn" onclick={() => back(mediaHref(sourceId, mediaId))} aria-label="Volver"><Icon name="back" /></button>
+        <button class="icon-btn" onclick={() => back(mediaHref(sourceId, mediaId))} aria-label={t('Volver')}><Icon name="back" /></button>
         <div class="title">{item?.title ?? ''} · {episode?.label ?? ''}</div>
         {#if features.flags.rooms !== false}
           {#if client}
             <button class="btn text light chat-btn" onclick={() => { chatOpen = !chatOpen; client.party.unread = 0; }}>
-              Sala · {client.party.members.length}{#if client.party.unread && !chatOpen}<span class="dot-unread">{client.party.unread}</span>{/if}
+              {t('Sala · {0}', [client.party.members.length])}{#if client.party.unread && !chatOpen}<span class="dot-unread">{client.party.unread}</span>{/if}
             </button>
           {:else}
-            <button class="btn text light" onclick={watchTogether} title="Abre tu sala y copia el enlace">Ver con amigos</button>
+            <button class="btn text light" onclick={watchTogether} title={t('Abre tu sala y copia el enlace')}>{t('Ver con amigos')}</button>
           {/if}
         {/if}
         {#if features.available?.whisper}
-          <button class="btn text light" aria-pressed={!!subtitlesUrl} disabled={subtitlesBusy} onclick={subtitles}>{subtitlesUrl ? 'Quitar subtítulos' : 'Subtítulos'}</button>
+          <button class="btn text light" aria-pressed={!!subtitlesUrl} disabled={subtitlesBusy} onclick={subtitles}>{subtitlesUrl ? t('Quitar subtítulos') : t('Subtítulos')}</button>
         {/if}
-        <button class="icon-btn" onclick={() => (episodesOpen = true)} aria-label="Episodios" title="Episodios"><Icon name="list" /></button>
-        <button class="btn text light" onclick={() => (serversOpen = true)}>Servidores</button>
+        <button class="icon-btn" onclick={() => (episodesOpen = true)} aria-label={t('Episodios')} title={t('Episodios')}><Icon name="list" /></button>
+        <button class="btn text light" onclick={() => (serversOpen = true)}>{t('Servidores')}</button>
         <button class="btn text light" onclick={() => setSpeed(SPEEDS[(SPEEDS.indexOf(settings.player.speed) + 1) % SPEEDS.length])}>{settings.player.speed}x</button>
-        {#if canPip}<button class="icon-btn" onclick={pip} aria-label="Imagen en imagen" title="Imagen en imagen"><Icon name="pip" /></button>{/if}
-        <button class="icon-btn" onclick={fullscreen} aria-label="Pantalla completa" title="Pantalla completa (F)"><Icon name="fullscreen" /></button>
+        {#if canPip}<button class="icon-btn" onclick={pip} aria-label={t('Imagen en imagen')} title={t('Imagen en imagen')}><Icon name="pip" /></button>{/if}
+        <button class="icon-btn" onclick={fullscreen} aria-label={t('Pantalla completa')} title={t('Pantalla completa (F)')}><Icon name="fullscreen" /></button>
       </div>
       <div class="middle">
-        <button class="icon-btn lg" onclick={() => seek(-10)} aria-label="Retroceder 10 s"><Icon name="rewind" size={36} /></button>
+        <button class="icon-btn lg" onclick={() => seek(-10)} aria-label={t('Retroceder 10 s')}><Icon name="rewind" size={36} /></button>
         <button class="icon-btn xl" onclick={toggle} aria-label={playing ? 'Pausar' : 'Reproducir'}><Icon name={playing ? 'pause' : 'play'} size={52} /></button>
-        <button class="icon-btn lg" onclick={() => seek(10)} aria-label="Adelantar 10 s"><Icon name="forward" size={36} /></button>
+        <button class="icon-btn lg" onclick={() => seek(10)} aria-label={t('Adelantar 10 s')}><Icon name="forward" size={36} /></button>
       </div>
       <div class="bottom">
         <div class="times"><span>{time(current)}</span><span>{time(duration)}</span></div>
-        <input type="range" min="0" max={duration || 0} step="1" value={current} oninput={(e) => { video.currentTime = +e.target.value; poke(); }} style="--p:{duration ? (current / duration) * 100 : 0}%" aria-label="Progreso" />
+        <input type="range" min="0" max={duration || 0} step="1" value={current} oninput={(e) => { video.currentTime = +e.target.value; poke(); }} style="--p:{duration ? (current / duration) * 100 : 0}%" aria-label={t('Progreso')} />
         <div class="actions">
-          {#if !marks?.openingEnd}<button class="btn text light" onclick={() => { seek(85); if (current < 300) api.achievementEvent('skip_opening').catch(() => {}); }} title="Saltar el opening (85 s)">+85 s</button>{/if}
+          {#if !marks?.openingEnd}<button class="btn text light" onclick={() => { seek(85); if (current < 300) api.achievementEvent('skip_opening').catch(() => {}); }} title={t('Saltar el opening (85 s)')}>{t('+85 s')}</button>{/if}
           <span class="volume">
             <button class="icon-btn" onclick={toggleMute} aria-label={muted ? 'Activar sonido' : 'Silenciar'}><Icon name={muted || volume === 0 ? 'mute' : 'volume'} /></button>
-            <input class="vol" type="range" min="0" max="1" step="0.05" value={muted ? 0 : volume} oninput={(e) => setVolume(+e.target.value)} style="--p:{(muted ? 0 : volume) * 100}%" aria-label="Volumen" />
+            <input class="vol" type="range" min="0" max="1" step="0.05" value={muted ? 0 : volume} oninput={(e) => setVolume(+e.target.value)} style="--p:{(muted ? 0 : volume) * 100}%" aria-label={t('Volumen')} />
           </span>
           <span class="grow"></span>
           {#if Object.keys(fillers).length}
@@ -499,18 +500,18 @@
   {/if}
 </div>
 
-<Sheet bind:open={episodesOpen} title="Episodios">
+<Sheet bind:open={episodesOpen} title={t('Episodios')}>
   {#each [...chapters].reverse() as c (c.id)}
     <button class="list-item srv" class:current={c.id === episode?.id} onclick={() => { episodesOpen = false; if (c.id !== episode?.id) go(c); }}>
-      <span class="grow" class:seen={watchedIds[c.id]}>{c.label}{#if c.name} <span class="small muted">{c.name}</span>{/if}{#if isFiller(c)} <span class="filler">Relleno</span>{/if}</span>
+      <span class="grow" class:seen={watchedIds[c.id]}>{c.label}{#if c.name} <span class="small muted">{c.name}</span>{/if}{#if isFiller(c)} <span class="filler">{t('Relleno')}</span>{/if}</span>
       {#if watchedIds[c.id]}<Icon name="check" size={18} />{/if}
     </button>
   {/each}
 </Sheet>
 
-<Sheet bind:open={serversOpen} title="Servidores">
+<Sheet bind:open={serversOpen} title={t('Servidores')}>
   {#if nasAdvice && nasAdvice.viewers > 1}
-    <p class="small muted nas-note">Desde tu NAS: con {nasAdvice.viewers} en la sala se recomienda «{nasAdvice.server?.quality}» (la subida de casa es de {features.nas?.uploadMbps || 20} Mbps).</p>
+    <p class="small muted nas-note">{t('Desde tu NAS: con {0} en la sala se recomienda «{1}» (la subida de casa es de {2} Mbps).', [nasAdvice.viewers, nasAdvice.server?.quality, features.nas?.uploadMbps || 20])}</p>
   {/if}
   {#each servers as s}
     {#if s.direct}
@@ -518,7 +519,7 @@
         <Icon name="play" /> <span class="grow">{s.server} <span class="small muted">{s.quality}</span></span>
       </button>
     {:else}
-      <a class="list-item srv" href={s.url} target="_blank" rel="noopener noreferrer"><Icon name="open" /> <span class="grow">{s.server} <span class="small muted">{s.quality} · abrir en su web</span></span></a>
+      <a class="list-item srv" href={s.url} target="_blank" rel="noopener noreferrer"><Icon name="open" /> <span class="grow">{s.server} <span class="small muted">{t('{0} · abrir en su web', [s.quality])}</span></span></a>
     {/if}
   {/each}
 </Sheet>

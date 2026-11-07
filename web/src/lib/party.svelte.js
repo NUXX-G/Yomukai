@@ -1,6 +1,8 @@
 // Watch party client: one WebSocket per room, with heartbeat and reconnection. The server's clock is the reference;
 // the drift rules are the same as shared/PartySync.kt (seek over 2 s, nudge the speed between 0.3 and 2 s).
 
+import { t } from './i18n.svelte.js';
+
 export const SEEK_THRESHOLD = 2;
 export const NUDGE_THRESHOLD = 0.3;
 
@@ -46,7 +48,7 @@ export function createParty(code, callbacks = {}) {
       clearInterval(pingTimer);
       if (stopped) return;
       // The server refused the room (unknown, rooms off, other site): do not keep knocking.
-      if (e.code === 1008) { party.closed = e.reason || 'No se pudo entrar en la sala'; return; }
+      if (e.code === 1008) { party.closed = t(e.reason || 'No se pudo entrar en la sala'); return; }
       retry = Math.min(retry + 1, 6);
       retryTimer = setTimeout(open, Math.min(30_000, 500 * 2 ** retry));
     };

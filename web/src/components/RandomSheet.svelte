@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // Random pick that some source always has, with those sources: one tap opens it there.
   import Sheet from './Sheet.svelte';
   import Icon from './Icon.svelte';
@@ -38,18 +39,18 @@
   function go(place) { open = false; navigate(media(place.item.sourceId, place.item.id)); }
 </script>
 
-<Sheet bind:open title="Descubrir al azar">
+<Sheet bind:open title={t('Descubrir al azar')}>
   <div class="chips">
     {#each RANDOM_KINDS as k}<button class="chip" class:on={kind === k.key} onclick={() => choose(k.key)}>{k.label}</button>{/each}
   </div>
   <div class="chips" style="margin-top:8px">
-    <button class="chip" class:on={!genre} onclick={() => chooseGenre('')}>Cualquier género</button>
+    <button class="chip" class:on={!genre} onclick={() => chooseGenre('')}>{t('Cualquier género')}</button>
     {#each RANDOM_GENRES as [value, label]}<button class="chip" class:on={genre === value} onclick={() => chooseGenre(value)}>{label}</button>{/each}
   </div>
 
   <div class="stage">
     {#if rolling}
-      <div class="center small-center"><div class="spinner"></div><span class="small muted">Buscando uno que esté en tus fuentes...</span></div>
+      <div class="center small-center"><div class="spinner"></div><span class="small muted">{t('Buscando uno que esté en tus fuentes...')}</span></div>
     {:else if pick}
       <button class="pick" onclick={() => places[0] && go(places[0])}>
         <img src={pick.cover} alt="" />
@@ -65,15 +66,15 @@
   </div>
 
   {#if !rolling && pick && places.length}
-    <div class="small muted">Disponible en</div>
+    <div class="small muted">{t('Disponible en')}</div>
     <div class="chips" style="margin:6px 0 12px">
       {#each places as place}<button class="chip" onclick={() => go(place)}>{place.sourceName} <span class="tag">{place.language}</span></button>{/each}
     </div>
   {/if}
 
   <div class="actions">
-    <button class="btn primary" onclick={roll} disabled={rolling}><Icon name="shuffle" size={18} /> Otro</button>
-    {#if pick && places[0] && !rolling}<button class="btn outline" onclick={() => go(places[0])}>Abrir en {places[0].sourceName}</button>{/if}
+    <button class="btn primary" onclick={roll} disabled={rolling}><Icon name="shuffle" size={18} /> {t('Otro')}</button>
+    {#if pick && places[0] && !rolling}<button class="btn outline" onclick={() => go(places[0])}>{t('Abrir en {0}', [places[0].sourceName])}</button>{/if}
   </div>
 </Sheet>
 

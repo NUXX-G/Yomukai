@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // Calendario: this week, day by day. Your library first (anime from AniList's schedule, manga and novels from the
   // rhythm their sources actually keep), then what else airs this week.
   import { onMount } from 'svelte';
@@ -10,7 +11,7 @@
 
   const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + i); return d; });
   const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const dayName = (d, i) => (i === 0 ? 'Hoy' : i === 1 ? 'Mañana' : d.toLocaleDateString('es', { weekday: 'long' }));
+  const dayName = (d, i) => (i === 0 ? t('Hoy') : i === 1 ? t('Mañana') : d.toLocaleDateString('es', { weekday: 'long' }));
 
   onMount(async () => {
     api.calendar(7).then((l) => (mine = l), () => (mine = []));
@@ -29,8 +30,8 @@
 
 <div class="page">
   <header class="head">
-    <h1>Calendario</h1>
-    <p class="muted">Lo que sale esta semana. Tus obras primero: el anime según AniList y el manga y las novelas según cada cuánto publica de verdad su fuente.</p>
+    <h1>{t('Calendario')}</h1>
+    <p class="muted">{t('Lo que sale esta semana. Tus obras primero: el anime según AniList y el manga y las novelas según cada cuánto publica de verdad su fuente.')}</p>
   </header>
 
   <div class="week">
@@ -46,15 +47,15 @@
         {#each airingOn(d) as e (e.anilistId)}
           <button class="entry" style:--bg="url('{sized(e.cover, 160)}')" onclick={() => openDiscover(e)}>
             <span class="t">{e.title}</span>
-            <span class="l">Ep. {e.nextEpisode} · {time(e.nextAiringAt)}</span>
+            <span class="l">{t('Ep. {0} · {1}', [e.nextEpisode, time(e.nextAiringAt)])}</span>
           </button>
         {/each}
-        {#if mine && !mineOn(d).length && !airingOn(d).length}<p class="empty">Nada</p>{/if}
+        {#if mine && !mineOn(d).length && !airingOn(d).length}<p class="empty">{t('Nada')}</p>{/if}
       </section>
     {/each}
   </div>
   {#if mine && !mine.length}
-    <p class="muted note">Cuando tengas obras en emisión en la biblioteca aparecerán aquí con su próximo episodio o capítulo.</p>
+    <p class="muted note">{t('Cuando tengas obras en emisión en la biblioteca aparecerán aquí con su próximo episodio o capítulo.')}</p>
   {/if}
 </div>
 

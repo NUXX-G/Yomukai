@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // Poster card, 2:3: the cover takes the space; small badges sit on it; title and a grey line below.
   // On a computer, hovering lifts it and shows more; on a phone, a long press does the same.
   import { TYPE_NAMES } from '../lib/format.js';
@@ -54,7 +55,7 @@
   {:else if subtitle}
     <div class="meta">{subtitle}</div>
   {/if}
-  {#if doubt}<div class="meta doubt" title="Puede ser la misma obra que otra tarjeta: no se ha podido confirmar">¿Misma obra?</div>{/if}
+  {#if doubt}<div class="meta doubt" title={t('Puede ser la misma obra que otra tarjeta: no se ha podido confirmar')}>{t('¿Misma obra?')}</div>{/if}
 </svelte:element>
 
 <style>

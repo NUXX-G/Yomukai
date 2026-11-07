@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // /foro (categories and threads) and /foro/:id (one thread). Works' own threads live on their title pages too.
   import { api } from '../lib/api.js';
   import { route, navigate } from '../lib/router.svelte.js';
@@ -40,28 +41,28 @@
 
 <div class="page forum">
   {#if threadId}
-    <a class="back" href="/foro">← Foro</a>
+    <a class="back" href="/foro">{t('← Foro')}</a>
     <ForumThread {threadId} />
   {:else}
     <header class="head">
-      <h1>Foro</h1>
-      {#if session.user && !session.user.guest && category !== 'work'}<button class="btn primary" onclick={() => (creating = true)}>Nuevo hilo</button>{/if}
+      <h1>{t('Foro')}</h1>
+      {#if session.user && !session.user.guest && category !== 'work'}<button class="btn primary" onclick={() => (creating = true)}>{t('Nuevo hilo')}</button>{/if}
     </header>
     <div class="chips" role="tablist">
       {#each GENERAL as [key, label] (key)}
         <button class="chip" role="tab" class:on={category === key} aria-selected={category === key} onclick={() => pick(key)}>{label}</button>
       {/each}
     </div>
-    {#if category === 'work'}<p class="small muted">Cada obra tiene su hilo en su ficha (pestaña «Foro»). Aquí salen los que tienen conversación.</p>{/if}
+    {#if category === 'work'}<p class="small muted">{t('Cada obra tiene su hilo en su ficha (pestaña «Foro»). Aquí salen los que tienen conversación.')}</p>{/if}
     {#if threads === null}
       <div class="spinner"></div>
     {:else if !threads.length}
-      <p class="muted">Aún no hay hilos aquí.</p>
+      <p class="muted">{t('Aún no hay hilos aquí.')}</p>
     {:else}
       <ul class="list">
         {#each threads as t (t.id)}
           <li><a class="thread" href="/foro/{t.id}">
-            <span class="title">{#if t.pinned}📌 {/if}{t.title}{#if t.locked} <span class="tag">cerrado</span>{/if}</span>
+            <span class="title">{#if t.pinned}📌 {/if}{t.title}{#if t.locked} <span class="tag">{t('cerrado')}</span>{/if}</span>
             <span class="small muted">{t.author} · {t.posts} {t.posts === 1 ? 'mensaje' : 'mensajes'} · {when(t.lastPostAt)}</span>
           </a></li>
         {/each}
@@ -70,11 +71,11 @@
   {/if}
 </div>
 
-<Sheet bind:open={creating} title="Nuevo hilo">
+<Sheet bind:open={creating} title={t('Nuevo hilo')}>
   <form class="new" onsubmit={create}>
-    <input class="field" placeholder="Título" maxlength="120" bind:value={form.title} required />
-    <textarea class="field" rows="6" maxlength="5000" placeholder="Escribe... **negrita**, *cursiva*, > cita, - lista, @nombre" bind:value={form.body} required></textarea>
-    <button class="btn primary block" disabled={form.title.trim().length < 3 || !form.body.trim()}>Publicar</button>
+    <input class="field" placeholder={t('Título')} maxlength="120" bind:value={form.title} required />
+    <textarea class="field" rows="6" maxlength="5000" placeholder={t('Escribe... **negrita**, *cursiva*, > cita, - lista, @nombre')} bind:value={form.body} required></textarea>
+    <button class="btn primary block" disabled={form.title.trim().length < 3 || !form.body.trim()}>{t('Publicar')}</button>
   </form>
 </Sheet>
 

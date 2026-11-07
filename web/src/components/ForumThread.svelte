@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // A forum thread: posts (markdown drawn safely), reply with quote, reactions, spoilers "up to ep./ch. N" hidden from
   // whoever is behind, images uploaded to the server, and the admin's tools (pin, close, delete, mute).
   import { api } from '../lib/api.js';
@@ -73,55 +74,55 @@
   }
 
   async function remove(p) {
-    if (!confirm('¿Borrar este mensaje?')) return;
+    if (!confirm(t('¿Borrar este mensaje?'))) return;
     try { await api.forumDelete(p.id); await load(); } catch (err) { notify(err.message); }
   }
 
   async function moderate(change) {
-    try { await api.adminThread(id, change); notify('Hecho'); await load(); } catch (err) { notify(err.message); }
+    try { await api.adminThread(id, change); notify(t('Hecho')); await load(); } catch (err) { notify(err.message); }
   }
 
   async function mute(name) {
     const minutes = Number(prompt(`¿Cuántos minutos silenciar a ${name}? (0 lo quita)`, '60'));
     if (!Number.isFinite(minutes)) return;
-    try { await api.adminMute(name, minutes, 'Desde el foro'); notify(minutes ? `${name} silenciado` : `${name} ya puede escribir`); } catch (err) { notify(err.message); }
+    try { await api.adminMute(name, minutes, t('Desde el foro')); notify(minutes ? `${name} silenciado` : t('{0} ya puede escribir', [name])); } catch (err) { notify(err.message); }
   }
 
   const when = (at) => new Date(at).toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-  const unit = $derived(anime ? 'episodio' : 'capítulo');
+  const unit = $derived(anime ? 'episodio' : t('capítulo'));
 </script>
 
 <div class="thread">
   {#if thread}
     <header class="head">
       <h2>{#if thread.pinned}📌 {/if}{thread.title}</h2>
-      {#if thread.locked}<span class="tag">Cerrado</span>{/if}
+      {#if thread.locked}<span class="tag">{t('Cerrado')}</span>{/if}
       {#if session.user?.admin}
         <span class="admin">
           <button class="btn text" onclick={() => moderate({ pinned: !thread.pinned })}>{thread.pinned ? 'Desfijar' : 'Fijar'}</button>
           <button class="btn text" onclick={() => moderate({ locked: !thread.locked })}>{thread.locked ? 'Abrir' : 'Cerrar'}</button>
-          <button class="btn text danger" onclick={() => confirm('¿Borrar el hilo entero?') && moderate({ deleted: true })}>Borrar hilo</button>
+          <button class="btn text danger" onclick={() => confirm(t('¿Borrar el hilo entero?')) && moderate({ deleted: true })}>{t('Borrar hilo')}</button>
         </span>
       {/if}
     </header>
   {/if}
 
   {#if loading && !posts.length}<div class="spinner"></div>{/if}
-  {#if !id && newFor}<p class="muted">Aún no hay conversación sobre esta obra. Empieza tú.</p>{/if}
+  {#if !id && newFor}<p class="muted">{t('Aún no hay conversación sobre esta obra. Empieza tú.')}</p>{/if}
 
   {#each posts as p (p.id)}
     <article class="post" id="p{p.id}">
       <a class="avatar" href="/u/{encodeURIComponent(p.author)}" aria-label={p.author}>{#if p.authorAvatar}<img src={p.authorAvatar} alt="" />{:else}{p.author.slice(0, 1).toUpperCase()}{/if}</a>
       <div class="content">
         <div class="meta"><a href="/u/{encodeURIComponent(p.author)}"><b>{p.author}</b></a> <span class="muted">{when(p.createdAt)}{#if p.editedAt} · editado{/if}</span>
-          {#if p.spoilerUntil != null}<span class="tag warn">Spoiler hasta el {unit} {p.spoilerUntil}</span>{/if}</div>
+          {#if p.spoilerUntil != null}<span class="tag warn">{t('Spoiler hasta el {0} {1}', [unit, p.spoilerUntil])}</span>{/if}</div>
         {#if p.hidden}
-          <p class="muted hidden-note">Oculto: habla de lo que pasa hasta el {unit} {p.spoilerUntil} y tú aún no has llegado.</p>
+          <p class="muted hidden-note">{t('Oculto: habla de lo que pasa hasta el {0} {1} y tú aún no has llegado.', [unit, p.spoilerUntil])}</p>
         {:else if p.spoilerUntil != null && !p.own && !revealed[p.id]}
-          <button class="reveal" onclick={() => (revealed[p.id] = true)}>Contiene spoilers · toca para verlo</button>
+          <button class="reveal" onclick={() => (revealed[p.id] = true)}>{t('Contiene spoilers · toca para verlo')}</button>
         {:else if editingId === p.id}
           <textarea class="field" rows="5" bind:value={editText} maxlength="5000"></textarea>
-          <div class="row"><button class="btn text" onclick={() => (editingId = null)}>Cancelar</button><button class="btn primary" onclick={() => saveEdit(p)}>Guardar</button></div>
+          <div class="row"><button class="btn text" onclick={() => (editingId = null)}>{t('Cancelar')}</button><button class="btn primary" onclick={() => saveEdit(p)}>{t('Guardar')}</button></div>
         {:else}
           <Markdown text={p.body} />
         {/if}
@@ -130,15 +131,15 @@
             <button class="reaction" class:mine={p.mine.includes(emoji)} onclick={() => react(p, emoji)} aria-label="{emoji} {count}">{emoji} {count}</button>
           {/each}
           <details class="add-reaction">
-            <summary aria-label="Reaccionar">＋</summary>
+            <summary aria-label={t('Reaccionar')}>＋</summary>
             <div class="picker">{#each REACTIONS as r (r)}<button onclick={(e) => { react(p, r); e.currentTarget.closest('details').open = false; }}>{r}</button>{/each}</div>
           </details>
-          {#if !thread?.locked && !p.hidden}<button class="btn text small" onclick={() => quote(p)}>Citar</button>{/if}
+          {#if !thread?.locked && !p.hidden}<button class="btn text small" onclick={() => quote(p)}>{t('Citar')}</button>{/if}
           {#if p.own || session.user?.admin}
-            <button class="btn text small" onclick={() => { editingId = p.id; editText = p.body; }}>Editar</button>
-            <button class="btn text small" onclick={() => remove(p)}>Borrar</button>
+            <button class="btn text small" onclick={() => { editingId = p.id; editText = p.body; }}>{t('Editar')}</button>
+            <button class="btn text small" onclick={() => remove(p)}>{t('Borrar')}</button>
           {/if}
-          {#if session.user?.admin && !p.own}<button class="btn text small" onclick={() => mute(p.author)}>Silenciar</button>{/if}
+          {#if session.user?.admin && !p.own}<button class="btn text small" onclick={() => mute(p.author)}>{t('Silenciar')}</button>{/if}
         </div>
       </div>
     </article>
@@ -147,10 +148,10 @@
   {#if session.user && !session.user.guest && (!thread?.locked || session.user.admin)}
     <form class="compose" onsubmit={send}>
       <textarea class="field" rows="4" maxlength="5000" bind:this={input} bind:value={body}
-        placeholder="Escribe... **negrita**, *cursiva*, > cita, - lista, @nombre"></textarea>
+        placeholder={t('Escribe... **negrita**, *cursiva*, > cita, - lista, @nombre')}></textarea>
       <div class="row">
-        <label class="btn text small" title="Subir una imagen"><Icon name="add" size={16} /> Imagen<input type="file" accept="image/*" hidden onchange={addImage} /></label>
-        <label class="spoiler">Spoiler hasta el {unit}
+        <label class="btn text small" title={t('Subir una imagen')}><Icon name="add" size={16} /> {t('Imagen')}<input type="file" accept="image/*" hidden onchange={addImage} /></label>
+        <label class="spoiler">{t('Spoiler hasta el {0}', [unit])}
           <input class="field num" type="number" min="0" max="100000" step="0.1" inputmode="decimal" bind:value={spoiler} placeholder="—" />
         </label>
         <span class="grow"></span>
@@ -158,7 +159,7 @@
       </div>
     </form>
   {:else if thread?.locked}
-    <p class="muted">Este hilo está cerrado.</p>
+    <p class="muted">{t('Este hilo está cerrado.')}</p>
   {/if}
 </div>
 

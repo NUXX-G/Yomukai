@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // One source's whole catalogue, with its own filters and infinite scroll.
   import { onMount, onDestroy } from 'svelte';
   import { api } from '../lib/api.js';
@@ -69,9 +70,9 @@
 
 <div class="page">
   <header class="topbar">
-    <button class="icon-btn" onclick={() => back('/')} aria-label="Volver"><Icon name="back" /></button>
+    <button class="icon-btn" onclick={() => back('/')} aria-label={t('Volver')}><Icon name="back" /></button>
     <h1>{source?.name ?? id}</h1>
-    {#if source?.filters?.length}<button class="icon-btn" onclick={() => (filtersOpen = true)} aria-label="Filtros"><Icon name="tune" /></button>{/if}
+    {#if source?.filters?.length}<button class="icon-btn" onclick={() => (filtersOpen = true)} aria-label={t('Filtros')}><Icon name="tune" /></button>{/if}
   </header>
   <div class="grid">
     {#each items as item (item.id)}
@@ -82,11 +83,11 @@
   <div bind:this={sentinel} class="end">
     {#if loading && items.length}<div class="spinner"></div>
     {:else if error}<p class="error-text small">{error}</p>
-    {:else if ended && !items.length}<p class="muted">Nada con estos filtros.</p>{/if}
+    {:else if ended && !items.length}<p class="muted">{t('Nada con estos filtros.')}</p>{/if}
   </div>
 </div>
 
-<Sheet bind:open={filtersOpen} title="Filtros">
+<Sheet bind:open={filtersOpen} title={t('Filtros')}>
   {#each source?.filters || [] as f}
     <div class="small muted" style="margin:12px 0 6px">{f.label}</div>
     <div class="wrap">
@@ -96,8 +97,8 @@
     </div>
   {/each}
   <div style="display:flex;gap:12px;margin-top:20px">
-    <button class="btn primary" onclick={apply}>Aplicar</button>
-    <button class="btn text" onclick={() => { values = defaults(); apply(); }}>Restablecer</button>
+    <button class="btn primary" onclick={apply}>{t('Aplicar')}</button>
+    <button class="btn text" onclick={() => { values = defaults(); apply(); }}>{t('Restablecer')}</button>
   </div>
 </Sheet>
 

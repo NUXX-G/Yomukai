@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // Room chat: messages (plain text, @mentions highlighted, spoilers hidden behind a tap), quick reactions that float
   // over the video, who is here and who hosts. Never renders HTML from messages.
   import Icon from './Icon.svelte';
@@ -44,28 +45,28 @@
     queueMicrotask(() => list?.scrollTo({ top: list.scrollHeight }));
   });
 
-  async function copy() { notify((await copyRoomLink(party.code)) ? 'Enlace copiado: pégalo en Discord o donde quieras' : roomLink(party.code)); }
+  async function copy() { notify((await copyRoomLink(party.code)) ? t('Enlace copiado: pégalo en Discord o donde quieras') : roomLink(party.code)); }
 </script>
 
-<aside class="chat" aria-label="Chat de la sala">
+<aside class="chat" aria-label={t('Chat de la sala')}>
   <header>
     <div class="grow">
       <div class="name">{party.room?.name ?? 'Sala'}</div>
-      <div class="small muted">{party.connected ? `${party.members.length} ${party.members.length === 1 ? 'persona' : 'personas'}` : 'Reconectando...'} · código {party.code}</div>
+      <div class="small muted">{t('{0} · código {1}', [party.connected ? `${party.members.length} ${party.members.length === 1 ? 'persona' : 'personas'}` : 'Reconectando...', party.code])}</div>
     </div>
-    <button class="icon-btn" onclick={copy} aria-label="Copiar enlace de la sala" title="Copiar enlace"><Icon name="open" size={20} /></button>
-    {#if onclose}<button class="icon-btn" onclick={onclose} aria-label="Cerrar el chat"><Icon name="close" size={20} /></button>{/if}
+    <button class="icon-btn" onclick={copy} aria-label={t('Copiar enlace de la sala')} title={t('Copiar enlace')}><Icon name="open" size={20} /></button>
+    {#if onclose}<button class="icon-btn" onclick={onclose} aria-label={t('Cerrar el chat')}><Icon name="close" size={20} /></button>{/if}
   </header>
 
   <div class="members">
     {#each party.members as m (m.id)}
       <span class="member" class:host={m.id === party.host}>
         {m.name}{#if m.id === party.host} · anfitrión{/if}
-        {#if client.isHost && m.id !== party.you}<button class="give" onclick={() => client.giveHost(m.id)} title="Darle el mando">ceder</button>{/if}
+        {#if client.isHost && m.id !== party.you}<button class="give" onclick={() => client.giveHost(m.id)} title={t('Darle el mando')}>{t('ceder')}</button>{/if}
       </span>
     {/each}
     {#if client.isHost}
-      <label class="allow"><input type="checkbox" checked={party.everyoneControls} onchange={(e) => client.allowAll(e.currentTarget.checked)} /> Todos controlan</label>
+      <label class="allow"><input type="checkbox" checked={party.everyoneControls} onchange={(e) => client.allowAll(e.currentTarget.checked)} /> {t('Todos controlan')}</label>
     {/if}
   </div>
 
@@ -74,23 +75,23 @@
       <div class="msg" class:mine={m.from === me} class:mentioned={me && (m.mentions || []).includes(me)}>
         <div class="meta"><b>{m.from}</b> <span class="muted">{time(m.at)}</span></div>
         {#if m.spoiler && !revealed[m.id]}
-          <button class="spoiler" onclick={() => (revealed[m.id] = true)}>Spoiler · toca para verlo</button>
+          <button class="spoiler" onclick={() => (revealed[m.id] = true)}>{t('Spoiler · toca para verlo')}</button>
         {:else}
           <div class="text">{#each parts(m.text) as p, i (i)}{#if p.mention}<span class="at">@{p.mention}</span>{:else}{p.text}{/if}{/each}</div>
         {/if}
       </div>
     {:else}
-      <p class="muted small empty">Aún no hay mensajes. Saluda.</p>
+      <p class="muted small empty">{t('Aún no hay mensajes. Saluda.')}</p>
     {/each}
   </div>
 
-  <div class="reactions" role="group" aria-label="Reacciones">
+  <div class="reactions" role="group" aria-label={t('Reacciones')}>
     {#each party.reactions as r (r)}<button onclick={() => client.react(r)} aria-label="Reaccionar {r}">{r}</button>{/each}
   </div>
   <form class="compose" onsubmit={send}>
-    <input class="field" placeholder="Escribe... (@nombre para mencionar)" bind:value={text} maxlength="500" enterkeyhint="send" />
-    <button type="button" class="icon-btn" class:on={spoiler} aria-pressed={spoiler} onclick={() => (spoiler = !spoiler)} title="Marcar como spoiler"><Icon name="eye" size={20} /></button>
-    <button class="icon-btn" aria-label="Enviar" disabled={!text.trim()}><Icon name="next" size={20} /></button>
+    <input class="field" placeholder={t('Escribe... (@nombre para mencionar)')} bind:value={text} maxlength="500" enterkeyhint="send" />
+    <button type="button" class="icon-btn" class:on={spoiler} aria-pressed={spoiler} onclick={() => (spoiler = !spoiler)} title={t('Marcar como spoiler')}><Icon name="eye" size={20} /></button>
+    <button class="icon-btn" aria-label={t('Enviar')} disabled={!text.trim()}><Icon name="next" size={20} /></button>
   </form>
 </aside>
 

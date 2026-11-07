@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // Notifications on the phone through ntfy (free app for Android and iOS): the server gives each person a private,
   // random topic; subscribing to it in the app is all it takes. Mentions, replies, recommendations and achievements.
   import { api } from '../lib/api.js';
@@ -9,22 +10,22 @@
 
   async function enable() { try { status = await api.pushEnable(); } catch (e) { notify(e.message); } }
   async function disable() { try { status = await api.pushDisable(); } catch (e) { notify(e.message); } }
-  async function copy() { try { await navigator.clipboard.writeText(status.url); notify('Dirección copiada'); } catch { notify(status.url); } }
+  async function copy() { try { await navigator.clipboard.writeText(status.url); notify(t('Dirección copiada')); } catch { notify(status.url); } }
 </script>
 
 <div class="push">
-  <p class="small muted">Recibe en el móvil las menciones, respuestas, recomendaciones y logros con la app gratuita <b>ntfy</b> (Android e iOS). Tu tema es privado y aleatorio.</p>
+  <p class="small muted">{t('Recibe en el móvil las menciones, respuestas, recomendaciones y logros con la app gratuita')} <b>{t('ntfy')}</b> {t('(Android e iOS). Tu tema es privado y aleatorio.')}</p>
   {#if status === null}
     <div class="spinner"></div>
   {:else if status.enabled}
     <ol class="small">
-      <li>Instala ntfy desde la tienda de tu móvil.</li>
-      <li>Pulsa «+» y suscríbete a esta dirección (cópiala):</li>
+      <li>{t('Instala ntfy desde la tienda de tu móvil.')}</li>
+      <li>{t('Pulsa «+» y suscríbete a esta dirección (cópiala):')}</li>
     </ol>
-    <div class="url"><code>{status.url}</code><button class="btn tonal" onclick={copy}>Copiar</button></div>
-    <button class="btn text" onclick={disable}>Desactivar los avisos en el móvil</button>
+    <div class="url"><code>{status.url}</code><button class="btn tonal" onclick={copy}>{t('Copiar')}</button></div>
+    <button class="btn text" onclick={disable}>{t('Desactivar los avisos en el móvil')}</button>
   {:else}
-    <button class="btn primary" onclick={enable}>Activar avisos en el móvil</button>
+    <button class="btn primary" onclick={enable}>{t('Activar avisos en el móvil')}</button>
   {/if}
 </div>
 

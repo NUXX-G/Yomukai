@@ -1,4 +1,5 @@
 <script>
+  import { t } from './lib/i18n.svelte.js';
   import { onMount } from 'svelte';
   import { route, define, startRouter } from './lib/router.svelte.js';
   import { session, toast, sources, loadSession, resetUserState, updates, features, notify, settings } from './lib/store.svelte.js';
@@ -50,12 +51,12 @@
 
   /** The site's sections: rail on computers, bottom bar on phones (the first five). */
   const sections = [
-    { name: 'home', href: '/', label: 'Inicio', icon: 'home' },
-    { name: 'anime', href: '/anime', label: 'Anime', icon: 'tv' },
-    { name: 'manga', href: '/manga', label: 'Manga y manhwa', short: 'Manga', icon: 'book' },
-    { name: 'novels', href: '/novelas', label: 'Novelas', icon: 'novel' },
-    { name: 'library', href: '/biblioteca', label: 'Biblioteca', icon: 'library' },
-    { name: 'calendar', href: '/calendario', label: 'Calendario', icon: 'calendar' }
+    { name: 'home', href: '/', label: t('Inicio'), icon: 'home' },
+    { name: 'anime', href: '/anime', label: t('Anime'), icon: 'tv' },
+    { name: 'manga', href: '/manga', label: t('Manga y manhwa'), short: 'Manga', icon: 'book' },
+    { name: 'novels', href: '/novelas', label: t('Novelas'), icon: 'novel' },
+    { name: 'library', href: '/biblioteca', label: t('Biblioteca'), icon: 'library' },
+    { name: 'calendar', href: '/calendario', label: t('Calendario'), icon: 'calendar' }
   ];
   const mobileTabs = sections.slice(0, 5);
 
@@ -165,21 +166,21 @@
 {#if !session.ready}
   <div class="center" style="min-height:100vh">
     <div class="spinner"></div>
-    {#if session.offline}<p class="muted small">Conectando con el servidor...</p>{/if}
+    {#if session.offline}<p class="muted small">{t('Conectando con el servidor...')}</p>{/if}
   </div>
 {:else if session.suspended}
   <div class="center suspended">
-    <h2>Cuenta suspendida</h2>
+    <h2>{t('Cuenta suspendida')}</h2>
     <p class="muted">{session.suspended}</p>
-    <button class="btn outline" onclick={async () => { await api.logout().catch(() => {}); session.suspended = ''; resetUserState(); }}>Salir</button>
+    <button class="btn outline" onclick={async () => { await api.logout().catch(() => {}); session.suspended = ''; resetUserState(); }}>{t('Salir')}</button>
   </div>
 {:else if !session.user}
   <Login />
 {:else}
   <div class="shell" class:immersive class:own-bar={route.name === "details"}>
     {#if !immersive}
-      <aside class="rail" aria-label="Secciones">
-        <a href="/" class="logo" aria-label="Yomukai, inicio"><span class="mark">読</span><span class="word">Yomukai</span></a>
+      <aside class="rail" aria-label={t('Secciones')}>
+        <a href="/" class="logo" aria-label={t('Yomukai, inicio')}><span class="mark">読</span><span class="word">{t('Yomukai')}</span></a>
         <nav>
           {#each sections as s (s.name)}
             <a href={s.href} class="nav-item" class:on={route.name === s.name} aria-current={route.name === s.name ? 'page' : undefined}>
@@ -189,7 +190,7 @@
         </nav>
         <div class="rail-foot">
           <button class="nav-item" onclick={() => (sourcesOpen = !sourcesOpen)} aria-expanded={sourcesOpen}>
-            <Icon name="grid" size={22} /><span>Explorar por fuente</span>
+            <Icon name="grid" size={22} /><span>{t('Explorar por fuente')}</span>
           </button>
           {#if sourcesOpen}
             <div class="source-list">
@@ -198,47 +199,47 @@
               {/each}
             </div>
           {/if}
-          <a href="/ajustes" class="nav-item" class:on={route.name === 'settings'}><Icon name="settings" size={22} /><span>Ajustes</span></a>
+          <a href="/ajustes" class="nav-item" class:on={route.name === 'settings'}><Icon name="settings" size={22} /><span>{t('Ajustes')}</span></a>
         </div>
       </aside>
 
       <header class="top" class:solid={scrolled}>
-        <a href="/" class="top-logo" aria-label="Yomukai, inicio">Yomukai</a>
+        <a href="/" class="top-logo" aria-label={t('Yomukai, inicio')}>{t('Yomukai')}</a>
         <button class="search" onclick={() => (palette = true)} aria-label="Buscar ({searchKey})">
-          <Icon name="search" size={20} /><span>Buscar anime, manga, novelas...</span><kbd>{searchKey}</kbd>
+          <Icon name="search" size={20} /><span>{t('Buscar anime, manga, novelas...')}</span><kbd>{searchKey}</kbd>
         </button>
         <span class="grow"></span>
-        <button class="icon-btn mobile-only" onclick={() => (palette = true)} aria-label="Buscar"><Icon name="search" /></button>
-        <a class="icon-btn mobile-only" href="/calendario" aria-label="Calendario"><Icon name="calendar" /></a>
+        <button class="icon-btn mobile-only" onclick={() => (palette = true)} aria-label={t('Buscar')}><Icon name="search" /></button>
+        <a class="icon-btn mobile-only" href="/calendario" aria-label={t('Calendario')}><Icon name="calendar" /></a>
         <div class="bell-wrap">
           <button class="icon-btn bell" onclick={toggleBell} aria-haspopup="true" aria-expanded={bellOpen} aria-label={bellCount ? `${bellCount} avisos` : 'Avisos'}>
             <Icon name="bell" />{#if bellCount}<span class="count">{bellCount > 9 ? '9+' : bellCount}</span>{/if}
           </button>
           {#if bellOpen}
-            <div class="menu notes" role="dialog" aria-label="Avisos">
-              {#if newCount}<a class="note lib" href="/biblioteca" onclick={() => (bellOpen = false)}><b>{newCount}</b> {newCount === 1 ? 'obra' : 'obras'} de tu biblioteca con capítulos nuevos</a>{/if}
+            <div class="menu notes" role="dialog" aria-label={t('Avisos')}>
+              {#if newCount}<a class="note lib" href="/biblioteca" onclick={() => (bellOpen = false)}><b>{newCount}</b> {t('{0} de tu biblioteca con capítulos nuevos', [newCount === 1 ? 'obra' : 'obras'])}</a>{/if}
               {#each notes.items as n (n.id)}
                 <a class="note" class:unread={!n.read} href={n.link || '/'} onclick={() => (bellOpen = false)}><span>{n.text}</span><span class="when">{ago(n.at)}</span></a>
               {:else}
-                {#if !newCount}<p class="empty">Nada nuevo por aquí.</p>{/if}
+                {#if !newCount}<p class="empty">{t('Nada nuevo por aquí.')}</p>{/if}
               {/each}
             </div>
           {/if}
         </div>
         <div class="account">
-          <button class="avatar" onclick={() => (menu = !menu)} aria-haspopup="menu" aria-expanded={menu} aria-label="Tu cuenta">{initial}</button>
+          <button class="avatar" onclick={() => (menu = !menu)} aria-haspopup="menu" aria-expanded={menu} aria-label={t('Tu cuenta')}>{initial}</button>
           {#if menu}
             <div class="menu" role="menu">
               <div class="who">{session.user.guest ? 'Invitado' : session.user.name}{#if session.user.admin} · admin{/if}</div>
               {#if !session.user.guest}
-                <a role="menuitem" href="/u/{encodeURIComponent(session.user.name)}" onclick={() => (menu = false)}><Icon name="library" size={18} /> Mi perfil</a>
-                <a role="menuitem" href="/amigos" onclick={() => (menu = false)}><Icon name="explore" size={18} /> Amigos</a>
-                {#if settings.learning?.enabled && features.flags.learning !== false}<a role="menuitem" href="/repaso" onclick={() => (menu = false)}><Icon name="book" size={18} /> Repaso</a>{/if}
-                {#if features.flags.forum !== false}<a role="menuitem" href="/foro" onclick={() => (menu = false)}><Icon name="list" size={18} /> Foro</a>{/if}
+                <a role="menuitem" href="/u/{encodeURIComponent(session.user.name)}" onclick={() => (menu = false)}><Icon name="library" size={18} /> {t('Mi perfil')}</a>
+                <a role="menuitem" href="/amigos" onclick={() => (menu = false)}><Icon name="explore" size={18} /> {t('Amigos')}</a>
+                {#if settings.learning?.enabled && features.flags.learning !== false}<a role="menuitem" href="/repaso" onclick={() => (menu = false)}><Icon name="book" size={18} /> {t('Repaso')}</a>{/if}
+                {#if features.flags.forum !== false}<a role="menuitem" href="/foro" onclick={() => (menu = false)}><Icon name="list" size={18} /> {t('Foro')}</a>{/if}
               {/if}
-              <a role="menuitem" href="/ajustes" onclick={() => (menu = false)}><Icon name="settings" size={18} /> Ajustes</a>
-              <a role="menuitem" href="/calendario" onclick={() => (menu = false)}><Icon name="calendar" size={18} /> Calendario</a>
-              <button role="menuitem" onclick={logout}><Icon name="logout" size={18} /> Salir</button>
+              <a role="menuitem" href="/ajustes" onclick={() => (menu = false)}><Icon name="settings" size={18} /> {t('Ajustes')}</a>
+              <a role="menuitem" href="/calendario" onclick={() => (menu = false)}><Icon name="calendar" size={18} /> {t('Calendario')}</a>
+              <button role="menuitem" onclick={logout}><Icon name="logout" size={18} /> {t('Salir')}</button>
             </div>
           {/if}
         </div>
@@ -260,7 +261,7 @@
     </main>
 
     {#if !immersive}
-      <nav class="tabs" aria-label="Secciones">
+      <nav class="tabs" aria-label={t('Secciones')}>
         {#each mobileTabs as s (s.name)}
           <a href={s.href} class="tab" class:on={route.name === s.name} aria-current={route.name === s.name ? 'page' : undefined}>
             <span class="pill-icon"><Icon name={s.icon} /></span><span>{s.short || s.label}</span>
@@ -279,7 +280,7 @@
   {#key trophy.id}
     <button class="trophy {trophy.rarity}" role="status" onclick={() => (trophies = trophies.slice(1))} aria-label="Logro desbloqueado: {trophy.name}">
       <span class="t-emoji" aria-hidden="true">{trophy.emoji}</span>
-      <span class="t-text"><span class="t-kicker">Logro desbloqueado</span><span class="t-name">{trophy.name}</span><span class="t-desc">{trophy.description}</span></span>
+      <span class="t-text"><span class="t-kicker">{t('Logro desbloqueado')}</span><span class="t-name">{trophy.name}</span><span class="t-desc">{trophy.description}</span></span>
     </button>
   {/key}
 {/if}

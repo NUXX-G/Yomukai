@@ -1,5 +1,6 @@
 // What the whole app shares: who is logged in, their settings (kept on the server) and the library.
 import { api, clearMemo } from './api.js';
+import { t, tk, tPairs } from './i18n.svelte.js';
 import { applyTheme, rememberTheme } from './theme.svelte.js';
 
 export const session = $state({ user: null, ready: false, offline: false, suspended: '', guestsEnabled: false, guestDays: 1, setupNeeded: false });
@@ -122,7 +123,7 @@ export function saveSettings({ reloadSources = false } = {}) {
     try {
       await api.saveSettings($state.snapshot(settings));
       if (reloadSources) sources.list = await api.sources();
-    } catch (e) { notify('No se pudieron guardar los ajustes: ' + e.message); }
+    } catch (e) { notify(t('No se pudieron guardar los ajustes: ') + e.message); }
   }, 400);
 }
 
@@ -149,9 +150,9 @@ export async function toggleLibrary(media) {
 }
 
 /** The app's reading statuses (same names, so they sync), in the order the library shows them. */
-export const READING_STATUSES = [
-  ['READING', 'Leyendo'], ['PLAN_TO_READ', 'Pendiente'], ['COMPLETED', 'Completado'], ['ON_HOLD', 'En pausa'], ['DROPPED', 'Abandonado'], ['NONE', 'Sin estado']
-];
+export const READING_STATUSES = tPairs([
+  ['READING', tk('Leyendo')], ['PLAN_TO_READ', tk('Pendiente')], ['COMPLETED', tk('Completado')], ['ON_HOLD', tk('En pausa')], ['DROPPED', tk('Abandonado')], ['NONE', tk('Sin estado')]
+]);
 /** Older web rows used "PLAN". */
 export const statusOf = (row) => (row?.readingStatus === 'PLAN' ? 'PLAN_TO_READ' : row?.readingStatus || 'NONE');
 
@@ -193,7 +194,7 @@ export async function loadUpdates(force = false) {
     updates.byKey = Object.fromEntries(rows.map((r) => [r.sourceId + '|' + r.mediaId, r]));
     updates.at = Date.now();
   } catch (e) {
-    notify('No se pudieron buscar novedades: ' + e.message);
+    notify(t('No se pudieron buscar novedades: ') + e.message);
   } finally {
     updates.loading = false;
   }

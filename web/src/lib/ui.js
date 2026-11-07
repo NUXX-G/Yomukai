@@ -1,6 +1,7 @@
 // Small helpers shared by the redesigned pages.
 import { navigate, media } from './router.svelte.js';
 import { openRelated } from './open.svelte.js';
+import { t, tk } from './i18n.svelte.js';
 
 /** A proxied image at about [width] CSS pixels (the proxy keeps a shrunk copy); other addresses as they are. */
 export function sized(url, width) {
@@ -13,22 +14,22 @@ export function sized(url, width) {
 export const score10 = (s) => (s ? (s / 10).toFixed(1).replace('.', ',') : '');
 
 const FORMAT = {
-  TV: 'Serie', TV_SHORT: 'Corto', MOVIE: 'Película', SPECIAL: 'Especial', OVA: 'OVA', ONA: 'ONA', MUSIC: 'Música',
-  MANGA: 'Manga', NOVEL: 'Novela', ONE_SHOT: 'One-shot'
+  TV: tk('Serie'), TV_SHORT: tk('Corto'), MOVIE: tk('Película'), SPECIAL: tk('Especial'), OVA: 'OVA', ONA: 'ONA', MUSIC: tk('Música'),
+  MANGA: tk('Manga'), NOVEL: tk('Novela'), ONE_SHOT: tk('One-shot')
 };
-export const formatName = (f) => FORMAT[f] || '';
+export const formatName = (f) => (FORMAT[f] ? t(FORMAT[f]) : '');
 
 const GENRE_ES = {
-  Action: 'Acción', Adventure: 'Aventura', Comedy: 'Comedia', Drama: 'Drama', Ecchi: 'Ecchi', Fantasy: 'Fantasía',
-  Horror: 'Terror', 'Mahou Shoujo': 'Mahou shoujo', Mecha: 'Mecha', Music: 'Música', Mystery: 'Misterio',
-  Psychological: 'Psicológico', Romance: 'Romance', 'Sci-Fi': 'Ciencia ficción', 'Slice of Life': 'Recuentos de la vida',
-  Sports: 'Deportes', Supernatural: 'Sobrenatural', Thriller: 'Suspense'
+  Action: tk('Acción'), Adventure: tk('Aventura'), Comedy: tk('Comedia'), Drama: tk('Drama'), Ecchi: 'Ecchi', Fantasy: tk('Fantasía'),
+  Horror: tk('Terror'), 'Mahou Shoujo': tk('Mahou shoujo'), Mecha: 'Mecha', Music: tk('Música'), Mystery: tk('Misterio'),
+  Psychological: tk('Psicológico'), Romance: tk('Romance'), 'Sci-Fi': tk('Ciencia ficción'), 'Slice of Life': tk('Recuentos de la vida'),
+  Sports: tk('Deportes'), Supernatural: tk('Sobrenatural'), Thriller: tk('Suspense')
 };
-export const genreName = (g) => GENRE_ES[g] || g;
+export const genreName = (g) => (GENRE_ES[g] ? t(GENRE_ES[g]) : g);
 export const GENRES = Object.keys(GENRE_ES);
 
-const SEASON = { WINTER: 'Invierno', SPRING: 'Primavera', SUMMER: 'Verano', FALL: 'Otoño' };
-export const seasonName = (s, y) => [SEASON[s], y].filter(Boolean).join(' ');
+const SEASON = { WINTER: tk('Invierno'), SPRING: tk('Primavera'), SUMMER: tk('Verano'), FALL: tk('Otoño') };
+export const seasonName = (s, y) => [SEASON[s] && t(SEASON[s]), y].filter(Boolean).join(' ');
 
 /**
  * Opens an AniList title: straight to its page when a source already has it, otherwise the sheet that looks for it

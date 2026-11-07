@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
   import { library, sources, updates, loadUpdates, READING_STATUSES, statusOf, categories, editCategory } from '../lib/store.svelte.js';
@@ -8,7 +9,7 @@
   import MediaCard from '../components/MediaCard.svelte';
   import Icon from '../components/Icon.svelte';
 
-  const SORTS = [['added', 'Añadidas'], ['updated', 'Novedades'], ['title', 'Título']];
+  const SORTS = [['added', t('Añadidas')], ['updated', 'Novedades'], ['title', t('Título')]];
 
   let tab = $state(sessionStorage.getItem('library.tab') || 'library');
   let status = $state(sessionStorage.getItem('library.status') || 'ALL');
@@ -46,7 +47,7 @@
     renaming = null;
   }
   async function removeCategory(name) {
-    if (!confirm(`¿Borrar la categoría «${name}»? Las obras se quedan en tu biblioteca.`)) return;
+    if (!confirm(t('¿Borrar la categoría «{0}»? Las obras se quedan en tu biblioteca.', [name]))) return;
     await editCategory({ old: name });
   }
 
@@ -84,51 +85,51 @@
     await api.removeHistory(h.sourceId, h.mediaId).catch(() => {});
   }
   const when = (ms) => new Date(ms).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-  const newsLabel = (n, r) => `${n} ${kind(r.sourceId) === 'anime' ? (n === 1 ? 'episodio nuevo' : 'episodios nuevos') : (n === 1 ? 'capítulo nuevo' : 'capítulos nuevos')}`;
+  const newsLabel = (n, r) => `${n} ${kind(r.sourceId) === 'anime' ? (n === 1 ? t('episodio nuevo') : t('episodios nuevos')) : (n === 1 ? t('capítulo nuevo') : t('capítulos nuevos'))}`;
 </script>
 
 <div class="page">
   <header class="topbar">
-    <h1>Biblioteca</h1>
+    <h1>{t('Biblioteca')}</h1>
     <span class="grow"></span>
-    <button class="refresh" onclick={() => loadUpdates(true)} disabled={updates.loading} aria-label="Buscar capítulos nuevos" title="Buscar capítulos nuevos">
+    <button class="refresh" onclick={() => loadUpdates(true)} disabled={updates.loading} aria-label={t('Buscar capítulos nuevos')} title={t('Buscar capítulos nuevos')}>
       {#if updates.loading}<span class="spinner tiny"></span>{:else}<Icon name="refresh" size={20} />{/if}
-      <span class="refresh-label">Buscar capítulos nuevos</span>
+      <span class="refresh-label">{t('Buscar capítulos nuevos')}</span>
     </button>
   </header>
 
   <div class="lib">
-  <aside class="side" aria-label="Filtros de la biblioteca">
+  <aside class="side" aria-label={t('Filtros de la biblioteca')}>
     <div class="group">
-      <div class="group-label">Ver</div>
+      <div class="group-label">{t('Ver')}</div>
       <div class="chips">
-        <button class="chip" class:on={tab === 'library'} onclick={() => (tab = 'library')}><span>Guardadas</span><span class="n">{library.items.length}</span></button>
-        <button class="chip" class:on={tab === 'news'} onclick={() => (tab = 'news')}><span>Novedades</span>{#if withNews.length}<span class="n hot">{withNews.length}</span>{/if}</button>
-        <button class="chip" class:on={tab === 'history'} onclick={() => (tab = 'history')}><span>Historial</span></button>
+        <button class="chip" class:on={tab === 'library'} onclick={() => (tab = 'library')}><span>{t('Guardadas')}</span><span class="n">{library.items.length}</span></button>
+        <button class="chip" class:on={tab === 'news'} onclick={() => (tab = 'news')}><span>{t('Novedades')}</span>{#if withNews.length}<span class="n hot">{withNews.length}</span>{/if}</button>
+        <button class="chip" class:on={tab === 'history'} onclick={() => (tab = 'history')}><span>{t('Historial')}</span></button>
       </div>
     </div>
     {#if tab === 'library'}
       <div class="group">
-        <div class="group-label">Estado</div>
+        <div class="group-label">{t('Estado')}</div>
         <div class="chips">
-          <button class="chip" class:on={status === 'ALL'} onclick={() => (status = 'ALL')}><span>Todas</span></button>
+          <button class="chip" class:on={status === 'ALL'} onclick={() => (status = 'ALL')}><span>{t('Todas')}</span></button>
           {#each READING_STATUSES as [k, label]}
             {#if counts[k]}<button class="chip" class:on={status === k} onclick={() => (status = k)}><span>{label}</span><span class="n">{counts[k]}</span></button>{/if}
           {/each}
         </div>
       </div>
       <div class="group">
-        <div class="group-label">Categorías <button class="manage" onclick={() => (manageOpen = true)}>Gestionar</button></div>
+        <div class="group-label">{t('Categorías')} <button class="manage" onclick={() => (manageOpen = true)}>{t('Gestionar')}</button></div>
         <div class="chips">
-          <button class="chip" class:on={!category} onclick={() => (category = '')}><span>Todas las categorías</span></button>
+          <button class="chip" class:on={!category} onclick={() => (category = '')}><span>{t('Todas las categorías')}</span></button>
           {#each categories.list as c (c.name)}
             <button class="chip" class:on={category === c.name} onclick={() => (category = c.name)}><span>{c.name}</span><span class="n">{library.items.filter((r) => (r.categories || []).includes(c.name)).length}</span></button>
           {/each}
-          <button class="chip phone-only" onclick={() => (manageOpen = true)}><Icon name="tune" size={16} /> Categorías</button>
+          <button class="chip phone-only" onclick={() => (manageOpen = true)}><Icon name="tune" size={16} /> {t('Categorías')}</button>
         </div>
       </div>
       <div class="group">
-        <div class="group-label">Tipo</div>
+        <div class="group-label">{t('Tipo')}</div>
         <div class="chips">{#each TYPE_FILTERS as f}<button class="chip" class:on={typeKey === f.key} onclick={() => (typeKey = f.key)}><span>{f.label}</span></button>{/each}</div>
       </div>
     {/if}
@@ -138,16 +139,16 @@
   {#if tab === 'library'}
     {#if library.items.length}
       <div class="tools">
-        {#if library.items.length > 12}<input class="field" placeholder="Filtrar por título" bind:value={filter} />{:else}<span class="grow"></span>{/if}
-        <select class="field sort" bind:value={sort} aria-label="Ordenar">
+        {#if library.items.length > 12}<input class="field" placeholder={t('Filtrar por título')} bind:value={filter} />{:else}<span class="grow"></span>{/if}
+        <select class="field sort" bind:value={sort} aria-label={t('Ordenar')}>
           {#each SORTS as [k, label]}<option value={k}>{label}</option>{/each}
         </select>
       </div>
     {/if}
     {#if !library.items.length}
-      <div class="center"><Icon name="library" size={48} /><p class="muted">Aún no has guardado nada. Pulsa «Añadir a la biblioteca» en cualquier obra.</p></div>
+      <div class="center"><Icon name="library" size={48} /><p class="muted">{t('Aún no has guardado nada. Pulsa «Añadir a la biblioteca» en cualquier obra.')}</p></div>
     {:else if !items.length}
-      <p class="muted" style="margin-top:24px">Nada con estos filtros.</p>
+      <p class="muted" style="margin-top:24px">{t('Nada con estos filtros.')}</p>
     {:else}
       <div class="grid" style="margin-top:16px">
         {#each items as r (keyOf(r))}
@@ -160,9 +161,9 @@
     {/if}
   {:else if tab === 'news'}
     {#if updates.loading && !withNews.length}
-      <div class="center"><div class="spinner"></div><p class="muted small">Mirando tus obras guardadas...</p></div>
+      <div class="center"><div class="spinner"></div><p class="muted small">{t('Mirando tus obras guardadas...')}</p></div>
     {:else if !withNews.length}
-      <div class="center"><p class="muted">Estás al día. Aquí salen las obras guardadas con capítulos nuevos desde el último que leíste.</p></div>
+      <div class="center"><p class="muted">{t('Estás al día. Aquí salen las obras guardadas con capítulos nuevos desde el último que leíste.')}</p></div>
     {:else}
       <div class="rows">
       {#each withNews as r (keyOf(r))}
@@ -173,10 +174,10 @@
             <div class="grow">
               <div class="title">{r.title}</div>
               <div class="small accent">{newsLabel(u.unread, r)}</div>
-              <div class="small muted">Hasta el {u.latestLabel}{u.lastUpdate ? ' · ' + when(u.lastUpdate) : ''}</div>
+              <div class="small muted">{t('Hasta el {0}{1}', [u.latestLabel, u.lastUpdate ? ' · ' + when(u.lastUpdate) : ''])}</div>
             </div>
           </a>
-          <a class="icon-btn" href={media(r.sourceId, r.mediaId)} aria-label="Ficha"><Icon name="list" size={20} /></a>
+          <a class="icon-btn" href={media(r.sourceId, r.mediaId)} aria-label={t('Ficha')}><Icon name="list" size={20} /></a>
         </div>
       {/each}
       </div>
@@ -184,7 +185,7 @@
   {:else if history === null}
     <div class="center"><div class="spinner"></div></div>
   {:else if !history.length}
-    <div class="center"><p class="muted">Lo que leas y veas aparecerá aquí.</p></div>
+    <div class="center"><p class="muted">{t('Lo que leas y veas aparecerá aquí.')}</p></div>
   {:else}
     <div class="rows">
     {#each history as h (h.sourceId + h.mediaId)}
@@ -197,8 +198,8 @@
             <div class="small muted">{when(h.readAt)}</div>
           </div>
         </a>
-        <a class="icon-btn" href={media(h.sourceId, h.mediaId)} aria-label="Ficha"><Icon name="list" size={20} /></a>
-        <button class="icon-btn" onclick={() => forget(h)} aria-label="Quitar del historial"><Icon name="close" size={20} /></button>
+        <a class="icon-btn" href={media(h.sourceId, h.mediaId)} aria-label={t('Ficha')}><Icon name="list" size={20} /></a>
+        <button class="icon-btn" onclick={() => forget(h)} aria-label={t('Quitar del historial')}><Icon name="close" size={20} /></button>
       </div>
     {/each}
     </div>
@@ -207,23 +208,23 @@
   </div>
 </div>
 
-<Sheet bind:open={manageOpen} title="Categorías">
-  <p class="small muted" style="margin-top:0">Agrupa tus obras como quieras. Una obra puede estar en varias; se eligen desde su ficha.</p>
+<Sheet bind:open={manageOpen} title={t('Categorías')}>
+  <p class="small muted" style="margin-top:0">{t('Agrupa tus obras como quieras. Una obra puede estar en varias; se eligen desde su ficha.')}</p>
   <form class="tools" onsubmit={addCategory}>
-    <input class="field" placeholder="Nueva categoría" bind:value={newCategory} maxlength="100" />
-    <button class="btn primary" disabled={!newCategory.trim()}>Crear</button>
+    <input class="field" placeholder={t('Nueva categoría')} bind:value={newCategory} maxlength="100" />
+    <button class="btn primary" disabled={!newCategory.trim()}>{t('Crear')}</button>
   </form>
   {#each categories.list as c (c.name)}
     <div class="list-item">
       {#if renaming === c.name}
         <form class="tools grow" style="margin:0" onsubmit={rename}>
           <input class="field" bind:value={renameTo} maxlength="100" />
-          <button class="btn tonal">Guardar</button>
+          <button class="btn tonal">{t('Guardar')}</button>
         </form>
       {:else}
         <span class="grow">{c.name}</span>
-        <button class="icon-btn" onclick={() => { renaming = c.name; renameTo = c.name; }} aria-label="Renombrar"><Icon name="text" size={20} /></button>
-        <button class="icon-btn" onclick={() => removeCategory(c.name)} aria-label="Borrar"><Icon name="delete" size={20} /></button>
+        <button class="icon-btn" onclick={() => { renaming = c.name; renameTo = c.name; }} aria-label={t('Renombrar')}><Icon name="text" size={20} /></button>
+        <button class="icon-btn" onclick={() => removeCategory(c.name)} aria-label={t('Borrar')}><Icon name="delete" size={20} /></button>
       {/if}
     </div>
   {/each}

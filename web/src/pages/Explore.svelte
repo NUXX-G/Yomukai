@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // Anime / Manga y manhwa / Novelas: a hero, rows by category and an explorer with filters. Everything comes from
   // AniList; cards that are already in your sources say so and open directly, the rest are looked for when opened.
   import { onMount } from 'svelte';
@@ -10,14 +11,14 @@
   import MediaCard from '../components/MediaCard.svelte';
 
   const kind = route.name === 'anime' ? 'anime' : route.name === 'novels' ? 'novelas' : 'manga';
-  const TITLE = { anime: 'Anime', manga: 'Manga y manhwa', novelas: 'Novelas' }[kind];
+  const TITLE = { anime: 'Anime', manga: t('Manga y manhwa'), novelas: 'Novelas' }[kind];
   const YEARS = Array.from({ length: 36 }, (_, i) => new Date().getFullYear() + 1 - i);
-  const STATUS = [['', 'Cualquier estado'], ['RELEASING', kind === 'anime' ? 'En emisión' : 'En publicación'], ['FINISHED', 'Terminado'], ['NOT_YET_RELEASED', 'Próximamente'], ['HIATUS', 'En pausa']];
+  const STATUS = [['', 'Cualquier estado'], ['RELEASING', kind === 'anime' ? t('En emisión') : t('En publicación')], ['FINISHED', 'Terminado'], ['NOT_YET_RELEASED', t('Próximamente')], ['HIATUS', t('En pausa')]];
   const FORMATS = kind === 'anime'
-    ? [['', 'Cualquier formato'], ['TV', 'Serie'], ['MOVIE', 'Película'], ['OVA', 'OVA'], ['ONA', 'ONA'], ['SPECIAL', 'Especial']]
+    ? [['', 'Cualquier formato'], ['TV', 'Serie'], ['MOVIE', t('Película')], ['OVA', 'OVA'], ['ONA', 'ONA'], ['SPECIAL', 'Especial']]
     : kind === 'manga' ? [['', 'Cualquier formato'], ['MANGA', 'Serie'], ['ONE_SHOT', 'One-shot']] : [];
-  const COUNTRIES = kind === 'manga' ? [['', 'Manga, manhwa y manhua'], ['JP', 'Manga'], ['KR', 'Manhwa'], ['CN', 'Manhua']] : [];
-  const SORTS = [['TRENDING_DESC', 'Tendencia'], ['POPULARITY_DESC', 'Popularidad'], ['SCORE_DESC', 'Nota'], ['START_DATE_DESC', 'Más recientes']];
+  const COUNTRIES = kind === 'manga' ? [['', t('Manga, manhwa y manhua')], ['JP', 'Manga'], ['KR', 'Manhwa'], ['CN', 'Manhua']] : [];
+  const SORTS = [['TRENDING_DESC', 'Tendencia'], ['POPULARITY_DESC', 'Popularidad'], ['SCORE_DESC', 'Nota'], ['START_DATE_DESC', t('Más recientes')]];
 
   let rows = $state([]);
   let loadingRows = $state(true);
@@ -44,11 +45,11 @@
   }
 
   const slides = $derived((rows.find((r) => r.id === 'trending')?.items || []).filter((d) => d.banner).slice(0, 6).map((d) => ({
-    kicker: d.available ? 'Disponible en tus fuentes' : 'Tendencia', title: d.title, banner: d.banner, cover: d.cover, genres: d.genres,
-    score: d.score, synopsis: d.synopsis, format: d.format, primaryLabel: kind === 'anime' ? 'Ver' : 'Leer', onPrimary: () => openDiscover(d)
+    kicker: d.available ? t('Disponible en tus fuentes') : t('Tendencia'), title: d.title, banner: d.banner, cover: d.cover, genres: d.genres,
+    score: d.score, synopsis: d.synopsis, format: d.format, primaryLabel: kind === 'anime' ? t('Ver') : t('Leer'), onPrimary: () => openDiscover(d)
   })));
   const line = (d) => [kind === 'anime' ? formatName(d.format) : (d.chapters ? `${d.chapters} cap.` : formatName(d.format)), seasonName(d.season, d.year)].filter(Boolean).join(' · ');
-  const badges = (d) => (d.available ? [{ text: 'En tus fuentes', tone: 'accent' }] : []);
+  const badges = (d) => (d.available ? [{ text: t('En tus fuentes'), tone: 'accent' }] : []);
   const detail = (d) => [d.genres?.slice(0, 3).map(genreName).join(' · '), d.synopsis].filter(Boolean).join('\n\n');
 </script>
 
@@ -63,41 +64,41 @@
       {/each}
     </Shelf>
   {:else}
-    {#if loadingRows}<Shelf title="Cargando..." loading></Shelf>{/if}
+    {#if loadingRows}<Shelf title={t('Cargando...')} loading></Shelf>{/if}
   {/each}
 
-  <section class="explorer" aria-label="Explorar">
-    <h2>Explorar</h2>
+  <section class="explorer" aria-label={t('Explorar')}>
+    <h2>{t('Explorar')}</h2>
     <form class="filters" onsubmit={(e) => { e.preventDefault(); runSearch(); }}>
-      <select class="field" bind:value={filters.genre} onchange={() => runSearch()} aria-label="Género">
-        <option value="">Todos los géneros</option>
+      <select class="field" bind:value={filters.genre} onchange={() => runSearch()} aria-label={t('Género')}>
+        <option value="">{t('Todos los géneros')}</option>
         {#each GENRES as g (g)}<option value={g}>{genreName(g)}</option>{/each}
       </select>
-      <select class="field" bind:value={filters.year} onchange={() => runSearch()} aria-label="Año">
-        <option value="">Cualquier año</option>
+      <select class="field" bind:value={filters.year} onchange={() => runSearch()} aria-label={t('Año')}>
+        <option value="">{t('Cualquier año')}</option>
         {#each YEARS as y (y)}<option value={y}>{y}</option>{/each}
       </select>
-      <select class="field" bind:value={filters.status} onchange={() => runSearch()} aria-label="Estado">
+      <select class="field" bind:value={filters.status} onchange={() => runSearch()} aria-label={t('Estado')}>
         {#each STATUS as [v, l] (v)}<option value={v}>{l}</option>{/each}
       </select>
       {#if FORMATS.length}
-        <select class="field" bind:value={filters.format} onchange={() => runSearch()} aria-label="Formato">
+        <select class="field" bind:value={filters.format} onchange={() => runSearch()} aria-label={t('Formato')}>
           {#each FORMATS as [v, l] (v)}<option value={v}>{l}</option>{/each}
         </select>
       {/if}
       {#if COUNTRIES.length}
-        <select class="field" bind:value={filters.country} onchange={() => runSearch()} aria-label="Origen">
+        <select class="field" bind:value={filters.country} onchange={() => runSearch()} aria-label={t('Origen')}>
           {#each COUNTRIES as [v, l] (v)}<option value={v}>{l}</option>{/each}
         </select>
       {/if}
-      <select class="field" bind:value={filters.minScore} onchange={() => runSearch()} aria-label="Nota mínima">
-        <option value="">Cualquier nota</option>
-        {#each [60, 70, 80, 90] as n (n)}<option value={n}>Más de {n / 10}</option>{/each}
+      <select class="field" bind:value={filters.minScore} onchange={() => runSearch()} aria-label={t('Nota mínima')}>
+        <option value="">{t('Cualquier nota')}</option>
+        {#each [60, 70, 80, 90] as n (n)}<option value={n}>{t('Más de {0}', [n / 10])}</option>{/each}
       </select>
-      <select class="field" bind:value={filters.sort} onchange={() => runSearch()} aria-label="Orden">
+      <select class="field" bind:value={filters.sort} onchange={() => runSearch()} aria-label={t('Orden')}>
         {#each SORTS as [v, l] (v)}<option value={v}>{l}</option>{/each}
       </select>
-      <label class="only"><input type="checkbox" bind:checked={onlyAvailable} onchange={() => runSearch()} /> Solo lo que está en mis fuentes</label>
+      <label class="only"><input type="checkbox" bind:checked={onlyAvailable} onchange={() => runSearch()} /> {t('Solo lo que está en mis fuentes')}</label>
     </form>
     <div class="grid results">
       {#each results as d (d.anilistId)}
@@ -105,10 +106,10 @@
       {/each}
     </div>
     {#if !searching && !results.length}
-      <p class="muted center-text">{onlyAvailable ? 'Nada con esos filtros en tus fuentes todavía. Quita «Solo lo que está en mis fuentes» para ver todo.' : 'Nada con esos filtros.'}</p>
+      <p class="muted center-text">{onlyAvailable ? t('Nada con esos filtros en tus fuentes todavía. Quita «Solo lo que está en mis fuentes» para ver todo.') : t('Nada con esos filtros.')}</p>
     {/if}
     {#if more && results.length}
-      <div class="center-text"><button class="btn tonal" onclick={() => runSearch(true)} disabled={searching}>{searching ? 'Cargando...' : 'Ver más'}</button></div>
+      <div class="center-text"><button class="btn tonal" onclick={() => runSearch(true)} disabled={searching}>{searching ? 'Cargando...' : t('Ver más')}</button></div>
     {/if}
   </section>
 </div>

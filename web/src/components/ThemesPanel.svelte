@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // Ajustes › Temas: built-in themes and the group's gallery (use with one tap), your own themes, an editor with live
   // preview and WCAG contrast warnings, background upload, publish, and export/import codes.
   import { api } from '../lib/api.js';
@@ -17,7 +18,7 @@
   let checkTimer;
 
   const base = { canvas: '#050505', surface: '#0f0f10', surfaceHigh: '#1d1d20', border: '#232326', text: '#f4f4f5', textDim: '#a1a1aa', accent: '#ff8a5b', onAccent: '#1f0c03', accentSoft: '#3a1d10', onAccentSoft: '#ffd9c7' };
-  const NAMES = { text: 'Texto', textDim: 'Texto secundario', textFaint: 'Texto tenue', canvas: 'fondo', surface: 'paneles', surfaceHigh: 'paneles destacados', accent: 'acento', onAccent: 'texto sobre acento', accentSoft: 'acento suave', onAccentSoft: 'texto sobre acento suave' };
+  const NAMES = { text: t('Texto'), textDim: 'Texto secundario', textFaint: 'Texto tenue', canvas: 'fondo', surface: 'paneles', surfaceHigh: 'paneles destacados', accent: 'acento', onAccent: 'texto sobre acento', accentSoft: 'acento suave', onAccentSoft: 'texto sobre acento suave' };
 
   async function load() { try { data = await api.themes(); } catch (e) { notify(e.message); data = { builtIn: [], gallery: [] }; } }
   load();
@@ -27,7 +28,7 @@
       const r = await api.useTheme(body);
       applyTheme(r.theme || null);
       rememberTheme(r.theme || null);
-      notify(theme ? `Tema «${theme.name}» puesto` : 'Tema por defecto');
+      notify(theme ? t('Tema «{0}» puesto', [theme.name]) : t('Tema por defecto'));
     } catch (e) { notify(e.message); }
   }
 
@@ -73,7 +74,7 @@
   }
 
   async function remove(id) {
-    if (!confirm('¿Borrar este tema?')) return;
+    if (!confirm(t('¿Borrar este tema?'))) return;
     try { await api.deleteTheme(id); await load(); } catch (e) { notify(e.message); }
   }
 
@@ -86,7 +87,7 @@
 
   async function copyCode(theme) {
     const c = exportCode(theme);
-    try { await navigator.clipboard.writeText(c); notify('Código copiado: pásaselo a quien quieras'); } catch { code = c; importing = true; }
+    try { await navigator.clipboard.writeText(c); notify(t('Código copiado: pásaselo a quien quieras')); } catch { code = c; importing = true; }
   }
 
   function doImport() {
@@ -94,7 +95,7 @@
   }
 
   const swatch = (t) => ({ ...base, ...(t.colors || {}) });
-  const issueText = (i) => i.error || `${NAMES[i.foreground] || i.foreground} sobre ${NAMES[i.background] || i.background}: contraste ${String(i.ratio).replace('.', ',')} (mínimo ${String(i.needed).replace('.', ',')})`;
+  const issueText = (i) => i.error || t('{0} sobre {1}: contraste {2} (mínimo {3})', [NAMES[i.foreground] || i.foreground, NAMES[i.background] || i.background, String(i.ratio).replace('.', ','), String(i.needed).replace('.', ',')]);
 </script>
 
 {#snippet card(theme, onUse, extra)}
@@ -116,23 +117,23 @@
     <div class="spinner"></div>
   {:else}
     <div class="actions">
-      <button class="btn primary" onclick={() => edit(themeState.current)}>Crear tema</button>
-      <button class="btn tonal" onclick={() => (importing = true)}>Importar código</button>
-      <button class="btn text" onclick={() => use({}, null)}>Volver al de serie</button>
+      <button class="btn primary" onclick={() => edit(themeState.current)}>{t('Crear tema')}</button>
+      <button class="btn tonal" onclick={() => (importing = true)}>{t('Importar código')}</button>
+      <button class="btn text" onclick={() => use({}, null)}>{t('Volver al de serie')}</button>
     </div>
-    <h3>De serie</h3>
+    <h3>{t('De serie')}</h3>
     <div class="grid-themes">
       {#each data.builtIn as b (b.id)}{@render card(b.theme, () => use({ builtIn: b.id }, b.theme))}{/each}
     </div>
     {#if data.gallery.length}
-      <h3>De tus amigos y tuyos</h3>
+      <h3>{t('De tus amigos y tuyos')}</h3>
       <div class="grid-themes">
         {#each data.gallery as g (g.id)}
           {#snippet extra()}
-            <div class="small muted">{g.mine ? (g.published ? 'Tuyo · publicado' : 'Tuyo · privado') : 'De ' + g.owner}{#if g.uses} · {g.uses} {g.uses === 1 ? 'lo usa' : 'lo usan'}{/if}</div>
+            <div class="small muted">{g.mine ? (g.published ? 'Tuyo · publicado' : 'Tuyo · privado') : t('De ') + g.owner}{#if g.uses} · {g.uses} {g.uses === 1 ? 'lo usa' : 'lo usan'}{/if}</div>
             <div class="mini">
-              <button class="btn text" onclick={() => copyCode(g.theme)}>Código</button>
-              {#if g.mine}<button class="btn text" onclick={() => edit(g.theme, g.id, g.published)}>Editar</button><button class="btn text" onclick={() => remove(g.id)}>Borrar</button>{/if}
+              <button class="btn text" onclick={() => copyCode(g.theme)}>{t('Código')}</button>
+              {#if g.mine}<button class="btn text" onclick={() => edit(g.theme, g.id, g.published)}>{t('Editar')}</button><button class="btn text" onclick={() => remove(g.id)}>{t('Borrar')}</button>{/if}
             </div>
           {/snippet}
           {@render card(g.theme, () => use({ id: g.id }, g.theme), extra)}
@@ -142,45 +143,45 @@
   {/if}
 </div>
 
-<Sheet bind:open={editing} title="Editor de tema">
+<Sheet bind:open={editing} title={t('Editor de tema')}>
   {#if draft}
     <div class="editor">
-      <label>Nombre <input class="field" maxlength="40" bind:value={draft.name} oninput={preview} /></label>
+      <label>{t('Nombre')} <input class="field" maxlength="40" bind:value={draft.name} oninput={preview} /></label>
       <div class="colors">
         {#each EDITABLE as [key, label] (key)}
           <label class="color"><input type="color" value={(draft.colors[key] || base[key] || '#000000').slice(0, 7)} oninput={(e) => { draft.colors[key] = e.currentTarget.value; preview(); }} /> {label}</label>
         {/each}
       </div>
       <div class="selects">
-        <label>Letra <select class="field" bind:value={draft.font} onchange={preview}>{#each Object.entries(FONT_NAMES) as [k, v] (k)}<option value={k}>{v}</option>{/each}</select></label>
-        <label>Esquinas <select class="field" bind:value={draft.radius} onchange={preview}><option value="sharp">Rectas</option><option value="normal">Normales</option><option value="round">Redondas</option></select></label>
-        <label>Densidad <select class="field" bind:value={draft.density} onchange={preview}><option value="compact">Compacta</option><option value="normal">Normal</option><option value="comfy">Holgada</option></select></label>
+        <label>{t('Letra')} <select class="field" bind:value={draft.font} onchange={preview}>{#each Object.entries(FONT_NAMES) as [k, v] (k)}<option value={k}>{v}</option>{/each}</select></label>
+        <label>{t('Esquinas')} <select class="field" bind:value={draft.radius} onchange={preview}><option value="sharp">{t('Rectas')}</option><option value="normal">{t('Normales')}</option><option value="round">{t('Redondas')}</option></select></label>
+        <label>{t('Densidad')} <select class="field" bind:value={draft.density} onchange={preview}><option value="compact">{t('Compacta')}</option><option value="normal">{t('Normal')}</option><option value="comfy">{t('Holgada')}</option></select></label>
       </div>
-      <label class="row"><input type="checkbox" bind:checked={draft.coverAccent} onchange={preview} /> Teñir cada ficha con el color de su portada</label>
+      <label class="row"><input type="checkbox" bind:checked={draft.coverAccent} onchange={preview} /> {t('Teñir cada ficha con el color de su portada')}</label>
       <div class="row">
-        <label class="btn tonal">Imagen de fondo<input type="file" accept="image/*" hidden onchange={background} /></label>
-        {#if draft.background}<button class="btn text" onclick={() => { draft.background = undefined; preview(); }}>Quitar fondo</button>{/if}
+        <label class="btn tonal">{t('Imagen de fondo')}<input type="file" accept="image/*" hidden onchange={background} /></label>
+        {#if draft.background}<button class="btn text" onclick={() => { draft.background = undefined; preview(); }}>{t('Quitar fondo')}</button>{/if}
       </div>
       {#if issues.length}
         <div class="issues" role="alert">
-          <b>Cuidado, puede leerse mal:</b>
+          <b>{t('Cuidado, puede leerse mal:')}</b>
           <ul>{#each issues as i, n (n)}<li>{issueText(i)}</li>{/each}</ul>
         </div>
       {:else}
-        <p class="ok small">Contraste correcto (WCAG AA).</p>
+        <p class="ok small">{t('Contraste correcto (WCAG AA).')}</p>
       {/if}
-      <label class="row"><input type="checkbox" bind:checked={published} /> Publicarlo para mis amigos</label>
+      <label class="row"><input type="checkbox" bind:checked={published} /> {t('Publicarlo para mis amigos')}</label>
       <div class="row end">
-        <button class="btn text" onclick={() => copyCode(draft)}>Copiar código</button>
-        <button class="btn primary" onclick={save}>Guardar y usar</button>
+        <button class="btn text" onclick={() => copyCode(draft)}>{t('Copiar código')}</button>
+        <button class="btn primary" onclick={save}>{t('Guardar y usar')}</button>
       </div>
     </div>
   {/if}
 </Sheet>
 
-<Sheet bind:open={importing} title="Importar un tema">
-  <textarea class="field" rows="4" placeholder="Pega aquí el código (empieza por YMKT1:)" bind:value={code}></textarea>
-  <button class="btn primary block" style="margin-top:10px" disabled={!code.trim()} onclick={doImport}>Abrir en el editor</button>
+<Sheet bind:open={importing} title={t('Importar un tema')}>
+  <textarea class="field" rows="4" placeholder={t('Pega aquí el código (empieza por YMKT1:)')} bind:value={code}></textarea>
+  <button class="btn primary block" style="margin-top:10px" disabled={!code.trim()} onclick={doImport}>{t('Abrir en el editor')}</button>
 </Sheet>
 
 <style>

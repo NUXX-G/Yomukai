@@ -1,10 +1,11 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // Speed of the auto-scroll, always at hand while it runs: slower, the current speed, faster, stop.
   // Taps here never reach the page underneath (a tap on the page stops the scroll).
   import Icon from './Icon.svelte';
 
   /** value: pixels per second; base: the speed shown as ×1. */
-  let { value, base, min, max, onchange, onstop, label = 'Desplazamiento automático' } = $props();
+  let { value, base, min, max, onchange, onstop, label = t('Desplazamiento automático') } = $props();
 
   const STEP = 1.15;
   const clamp = (v) => Math.round(Math.min(max, Math.max(min, v)));
@@ -21,10 +22,10 @@
 
 <div class="speed" role="toolbar" aria-label={label} onclick={(e) => e.stopPropagation()} onpointerup={(e) => e.stopPropagation()}>
   <span class="small lbl">{label}</span>
-  <button class="icon-btn" onclick={() => onchange(clamp(value / STEP))} disabled={value <= min} aria-label="Más lento" title="Más lento (−)"><Icon name="remove" size={20} /></button>
+  <button class="icon-btn" onclick={() => onchange(clamp(value / STEP))} disabled={value <= min} aria-label={t('Más lento')} title={t('Más lento (−)')}><Icon name="remove" size={20} /></button>
   <span class="val" aria-live="polite">×{factor}</span>
-  <button class="icon-btn" onclick={() => onchange(clamp(value * STEP))} disabled={value >= max} aria-label="Más rápido" title="Más rápido (+)"><Icon name="add" size={20} /></button>
-  <button class="icon-btn" onclick={onstop} aria-label="Parar" title="Parar"><Icon name="pause" size={20} /></button>
+  <button class="icon-btn" onclick={() => onchange(clamp(value * STEP))} disabled={value >= max} aria-label={t('Más rápido')} title={t('Más rápido (+)')}><Icon name="add" size={20} /></button>
+  <button class="icon-btn" onclick={onstop} aria-label={t('Parar')} title={t('Parar')}><Icon name="pause" size={20} /></button>
 </div>
 
 <style>

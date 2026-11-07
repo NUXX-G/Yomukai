@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   import { onDestroy } from 'svelte';
   import { searchStream } from '../lib/api.js';
   import { settings, rememberSearch, saveSettings, rememberItems, sourceById } from '../lib/store.svelte.js';
@@ -8,7 +9,7 @@
   import MediaCard from '../components/MediaCard.svelte';
 
   /** Results grouped by kind, anime first, then the comics, then novels. */
-  const SECTIONS = [['Anime', ['ANIME']], ['Manga', ['MANGA']], ['Manhwa y manhua', ['MANHWA', 'MANHUA']], ['Cómics', ['COMIC']], ['Novelas', ['NOVEL']]];
+  const SECTIONS = [['Anime', ['ANIME']], ['Manga', ['MANGA']], [t('Manhwa y manhua'), ['MANHWA', 'MANHUA']], [t('Cómics'), ['COMIC']], ['Novelas', ['NOVEL']]];
 
   let query = $state(route.query.get('q') || '');
   let typeKey = $state('ALL');
@@ -51,8 +52,8 @@
 <div class="page">
   <form class="searchbar" onsubmit={(e) => { e.preventDefault(); run(); }}>
     <Icon name="search" />
-    <input type="search" placeholder="Busca en todas tus fuentes" bind:value={query} enterkeyhint="search" autocomplete="off" />
-    {#if query}<button type="button" class="icon-btn" onclick={clear} aria-label="Borrar"><Icon name="close" size={20} /></button>{/if}
+    <input type="search" placeholder={t('Busca en todas tus fuentes')} bind:value={query} enterkeyhint="search" autocomplete="off" />
+    {#if query}<button type="button" class="icon-btn" onclick={clear} aria-label={t('Borrar')}><Icon name="close" size={20} /></button>{/if}
   </form>
 
   <div class="filters">
@@ -62,20 +63,20 @@
 
   {#if !searched}
     {#if settings.searchHistory.length}
-      <div class="section-title"><h2>Recientes</h2></div>
+      <div class="section-title"><h2>{t('Recientes')}</h2></div>
       {#each settings.searchHistory as q}
         <div class="list-item">
           <button class="grow left" onclick={() => { query = q; run(); }}>{q}</button>
-          <button class="icon-btn" onclick={() => forget(q)} aria-label="Quitar"><Icon name="close" size={18} /></button>
+          <button class="icon-btn" onclick={() => forget(q)} aria-label={t('Quitar')}><Icon name="close" size={18} /></button>
         </div>
       {/each}
     {/if}
   {:else}
     {#if searching}
-      <p class="small muted status"><span class="spinner tiny"></span> Buscando en {pending.join(', ') || 'tus fuentes'}...</p>
+      <p class="small muted status"><span class="spinner tiny"></span> {t('Buscando en {0}...', [pending.join(', ') || t('tus fuentes')])}</p>
     {/if}
     {#if !searching && !groups.length}
-      <p class="muted" style="margin-top:24px">Sin resultados para «{query}».</p>
+      <p class="muted" style="margin-top:24px">{t('Sin resultados para «{0}».', [query])}</p>
     {/if}
     {#each sections as [title, list] (title)}
       <section class="kind" aria-label={title}>
@@ -84,7 +85,7 @@
           {#each list as g (g.primary.sourceId + g.primary.id)}
             <MediaCard
               title={g.primary.title} cover={g.primary.cover} href={media(g.primary.sourceId, g.primary.id)}
-              subtitle={line(g)} doubt={g.doubt} detail={g.others.length ? 'En ' + allSources(g) : ''}
+              subtitle={line(g)} doubt={g.doubt} detail={g.others.length ? t('En ') + allSources(g) : ''}
               badges={groupBadges(g)}
             />
           {/each}
@@ -92,7 +93,7 @@
       </section>
     {/each}
     {#if Object.keys(errors).length && !searching}
-      <p class="small muted">Sin respuesta de: {Object.keys(errors).join(', ')}</p>
+      <p class="small muted">{t('Sin respuesta de: {0}', [Object.keys(errors).join(', ')])}</p>
     {/if}
   {/if}
 </div>

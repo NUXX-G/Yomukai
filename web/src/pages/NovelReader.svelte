@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   import { onMount, onDestroy, tick } from 'svelte';
   import { startPresence } from '../lib/presence.js';
   // Friends see "reading now" (unless the title is private or the profile hidden).
@@ -51,7 +52,7 @@
   const colors = $derived(THEMES[settings.novel.theme] || THEMES.dark);
   const canSpeak = typeof window !== 'undefined' && ('speechSynthesis' in window || 'Audio' in window);
   const voice = new SpeechReader();
-  voice.onFallback = (msg) => notify('Voces naturales no disponibles ahora (' + msg + '): sigo con las del navegador');
+  voice.onFallback = (msg) => notify(t('Voces naturales no disponibles ahora (') + msg + t('): sigo con las del navegador'));
   const speechLang = $derived({ EN: 'en', ZH: 'zh' }[sourceById(sourceId)?.language] ?? 'es');
   const nextOf = (c) => c && chapters.find((x) => x.index === c.index + 1);
   const prevOf = (c) => c && chapters.find((x) => x.index === c.index - 1);
@@ -247,7 +248,7 @@
       // Phones stop web pages when the screen goes off; the app keeps reading (said once).
       if (/Android|iPhone|iPad/i.test(navigator.userAgent) && !sessionStorage.getItem('speech.tip')) {
         sessionStorage.setItem('speech.tip', '1');
-        notify('Con la pantalla apagada la lectura es más fiable en la app de Android');
+        notify(t('Con la pantalla apagada la lectura es más fiable en la app de Android'));
       }
       loadVoices().then(() => { const v = visibleParagraph(); speak(v?.c ?? 0, v?.i ?? 0); });
       return;
@@ -266,11 +267,11 @@
   /** A short sample of a voice, from the settings. */
   async function tryVoice(id) {
     stopSpeech();
-    const sample = speechLang === 'en' ? 'This is how I will read your novels. Do you like my voice?' : 'Así leeré tus novelas. ¿Te gusta mi voz?';
+    const sample = speechLang === 'en' ? t('This is how I will read your novels. Do you like my voice?') : t('Así leeré tus novelas. ¿Te gusta mi voz?');
     try {
       voice.naturalFailed = false;
       await voice.playNatural({ text: sample, voice: id }, voice.token);
-    } catch (e) { if (e.message !== 'stopped') notify('No se pudo probar la voz: ' + e.message); }
+    } catch (e) { if (e.message !== 'stopped') notify(t('No se pudo probar la voz: ') + e.message); }
   }
   const genderName = (g) => (g === 'f' ? 'mujer' : g === 'm' ? 'hombre' : '');
   const voiceLabel = (v) => v.label + ' · ' + v.region + (v.gender ? ' · ' + genderName(v.gender) : '');
@@ -304,7 +305,7 @@
       ? { ...existing, deleted: true }
       : { sourceId, mediaId, chapterId: chapter.id, chapterTitle: chapter.label, position: v.i, label: loaded[v.c].paragraphs[v.i].slice(0, 120), createdAt: Date.now(), deleted: false };
     bookmarks = existing ? bookmarks.filter((b) => b !== existing) : [row, ...bookmarks];
-    notify(existing ? 'Marcador quitado' : 'Marcador guardado');
+    notify(existing ? t('Marcador quitado') : t('Marcador guardado'));
     await api.saveBookmark(row).catch((e) => notify(e.message));
   }
 
@@ -362,7 +363,7 @@
       item = m;
       chapters = list.chapters;
       current = chapters.find((c) => c.id === chapterId) || chapters[0];
-      if (!current) { error = 'No hay capítulos'; return; }
+      if (!current) { error = t('No hay capítulos'); return; }
       api.bookmarks(sourceId, mediaId).then((b) => (bookmarks = b)).catch(() => {});
       await loadChapter(current);
       if (loaded[0]?.error) { error = loaded[0].error; return; }
@@ -394,7 +395,7 @@
 
 <div class="novel" style:background={colors[0]} style:color={colors[1]} onclick={tap} role="presentation">
   {#if error}
-    <div class="center"><p>{error}</p><button class="btn tonal" onclick={() => back(mediaHref(sourceId, mediaId))}>Volver</button></div>
+    <div class="center"><p>{error}</p><button class="btn tonal" onclick={() => back(mediaHref(sourceId, mediaId))}>{t('Volver')}</button></div>
   {:else if !loaded[0]?.paragraphs.length}
     <div class="center"><div class="spinner"></div></div>
   {:else}
@@ -413,10 +414,10 @@
       {/each}
       <nav class="end">
         {#if !infinite || !nextOf(loaded.at(-1).chapter)}
-          {#if prevOf(loaded[0].chapter)}<button class="btn outline" onclick={(e) => { e.stopPropagation(); go(prevOf(loaded[0].chapter)); }}>Anterior</button>{:else}<span></span>{/if}
-          {#if nextOf(loaded.at(-1).chapter)}<button class="btn primary" onclick={(e) => { e.stopPropagation(); go(nextOf(loaded.at(-1).chapter)); }}>Siguiente: {nextOf(loaded.at(-1).chapter).label}</button>{:else}<span class="muted">Último capítulo</span>{/if}
+          {#if prevOf(loaded[0].chapter)}<button class="btn outline" onclick={(e) => { e.stopPropagation(); go(prevOf(loaded[0].chapter)); }}>{t('Anterior')}</button>{:else}<span></span>{/if}
+          {#if nextOf(loaded.at(-1).chapter)}<button class="btn primary" onclick={(e) => { e.stopPropagation(); go(nextOf(loaded.at(-1).chapter)); }}>{t('Siguiente: {0}', [nextOf(loaded.at(-1).chapter).label])}</button>{:else}<span class="muted">{t('Último capítulo')}</span>{/if}
         {:else}
-          <span class="muted small">Cargando el siguiente capítulo...</span>
+          <span class="muted small">{t('Cargando el siguiente capítulo...')}</span>
         {/if}
       </nav>
     </article>
@@ -425,14 +426,14 @@
 
 {#if ui}
   <header class="top">
-    <button class="icon-btn" onclick={() => back(mediaHref(sourceId, mediaId))} aria-label="Volver"><Icon name="back" /></button>
-    <div class="titles"><div class="t1">{item?.title ?? ''}</div><div class="t2">{current?.label ?? ''}{#if settings.learning?.enabled && learningHere} · {learningHere} {learningHere === 1 ? 'palabra' : 'palabras'} que estás aprendiendo{/if}</div></div>
-    <button class="icon-btn" onclick={() => (findOpen = !findOpen)} aria-label="Buscar en el capítulo" title="Buscar (Ctrl+F)"><Icon name="search" /></button>
-    <button class="icon-btn" onclick={toggleBookmark} aria-label="Marcador" title="Marcador en este párrafo"><Icon name="bookmark" /></button>
-    {#if canSpeak}<button class="icon-btn" class:active={speaking} onclick={toggleSpeech} aria-label="Leer en voz alta" title="Leer en voz alta"><Icon name="speech" /></button>{/if}
-    <button class="icon-btn" onclick={() => (indexOpen = true)} aria-label="Índice" title="Índice"><Icon name="list" /></button>
-    {#if canFullscreen}<button class="icon-btn" class:active={screen.full} onclick={toggleFullscreen} aria-label="Pantalla completa" title="Pantalla completa"><Icon name="fullscreen" /></button>{/if}
-    <button class="icon-btn" onclick={() => (options = true)} aria-label="Texto" title="Texto"><Icon name="text" /></button>
+    <button class="icon-btn" onclick={() => back(mediaHref(sourceId, mediaId))} aria-label={t('Volver')}><Icon name="back" /></button>
+    <div class="titles"><div class="t1">{item?.title ?? ''}</div><div class="t2">{current?.label ?? ''}{#if settings.learning?.enabled && learningHere} {t('· {0} {1} que estás aprendiendo', [learningHere, learningHere === 1 ? 'palabra' : 'palabras'])}{/if}</div></div>
+    <button class="icon-btn" onclick={() => (findOpen = !findOpen)} aria-label={t('Buscar en el capítulo')} title={t('Buscar (Ctrl+F)')}><Icon name="search" /></button>
+    <button class="icon-btn" onclick={toggleBookmark} aria-label={t('Marcador')} title={t('Marcador en este párrafo')}><Icon name="bookmark" /></button>
+    {#if canSpeak}<button class="icon-btn" class:active={speaking} onclick={toggleSpeech} aria-label={t('Leer en voz alta')} title={t('Leer en voz alta')}><Icon name="speech" /></button>{/if}
+    <button class="icon-btn" onclick={() => (indexOpen = true)} aria-label={t('Índice')} title={t('Índice')}><Icon name="list" /></button>
+    {#if canFullscreen}<button class="icon-btn" class:active={screen.full} onclick={toggleFullscreen} aria-label={t('Pantalla completa')} title={t('Pantalla completa')}><Icon name="fullscreen" /></button>{/if}
+    <button class="icon-btn" onclick={() => (options = true)} aria-label={t('Texto')} title={t('Texto')}><Icon name="text" /></button>
   </header>
 {:else}
   <div class="mini-clock">{now}</div>
@@ -441,11 +442,11 @@
 {#if findOpen}
   <div class="find">
     <!-- svelte-ignore a11y_autofocus -->
-    <input type="search" placeholder="Buscar en el texto" bind:value={findQuery} autofocus onkeydown={(e) => { if (e.key === 'Enter') showHit(e.shiftKey ? -1 : 1); if (e.key === 'Escape') findOpen = false; }} />
+    <input type="search" placeholder={t('Buscar en el texto')} bind:value={findQuery} autofocus onkeydown={(e) => { if (e.key === 'Enter') showHit(e.shiftKey ? -1 : 1); if (e.key === 'Escape') findOpen = false; }} />
     <span class="small">{hits.length ? `${findAt + 1}/${hits.length}` : findQuery.trim().length > 1 ? '0' : ''}</span>
-    <button class="icon-btn" onclick={() => showHit(-1)} aria-label="Anterior" disabled={!hits.length}>‹</button>
-    <button class="icon-btn" onclick={() => showHit(1)} aria-label="Siguiente" disabled={!hits.length}>›</button>
-    <button class="icon-btn" onclick={() => { findOpen = false; findQuery = ''; }} aria-label="Cerrar"><Icon name="close" size={20} /></button>
+    <button class="icon-btn" onclick={() => showHit(-1)} aria-label={t('Anterior')} disabled={!hits.length}>‹</button>
+    <button class="icon-btn" onclick={() => showHit(1)} aria-label={t('Siguiente')} disabled={!hits.length}>›</button>
+    <button class="icon-btn" onclick={() => { findOpen = false; findQuery = ''; }} aria-label={t('Cerrar')}><Icon name="close" size={20} /></button>
   </div>
 {/if}
 
@@ -455,22 +456,22 @@
   <div class="speech-bar">
     {#if speaking}
       <button class="icon-btn" onclick={toggleSpeech} aria-label={speechPaused ? 'Seguir' : 'Pausar'}><Icon name={speechPaused ? 'play' : 'pause'} /></button>
-      <span class="small grow">Leyendo en voz alta · {loaded[speaking.c]?.chapter.label} · párrafo {speaking.i + 1}</span>
-      <button class="icon-btn" onclick={stopSpeech} aria-label="Parar"><Icon name="close" /></button>
+      <span class="small grow">{t('Leyendo en voz alta · {0} · párrafo {1}', [loaded[speaking.c]?.chapter.label, speaking.i + 1])}</span>
+      <button class="icon-btn" onclick={stopSpeech} aria-label={t('Parar')}><Icon name="close" /></button>
     {:else}
-      <span class="small grow">Desplazamiento automático · toca el texto para parar</span>
-      <button class="icon-btn" onclick={toggleScroll} aria-label="Parar"><Icon name="pause" /></button>
+      <span class="small grow">{t('Desplazamiento automático · toca el texto para parar')}</span>
+      <button class="icon-btn" onclick={toggleScroll} aria-label={t('Parar')}><Icon name="pause" /></button>
     {/if}
   </div>
 {/if}
 
-<Sheet bind:open={indexOpen} title="Índice">
+<Sheet bind:open={indexOpen} title={t('Índice')}>
   <div class="opt-row wrap" style="margin-top:0">
-    <button class="chip" class:on={indexTab === 'chapters'} onclick={() => (indexTab = 'chapters')}>Capítulos</button>
-    <button class="chip" class:on={indexTab === 'marks'} onclick={() => (indexTab = 'marks')}>Marcadores · {bookmarks.length}</button>
+    <button class="chip" class:on={indexTab === 'chapters'} onclick={() => (indexTab = 'chapters')}>{t('Capítulos')}</button>
+    <button class="chip" class:on={indexTab === 'marks'} onclick={() => (indexTab = 'marks')}>{t('Marcadores · {0}', [bookmarks.length])}</button>
   </div>
   {#if indexTab === 'chapters'}
-    <input class="field" type="search" placeholder="Buscar capítulo" bind:value={indexQuery} />
+    <input class="field" type="search" placeholder={t('Buscar capítulo')} bind:value={indexQuery} />
     <div style="margin-top:8px">
       {#each indexList as c (c.id)}
         <button class="list-item idx" class:here={c.id === current?.id} onclick={() => { indexOpen = false; if (c.id !== current?.id) go(c); }}>
@@ -479,52 +480,52 @@
       {/each}
     </div>
   {:else if !bookmarks.length}
-    <p class="muted">Sin marcadores. El botón del marcador guarda el párrafo que tienes arriba en pantalla.</p>
+    <p class="muted">{t('Sin marcadores. El botón del marcador guarda el párrafo que tienes arriba en pantalla.')}</p>
   {:else}
     {#each bookmarks as b (b.chapterId + '|' + b.position)}
       <button class="list-item idx" onclick={() => openBookmark(b)}>
-        <span class="grow">{b.chapterTitle} · párrafo {b.position + 1}{#if b.label}<span class="small muted mark">{b.label}</span>{/if}</span>
+        <span class="grow">{t('{0} · párrafo {1}', [b.chapterTitle, b.position + 1])}{#if b.label}<span class="small muted mark">{b.label}</span>{/if}</span>
       </button>
     {/each}
   {/if}
   {#if current && item}
-    <button class="btn outline block" style="margin-top:14px" onclick={() => { indexOpen = false; downloadChapters({ sourceId, mediaId, title: item.title, chapterIds: [current.id] }, (m) => notify('No se pudo descargar: ' + m)); }}>
-      <Icon name="download" size={18} /> Descargar {current.label} como EPUB
+    <button class="btn outline block" style="margin-top:14px" onclick={() => { indexOpen = false; downloadChapters({ sourceId, mediaId, title: item.title, chapterIds: [current.id] }, (m) => notify(t('No se pudo descargar: ') + m)); }}>
+      <Icon name="download" size={18} /> {t('Descargar {0} como EPUB', [current.label])}
     </button>
   {/if}
 </Sheet>
 
-<Sheet bind:open={options} title="Texto">
-  <div class="opt-row"><span class="grow">Tamaño</span><button class="btn outline" onclick={() => size(-1)}>A−</button><span class="val">{settings.novel.size}</span><button class="btn outline" onclick={() => size(1)}>A+</button></div>
-  <div class="opt-row"><span class="grow">Interlineado</span><button class="btn outline" onclick={() => line(-0.1)}>−</button><span class="val">{settings.novel.line}</span><button class="btn outline" onclick={() => line(0.1)}>+</button></div>
-  <div class="small muted">Tema</div>
+<Sheet bind:open={options} title={t('Texto')}>
+  <div class="opt-row"><span class="grow">{t('Tamaño')}</span><button class="btn outline" onclick={() => size(-1)}>A−</button><span class="val">{settings.novel.size}</span><button class="btn outline" onclick={() => size(1)}>A+</button></div>
+  <div class="opt-row"><span class="grow">{t('Interlineado')}</span><button class="btn outline" onclick={() => line(-0.1)}>−</button><span class="val">{settings.novel.line}</span><button class="btn outline" onclick={() => line(0.1)}>+</button></div>
+  <div class="small muted">{t('Tema')}</div>
   <div class="opt-row wrap">
     {#each Object.entries(THEMES) as [k, [bg, fg, label]]}
       <button class="chip" class:on={settings.novel.theme === k} onclick={() => set('theme', k)}><span class="swatch" style:background={bg} style:color={fg}>A</span>{label}</button>
     {/each}
   </div>
-  <div class="small muted">Letra</div>
+  <div class="small muted">{t('Letra')}</div>
   <div class="opt-row wrap">
-    <button class="chip" class:on={settings.novel.font === 'serif'} onclick={() => set('font', 'serif')}>Serif</button>
-    <button class="chip" class:on={settings.novel.font !== 'serif'} onclick={() => set('font', 'sans')}>Sans</button>
+    <button class="chip" class:on={settings.novel.font === 'serif'} onclick={() => set('font', 'serif')}>{t('Serif')}</button>
+    <button class="chip" class:on={settings.novel.font !== 'serif'} onclick={() => set('font', 'sans')}>{t('Sans')}</button>
   </div>
-  <div class="small muted">Ancho del texto</div>
+  <div class="small muted">{t('Ancho del texto')}</div>
   <div class="opt-row wrap">
     {#each [['narrow', 'Estrecho'], ['normal', 'Normal'], ['wide', 'Ancho']] as [k, label]}
       <button class="chip" class:on={(settings.novel.width || 'normal') === k} onclick={() => set('width', k)}>{label}</button>
     {/each}
   </div>
-  {#if canFullscreen}<label class="toggle"><span class="grow">Pantalla completa al leer</span><input type="checkbox" checked={!!settings.reader.fullscreen} onchange={(e) => { settings.reader.fullscreen = e.target.checked; saveSettings(); if (e.target.checked) enterFullscreen(); }} /></label>{/if}
-  <label class="toggle"><span class="grow">Texto justificado</span><input type="checkbox" checked={settings.novel.justify !== false} onchange={(e) => set('justify', e.target.checked)} /></label>
-  <label class="toggle"><span class="grow">Seguir con el siguiente capítulo al llegar al final</span><input type="checkbox" checked={infinite} onchange={(e) => set('infinite', e.target.checked)} /></label>
-  <div class="opt-row"><span class="grow">Desplazamiento automático</span><button class="btn outline" onclick={() => { options = false; toggleScroll(); }}>{scrolling ? 'Parar' : 'Empezar'}</button></div>
-  <input class="range" type="range" min="5" max="300" step="5" value={settings.novel.autoSpeed || 30} oninput={(e) => set('autoSpeed', +e.target.value)} aria-label="Velocidad del desplazamiento" />
+  {#if canFullscreen}<label class="toggle"><span class="grow">{t('Pantalla completa al leer')}</span><input type="checkbox" checked={!!settings.reader.fullscreen} onchange={(e) => { settings.reader.fullscreen = e.target.checked; saveSettings(); if (e.target.checked) enterFullscreen(); }} /></label>{/if}
+  <label class="toggle"><span class="grow">{t('Texto justificado')}</span><input type="checkbox" checked={settings.novel.justify !== false} onchange={(e) => set('justify', e.target.checked)} /></label>
+  <label class="toggle"><span class="grow">{t('Seguir con el siguiente capítulo al llegar al final')}</span><input type="checkbox" checked={infinite} onchange={(e) => set('infinite', e.target.checked)} /></label>
+  <div class="opt-row"><span class="grow">{t('Desplazamiento automático')}</span><button class="btn outline" onclick={() => { options = false; toggleScroll(); }}>{scrolling ? 'Parar' : 'Empezar'}</button></div>
+  <input class="range" type="range" min="5" max="300" step="5" value={settings.novel.autoSpeed || 30} oninput={(e) => set('autoSpeed', +e.target.value)} aria-label={t('Velocidad del desplazamiento')} />
   {#if canSpeak}
-    <div class="small muted" style="margin-top:12px">Leer en voz alta</div>
+    <div class="small muted" style="margin-top:12px">{t('Leer en voz alta')}</div>
     {#if speechVoices.natural}
       <div class="opt-row wrap">
-        <button class="chip" class:on={settings.novel.ttsEngine !== 'browser'} onclick={() => { set('ttsEngine', 'natural'); voice.naturalFailed = false; }}>Voces naturales</button>
-        <button class="chip" class:on={settings.novel.ttsEngine === 'browser'} onclick={() => set('ttsEngine', 'browser')}>Voces del navegador</button>
+        <button class="chip" class:on={settings.novel.ttsEngine !== 'browser'} onclick={() => { set('ttsEngine', 'natural'); voice.naturalFailed = false; }}>{t('Voces naturales')}</button>
+        <button class="chip" class:on={settings.novel.ttsEngine === 'browser'} onclick={() => set('ttsEngine', 'browser')}>{t('Voces del navegador')}</button>
       </div>
     {/if}
     {#if speechVoices.natural && settings.novel.ttsEngine !== 'browser'}
@@ -536,29 +537,29 @@
           <select class="field voice-select" value={vs[role]} onchange={(e) => { setVoice(speechLang, role, e.target.value); saveSettings(); }}>
             {#each mine as v (v.id)}<option value={v.id}>{voiceLabel(v)}</option>{/each}
           </select>
-          <button class="icon-btn" onclick={() => tryVoice(vs[role])} aria-label="Probar la voz" title="Probar"><Icon name="play" size={20} /></button>
+          <button class="icon-btn" onclick={() => tryVoice(vs[role])} aria-label={t('Probar la voz')} title={t('Probar')}><Icon name="play" size={20} /></button>
         </div>
       {/each}
-      <p class="small muted">Voces neuronales que funcionan en tu servidor. La primera vez que se usa una, el servidor la descarga (unos segundos).</p>
+      <p class="small muted">{t('Voces neuronales que funcionan en tu servidor. La primera vez que se usa una, el servidor la descarga (unos segundos).')}</p>
     {:else}
       {@const mine = speechVoices.browser.filter((v) => v.lang.toLowerCase().startsWith(speechLang))}
       {@const bv = settings.novel.browserVoices?.[speechLang] || {}}
-      {#each [['narrator', 'Narrador'], ['dialogue', 'Diálogos']] as [role, label]}
+      {#each [['narrator', 'Narrador'], ['dialogue', t('Diálogos')]] as [role, label]}
         <div class="voice-row">
           <span class="small grow">{label}</span>
           <select class="field voice-select" value={bv[role] || ''} onchange={(e) => { settings.novel.browserVoices = { ...(settings.novel.browserVoices || {}), [speechLang]: { ...bv, [role]: e.target.value } }; saveSettings(); }}>
-            <option value="">{role === 'narrator' ? 'La mejor disponible' : 'La misma que el narrador'}</option>
+            <option value="">{role === 'narrator' ? t('La mejor disponible') : t('La misma que el narrador')}</option>
             {#each mine as v (v.name)}<option value={v.name}>{v.name}</option>{/each}
           </select>
         </div>
       {/each}
-      <p class="small muted">Las más naturales salen primero. En Edge, las «Natural»; en iPhone, descarga voces «Mejorada» o «Premium» en Ajustes › Accesibilidad › Contenido leído.</p>
+      <p class="small muted">{t('Las más naturales salen primero. En Edge, las «Natural»; en iPhone, descarga voces «Mejorada» o «Premium» en Ajustes › Accesibilidad › Contenido leído.')}</p>
     {/if}
-    <label class="toggle"><span class="grow">Voces por personaje (los diálogos con otra voz, de mujer o de hombre según quién habla)</span><input type="checkbox" checked={settings.novel.ttsCharacters !== false} onchange={(e) => set('ttsCharacters', e.target.checked)} /></label>
-    <div class="opt-row"><span class="grow">Velocidad de la voz</span>
+    <label class="toggle"><span class="grow">{t('Voces por personaje (los diálogos con otra voz, de mujer o de hombre según quién habla)')}</span><input type="checkbox" checked={settings.novel.ttsCharacters !== false} onchange={(e) => set('ttsCharacters', e.target.checked)} /></label>
+    <div class="opt-row"><span class="grow">{t('Velocidad de la voz')}</span>
       {#each [0.8, 1, 1.15, 1.3, 1.5, 1.75] as r}<button class="chip" class:on={(settings.novel.speechRate || 1) === r} onclick={() => set('speechRate', r)}>{r}x</button>{/each}
     </div>
-    <label class="toggle"><span class="grow">Seguir leyendo en voz alta el siguiente capítulo</span><input type="checkbox" checked={!!settings.novel.speechNext} onchange={(e) => set('speechNext', e.target.checked)} /></label>
+    <label class="toggle"><span class="grow">{t('Seguir leyendo en voz alta el siguiente capítulo')}</span><input type="checkbox" checked={!!settings.novel.speechNext} onchange={(e) => set('speechNext', e.target.checked)} /></label>
   {/if}
 </Sheet>
 

@@ -1,8 +1,10 @@
 // Talks to the Yomukai server. Every call sends the session cookie; a 401 means "log in again".
+import { t, tk } from './i18n.svelte.js';
 
+/** Errors the server explains in Spanish come out in the interface language when the dictionary has them. */
 export class ApiError extends Error {
   constructor(message, status) {
-    super(message);
+    super(t(message));
     this.status = status;
   }
 }
@@ -138,7 +140,7 @@ export const api = {
   saveProfile: (body) => request('PUT', '/api/profile', body),
   uploadProfileImage: async (kind, file) => {
     const res = await fetch(`/api/profile/${kind}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
-    if (!res.ok) throw new ApiError((await res.json().catch(() => ({}))).error || 'No se pudo subir la imagen', res.status);
+    if (!res.ok) throw new ApiError((await res.json().catch(() => ({}))).error || tk('No se pudo subir la imagen'), res.status);
   },
   removeProfileImage: (kind) => request('DELETE', `/api/profile/${kind}`),
   users: () => request('GET', '/api/users'),
@@ -166,7 +168,7 @@ export const api = {
   forumImage: async (file) => {
     const res = await fetch('/api/forum/images', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new ApiError(data.error || 'No se pudo subir la imagen', res.status);
+    if (!res.ok) throw new ApiError(data.error || tk('No se pudo subir la imagen'), res.status);
     return data.id;
   },
   adminThread: (id, body) => request('PUT', `/api/admin/forum/threads/${id}`, body),
@@ -196,7 +198,7 @@ export const api = {
   uploadBackground: async (file) => {
     const res = await fetch('/api/themes/backgrounds', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new ApiError(data.error || 'No se pudo subir la imagen', res.status);
+    if (!res.ok) throw new ApiError(data.error || tk('No se pudo subir la imagen'), res.status);
     return data.id;
   },
   skip: (s, c, other) => request('GET', `/api/skip?${qs({ s, c, other })}`),

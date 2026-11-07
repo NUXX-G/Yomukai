@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
   import { route, navigate, back, media as mediaHref, reader } from '../lib/router.svelte.js';
@@ -94,7 +95,7 @@
     const body = anime
       ? { animeKey: work.key, targetKey: target, untilEpisode: +point.episode, chapter, volume }
       : { animeKey: target, targetKey: work.key, untilEpisode: +point.episode, chapter, volume };
-    try { await api.setAdaptation(body); notify('Guardado; lo verán todos los usuarios'); pointOpen = false; loadWhere(); } catch (err) { notify(err.message); }
+    try { await api.setAdaptation(body); notify(t('Guardado; lo verán todos los usuarios')); pointOpen = false; loadWhere(); } catch (err) { notify(err.message); }
   }
   function openPoint() {
     point = { target: String(counterparts[0]?.anilistId ?? ''), episode: anime && lastDone ? String(Math.floor(lastDone)) : '', chapter: '', volume: '' };
@@ -121,10 +122,10 @@
     dlOpen = true;
   }
   function download(chapters) {
-    if (!chapters.length) { notify('No hay nada que descargar'); return; }
-    if (chapters.length > maxDownload) { notify(`Como mucho ${maxDownload} capítulos por descarga`); return; }
-    downloadChapters({ sourceId, mediaId, title: item?.title, chapterIds: chapters.map((c) => c.id) }, (msg) => notify('No se pudo descargar: ' + msg));
-    notify(chapters.length === 1 ? 'Descargando...' : `Preparando ${chapters.length} capítulos; tu navegador lo guardará al terminar de llegar`);
+    if (!chapters.length) { notify(t('No hay nada que descargar')); return; }
+    if (chapters.length > maxDownload) { notify(t('Como mucho {0} capítulos por descarga', [maxDownload])); return; }
+    downloadChapters({ sourceId, mediaId, title: item?.title, chapterIds: chapters.map((c) => c.id) }, (msg) => notify(t('No se pudo descargar: ') + msg));
+    notify(chapters.length === 1 ? t('Descargando...') : t('Preparando {0} capítulos; tu navegador lo guardará al terminar de llegar', [chapters.length]));
     dlOpen = false;
   }
   const unreadChapters = $derived(list.chapters.filter((c) => !progress[c.id]?.read));
@@ -132,11 +133,11 @@
   /** Admin: the home worker downloads these to Jellyfin (anime) or exports them as CBZ for Kavita/Komga (comics). */
   async function toLibrary(chapters) {
     menu = false;
-    if (!chapters.length) { notify('No hay nada que enviar'); return; }
+    if (!chapters.length) { notify(t('No hay nada que enviar')); return; }
     try {
       const ids = chapters.map((c) => c.id);
       const r = anime ? await api.jellyfinDownload(sourceId, mediaId, ids) : await api.cbzExport(sourceId, mediaId, ids);
-      notify(`${r.queued} en cola para el servidor de casa${anime ? ' (Jellyfin)' : ' (Kavita/Komga)'}`);
+      notify(t('{0} en cola para el servidor de casa{1}', [r.queued, anime ? ' (Jellyfin)' : ' (Kavita/Komga)']));
     } catch (e) { notify(e.message); }
   }
 
@@ -155,12 +156,12 @@
   async function saveFollow() {
     try {
       follow = await api.follow(sourceId, mediaId, { ...followRules, maxPerRun: Number(followRules.maxPerRun) || 5 });
-      notify(anime ? 'Seguida: los episodios nuevos irán solos al Jellyfin' : 'Seguida: los capítulos nuevos irán solos a Kavita/Komga');
+      notify(anime ? t('Seguida: los episodios nuevos irán solos al Jellyfin') : t('Seguida: los capítulos nuevos irán solos a Kavita/Komga'));
       followOpen = false;
     } catch (e) { notify(e.message); }
   }
   async function stopFollow() {
-    try { await api.unfollow(follow.id); follow = null; notify('Ya no se descarga sola'); followOpen = false; } catch (e) { notify(e.message); }
+    try { await api.unfollow(follow.id); follow = null; notify(t('Ya no se descarga sola')); followOpen = false; } catch (e) { notify(e.message); }
   }
 
   async function openMarks() {
@@ -188,13 +189,13 @@
     if (!where) return '';
     if (anime && where.next?.length) {
       const n = where.next[0];
-      const name = whereTarget?.title || 'la obra original';
-      const at = n.chapter != null ? `el capítulo ${Math.floor(n.chapter)}` : `el volumen ${n.volume}`;
-      return `Después del episodio ${Math.floor(lastDone)}, la historia sigue en ${at} de ${name}.`;
+      const name = whereTarget?.title || t('la obra original');
+      const at = n.chapter != null ? t('el capítulo {0}', [Math.floor(n.chapter)]) : t('el volumen {0}', [n.volume]);
+      return t('Después del episodio {0}, la historia sigue en {1} de {2}.', [Math.floor(lastDone), at, name]);
     }
     if (!anime && where.animatedUpTo != null) {
       const upTo = Math.floor(where.animatedUpTo);
-      return lastDone >= upTo ? `Ya has pasado lo que adapta el anime (hasta el capítulo ${upTo}).` : `El anime adapta hasta el capítulo ${upTo}.`;
+      return lastDone >= upTo ? t('Ya has pasado lo que adapta el anime (hasta el capítulo {0}).', [upTo]) : t('El anime adapta hasta el capítulo {0}.', [upTo]);
     }
     return '';
   });
@@ -280,7 +281,7 @@
   async function library() {
     if (!item) return;
     const added = await toggleLibrary(item);
-    notify(added ? 'Añadida a tu biblioteca' : 'Quitada de tu biblioteca');
+    notify(added ? t('Añadida a tu biblioteca') : t('Quitada de tu biblioteca'));
   }
 </script>
 
@@ -292,13 +293,13 @@
   {:else if item?.cover}<div class="backdrop" style:background-image="url('{item.cover}')"></div>{/if}
   <div class="wrap">
   <header class="bar" style:--fill={fill}>
-    <button class="icon-btn" onclick={() => back('/')} aria-label="Volver"><Icon name="back" /></button>
+    <button class="icon-btn" onclick={() => back('/')} aria-label={t('Volver')}><Icon name="back" /></button>
     <span class="bar-title" aria-hidden={!scrolled}>{item?.title ?? ''}</span>
-    <button class="icon-btn" onclick={() => (menu = true)} aria-label="Más opciones"><Icon name="more" /></button>
+    <button class="icon-btn" onclick={() => (menu = true)} aria-label={t('Más opciones')}><Icon name="more" /></button>
   </header>
 
   {#if error && !item}
-    <div class="center"><p>{error}</p><button class="btn tonal" onclick={() => location.reload()}>Reintentar</button></div>
+    <div class="center"><p>{error}</p><button class="btn tonal" onclick={() => location.reload()}>{t('Reintentar')}</button></div>
   {:else if !item}
     <div class="center"><div class="spinner"></div></div>
   {:else}
@@ -321,7 +322,7 @@
           <div class="line small">
             <span>{source?.name ?? sourceId}</span>
             {#if meta?.score != null}<span class="sep">·</span><span class="score"><Icon name="star" size={14} /> {score(meta.score)} <span class="muted">{meta.scoreSource}</span></span>{/if}
-            {#if meta?.malScore != null}<span class="sep">·</span><span class="score"><Icon name="star" size={14} /> {score(meta.malScore)} <span class="muted">MAL</span></span>{/if}
+            {#if meta?.malScore != null}<span class="sep">·</span><span class="score"><Icon name="star" size={14} /> {score(meta.malScore)} <span class="muted">{t('MAL')}</span></span>{/if}
           </div>
         </div>
       </div>
@@ -333,49 +334,49 @@
       {/if}
 
       {#if list.abandoned}
-        <div class="notice"><Icon name="hourglass" size={16} /> Posible abandono o hiato prolongado{#if list.lastUpdate} · último capítulo en {monthYear(list.lastUpdate)}{/if}</div>
+        <div class="notice"><Icon name="hourglass" size={16} /> Posible abandono o hiato prolongado{#if list.lastUpdate} {t('· último capítulo en {0}', [monthYear(list.lastUpdate)])}{/if}</div>
       {/if}
 
       {#if target}
         <button class="btn primary block start" onclick={() => open(target.chapter)}>
-          <Icon name="play" size={20} /> {target.started ? 'Continuar' : anime ? 'Empezar a ver' : 'Empezar a leer'} · {target.chapter.label}
+          <Icon name="play" size={20} /> {target.started ? 'Continuar' : anime ? t('Empezar a ver') : t('Empezar a leer')} · {target.chapter.label}
         </button>
       {/if}
       <button class="btn tonal block lib" onclick={library}>
-        <Icon name={saved ? 'heart' : 'heartOutline'} size={18} /> {saved ? 'En tu biblioteca' : 'Añadir a la biblioteca'}
+        <Icon name={saved ? 'heart' : 'heartOutline'} size={18} /> {saved ? t('En tu biblioteca') : t('Añadir a la biblioteca')}
       </button>
       {#if saved}
-        <div class="statuses" role="radiogroup" aria-label="Estado de lectura">
+        <div class="statuses" role="radiogroup" aria-label={t('Estado de lectura')}>
           {#each READING_STATUSES as [key, label]}
             <button class="chip" role="radio" aria-checked={statusOf(saved) === key} class:on={statusOf(saved) === key} onclick={() => setReadingStatus(sourceId, mediaId, key)}>{anime && key === 'READING' ? 'Viendo' : label}</button>
           {/each}
         </div>
         <button class="cats" onclick={() => (catsOpen = true)}>
           <Icon name="library" size={16} />
-          {saved.categories?.length ? saved.categories.join(' · ') : 'Añadir a una categoría'}
+          {saved.categories?.length ? saved.categories.join(' · ') : t('Añadir a una categoría')}
         </button>
       {/if}
 
       {#if synopsis}
         <p class="synopsis" class:open={expanded} onclick={() => (expanded = !expanded)}>{synopsis}</p>
-        <button class="more" onclick={() => (expanded = !expanded)}>{expanded ? 'Mostrar menos' : 'Mostrar más'}</button>
-        {#if !item.description && meta?.synopsis}<div class="small muted">Sinopsis de {meta.scoreSource || 'AniList'}</div>{/if}
+        <button class="more" onclick={() => (expanded = !expanded)}>{expanded ? 'Mostrar menos' : t('Mostrar más')}</button>
+        {#if !item.description && meta?.synopsis}<div class="small muted">{t('Sinopsis de {0}', [meta.scoreSource || 'AniList'])}</div>{/if}
       {/if}
 
       <WorkSocial {sourceId} {mediaId} title={item.title} cover={item.cover} />
 
       {#if genres.length}
         <div class="genres">{#each genres as g}<span class="pill">{g}</span>{/each}</div>
-        {#if meta?.inferredGenres}<div class="small muted">Etiquetas deducidas de la sinopsis</div>{/if}
+        {#if meta?.inferredGenres}<div class="small muted">{t('Etiquetas deducidas de la sinopsis')}</div>{/if}
       {/if}
     </section>
 
     <div class="main">
     <div class="tabs" role="tablist">
-      <button role="tab" class:on={tab === 0} aria-selected={tab === 0} onclick={() => (tab = 0)}>{anime ? 'Episodios' : 'Capítulos'} · {list.chapters.length}</button>
-      <button role="tab" class:on={tab === 1} aria-selected={tab === 1} onclick={() => (tab = 1)}>Relacionadas</button>
+      <button role="tab" class:on={tab === 0} aria-selected={tab === 0} onclick={() => (tab = 0)}>{anime ? 'Episodios' : t('Capítulos')} · {list.chapters.length}</button>
+      <button role="tab" class:on={tab === 1} aria-selected={tab === 1} onclick={() => (tab = 1)}>{t('Relacionadas')}</button>
       {#if features.flags.forum !== false && session.user && !session.user.guest}
-        <button role="tab" class:on={tab === 2} aria-selected={tab === 2} onclick={() => (tab = 2)}>Foro</button>
+        <button role="tab" class:on={tab === 2} aria-selected={tab === 2} onclick={() => (tab = 2)}>{t('Foro')}</button>
       {/if}
     </div>
 
@@ -384,40 +385,40 @@
         <div class="where">
           <Icon name="info" size={18} />
           <div class="grow">
-            <div class="where-title">¿Dónde sigo?</div>
+            <div class="where-title">{t('¿Dónde sigo?')}</div>
             {#if whereText}
               <div class="small">{whereText}</div>
             {:else}
-              <div class="small muted">Nadie ha dicho todavía hasta dónde llega {anime ? 'este anime en el manga o la novela' : 'el anime en esta obra'}.</div>
+              <div class="small muted">{t('Nadie ha dicho todavía hasta dónde llega {0}.', [anime ? t('este anime en el manga o la novela') : t('el anime en esta obra')])}</div>
             {/if}
-            {#if whereTarget}<button class="link" onclick={() => openRelated(whereTarget)}>Abrir {whereTarget.title}</button>{/if}
+            {#if whereTarget}<button class="link" onclick={() => openRelated(whereTarget)}>{t('Abrir {0}', [whereTarget.title])}</button>{/if}
           </div>
-          {#if counterparts.length && !session.user?.guest}<button class="btn text" onclick={openPoint}>{whereText ? 'Corregir' : 'Añadir'}</button>{/if}
+          {#if counterparts.length && !session.user?.guest}<button class="btn text" onclick={openPoint}>{whereText ? 'Corregir' : t('Añadir')}</button>{/if}
         </div>
       {/if}
       <div class="chapter-bar">
-        <span class="small muted">{readCount ? `${readCount} ${anime ? 'vistos' : 'leídos'} de ${list.chapters.length}` : ''}</span>
+        <span class="small muted">{readCount ? t('{0} {1} de {2}', [readCount, anime ? t('vistos') : t('leídos'), list.chapters.length]) : ''}</span>
         <span class="bar-actions">
-          {#if list.chapters.length}<button class="btn text" onclick={openDownloads}><Icon name="download" size={18} /> <span class="lbl">Descargar</span></button>{/if}
+          {#if list.chapters.length}<button class="btn text" onclick={openDownloads}><Icon name="download" size={18} /> <span class="lbl">{t('Descargar')}</span></button>{/if}
           {#if fillerCount}<button class="btn text" class:on={hideFiller} aria-pressed={hideFiller} onclick={() => (hideFiller = !hideFiller)}>{hideFiller ? 'Mostrar relleno' : 'Ocultar relleno'}</button>{/if}
-          <button class="btn text" aria-pressed={shield} onclick={toggleShield} title="Difumina los títulos de lo que aún no has visto"><Icon name="eye" size={18} /> <span class="lbl">{shield ? 'Sin spoilers' : 'Títulos visibles'}</span></button>
-          <button class="btn text" onclick={() => (descending = !descending)}><Icon name="sort" size={18} /> <span class="lbl">{descending ? 'Más recientes' : 'Desde el principio'}</span></button>
+          <button class="btn text" aria-pressed={shield} onclick={toggleShield} title={t('Difumina los títulos de lo que aún no has visto')}><Icon name="eye" size={18} /> <span class="lbl">{shield ? t('Sin spoilers') : t('Títulos visibles')}</span></button>
+          <button class="btn text" onclick={() => (descending = !descending)}><Icon name="sort" size={18} /> <span class="lbl">{descending ? t('Más recientes') : t('Desde el principio')}</span></button>
         </span>
       </div>
       {#if list.chapters.length > 20}
         <div class="ch-search">
           <Icon name="search" size={18} />
-          <input type="search" inputmode="search" placeholder={anime ? 'Ir al episodio...' : 'Ir al capítulo...'} bind:value={chapterQuery} aria-label="Buscar capítulo" />
+          <input type="search" inputmode="search" placeholder={anime ? t('Ir al episodio...') : t('Ir al capítulo...')} bind:value={chapterQuery} aria-label={t('Buscar capítulo')} />
         </div>
       {/if}
       {#if list.issues.length}
         <button class="integrity" onclick={() => (issuesOpen = !issuesOpen)}>
           <span class="warn"><Icon name="warning" size={16} /></span>
-          <span>{list.issues.length === 1 ? list.issues[0].text : `La lista de la fuente tiene ${list.issues.length} irregularidades`}</span>
+          <span>{list.issues.length === 1 ? list.issues[0].text : t('La lista de la fuente tiene {0} irregularidades', [list.issues.length])}</span>
           {#if issuesOpen}
             <span class="issues small">
               {#if list.issues.length > 1}{#each list.issues as i}<span>• {i.text}</span>{/each}{/if}
-              <span>Viene de la fuente, no de la app. Prueba «Buscar en otras fuentes» si falta algo.</span>
+              <span>{t('Viene de la fuente, no de la app. Prueba «Buscar en otras fuentes» si falta algo.')}</span>
             </span>
           {/if}
         </button>
@@ -427,7 +428,7 @@
       {:else if list.error && !list.chapters.length}
         <p class="pad error-text">{list.error}</p>
       {:else if !list.chapters.length}
-        <p class="pad muted">No se encontraron {chapterNoun(2, anime)}.</p>
+        <p class="pad muted">{t('No se encontraron {0}.', [chapterNoun(2, anime)])}</p>
       {/if}
       <ol class="chapters">
         {#each shown as c (c.id)}
@@ -435,15 +436,15 @@
           {@const p = progress[c.id]}
           <li class="chapter" class:read={p?.read}>
             <button class="ch-main" onclick={() => open(c)}>
-              <span class="ch-label">{c.label}{#if c.name}<span class="ch-name" class:veil={shield && !p?.read && c.number > ahead}>{c.name}</span>{/if}{#if fillerOf(c) === 'FILLER'}<span class="kind filler">Relleno</span>{:else if fillerOf(c) === 'MIXED'}<span class="kind mixed">Mixto</span>{/if}</span>
+              <span class="ch-label">{c.label}{#if c.name}<span class="ch-name" class:veil={shield && !p?.read && c.number > ahead}>{c.name}</span>{/if}{#if fillerOf(c) === 'FILLER'}<span class="kind filler">{t('Relleno')}</span>{:else if fillerOf(c) === 'MIXED'}<span class="kind mixed">{t('Mixto')}</span>{/if}</span>
               <span class="ch-meta">
                 {#if c.date}<span class="date">{c.date}</span>{/if}
-                {#if p && !p.read && anime && p.page > 0}<span class="accent">· Vas por el minuto {Math.floor(p.page / 60)}</span>
-                {:else if p && !p.read && !anime && p.total > 0}<span class="accent">· Página {p.page + 1} de {p.total}</span>
-                {:else if p && !p.read && p.fraction > 0.01}<span class="accent">· {Math.round(p.fraction * 100)}% leído</span>{/if}
+                {#if p && !p.read && anime && p.page > 0}<span class="accent">{t('· Vas por el minuto {0}', [Math.floor(p.page / 60)])}</span>
+                {:else if p && !p.read && !anime && p.total > 0}<span class="accent">{t('· Página {0} de {1}', [p.page + 1, p.total])}</span>
+                {:else if p && !p.read && p.fraction > 0.01}<span class="accent">{t('· {0}% leído', [Math.round(p.fraction * 100)])}</span>{/if}
               </span>
             </button>
-            <button class="read-toggle" onclick={() => toggleRead(c)} aria-label={p?.read ? 'Marcar como no leído' : 'Marcar como leído'}>
+            <button class="read-toggle" onclick={() => toggleRead(c)} aria-label={p?.read ? t('Marcar como no leído') : t('Marcar como leído')}>
               {#if p?.read}<Icon name="check" size={20} />{:else}<span class="ring"></span>{/if}
             </button>
           </li>
@@ -465,7 +466,7 @@
         {#if metaLoading}
           <div class="spinner" style="margin:16px"></div>
         {:else if meta?.relations?.length}
-          <div class="section-title"><h2>Universo de la obra</h2></div>
+          <div class="section-title"><h2>{t('Universo de la obra')}</h2></div>
           <Row>
             {#each meta.relations as r, i (i)}
               <MediaCard title={r.title} cover={r.cover} type={r.type} showType subtitle={[r.relation, r.format].filter(Boolean).join(' · ')} onclick={() => openRelated(r)} />
@@ -473,18 +474,18 @@
           </Row>
         {/if}
         {#if similar?.loading}
-          <div class="section-title"><h2>Similares</h2></div><div class="spinner" style="margin:8px 0"></div>
+          <div class="section-title"><h2>{t('Similares')}</h2></div><div class="spinner" style="margin:8px 0"></div>
         {:else if similar?.items.length}
-          <div class="section-title"><h2>Similares</h2></div>
+          <div class="section-title"><h2>{t('Similares')}</h2></div>
           <Row>
             {#each similar.items as r, i (i)}
               <MediaCard title={r.title} cover={r.cover} type={r.type} showType subtitle={r.format} onclick={() => openRelated(r)} />
             {/each}
           </Row>
         {/if}
-        <button class="chip" style="margin-top:16px" onclick={openAlternatives}><Icon name="search" size={18} /> Buscar en otras fuentes</button>
+        <button class="chip" style="margin-top:16px" onclick={openAlternatives}><Icon name="search" size={18} /> {t('Buscar en otras fuentes')}</button>
         {#if !metaLoading && !meta?.relations?.length && similar && !similar.loading && !similar.items.length}
-          <p class="muted">No se conocen obras relacionadas.</p>
+          <p class="muted">{t('No se conocen obras relacionadas.')}</p>
         {/if}
       </div>
     {/if}
@@ -498,57 +499,56 @@
 {#if target && item}
   <button class="fab" style={themeState.coverAccent ? styleOf(theme) : ''} onclick={() => open(target.chapter)}>
     <Icon name="play" />
-    {target.started ? 'Continuar' : anime ? 'Empezar a ver' : 'Empezar a leer'} · {target.chapter.label}
+    {target.started ? 'Continuar' : anime ? t('Empezar a ver') : t('Empezar a leer')} · {target.chapter.label}
   </button>
 {/if}
 
-<Sheet bind:open={followOpen} title="Descarga automática">
+<Sheet bind:open={followOpen} title={t('Descarga automática')}>
   <div class="follow">
-    <p class="small muted">Cada 3 horas el servidor mira si hay {anime ? 'episodios' : 'capítulos'} nuevos y el servidor de casa los guarda en {anime ? 'tu Jellyfin' : 'tu carpeta de cómics'}. Te avisa cuando lleguen o si algo falla.</p>
+    <p class="small muted">{t('Cada 3 horas el servidor mira si hay {0} nuevos y el servidor de casa los guarda en {1}. Te avisa cuando lleguen o si algo falla.', [anime ? 'episodios' : t('capítulos'), anime ? t('tu Jellyfin') : t('tu carpeta de cómics')])}</p>
     {#if anime}
-      <label>Servidor preferido <input class="field" placeholder="p. ej. MP4Upload (vacío = el primero que funcione)" bind:value={followRules.preferredServer} maxlength="40" /></label>
+      <label>{t('Servidor preferido')} <input class="field" placeholder={t('p. ej. MP4Upload (vacío = el primero que funcione)')} bind:value={followRules.preferredServer} maxlength="40" /></label>
     {/if}
-    <label>Como mucho cada vez <input class="field" type="number" min="1" max="20" bind:value={followRules.maxPerRun} /></label>
-    {#if follow}<p class="small muted">Siguiendo desde el {anime ? 'episodio' : 'capítulo'} {follow.lastNumber}.</p>{/if}
+    <label>{t('Como mucho cada vez')} <input class="field" type="number" min="1" max="20" bind:value={followRules.maxPerRun} /></label>
+    {#if follow}<p class="small muted">{t('Siguiendo desde el {0} {1}.', [anime ? 'episodio' : t('capítulo'), follow.lastNumber])}</p>{/if}
     <div class="row">
       <button class="btn primary" onclick={saveFollow}>{follow ? 'Guardar' : 'Seguir'}</button>
-      {#if follow}<button class="btn tonal" onclick={stopFollow}>Dejar de seguir</button>{/if}
+      {#if follow}<button class="btn tonal" onclick={stopFollow}>{t('Dejar de seguir')}</button>{/if}
     </div>
   </div>
 </Sheet>
 
-<Sheet bind:open={menu} title="Opciones">
-  <button class="list-item opt" onclick={openAlternatives}><Icon name="search" /> Buscar en otras fuentes</button>
+<Sheet bind:open={menu} title={t('Opciones')}>
+  <button class="list-item opt" onclick={openAlternatives}><Icon name="search" /> {t('Buscar en otras fuentes')}</button>
   {#if list.chapters.length}
-    <button class="list-item opt" onclick={openDownloads}><Icon name="download" /> Descargar en este dispositivo</button>
+    <button class="list-item opt" onclick={openDownloads}><Icon name="download" /> {t('Descargar en este dispositivo')}</button>
     {#if session.user?.admin && features.flags.jellyfin !== false}
-      <button class="list-item opt" onclick={() => toLibrary(unreadChapters)}><Icon name="library" /> {anime ? 'Al Jellyfin: episodios sin ver' : 'A Kavita/Komga: capítulos sin leer'} · {unreadChapters.length}</button>
-      <button class="list-item opt" onclick={() => toLibrary(list.chapters)}><Icon name="library" /> {anime ? 'Al Jellyfin: todos' : 'A Kavita/Komga: todos'} · {list.chapters.length}</button>
-      <button class="list-item opt" onclick={openFollow}><Icon name="bell" /> Descargar lo nuevo automáticamente</button>
+      <button class="list-item opt" onclick={() => toLibrary(unreadChapters)}><Icon name="library" /> {anime ? t('Al Jellyfin: episodios sin ver') : t('A Kavita/Komga: capítulos sin leer')} · {unreadChapters.length}</button>
+      <button class="list-item opt" onclick={() => toLibrary(list.chapters)}><Icon name="library" /> {anime ? t('Al Jellyfin: todos') : t('A Kavita/Komga: todos')} · {list.chapters.length}</button>
+      <button class="list-item opt" onclick={openFollow}><Icon name="bell" /> {t('Descargar lo nuevo automáticamente')}</button>
     {/if}
-    {#if !anime}<button class="list-item opt" onclick={openMarks}><Icon name="bookmark" /> Marcadores</button>{/if}
-    <button class="list-item opt" onclick={() => markAllBefore(list.chapters[list.chapters.length - 1], true)}><Icon name="check" /> Marcar todo como {anime ? 'visto' : 'leído'}</button>
-    <button class="list-item opt" onclick={() => markAllBefore(list.chapters[list.chapters.length - 1], false)}><Icon name="close" /> Quitar todas las marcas</button>
+    {#if !anime}<button class="list-item opt" onclick={openMarks}><Icon name="bookmark" /> {t('Marcadores')}</button>{/if}
+    <button class="list-item opt" onclick={() => markAllBefore(list.chapters[list.chapters.length - 1], true)}><Icon name="check" /> {t('Marcar todo como {0}', [anime ? 'visto' : t('leído')])}</button>
+    <button class="list-item opt" onclick={() => markAllBefore(list.chapters[list.chapters.length - 1], false)}><Icon name="close" /> {t('Quitar todas las marcas')}</button>
   {/if}
 </Sheet>
 
-<Sheet bind:open={catsOpen} title="Categorías">
-  {#if !categories.list.length}<p class="small muted" style="margin-top:0">Aún no tienes categorías. Crea una:</p>{/if}
+<Sheet bind:open={catsOpen} title={t('Categorías')}>
+  {#if !categories.list.length}<p class="small muted" style="margin-top:0">{t('Aún no tienes categorías. Crea una:')}</p>{/if}
   <div class="chipwrap">
     {#each categories.list as c (c.name)}
       <button class="chip" class:on={saved?.categories?.includes(c.name)} onclick={() => toggleCat(c.name)}>{c.name}</button>
     {/each}
   </div>
   <form class="row-form" onsubmit={createCat}>
-    <input class="field" placeholder="Nueva categoría" bind:value={newCat} maxlength="100" />
-    <button class="btn tonal" disabled={!newCat.trim()}>Crear y añadir</button>
+    <input class="field" placeholder={t('Nueva categoría')} bind:value={newCat} maxlength="100" />
+    <button class="btn tonal" disabled={!newCat.trim()}>{t('Crear y añadir')}</button>
   </form>
 </Sheet>
 
-<Sheet bind:open={dlOpen} title={anime ? 'Descargar episodios' : 'Descargar capítulos'}>
+<Sheet bind:open={dlOpen} title={anime ? t('Descargar episodios') : t('Descargar capítulos')}>
   <p class="small muted" style="margin-top:0">
-    Se guarda en este {onPhone ? 'móvil' : 'ordenador'}, no en el servidor.
-    {anime ? 'Los episodios se descargan como vídeo, de uno en uno.' : source?.kind === 'novel' ? 'Las novelas se descargan como libro EPUB (Libros del iPhone, Google Play Libros, Kindle...).' : 'Los cómics se descargan como CBZ, que abre cualquier lector de cómics; varios capítulos van juntos en un ZIP.'}
+    {t('Se guarda en este {0}, no en el servidor. {1}', [onPhone ? t('móvil') : 'ordenador', anime ? t('Los episodios se descargan como vídeo, de uno en uno.') : source?.kind === 'novel' ? t('Las novelas se descargan como libro EPUB (Libros del iPhone, Google Play Libros, Kindle...).') : t('Los cómics se descargan como CBZ, que abre cualquier lector de cómics; varios capítulos van juntos en un ZIP.')])}
   </p>
   {#if anime}
     <div class="dl-list">
@@ -562,51 +562,51 @@
   {:else}
     <div class="dl-actions">
       {#if unreadChapters.length && unreadChapters.length <= maxDownload}
-        <button class="btn tonal" onclick={() => download(unreadChapters)}>No leídos · {unreadChapters.length}</button>
+        <button class="btn tonal" onclick={() => download(unreadChapters)}>{t('No leídos · {0}', [unreadChapters.length])}</button>
       {/if}
       {#if list.chapters.length <= maxDownload}
-        <button class="btn tonal" onclick={() => download(list.chapters)}>Todos · {list.chapters.length}</button>
+        <button class="btn tonal" onclick={() => download(list.chapters)}>{t('Todos · {0}', [list.chapters.length])}</button>
       {/if}
     </div>
-    <div class="small muted">Desde y hasta (máximo {maxDownload} de una vez)</div>
+    <div class="small muted">{t('Desde y hasta (máximo {0} de una vez)', [maxDownload])}</div>
     <div class="range">
       <select class="field" bind:value={dlFrom}>{#each list.chapters as c, i}<option value={i}>{c.label}</option>{/each}</select>
       <select class="field" bind:value={dlTo}>{#each list.chapters as c, i}<option value={i}>{c.label}</option>{/each}</select>
     </div>
     <button class="btn primary block" style="margin-top:12px" onclick={() => download(list.chapters.slice(Math.min(dlFrom, dlTo), Math.max(dlFrom, dlTo) + 1))}>
-      <Icon name="download" size={18} /> Descargar {Math.abs(dlTo - dlFrom) + 1} {chapterNoun(Math.abs(dlTo - dlFrom) + 1, anime)}
+      <Icon name="download" size={18} /> {t('Descargar {0} {1}', [Math.abs(dlTo - dlFrom) + 1, chapterNoun(Math.abs(dlTo - dlFrom) + 1, anime)])}
     </button>
   {/if}
 </Sheet>
 
-<Sheet bind:open={pointOpen} title="Hasta dónde llega el anime">
+<Sheet bind:open={pointOpen} title={t('Hasta dónde llega el anime')}>
   <form class="point" onsubmit={savePoint}>
-    <p class="small muted" style="margin-top:0">Lo ven todos los usuarios y queda en el historial, así que nada se pierde si alguien se equivoca.</p>
-    <label>{anime ? 'Obra original' : 'Anime'}
+    <p class="small muted" style="margin-top:0">{t('Lo ven todos los usuarios y queda en el historial, así que nada se pierde si alguien se equivoca.')}</p>
+    <label>{anime ? t('Obra original') : 'Anime'}
       <select class="field" bind:value={point.target} required>
         {#each counterparts as r (r.anilistId)}<option value={String(r.anilistId)}>{r.title}{r.format ? ' · ' + r.format : ''}</option>{/each}
       </select>
     </label>
-    <label>Hasta el episodio <input class="field" type="number" min="1" max="10000" inputmode="numeric" bind:value={point.episode} required /></label>
+    <label>{t('Hasta el episodio')} <input class="field" type="number" min="1" max="10000" inputmode="numeric" bind:value={point.episode} required /></label>
     <div class="range">
-      <label>Capítulo <input class="field" type="number" min="0" max="100000" step="0.1" inputmode="decimal" bind:value={point.chapter} /></label>
-      <label>o volumen <input class="field" type="number" min="0" max="1000" inputmode="numeric" bind:value={point.volume} /></label>
+      <label>{t('Capítulo')} <input class="field" type="number" min="0" max="100000" step="0.1" inputmode="decimal" bind:value={point.chapter} /></label>
+      <label>{t('o volumen')} <input class="field" type="number" min="0" max="1000" inputmode="numeric" bind:value={point.volume} /></label>
     </div>
-    <button class="btn primary block" disabled={!point.target || !point.episode || (point.chapter === '' && point.volume === '')}>Guardar</button>
+    <button class="btn primary block" disabled={!point.target || !point.episode || (point.chapter === '' && point.volume === '')}>{t('Guardar')}</button>
   </form>
 </Sheet>
 
-<Sheet bind:open={marksOpen} title="Marcadores">
+<Sheet bind:open={marksOpen} title={t('Marcadores')}>
   {#if marks === null}
     <div class="spinner"></div>
   {:else if !marks.length}
-    <p class="muted">Sin marcadores. Ponlos desde el lector con el botón del marcador.</p>
+    <p class="muted">{t('Sin marcadores. Ponlos desde el lector con el botón del marcador.')}</p>
   {:else}
     {#each marks as m (m.chapterId + m.position)}
       <a class="list-item opt" href={reader(source?.kind, sourceId, mediaId, m.chapterId) + '?p=' + m.position} onclick={() => (marksOpen = false)}>
         <Icon name="bookmark" size={20} />
         <span class="grow">
-          {m.chapterTitle} · {source?.kind === 'novel' ? 'párrafo' : 'página'} {m.position + 1}
+          {m.chapterTitle} · {source?.kind === 'novel' ? t('párrafo') : t('página')} {m.position + 1}
           {#if m.label}<span class="small muted mark-label">{m.label}</span>{/if}
         </span>
       </a>
@@ -614,21 +614,21 @@
   {/if}
 </Sheet>
 
-<Sheet bind:open={altOpen} title="Otras fuentes">
-  <p class="small muted">Aquí, en {source?.name}: {list.chapters.length} {chapterNoun(list.chapters.length, anime)}</p>
+<Sheet bind:open={altOpen} title={t('Otras fuentes')}>
+  <p class="small muted">{t('Aquí, en {0}: {1} {2}', [source?.name, list.chapters.length, chapterNoun(list.chapters.length, anime)])}</p>
   {#if alternatives?.loading}
-    <div class="searching"><div class="spinner"></div> Buscando en tus fuentes...</div>
+    <div class="searching"><div class="spinner"></div> {t('Buscando en tus fuentes...')}</div>
   {:else if alternatives && !alternatives.items.length}
-    <p>No está en ninguna otra de tus fuentes activas.</p>
+    <p>{t('No está en ninguna otra de tus fuentes activas.')}</p>
   {:else if alternatives}
     {#each alternatives.items as a}
       <button class="list-item opt alt" onclick={() => { altOpen = false; navigate(mediaHref(a.item.sourceId, a.item.id)); }}>
         <div class="grow">
-          <div>{a.sourceName} <span class="tag">{a.language}</span>{#if a.confidence === 'SAME_WORK'} <span class="sure">✓ misma obra</span>{/if}</div>
+          <div>{a.sourceName} <span class="tag">{a.language}</span>{#if a.confidence === 'SAME_WORK'} <span class="sure">{t('✓ misma obra')}</span>{/if}</div>
           <div class="small muted">{a.item.title}</div>
-          <div class="small accent">{a.chapterCount != null ? `${a.chapterCount} ${chapterNoun(a.chapterCount, anime)}${a.lastChapter ? ' · hasta el ' + a.lastChapter : ''}` : 'No se pudo leer la lista'}</div>
-          {#if a.confidence === 'DIFFERENT_AUTHOR'}<div class="small error-text">Mismo título, otro autor: puede ser otra obra</div>
-          {:else if a.confidence !== 'SAME_WORK'}<div class="small error-text">Mismo título, sin confirmar que sea la misma obra</div>{/if}
+          <div class="small accent">{a.chapterCount != null ? `${a.chapterCount} ${chapterNoun(a.chapterCount, anime)}${a.lastChapter ? ' · hasta el ' + a.lastChapter : ''}` : t('No se pudo leer la lista')}</div>
+          {#if a.confidence === 'DIFFERENT_AUTHOR'}<div class="small error-text">{t('Mismo título, otro autor: puede ser otra obra')}</div>
+          {:else if a.confidence !== 'SAME_WORK'}<div class="small error-text">{t('Mismo título, sin confirmar que sea la misma obra')}</div>{/if}
         </div>
       </button>
     {/each}

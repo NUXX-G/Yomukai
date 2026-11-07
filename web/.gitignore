@@ -3,3 +3,6 @@ dist/
 
 # Generated from shared/src/main/resources/design/tokens.json
 src/tokens.css
+
+# Copied from shared/src/main/resources/i18n/en.json
+src/i18n/

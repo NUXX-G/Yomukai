@@ -2,6 +2,8 @@
 // uploaded to the server, cover accent on/off), as CSS variables on <html>. Never CSS written by anyone. The same JSON
 // is applied by the Android app. The last theme is remembered in this browser so pages open already in it.
 
+import { t, tk, tMap } from './i18n.svelte.js';
+
 const COLOR_KEYS = ['canvas', 'surface', 'surfaceRaised', 'surfaceHigh', 'surfaceHighest', 'border', 'borderStrong', 'text', 'textDim',
   'textFaint', 'accent', 'onAccent', 'accentSoft', 'onAccentSoft', 'info', 'success', 'warning', 'danger'];
 const HEX = /^#[0-9a-f]{6}([0-9a-f]{2})?$/i;
@@ -12,7 +14,7 @@ export const FONTS = {
   rounded: "ui-rounded, 'SF Pro Rounded', 'Nunito', 'Varela Round', system-ui, sans-serif",
   mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace"
 };
-export const FONT_NAMES = { inter: 'Inter', system: 'Del sistema', serif: 'Con serifa', rounded: 'Redondeada', mono: 'Monoespaciada' };
+export const FONT_NAMES = tMap({ inter: 'Inter', system: tk('Del sistema'), serif: tk('Con serifa'), rounded: tk('Redondeada'), mono: tk('Monoespaciada') });
 const RADIUS = { sharp: 0.35, normal: 1, round: 1.6 };
 const RADIUS_BASE = { sm: 6, md: 8, lg: 12, xl: 16 };
 const DENSITY = { compact: 0.75, normal: 1, comfy: 1.25 };
@@ -72,7 +74,7 @@ export function exportCode(theme) {
 
 export function importCode(code) {
   const raw = String(code || '').trim();
-  if (!raw.startsWith('YMKT1:') || raw.length > 12_000) throw new Error('Ese código no es un tema de Yomukai');
+  if (!raw.startsWith('YMKT1:') || raw.length > 12_000) throw new Error(t('Ese código no es un tema de Yomukai'));
   const b64 = raw.slice(6).replace(/-/g, '+').replace(/_/g, '/');
   const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
   return JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))));

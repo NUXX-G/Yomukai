@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // Full-width hero carousel: AniList banner faded into the page, poster, title, genres, score, short synopsis and the
   // two main actions. Changes every 8 s (never with reduced motion, never while the pointer or focus is on it).
   import Icon from './Icon.svelte';
@@ -19,7 +20,7 @@
 </script>
 
 {#if slide}
-  <section class="hero" aria-roledescription="carrusel" aria-label="Destacados"
+  <section class="hero" aria-roledescription="carrusel" aria-label={t('Destacados')}
     onmouseenter={() => (paused = true)} onmouseleave={() => (paused = false)} onfocusin={() => (paused = true)} onfocusout={() => (paused = false)}>
     {#key index}
       <div class="backdrop">
@@ -41,12 +42,12 @@
         {#if slide.synopsis}<p class="synopsis">{slide.synopsis}</p>{/if}
         <div class="actions">
           <button class="btn primary" onclick={slide.onPrimary}><Icon name="play" size={20} /> {slide.primaryLabel || 'Ver'}</button>
-          {#if slide.onSecondary}<button class="btn glass" onclick={slide.onSecondary}><Icon name="add" size={20} /> {slide.secondaryLabel || 'Añadir a la biblioteca'}</button>{/if}
+          {#if slide.onSecondary}<button class="btn glass" onclick={slide.onSecondary}><Icon name="add" size={20} /> {slide.secondaryLabel || t('Añadir a la biblioteca')}</button>{/if}
         </div>
       </div>
     </div>
     {#if slides.length > 1}
-      <div class="dots" role="tablist" aria-label="Destacados">
+      <div class="dots" role="tablist" aria-label={t('Destacados')}>
         {#each slides as s, i (i)}
           <button class="dot" class:on={i === index} role="tab" aria-selected={i === index} aria-label={s.title} onclick={() => (index = i)}></button>
         {/each}

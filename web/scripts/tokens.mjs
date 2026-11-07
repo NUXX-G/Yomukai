@@ -21,3 +21,10 @@ for (const [k, v] of Object.entries(tokens.layout)) lines.push(`  --layout-${keb
 
 writeFileSync(resolve(here, '../src/tokens.css'), `/* Generado por scripts/tokens.mjs desde shared/src/main/resources/design/tokens.json. No editar a mano. */\n:root {\n${lines.join('\n')}\n}\n`);
 console.log('tokens.css generado');
+
+// The interface dictionary (Spanish → English) lives in shared/ too, for the Android app; the web gets a copy.
+import { mkdirSync, existsSync } from 'node:fs';
+const dict = resolve(here, '../../shared/src/main/resources/i18n/en.json');
+mkdirSync(resolve(here, '../src/i18n'), { recursive: true });
+writeFileSync(resolve(here, '../src/i18n/en.json'), existsSync(dict) ? readFileSync(dict, 'utf8') : '{}\n');
+console.log('i18n/en.json copiado');

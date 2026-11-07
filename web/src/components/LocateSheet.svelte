@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   import Sheet from './Sheet.svelte';
   import { locating } from '../lib/open.svelte.js';
   import { navigate, media } from '../lib/router.svelte.js';
@@ -12,11 +13,11 @@
 
 <Sheet bind:open={locating.open} title={locating.title}>
   {#if locating.searching}
-    <div class="searching"><div class="spinner"></div><span>Buscando en tus fuentes...</span></div>
+    <div class="searching"><div class="spinner"></div><span>{t('Buscando en tus fuentes...')}</span></div>
   {:else if !locating.options.length}
-    <p>Ninguna de tus fuentes activas la tiene con este nombre.</p>
+    <p>{t('Ninguna de tus fuentes activas la tiene con este nombre.')}</p>
     <button class="btn text" onclick={() => { locating.open = false; navigate('/buscar?q=' + encodeURIComponent(locating.title)); }}>
-      <Icon name="search" size={18} /> Buscar «{locating.title}» en todas
+      <Icon name="search" size={18} /> {t('Buscar «{0}» en todas', [locating.title])}
     </button>
   {:else}
     {#each locating.options as option}
@@ -24,7 +25,7 @@
         <div class="grow">
           <div>{option.sourceName}</div>
           <div class="small muted">{option.item.title}</div>
-          {#if option.approximate}<div class="small muted">Nombre parecido: comprueba que es la misma obra</div>{/if}
+          {#if option.approximate}<div class="small muted">{t('Nombre parecido: comprueba que es la misma obra')}</div>{/if}
         </div>
         <span class="tag">{option.language}</span>
       </button>

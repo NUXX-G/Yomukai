@@ -8,10 +8,12 @@ bootTheme();
 import { mount } from 'svelte';
 import App from './App.svelte';
 import { adaptToIOS } from './lib/platform.js';
+import { startI18n } from './lib/i18n.svelte.js';
 
 adaptToIOS();
 
-mount(App, { target: document.getElementById('app') });
+// English users get their dictionary before the first text is drawn.
+startI18n().finally(() => mount(App, { target: document.getElementById('app') }));
 
 // Installable and quick to reopen; never in development, where it would cache stale code.
 if ('serviceWorker' in navigator && import.meta.env.PROD) {

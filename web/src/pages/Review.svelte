@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // /repaso: today's spaced-repetition session (FSRS on the server). The word, then the answer and four buttons.
   import { api } from '../lib/api.js';
   import { notify } from '../lib/store.svelte.js';
@@ -39,34 +40,34 @@
 
 <div class="page review">
   <header class="head">
-    <h1>Repaso</h1>
-    <a class="btn text" href="/api/words/anki" download>Exportar a Anki</a>
+    <h1>{t('Repaso')}</h1>
+    <a class="btn text" href="/api/words/anki" download>{t('Exportar a Anki')}</a>
   </header>
   {#if due === null}
     <div class="spinner"></div>
   {:else if !card}
     <div class="empty">
-      <p class="big">{done ? `¡Hecho! ${done} ${done === 1 ? 'palabra repasada' : 'palabras repasadas'} hoy.` : 'Nada que repasar ahora mismo.'}</p>
-      <p class="muted">Tienes {total} {total === 1 ? 'palabra guardada' : 'palabras guardadas'}. Guarda más con una pulsación larga mientras lees (con el modo aprendizaje activado en Ajustes).</p>
+      <p class="big">{done ? t('¡Hecho! {0} {1} hoy.', [done, done === 1 ? 'palabra repasada' : 'palabras repasadas']) : t('Nada que repasar ahora mismo.')}</p>
+      <p class="muted">{t('Tienes {0} {1}. Guarda más con una pulsación larga mientras lees (con el modo aprendizaje activado en Ajustes).', [total, total === 1 ? 'palabra guardada' : 'palabras guardadas'])}</p>
     </div>
   {:else}
-    <p class="small muted">Quedan {due.length} · {LEVELS[card.level] || ''}</p>
-    <div class="card" role="group" aria-label="Tarjeta">
+    <p class="small muted">{t('Quedan {0} · {1}', [due.length, LEVELS[card.level] || ''])}</p>
+    <div class="card" role="group" aria-label={t('Tarjeta')}>
       <div class="word">{card.word}</div>
       {#if card.context}<p class="context">«{card.context}»</p>{/if}
       {#if shown}
-        <div class="answer">{card.meaning || 'Sin traducción guardada'}</div>
-        {#if card.source}<div class="small muted">De {card.source}</div>{/if}
+        <div class="answer">{card.meaning || t('Sin traducción guardada')}</div>
+        {#if card.source}<div class="small muted">{t('De {0}', [card.source])}</div>{/if}
       {/if}
     </div>
     {#if !shown}
-      <button class="btn primary block" onclick={() => (shown = true)}>Ver respuesta</button>
+      <button class="btn primary block" onclick={() => (shown = true)}>{t('Ver respuesta')}</button>
     {:else}
       <div class="grades">
-        <button class="btn grade again" onclick={() => grade('again')}>Otra vez<span>1</span></button>
-        <button class="btn grade" onclick={() => grade('hard')}>Difícil<span>2</span></button>
-        <button class="btn grade good" onclick={() => grade('good')}>Bien<span>3</span></button>
-        <button class="btn grade" onclick={() => grade('easy')}>Fácil<span>4</span></button>
+        <button class="btn grade again" onclick={() => grade('again')}>{t('Otra vez')}<span>1</span></button>
+        <button class="btn grade" onclick={() => grade('hard')}>{t('Difícil')}<span>2</span></button>
+        <button class="btn grade good" onclick={() => grade('good')}>{t('Bien')}<span>3</span></button>
+        <button class="btn grade" onclick={() => grade('easy')}>{t('Fácil')}<span>4</span></button>
       </div>
     {/if}
   {/if}

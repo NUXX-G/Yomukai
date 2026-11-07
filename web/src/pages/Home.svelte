@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // Inicio: a hero carousel and rows of works (never of sources): continue, new in the library, airing, trending,
   // for you, recently updated everywhere (one card per work) and genres. Rows can be hidden and reordered.
   import { onMount } from 'svelte';
@@ -17,9 +18,9 @@
   import Icon from '../components/Icon.svelte';
 
   const ROWS = [
-    ['rooms', 'Salas activas'], ['recommended', 'Te recomiendan'], ['continueWatching', 'Continuar viendo'], ['continueReading', 'Continuar leyendo'], ['newInLibrary', 'Nuevo en tu biblioteca'],
-    ['season', 'En emisión esta temporada'], ['trendingAnime', 'Tendencias en anime'], ['trendingManga', 'Tendencias en manga y manhwa'],
-    ['friends', 'Actividad de tus amigos'], ['forYou', 'Para ti'], ['unified', 'Recién actualizado'], ['action', 'Acción'], ['romance', 'Romance'], ['fantasy', 'Fantasía'], ['comedy', 'Comedia']
+    ['rooms', 'Salas activas'], ['recommended', 'Te recomiendan'], ['continueWatching', 'Continuar viendo'], ['continueReading', 'Continuar leyendo'], ['newInLibrary', t('Nuevo en tu biblioteca')],
+    ['season', t('En emisión esta temporada')], ['trendingAnime', t('Tendencias en anime')], ['trendingManga', t('Tendencias en manga y manhwa')],
+    ['friends', t('Actividad de tus amigos')], ['forYou', t('Para ti')], ['unified', t('Recién actualizado')], ['action', t('Acción')], ['romance', 'Romance'], ['fantasy', t('Fantasía')], ['comedy', 'Comedia']
   ];
   const TITLES = Object.fromEntries(ROWS);
 
@@ -72,12 +73,12 @@
     .sort((a, b) => (updates.byKey[b.sourceId + '|' + b.mediaId]?.lastUpdate || 0) - (updates.byKey[a.sourceId + '|' + a.mediaId]?.lastUpdate || 0)));
 
   function feedText(e) {
-    if (e.kind === 'achievement') return 'ha conseguido un logro';
-    if (e.kind === 'rated') return 'ha valorado con un ' + e.text;
-    const what = e.kind === 'episode' ? (e.count === 1 ? 'episodio' : 'episodios') : (e.count === 1 ? 'capítulo' : 'capítulos');
-    const verb = e.kind === 'episode' ? 'ha visto' : 'ha leído';
-    if (e.count === 1) return verb + (e.last ? ' ' + e.last : ' un ' + what);
-    return (e.marathon ? 'maratón: ' : '') + verb + ' ' + e.count + ' ' + what + (e.first && e.last ? ' (' + e.first + ' → ' + e.last + ')' : '');
+    if (e.kind === 'achievement') return t('ha conseguido un logro');
+    if (e.kind === 'rated') return t('ha valorado con un ') + e.text;
+    const what = e.kind === 'episode' ? (e.count === 1 ? 'episodio' : 'episodios') : (e.count === 1 ? t('capítulo') : t('capítulos'));
+    const verb = e.kind === 'episode' ? t('ha visto') : t('ha leído');
+    if (e.count === 1) return verb + (e.last ? ' ' + e.last : t(' un ') + what);
+    return (e.marathon ? t('maratón: ') : '') + verb + ' ' + e.count + ' ' + what + (e.first && e.last ? ' (' + e.first + ' → ' + e.last + ')' : '');
   }
   function ago(at) {
     const m = Math.round((Date.now() - at) / 60_000);
@@ -98,16 +99,16 @@
     const out = [];
     const last = items('continue').find((c) => c.banner && !c.finished);
     if (last) out.push({
-      kicker: last.type === 'ANIME' ? 'Continuar viendo' : 'Continuar leyendo', title: last.title, banner: last.banner, cover: last.cover,
-      synopsis: last.chapterTitle, primaryLabel: last.type === 'ANIME' ? 'Continuar' : 'Seguir leyendo', onPrimary: () => navigate(continueHref(last)),
+      kicker: last.type === 'ANIME' ? t('Continuar viendo') : t('Continuar leyendo'), title: last.title, banner: last.banner, cover: last.cover,
+      synopsis: last.chapterTitle, primaryLabel: last.type === 'ANIME' ? t('Continuar') : t('Seguir leyendo'), onPrimary: () => navigate(continueHref(last)),
       onSecondary: () => navigate(media(last.sourceId, last.mediaId)), secondaryLabel: 'Ficha'
     });
     const pool = [...row('anime', 'trending'), ...row('manga', 'trending')].filter((d) => d.banner);
     pool.sort((a, b) => (b.available === true) - (a.available === true));
     for (const d of pool.slice(0, 6 - out.length)) {
       out.push({
-        kicker: d.available ? 'Disponible en tus fuentes' : 'Tendencia', title: d.title, banner: d.banner, cover: d.cover, genres: d.genres,
-        score: d.score, synopsis: d.synopsis, format: d.format, primaryLabel: d.type === 'ANIME' ? 'Ver' : 'Leer',
+        kicker: d.available ? t('Disponible en tus fuentes') : t('Tendencia'), title: d.title, banner: d.banner, cover: d.cover, genres: d.genres,
+        score: d.score, synopsis: d.synopsis, format: d.format, primaryLabel: d.type === 'ANIME' ? t('Ver') : t('Leer'),
         onPrimary: () => openDiscover(d)
       });
     }
@@ -116,8 +117,8 @@
 
   const discoverLine = (d) => [d.type === 'ANIME' ? formatName(d.format) : null, seasonName(d.season, d.year) || (d.genres?.[0] && genreName(d.genres[0]))].filter(Boolean).join(' · ');
   const discoverBadges = (d) => [
-    ...(d.nextEpisode ? [{ text: `Ep. ${d.nextEpisode - 1}`, tone: 'dark' }] : []),
-    ...(!d.available ? [] : [{ text: 'En tus fuentes', tone: 'accent' }])
+    ...(d.nextEpisode ? [{ text: t('Ep. {0}', [d.nextEpisode - 1]), tone: 'dark' }] : []),
+    ...(!d.available ? [] : [{ text: t('En tus fuentes'), tone: 'accent' }])
   ];
 
   function move(i, dir) {
@@ -141,26 +142,26 @@
 
   {#each layout.filter((r) => !r.hidden) as r (r.id)}
     {#if r.id === 'rooms' && items('rooms').length}
-      <Shelf title="Salas activas" subtitle="Tus amigos viendo algo juntos ahora mismo" wide>
+      <Shelf title={t('Salas activas')} subtitle={t('Tus amigos viendo algo juntos ahora mismo')} wide>
         {#each items('rooms') as room (room.code)}
           <a class="room-card" href="/sala/{room.code}">
-            <span class="live"><span class="pulse"></span> {room.playing ? 'En directo' : 'En pausa'}</span>
+            <span class="live"><span class="pulse"></span> {room.playing ? t('En directo') : t('En pausa')}</span>
             <span class="room-title">{room.title || room.name}</span>
             {#if room.episode}<span class="room-line">{room.episode}</span>{/if}
             <span class="room-who">{room.members.join(', ')}</span>
-            <span class="btn primary join">Unirse</span>
+            <span class="btn primary join">{t('Unirse')}</span>
           </a>
         {/each}
       </Shelf>
     {:else if r.id === 'recommended' && items('recommended').length}
-      <Shelf title="Te recomiendan" subtitle="Lo que tus amigos creen que te va a gustar">
+      <Shelf title={t('Te recomiendan')} subtitle={t('Lo que tus amigos creen que te va a gustar')}>
         {#each items('recommended') as rec (rec.id)}
-          <MediaCard href={media(rec.sourceId, rec.mediaId)} title={rec.title} cover={rec.cover} subtitle={'De ' + rec.from}
+          <MediaCard href={media(rec.sourceId, rec.mediaId)} title={rec.title} cover={rec.cover} subtitle={t('De ') + rec.from}
             badges={rec.seen ? [] : [{ text: 'Nuevo', tone: 'accent' }]} detail={rec.message ? '«' + rec.message + '»' : ''} />
         {/each}
       </Shelf>
     {:else if r.id === 'friends' && items('feed').length}
-      <Shelf title="Actividad de tus amigos" href="/amigos">
+      <Shelf title={t('Actividad de tus amigos')} href="/amigos">
         {#each items('feed').slice(0, 24) as e, i (i)}
           <a class="feed-card" href={e.sourceId ? media(e.sourceId, e.mediaId) : '/u/' + encodeURIComponent(e.user)}>
             <span class="feed-who"><span class="feed-avatar">{#if e.avatar}<img src={e.avatar} alt="" />{:else}{e.user.slice(0, 1).toUpperCase()}{/if}</span>{e.user}</span>
@@ -171,23 +172,23 @@
         {/each}
       </Shelf>
     {:else if r.id === 'continueWatching' && continueWatching.length}
-      <Shelf title="Continuar viendo" wide>
+      <Shelf title={t('Continuar viendo')} wide>
         {#each continueWatching as c (c.sourceId + c.chapterId)}
           <WideCard href={continueHref(c)} image={c.banner} fallback={c.cover} title={c.title} line={c.chapterTitle}
             aside={c.remainingMin ? `quedan ${c.remainingMin} min` : ''} progress={c.fraction || null} />
         {/each}
       </Shelf>
     {:else if r.id === 'continueReading' && continueReading.length}
-      <Shelf title="Continuar leyendo">
+      <Shelf title={t('Continuar leyendo')}>
         {#each continueReading as c (c.sourceId + c.chapterId)}
           <MediaCard href={continueHref(c)} title={c.title} cover={c.cover} subtitle={c.chapterTitle} progress={c.fraction || null} />
         {/each}
       </Shelf>
     {:else if r.id === 'newInLibrary' && newInLibrary.length}
-      <Shelf title="Nuevo en tu biblioteca" href="/biblioteca">
+      <Shelf title={t('Nuevo en tu biblioteca')} href="/biblioteca">
         {#each newInLibrary as l (l.sourceId + l.mediaId)}
           <MediaCard href={media(l.sourceId, l.mediaId)} title={l.title} cover={l.cover}
-            badges={[{ text: `${updates.byKey[l.sourceId + '|' + l.mediaId].unread} nuevos`, tone: 'accent' }]} />
+            badges={[{ text: t('{0} nuevos', [updates.byKey[l.sourceId + '|' + l.mediaId].unread]), tone: 'accent' }]} />
         {/each}
       </Shelf>
     {:else if r.id === 'season' || r.id === 'trendingAnime' || r.id === 'trendingManga' || ['action', 'romance', 'fantasy', 'comedy'].includes(r.id)}
@@ -202,13 +203,13 @@
         </Shelf>
       {/if}
     {:else if r.id === 'forYou' && items('forYou').length}
-      <Shelf title="Para ti" subtitle="Según lo que lees y ves">
+      <Shelf title={t('Para ti')} subtitle={t('Según lo que lees y ves')}>
         {#each items('forYou') as rel, i (rel.title + i)}
           <MediaCard title={rel.title} cover={rel.cover} showType type={rel.type} onclick={() => openRelated(rel)} />
         {/each}
       </Shelf>
     {:else if r.id === 'unified'}
-      <Shelf title="Recién actualizado" subtitle="De todas tus fuentes, una tarjeta por obra" loading={loading('unified')}>
+      <Shelf title={t('Recién actualizado')} subtitle={t('De todas tus fuentes, una tarjeta por obra')} loading={loading('unified')}>
         {#each items('unified') as u (u.primary.sourceId + u.primary.id)}
           <MediaCard href={media(u.primary.sourceId, u.primary.id)} title={u.primary.title} cover={u.primary.cover} showType type={u.primary.type}
             badges={groupBadges(u)} />
@@ -218,17 +219,17 @@
   {/each}
 
   <div class="edit-row">
-    <button class="btn text" onclick={() => (editing = true)}><Icon name="tune" size={18} /> Personalizar el inicio</button>
+    <button class="btn text" onclick={() => (editing = true)}><Icon name="tune" size={18} /> {t('Personalizar el inicio')}</button>
   </div>
 </div>
 
-<Sheet bind:open={editing} title="Filas del inicio">
-  <p class="small muted" style="margin-top:0">Oculta las que no quieras y cambia el orden.</p>
+<Sheet bind:open={editing} title={t('Filas del inicio')}>
+  <p class="small muted" style="margin-top:0">{t('Oculta las que no quieras y cambia el orden.')}</p>
   {#each layout as r, i (r.id)}
     <div class="list-item edit">
       <label class="grow"><input type="checkbox" checked={!r.hidden} onchange={() => toggle(i)} /> {TITLES[r.id]}</label>
-      <button class="icon-btn" onclick={() => move(i, -1)} disabled={i === 0} aria-label="Subir"><Icon name="chevronLeft" size={20} /></button>
-      <button class="icon-btn" onclick={() => move(i, 1)} disabled={i === layout.length - 1} aria-label="Bajar"><Icon name="chevronRight" size={20} /></button>
+      <button class="icon-btn" onclick={() => move(i, -1)} disabled={i === 0} aria-label={t('Subir')}><Icon name="chevronLeft" size={20} /></button>
+      <button class="icon-btn" onclick={() => move(i, 1)} disabled={i === layout.length - 1} aria-label={t('Bajar')}><Icon name="chevronRight" size={20} /></button>
     </div>
   {/each}
 </Sheet>

@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // Administración del servidor: estado (memoria, tráfico), workers del servidor de casa y funcionalidades.
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
@@ -18,7 +19,7 @@
   let showAudit = $state(false);
   let health = $state([]);
   let testing = $state('');
-  const statusText = { OK: 'bien', WARNING: 'con avisos', DEGRADED: 'caída', UNKNOWN: 'sin probar' };
+  const statusText = { OK: 'bien', WARNING: t('con avisos'), DEGRADED: t('caída'), UNKNOWN: t('sin probar') };
   let createdToken = $state(null);
 
   const mb = (b) => (b == null ? '—' : `${Math.round(b / 1048576)} MB`);
@@ -32,7 +33,7 @@
     return `hace ${Math.round(s / 86400)} d`;
   };
   const engineNames = {
-    tts: 'voces', ocr: 'OCR', translate: 'traducción', whisper: 'subtítulos', audio_fingerprint: 'huellas de audio',
+    tts: 'voces', ocr: 'OCR', translate: t('traducción'), whisper: t('subtítulos'), audio_fingerprint: t('huellas de audio'),
     jellyfin_download: 'Jellyfin', cbz_export: 'CBZ', echo: 'prueba'
   };
   const queued = $derived(workers ? Object.values(workers.queue.queued).reduce((a, b) => a + b, 0) : 0);
@@ -56,7 +57,7 @@
       const r = await api.adminCreateInvite(Number(inviteDays), inviteNote.trim());
       inviteLink = location.origin + r.path;
       inviteNote = '';
-      try { await navigator.clipboard.writeText(inviteLink); notify('Enlace copiado'); } catch {}
+      try { await navigator.clipboard.writeText(inviteLink); notify(t('Enlace copiado')); } catch {}
       load();
     } catch (err) { notify(err.message); }
   }
@@ -72,7 +73,7 @@
     showAudit = !showAudit;
     if (showAudit) audit = await api.adminAudit().catch(() => []);
   }
-  const inviteState = (i) => (i.usedAt ? `usada por ${i.usedBy || '—'}` : i.revoked ? 'anulada' : i.expiresAt < Date.now() ? 'caducada' : `caduca el ${new Date(i.expiresAt).toLocaleDateString('es')}`);
+  const inviteState = (i) => (i.usedAt ? t('usada por {0}', [i.usedBy || '—']) : i.revoked ? 'anulada' : i.expiresAt < Date.now() ? 'caducada' : t('caduca el {0}', [new Date(i.expiresAt).toLocaleDateString('es')]));
   onMount(load);
 
   async function create(e) {
@@ -92,60 +93,59 @@
     } catch (err) { notify(err.message); }
   }
   function revoke(w) {
-    if (confirm(`¿Revocar el worker «${w.name}»? Dejará de poder pedir trabajos.`)) act(() => api.adminRevokeWorker(w.id), 'Worker revocado');
+    if (confirm(t('¿Revocar el worker «{0}»? Dejará de poder pedir trabajos.', [w.name]))) act(() => api.adminRevokeWorker(w.id), 'Worker revocado');
   }
   async function test() {
     try {
       const { id } = await api.adminTestWorker();
-      notify('Trabajo de prueba en la cola…');
+      notify(t('Trabajo de prueba en la cola…'));
       for (let i = 0; i < 30; i++) {
         await new Promise((r) => setTimeout(r, 2000));
         const j = await api.job(id);
-        if (j.status === 'done') return notify('El worker respondió: todo bien');
-        if (j.status === 'failed' || j.status === 'expired') return notify(`La prueba falló: ${j.error || j.status}`);
+        if (j.status === 'done') return notify(t('El worker respondió: todo bien'));
+        if (j.status === 'failed' || j.status === 'expired') return notify(t('La prueba falló: {0}', [j.error || j.status]));
       }
-      notify('Ningún worker ha cogido la prueba todavía');
+      notify(t('Ningún worker ha cogido la prueba todavía'));
     } catch (err) { notify(err.message); }
   }
 </script>
 
 <section class="card">
-  <h3 class="sub">Servidor</h3>
+  <h3 class="sub">{t('Servidor')}</h3>
   {#if status}
     <div class="stats">
-      <div><span class="small muted">Memoria (heap)</span><b>{mb(status.memory.heapUsed)} / {mb(status.memory.heapMax)}</b></div>
-      <div><span class="small muted">Memoria del proceso</span><b>{mb(status.memory.rss)}</b></div>
+      <div><span class="small muted">{t('Memoria (heap)')}</span><b>{mb(status.memory.heapUsed)} / {mb(status.memory.heapMax)}</b></div>
+      <div><span class="small muted">{t('Memoria del proceso')}</span><b>{mb(status.memory.rss)}</b></div>
       <div>
-        <span class="small muted">Vídeo por el servidor ({status.bandwidth.month})</span>
+        <span class="small muted">{t('Vídeo por el servidor ({0})', [status.bandwidth.month])}</span>
         <b class:warn={status.bandwidth.level !== 'OK'}>{gb(status.bandwidth.usedBytes)}{status.bandwidth.capBytes > 0 ? ` / ${gb(status.bandwidth.capBytes)}` : ''}</b>
       </div>
     </div>
   {:else}
-    <p class="small muted">Cargando…</p>
+    <p class="small muted">{t('Cargando…')}</p>
   {/if}
 </section>
 
 <section class="card">
-  <h3 class="sub">Workers (servidor de casa)</h3>
+  <h3 class="sub">{t('Workers (servidor de casa)')}</h3>
   <p class="small muted" style="margin-top:0">
-    Hacen lo pesado: voces, OCR, subtítulos, descargas a Jellyfin. Se conectan ellos al servidor; crea uno y usa su token al
-    instalarlo (<code>install-worker.sh</code>).
+    {t('Hacen lo pesado: voces, OCR, subtítulos, descargas a Jellyfin. Se conectan ellos al servidor; crea uno y usa su token al instalarlo (')}<code>{t('install-worker.sh')}</code>).
   </p>
   {#if workers}
     <p class="small">
-      En cola: {queued} · en curso: {workers.queue.running}
-      {#if workers.queue.lastDone} · último terminado: {engineNames[workers.queue.lastDone.type] || workers.queue.lastDone.type}, {ago(workers.queue.lastDone.at)}{/if}
-      · resultados guardados: {mb(workers.results.bytes)}
+      {t('En cola: {0} · en curso: {1}', [queued, workers.queue.running])}
+      {#if workers.queue.lastDone} {t('· último terminado: {0}, {1}', [engineNames[workers.queue.lastDone.type] || workers.queue.lastDone.type, ago(workers.queue.lastDone.at)])}{/if}
+      {t('· resultados guardados: {0}', [mb(workers.results.bytes)])}
     </p>
     {#each workers.workers as w (w.id)}
       <div class="list-item worker">
         <span class="dot" class:on={w.online && !w.paused} title={w.online ? 'Conectado' : 'Desconectado'}></span>
         <span class="grow">
           <b>{w.name}</b>
-          {#if w.revoked}<span class="tag">revocado</span>{:else if w.paused}<span class="tag">en pausa</span>{/if}
+          {#if w.revoked}<span class="tag">{t('revocado')}</span>{:else if w.paused}<span class="tag">{t('en pausa')}</span>{/if}
           <span class="small muted block">
             {w.online ? 'Conectado' : `Visto ${ago(w.lastSeen)}`}
-            {#if w.capabilities.cpus} · {w.capabilities.cpus} núcleos, {Math.round((w.capabilities.ramMb || 0) / 1024)} GB{/if}
+            {#if w.capabilities.cpus} {t('· {0} núcleos, {1} GB', [w.capabilities.cpus, Math.round((w.capabilities.ramMb || 0) / 1024)])}{/if}
             {#if w.capabilities.gpu} · {w.capabilities.gpu}{/if}
             {#if w.capabilities.busy} · ocupado{/if}
           </span>
@@ -155,40 +155,39 @@
         </span>
         {#if !w.revoked}
           <label class="small mini">
-            <input type="checkbox" checked={w.canBackup} onchange={(e) => act(() => api.adminWorkerBackup(w.id, e.currentTarget.checked))} /> copias
+            <input type="checkbox" checked={w.canBackup} onchange={(e) => act(() => api.adminWorkerBackup(w.id, e.currentTarget.checked))} /> {t('copias')}
           </label>
           <button class="icon-btn" onclick={() => act(() => api.adminPauseWorker(w.id, !w.paused))} aria-label={w.paused ? 'Reanudar' : 'Pausar'}>
             <Icon name={w.paused ? 'play' : 'pause'} size={20} />
           </button>
-          <button class="icon-btn" onclick={() => revoke(w)} aria-label="Revocar"><Icon name="delete" size={20} /></button>
+          <button class="icon-btn" onclick={() => revoke(w)} aria-label={t('Revocar')}><Icon name="delete" size={20} /></button>
         {/if}
       </div>
     {:else}
-      <p class="small muted">Todavía no hay workers.</p>
+      <p class="small muted">{t('Todavía no hay workers.')}</p>
     {/each}
   {/if}
   <form class="add" onsubmit={create}>
-    <input class="field" placeholder="Nombre (p. ej. casa, portátil)" bind:value={newWorker} required />
-    <button class="btn primary" disabled={newWorker.trim().length < 2}><Icon name="add" size={18} /> Nuevo worker</button>
-    <button class="btn tonal" type="button" onclick={test}>Probar</button>
+    <input class="field" placeholder={t('Nombre (p. ej. casa, portátil)')} bind:value={newWorker} required />
+    <button class="btn primary" disabled={newWorker.trim().length < 2}><Icon name="add" size={18} /> {t('Nuevo worker')}</button>
+    <button class="btn tonal" type="button" onclick={test}>{t('Probar')}</button>
   </form>
   {#if createdToken}
     <div class="created">
-      <div>Token de <b>{createdToken.name}</b>:</div>
+      <div>{t('Token de')} <b>{createdToken.name}</b>:</div>
       <code class="token">{createdToken.token}</code>
-      <div class="small">Cópialo ahora: no se vuelve a mostrar (el servidor solo guarda su huella).</div>
+      <div class="small">{t('Cópialo ahora: no se vuelve a mostrar (el servidor solo guarda su huella).')}</div>
     </div>
   {/if}
-  <p class="small muted">«Copias» deja a ese worker llevarse la copia nocturna de la base de datos (para guardarla en el NAS).</p>
+  <p class="small muted">{t('«Copias» deja a ese worker llevarse la copia nocturna de la base de datos (para guardarla en el NAS).')}</p>
 </section>
 
 <IntegrationsPanel />
 
 <section class="card">
-  <h3 class="sub">Salud de las fuentes</h3>
+  <h3 class="sub">{t('Salud de las fuentes')}</h3>
   <p class="small muted" style="margin-top:0">
-    El canario prueba cada fuente de vez en cuando (cron en el servidor, ver <code>docs/VPS.md</code>). Las caídas se ocultan solas
-    y vuelven cuando funcionan.
+    {t('El canario prueba cada fuente de vez en cuando (cron en el servidor, ver')} <code>{t('docs/VPS.md')}</code>{t('). Las caídas se ocultan solas y vuelven cuando funcionan.')}
   </p>
   {#each health as h (h.id)}
     <div class="list-item">
@@ -203,41 +202,41 @@
 </section>
 
 <section class="card">
-  <h3 class="sub">Invitaciones</h3>
-  <p class="small muted" style="margin-top:0">Un enlace para que un amigo cree su cuenta: sirve una sola vez y caduca.</p>
+  <h3 class="sub">{t('Invitaciones')}</h3>
+  <p class="small muted" style="margin-top:0">{t('Un enlace para que un amigo cree su cuenta: sirve una sola vez y caduca.')}</p>
   <form class="add" onsubmit={invite}>
-    <input class="field" placeholder="Para quién (opcional)" bind:value={inviteNote} maxlength="100" />
-    <select class="field days" bind:value={inviteDays} aria-label="Caducidad">
-      <option value={1}>1 día</option><option value={3}>3 días</option><option value={7}>7 días</option><option value={30}>30 días</option>
+    <input class="field" placeholder={t('Para quién (opcional)')} bind:value={inviteNote} maxlength="100" />
+    <select class="field days" bind:value={inviteDays} aria-label={t('Caducidad')}>
+      <option value={1}>{t('1 día')}</option><option value={3}>{t('3 días')}</option><option value={7}>{t('7 días')}</option><option value={30}>{t('30 días')}</option>
     </select>
-    <button class="btn primary"><Icon name="share" size={18} /> Crear enlace</button>
+    <button class="btn primary"><Icon name="share" size={18} /> {t('Crear enlace')}</button>
   </form>
-  {#if inviteLink}<div class="created"><code class="token">{inviteLink}</code><div class="small">Pásaselo; solo se muestra ahora.</div></div>{/if}
+  {#if inviteLink}<div class="created"><code class="token">{inviteLink}</code><div class="small">{t('Pásaselo; solo se muestra ahora.')}</div></div>{/if}
   {#each invites.slice(0, 10) as i (i.id)}
     <div class="list-item">
-      <span class="grow"><span class="block">{i.note || `Invitación ${i.id}`}</span><span class="small muted block">{inviteState(i)}</span></span>
+      <span class="grow"><span class="block">{i.note || t('Invitación {0}', [i.id])}</span><span class="small muted block">{inviteState(i)}</span></span>
       {#if !i.usedAt && !i.revoked && i.expiresAt > Date.now()}
-        <button class="icon-btn" onclick={() => act(() => api.adminRevokeInvite(i.id), 'Invitación anulada')} aria-label="Anular"><Icon name="close" size={20} /></button>
+        <button class="icon-btn" onclick={() => act(() => api.adminRevokeInvite(i.id), t('Invitación anulada'))} aria-label={t('Anular')}><Icon name="close" size={20} /></button>
       {/if}
     </div>
   {/each}
 </section>
 
 <section class="card">
-  <h3 class="sub">Registro de actividad de administración</h3>
+  <h3 class="sub">{t('Registro de actividad de administración')}</h3>
   <button class="btn tonal" onclick={toggleAudit}>{showAudit ? 'Ocultar' : 'Ver'}</button>
   {#if showAudit}
     {#each audit as a (a.id)}
       <div class="audit small"><span class="muted">{new Date(a.at).toLocaleString('es')}</span> <b>{a.actor}</b> {a.action} {a.detail}<span class="muted"> · {a.ip}</span></div>
     {:else}
-      <p class="small muted">Sin actividad todavía.</p>
+      <p class="small muted">{t('Sin actividad todavía.')}</p>
     {/each}
   {/if}
 </section>
 
 <section class="card">
-  <h3 class="sub">Funcionalidades</h3>
-  <p class="small muted" style="margin-top:0">Apaga cualquiera si da problemas: desaparece en la web y en la app.</p>
+  <h3 class="sub">{t('Funcionalidades')}</h3>
+  <p class="small muted" style="margin-top:0">{t('Apaga cualquiera si da problemas: desaparece en la web y en la app.')}</p>
   {#each flags as f (f.name)}
     <label class="toggle">
       <span class="grow"><span class="block">{f.title}</span><span class="small muted block">{f.description}</span></span>

@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   // /amigos: everyone on this server (the group), what they are watching or reading right now, and their profiles.
   import { api } from '../lib/api.js';
   import { media } from '../lib/router.svelte.js';
@@ -9,8 +10,8 @@
 </script>
 
 <div class="page">
-  <h1>Amigos</h1>
-  <p class="muted">Todos los que usan este servidor. Lo que tengan oculto en su perfil no aparece aquí.</p>
+  <h1>{t('Amigos')}</h1>
+  <p class="muted">{t('Todos los que usan este servidor. Lo que tengan oculto en su perfil no aparece aquí.')}</p>
   {#if users === null}
     <div class="spinner"></div>
   {:else}
@@ -19,13 +20,13 @@
         <a class="friend" href="/u/{encodeURIComponent(u.name)}" style:--accent={u.accent || 'var(--c-accent)'}>
           <span class="avatar" aria-hidden="true">{#if u.avatar}<img src={u.avatar} alt="" />{:else}{u.name.slice(0, 1).toUpperCase()}{/if}</span>
           <span class="grow">
-            <span class="name">{u.name}{#if u.me} <span class="muted">(tú)</span>{/if}</span>
+            <span class="name">{u.name}{#if u.me} <span class="muted">{t('(tú)')}</span>{/if}</span>
             {#if u.now}
               <span class="now"><span class="dot"></span>{u.now.kind === 'watching' ? 'Viendo' : 'Leyendo'} {u.now.title}{#if u.now.label} · {u.now.label}{/if}</span>
             {/if}
           </span>
         </a>
-        {#if u.now?.sourceId}<a class="sr-only" href={media(u.now.sourceId, u.now.mediaId)}>Abrir {u.now.title}</a>{/if}
+        {#if u.now?.sourceId}<a class="sr-only" href={media(u.now.sourceId, u.now.mediaId)}>{t('Abrir {0}', [u.now.title])}</a>{/if}
       {/each}
     </div>
   {/if}

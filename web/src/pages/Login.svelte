@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../lib/i18n.svelte.js';
   import { api } from '../lib/api.js';
   import { session, loadUserData } from '../lib/store.svelte.js';
   import Sheet from '../components/Sheet.svelte';
@@ -88,85 +89,83 @@
 
 <div class="wrap">
   <div class="logo" aria-hidden="true"><span></span></div>
-  <h1 class="brand">Yomukai</h1>
-  <p class="muted">Manga, manhwa, novelas, cómics y anime de tus fuentes, en un solo sitio.</p>
+  <h1 class="brand">{t('Yomukai')}</h1>
+  <p class="muted">{t('Manga, manhwa, novelas, cómics y anime de tus fuentes, en un solo sitio.')}</p>
 
   {#if mode === 'setup'}
     <form class="card" onsubmit={configure}>
-      <h2 class="title">Primera configuración</h2>
-      <p class="small muted">Crea la cuenta de administrador. El código de configuración sale en el registro del servidor
-        (<code>docker compose logs yomukai</code>) y en <code>data/setup-token</code>.</p>
-      <label for="t" class="small muted">Código de configuración</label>
+      <h2 class="title">{t('Primera configuración')}</h2>
+      <p class="small muted">{t('Crea la cuenta de administrador. El código de configuración sale en el registro del servidor (')}<code>{t('docker compose logs yomukai')}</code>{t(') y en')} <code>{t('data/setup-token')}</code>.</p>
+      <label for="t" class="small muted">{t('Código de configuración')}</label>
       <input id="t" class="field" autocomplete="off" autocapitalize="none" bind:value={setupToken} required />
-      <label for="u" class="small muted">Tu usuario</label>
+      <label for="u" class="small muted">{t('Tu usuario')}</label>
       <input id="u" class="field" autocomplete="username" autocapitalize="none" bind:value={name} required />
-      <label for="p" class="small muted">Contraseña (8 o más)</label>
+      <label for="p" class="small muted">{t('Contraseña (8 o más)')}</label>
       <input id="p" class="field" type="password" autocomplete="new-password" bind:value={password} minlength="8" required />
       {#if error}<p class="error-text small">{error}</p>{/if}
-      <button class="btn primary block" disabled={busy || !setupToken || !name || password.length < 8}>Crear administrador</button>
+      <button class="btn primary block" disabled={busy || !setupToken || !name || password.length < 8}>{t('Crear administrador')}</button>
     </form>
   {:else if mode === 'invite'}
     <form class="card" onsubmit={register}>
-      <h2 class="title">Te han invitado</h2>
+      <h2 class="title">{t('Te han invitado')}</h2>
       {#if inviteValid === false}
-        <p class="error-text small">Esta invitación no existe, ya se usó o ha caducado. Pide otra.</p>
+        <p class="error-text small">{t('Esta invitación no existe, ya se usó o ha caducado. Pide otra.')}</p>
       {:else}
-        <p class="small muted">Elige tu usuario y contraseña. El enlace solo sirve una vez.</p>
-        <label for="u" class="small muted">Usuario</label>
+        <p class="small muted">{t('Elige tu usuario y contraseña. El enlace solo sirve una vez.')}</p>
+        <label for="u" class="small muted">{t('Usuario')}</label>
         <input id="u" class="field" autocomplete="username" autocapitalize="none" bind:value={name} required />
-        <label for="p" class="small muted">Contraseña (8 o más)</label>
+        <label for="p" class="small muted">{t('Contraseña (8 o más)')}</label>
         <input id="p" class="field" type="password" autocomplete="new-password" bind:value={password} minlength="8" required />
         {#if error}<p class="error-text small">{error}</p>{/if}
-        <button class="btn primary block" disabled={busy || !name || password.length < 8}>Crear mi cuenta</button>
+        <button class="btn primary block" disabled={busy || !name || password.length < 8}>{t('Crear mi cuenta')}</button>
       {/if}
     </form>
   {:else if challenge}
     <form class="card" onsubmit={sendCode}>
-      <h2 class="title">Verificación en dos pasos</h2>
-      <p class="small muted">Escribe el código de tu app de autenticación, o uno de tus códigos de recuperación.</p>
+      <h2 class="title">{t('Verificación en dos pasos')}</h2>
+      <p class="small muted">{t('Escribe el código de tu app de autenticación, o uno de tus códigos de recuperación.')}</p>
       <!-- svelte-ignore a11y_autofocus -->
       <input class="field code" inputmode="numeric" autocomplete="one-time-code" autocapitalize="none" bind:value={code} autofocus required />
       {#if error}<p class="error-text small">{error}</p>{/if}
-      <button class="btn primary block" disabled={busy || code.trim().length < 6}>Entrar</button>
-      <button class="btn block" type="button" onclick={() => { challenge = ''; error = ''; }}>Volver</button>
+      <button class="btn primary block" disabled={busy || code.trim().length < 6}>{t('Entrar')}</button>
+      <button class="btn block" type="button" onclick={() => { challenge = ''; error = ''; }}>{t('Volver')}</button>
     </form>
   {:else}
     <form class="card" onsubmit={login}>
-      <label for="u" class="small muted">Usuario</label>
+      <label for="u" class="small muted">{t('Usuario')}</label>
       <input id="u" class="field" autocomplete="username" autocapitalize="none" bind:value={name} required />
-      <label for="p" class="small muted">Contraseña</label>
+      <label for="p" class="small muted">{t('Contraseña')}</label>
       <input id="p" class="field" type="password" autocomplete="current-password" bind:value={password} required />
       {#if error}<p class="error-text small">{error}</p>{/if}
-      <button class="btn primary block" disabled={busy || !name || !password}>Entrar</button>
-      <p class="small muted">La sesión se queda guardada en este navegador: solo tendrás que entrar una vez.</p>
+      <button class="btn primary block" disabled={busy || !name || !password}>{t('Entrar')}</button>
+      <p class="small muted">{t('La sesión se queda guardada en este navegador: solo tendrás que entrar una vez.')}</p>
     </form>
   {/if}
 
   {#if session.guestsEnabled && mode === 'login' && !challenge}
     <div class="guest">
-      <button class="btn outline block" onclick={() => (guestNotice = true)} disabled={busy}>Probar sin cuenta</button>
+      <button class="btn outline block" onclick={() => (guestNotice = true)} disabled={busy}>{t('Probar sin cuenta')}</button>
       <p class="small muted">
-        Para echar un vistazo: puedes leer y ver lo que quieras, con algunos límites.
-        Todo lo que hagas se borra {session.guestDays === 1 ? 'al cabo de un día' : `a los ${session.guestDays} días`}.
+        {t('Para echar un vistazo: puedes leer y ver lo que quieras, con algunos límites. Todo lo que hagas se borra {0}.', [session.guestDays === 1 ? t('al cabo de un día') : t('a los {0} días', [session.guestDays])])}
       </p>
     </div>
   {/if}
 </div>
 
-<Sheet bind:open={guestNotice} title="Modo invitado: solo para probar">
+<Sheet bind:open={guestNotice} title={t('Modo invitado: solo para probar')}>
   <div class="notice">
-    <p>Es una cuenta de prueba para ver si Yomukai te gusta, así que va <strong>muy limitada</strong>:</p>
+    <p>{t('Es una cuenta de prueba para ver si Yomukai te gusta, así que va')} <strong>{t('muy limitada')}</strong>:</p>
     <ul>
-      <li>Pocas peticiones por minuto. Si navegas muy deprisa, algunas páginas, capítulos o búsquedas pueden fallar o tardar: espera unos segundos y vuelve a intentarlo.</li>
-      <li>Como mucho 3 capítulos por descarga y 2 vídeos a la vez.</li>
-      <li>Sin importar, exportar ni sincronizar con la app.</li>
-      <li>Todo lo que hagas se borra {session.guestDays === 1 ? 'al cabo de un día' : `a los ${session.guestDays} días`}.</li>
+      <li>{t('Pocas peticiones por minuto. Si navegas muy deprisa, algunas páginas, capítulos o búsquedas pueden fallar o tardar: espera unos segundos y vuelve a intentarlo.')}</li>
+      <li>{t('Como mucho 3 capítulos por descarga y 2 vídeos a la vez.')}</li>
+      <li>{t('Sin importar, exportar ni sincronizar con la app.')}</li>
+      <li>{t('Todo lo que hagas se borra {0}.', [session.guestDays === 1 ? t('al cabo de un día') : t('a los {0} días', [session.guestDays])])}</li>
     </ul>
-    <p class="small muted">Con una cuenta normal no hay nada de esto.</p>
+    <p class="small muted">{t('Con una cuenta normal no hay nada de esto.')}</p>
   </div>
   <div class="notice-actions">
-    <button class="btn text" onclick={() => (guestNotice = false)}>Cancelar</button>
-    <button class="btn primary" onclick={guest} disabled={busy}>Entendido, entrar</button>
+    <button class="btn text" onclick={() => (guestNotice = false)}>{t('Cancelar')}</button>
+    <button class="btn primary" onclick={guest} disabled={busy}>{t('Entendido, entrar')}</button>
   </div>
 </Sheet>
 
