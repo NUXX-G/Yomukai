@@ -186,7 +186,7 @@ class Works(
 
     /** Every source's list of the work, merged with the user's choices and read state. Slow sources do not block (15 s). */
     suspend fun chapters(user: User, key: String, languages: List<String>, sourceOrder: List<String>): WorkChaptersDto = coroutineScope {
-        val links = sourcesOf(key).filter { sources.get(it.sourceId) != null }
+        val links = sourcesOf(key).filter { sources.get(it.sourceId) != null && !(user.isGuest && it.sourceId == JellyfinSource.ID) }
         val failed = mutableListOf<String>()
         val lists = links.map { link ->
             async {

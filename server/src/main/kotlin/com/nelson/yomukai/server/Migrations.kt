@@ -244,6 +244,9 @@ object Migrations {
                    source_id TEXT NOT NULL, media_id TEXT NOT NULL, title TEXT NOT NULL, rules TEXT NOT NULL DEFAULT '{}', last_number REAL NOT NULL DEFAULT 0,
                    created_at INTEGER NOT NULL, UNIQUE(source_id, media_id))"""
             )
+        },
+        Migration(13, "Usuario de Jellyfin vinculado a cada cuenta (progreso en las dos direcciones)") {
+            addColumn("users", "jellyfin_user", "TEXT")
         }
     )
 

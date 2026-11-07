@@ -49,7 +49,7 @@ class JellyfinSourceTest {
     private fun config() = Config.fromEnv(
         mapOf(
             "DATA_DIR" to Files.createTempDirectory("ykjfs").toString(), "ADMIN_USER" to "admin", "ADMIN_PASSWORD" to "admin-password-1",
-            "BACKUPS_ENABLED" to "false"
+            "BACKUPS_ENABLED" to "false", "GUESTS_ENABLED" to "true"
         )
     )
 
@@ -87,6 +87,29 @@ class JellyfinSourceTest {
             assertEquals("bytes 0-3/10", part.headers["Content-Range"])
             assertEquals(HttpStatusCode.BadRequest, admin.get("/api/jellyfin/stream/not-an-id").status)
             assertEquals("JPEGDATA", admin.get("/api/jellyfin/image/${FakeJellyfin.SERIES}").bodyAsText())
+
+            // Guests never see the NAS, whichever way they ask.
+            val guest = createClient { install(HttpCookies) }
+            assertEquals(HttpStatusCode.OK, guest.post("/auth/guest").status)
+            for (path in listOf(
+                "/api/sources/jellyfin/latest", "/api/chapters?s=jellyfin&id=${FakeJellyfin.SERIES}", "/api/jellyfin/image/${FakeJellyfin.SERIES}",
+                "/api/jellyfin/stream/${FakeJellyfin.EP1}?q=orig", "/api/videos?s=jellyfin&c=jellyfin:${FakeJellyfin.EP1}"
+            )) {
+                assertEquals(path, HttpStatusCode.Forbidden, guest.get(path).status)
+            }
+
+            // Watched in Yomukai → Jellyfin (once the admin pairs the users).
+            val adminId = s.db.tx { queryOne("SELECT id FROM users WHERE name = 'admin'") { getLong(1) } }!!
+            admin.put("/api/admin/jellyfin/link") { contentType(ContentType.Application.Json); setBody("""{"userId":$adminId,"jellyfinUser":"${FakeJellyfin.JUSER}"}""") }
+            s.jellyfinSync.push(adminId, listOf(ProgressRow("jellyfin", FakeJellyfin.EP1, FakeJellyfin.SERIES, false, 90, 1400, 0.0, 1L)))
+            assertTrue(jf.userData.toString(), jf.userData.any { it.contains("PlaybackPositionTicks\":900000000") && it.contains("userId=${FakeJellyfin.JUSER}") })
+            // Watched in Jellyfin → Yomukai, as progress only.
+            s.jellyfinSync.pullAll()
+            val progress = s.db.progress(adminId, "jellyfin", FakeJellyfin.SERIES)
+            assertTrue(progress.toString(), progress.any { it.chapterId == FakeJellyfin.EP2 && it.read })
+            assertTrue(s.db.history(adminId).none { it.sourceId == "jellyfin" })
+            val users = admin.get("/api/admin/jellyfin/users").bodyAsText()
+            assertTrue(users, users.contains("Nelson") && users.contains(FakeJellyfin.JUSER))
         }
         // Gone when the home server stops answering.
         s.jellyfin.refresh()

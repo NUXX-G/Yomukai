@@ -13,6 +13,14 @@
   const loadFollows = () => api.follows().then((v) => (follows = v), () => (follows = []));
   loadFollows();
 
+  // Who is who in Jellyfin: watched state and positions go both ways for paired accounts.
+  let pairs = $state(null);
+  const loadPairs = () => api.jellyfinUsers().then((v) => (pairs = v), () => (pairs = { jellyfin: [], users: [], online: false }));
+  loadPairs();
+  async function pair(user, jellyfinUser) {
+    try { await api.linkJellyfin(user.id, jellyfinUser || null); user.jellyfinUser = jellyfinUser; notify('Guardado'); } catch (err) { notify(err.message); }
+  }
+
   async function unfollow(f) {
     try { await api.unfollow(f.id); loadFollows(); } catch (err) { notify(err.message); }
   }
@@ -67,6 +75,28 @@
 </section>
 
 <section class="card">
+  <h3 class="sub">Cuentas de Jellyfin</h3>
+  <p class="small muted">Empareja cada cuenta con su usuario de Jellyfin: lo visto y por dónde vas se sincroniza en los dos sentidos (lo de Jellyfin llega cada 15 minutos).</p>
+  {#if pairs === null}
+    <div class="spinner"></div>
+  {:else if !pairs.online}
+    <p class="small muted">Tu Jellyfin no responde ahora mismo (o falta configurarlo arriba).</p>
+  {:else}
+    <ul class="follows">
+      {#each pairs.users as u (u.id)}
+        <li>
+          <span class="who">{u.name}</span>
+          <select class="field pair" value={u.jellyfinUser || ''} onchange={(e) => pair(u, e.currentTarget.value)} aria-label={`Usuario de Jellyfin de ${u.name}`}>
+            <option value="">Sin vincular</option>
+            {#each pairs.jellyfin as j (j.id)}<option value={j.id}>{j.name}</option>{/each}
+          </select>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+</section>
+
+<section class="card">
   <h3 class="sub">Descarga automática</h3>
   <p class="small muted">Obras seguidas: lo nuevo va solo al Jellyfin o a la carpeta de cómics (cada 3 horas). Se sigue una obra desde su ficha › Opciones.</p>
   {#if follows === null}
@@ -96,4 +126,6 @@
   .follows li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
   .follows a { font-weight: 600; color: var(--c-text); }
   .small-btn { margin-left: auto; min-height: 32px; padding: 0 12px; }
+  .who { font-weight: 600; min-width: 120px; }
+  .pair { max-width: 260px; }
 </style>

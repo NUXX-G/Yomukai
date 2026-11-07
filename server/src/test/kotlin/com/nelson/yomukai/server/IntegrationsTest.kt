@@ -35,7 +35,11 @@ class FakeJellyfin(private val key: String) : AutoCloseable {
                 ex.requestURI.path == "/Library/Media/Updated" -> {
                     scanned += ex.requestBody.readBytes().decodeToString(); 204 to ""
                 }
+                ex.requestURI.path == "/Items" && ex.requestURI.query.orEmpty().contains("IsPlayed=true") -> 200 to PLAYED
+                ex.requestURI.path == "/Items" && ex.requestURI.query.orEmpty().contains("IsResumable") -> 200 to """{"Items":[]}"""
                 ex.requestURI.path == "/Items" -> 200 to ITEMS
+                ex.requestURI.path == "/Users" -> 200 to """[{"Id":"$JUSER","Name":"Nelson"}]"""
+                ex.requestURI.path == "/UserItems/$EP1/UserData" -> { userData += ex.requestURI.query + " " + ex.requestBody.readBytes().decodeToString(); 200 to "{}" }
                 ex.requestURI.path == "/Shows/$SERIES/Episodes" -> 200 to EPISODES
                 ex.requestURI.path == "/Videos/$EP1/stream" -> {
                     videoAsks += ex.requestURI.query.orEmpty()
@@ -54,12 +58,16 @@ class FakeJellyfin(private val key: String) : AutoCloseable {
     }
     val url = "http://127.0.0.1:${server.address.port}"
     val videoAsks = CopyOnWriteArrayList<String>()
+    val userData = CopyOnWriteArrayList<String>()
     override fun close() = server.stop(0)
 
     companion object {
         const val SERIES = "a1b2c3d4e5f60718293a4b5c6d7e8f90"
         const val EP1 = "11111111111111111111111111111111"
         const val EP2 = "22222222222222222222222222222222"
+        const val JUSER = "33333333333333333333333333333333"
+        private const val PLAYED =
+            """{"Items":[{"Id":"$EP2","Type":"Episode","SeriesId":"$SERIES","RunTimeTicks":14400000000,"UserData":{"Played":true,"LastPlayedDate":"2026-11-07T10:00:00.0000000Z"}}]}"""
         private const val ITEMS = """{"Items":[{"Id":"$SERIES","Name":"Frieren","Type":"Series","ProductionYear":2023,"Status":"Ended"}]}"""
         private const val EPISODES =
             """{"Items":[{"Id":"$EP1","Name":"El fin del viaje","IndexNumber":1,"ParentIndexNumber":1},{"Id":"$EP2","Name":"Episode 2","IndexNumber":2,"ParentIndexNumber":1}]}"""

@@ -183,6 +183,7 @@ class Services(val config: Config) {
     val words = Words(db, events)
     val integrations = Integrations(db, config.secret)
     val jellyfin = JellyfinLink(integrations, features, sources)
+    val jellyfinSync = JellyfinSync(db, jellyfin)
     val library = MediaDownloads(db, catalog, works, integrations, jobs, notifications, events)
     val language by lazy { WorkerLanguage(this) }
     private val animeCheck: (String) -> Boolean = { id -> sources.get(id) is com.nelson.yomukai.data.source.AnimeSource }
@@ -268,8 +269,11 @@ private fun Application.startBackgroundJobs(config: Config, services: Services) 
     }
     // The home Jellyfin as a source only while it is set up and answering.
     launch {
+        var jellyfinTicks = 0
         while (true) {
             runCatching { services.jellyfin.refresh() }.onFailure { log.debug("Jellyfin: {}", it.message) }
+            // What was watched in Jellyfin's own apps, every 15 min.
+            if (++jellyfinTicks % 3 == 0) runCatching { services.jellyfinSync.pullAll() }.onFailure { log.debug("Jellyfin progreso: {}", it.message) }
             delay(5 * 60_000L)
         }
     }
@@ -324,6 +328,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
         route("/api") {
             run {
                 install(requireUser(services.auth) { LoginThrottle.addressKey(clientAddress(it, config)) })
+                install(GuestsOffNas)
                 catalogRoutes(services)
                 userRoutes(services)
                 get("/img") { services.proxy.serveImage(call) }
@@ -370,6 +375,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 forumAdminRoutes(services)
                 integrationAdminRoutes(services)
                 mediaLibraryAdminRoutes(services)
+                jellyfinLinkAdminRoutes(services)
                 get("/status") { call.respond(mapOf("bandwidth" to services.bandwidth.summary(), "memory" to memoryStatus())) }
             }
         }
@@ -735,6 +741,7 @@ private fun Route.userRoutes(s: Services) {
         val history = body.getAsJsonObject("history")?.let { gson.fromJson(it, HistoryRow::class.java) }
         s.social.onProgress(call.user, rows.map { it.normalized() }, history?.normalized())
         s.db.putProgress(call.user.id, rows)
+        s.jellyfinSync.pushLater(call.user.id, rows)
         history?.let { s.db.putHistory(call.user.id, it) }
         call.respond(mapOf("ok" to true))
     }

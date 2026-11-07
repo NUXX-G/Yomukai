@@ -10,6 +10,7 @@ import com.nelson.yomukai.domain.model.VideoSource
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.request.path
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
@@ -173,9 +174,27 @@ class JellyfinLink(private val integrations: Integrations, private val features:
     }
 }
 
+/**
+ * The home NAS is for the group, never for guests: any request a guest makes that names the Jellyfin source (as "s",
+ * in a /sources/jellyfin/… path or under /jellyfin/…) is refused here, whatever the route. Installed after the
+ * session check, so the user is known.
+ */
+val GuestsOffNas = io.ktor.server.application.createRouteScopedPlugin("GuestsOffNas") {
+    onCall { call ->
+        val user = call.attributes.getOrNull(UserKey) ?: return@onCall
+        if (!user.isGuest) return@onCall
+        val path = call.request.path()
+        val asked = call.request.queryParameters.getAll("s").orEmpty() + call.request.queryParameters.getAll("sourceId").orEmpty()
+        if (JellyfinSource.ID in asked || path.contains("/sources/" + JellyfinSource.ID) || path.startsWith("/api/jellyfin/")) {
+            call.respond(HttpStatusCode.Forbidden, mapOf("error" to "No disponible para invitados"))
+        }
+    }
+}
+
 /** Covers and video from the home Jellyfin, for signed-in users (not guests), through the VPS. */
 fun Route.jellyfinMediaRoutes(s: Services) {
     get("/jellyfin/image/{id}") {
+        if (call.user.isGuest) return@get call.respond(HttpStatusCode.Forbidden)
         val api = s.jellyfin.api ?: return@get call.respond(HttpStatusCode.NotFound)
         val id = runCatching { JellyfinSource.safeId(call.parameters["id"].orEmpty()) }.getOrElse { return@get call.respond(HttpStatusCode.BadRequest) }
         val bytes = withContext(Dispatchers.IO) {
