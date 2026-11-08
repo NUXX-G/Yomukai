@@ -12,6 +12,30 @@ Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este ficher
 4. Portadas: algunas grandes se ven bien, pero la mayoría salen en baja resolución. Buscar portadas de calidad con APIs (AniList extraLarge, MangaDex original, TMDB…) y usarlas siempre.
 5. Voz: suena horrible y no sabe cómo cambiarla, porque no es intuitivo. Hacer evidente dónde se elige la voz y que la calidad por defecto sea buena.
 6. Pide saber cómo crear una sala para ver anime (se le explicó; revisar si es fácil de encontrar).
+7. No ve la fuente en chino.
+8. Traducción de bocadillos: funciona solo a veces y no en todos los bocadillos.
+9. Foro: al eliminar un hilo se borra, pero no te saca de él y sigue pareciendo que existe hasta que sales.
+**PRIORIDAD Nº 1 (la que más ha repetido)**: catálogo por OBRAS, no por fuentes. Nada de «One Piece en la fuente X» ni de buscar entre fuentes: una obra por idioma (según el idioma de la interfaz; dentro de la ficha se puede cambiar al otro), sin duplicados y lo más rápido posible. El servidor lo construye solo: la primera vez con todos los títulos disponibles y luego cada pocas horas busca capítulos y obras nuevas. Es lo que hace a Yomukai un producto profesional. Después, el resto de fallos.
+
+### PLAN: ÍNDICE DE OBRAS (prioridad nº 1, empezado el 2026-11-08)
+**Por qué ahora va lento**: las filas de Inicio vienen de AniList y al pulsar una el servidor busca en directo en todas las fuentes (locate). Si una fuente tarda, la obra se queda cargando 20 s o más. Hay que cambiarlo por un índice construido por adelantado.
+1. **Servidor, `WorkIndex.kt` + migración 18**:
+   - `index_items`: cada título de cada fuente, con fuente, id, idioma, tipo, títulos, portada, estado, géneros, `work_key` y fechas.
+   - `index_state`: progreso por fuente.
+   - FTS5 `works_fts`: una fila por obra e idioma con todos sus títulos, para búsquedas al instante.
+   - `works.popularity`: para ordenar por popularidad.
+2. **Rastreador ligero en el VPS** (solo red, con pausas y memoria acotada):
+   - La primera vez recorre el listado completo de cada fuente.
+   - Cada 2 h, las páginas de novedades hasta llegar a lo ya visto: capítulos y obras nuevas.
+   - Cada título entra en una obra: primero por nombre, al momento (`WorkKey`/`TitleMatcher`); después, en segundo plano y a ~40 por minuto, se confirma con AniList y pasa a `al:ID`. Las fichas provisionales se fusionan.
+3. **Idiomas**: una obra se muestra en el idioma de la interfaz (ES/EN; ZH aparte) con sus fuentes de ese idioma, y en la ficha se puede cambiar al otro.
+4. **API**:
+   - `/api/obras?lang=&type=&sort=updated|popular|az&page=`
+   - `/api/obras/buscar?q=` (FTS)
+   - `/api/obras/{key}?lang=`: ficha, idiomas, fuentes y capítulos unidos
+   - `/api/obras/anilist/{id}`: abrir al instante las filas de AniList
+   - Admin: estado del índice y reindexar. Interruptor `work_index`.
+5. **Clientes**: web con ficha por obra `/obra/:key`, Inicio y búsqueda contra el índice (y búsqueda en directo solo como «buscar también en las fuentes»). La app, conectada, usa lo mismo; sin servidor sigue como ahora.
 
 **PEDIDO DEL USUARIO EL 2026-11-08** (lo probó y se quejó): (1) al pulsar una obra seguía saliendo «elige fuente»: debe abrir UNA obra con todas sus fuentes, en app Y web; (2) lentísima: portadas ~20 s, abrir obra ~15 s; (3) no había botón de saltar opening/ending (solo +85 s). Con servidor sincronizado la app puede usarlo para ir más rápida, pero sin servidor también tiene que ir más rápida. NO quiere probar nada hasta que esté TODO; al final darle los comandos exactos de instalación para su VPS (Ubuntu, sin Tailscale), el portátil worker y el NAS con Jellyfin (que ahora no se puede tocar). Los datos de sus máquinas están en la conversación, NO en el repo, que es público.
 - [x] Obras sin elegir fuente. App: `locateAndOpen` abre con la primera fuente que es la misma obra, y la ficha junta los capítulos de las fuentes hermanas («De …», caché `located.json`). Web: `/api/locate/first` y `/api/works/whole`, `open.svelte.js` y `Details.svelte`. App con servidor: pregunta a la vez a sus fuentes y al servidor, y carga las hermanas que el servidor ya conoce.
