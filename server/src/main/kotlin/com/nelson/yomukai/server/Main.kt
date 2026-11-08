@@ -186,6 +186,7 @@ class Services(val config: Config) {
     val jellyfin = JellyfinLink(integrations, features, sources)
     val imports = Imports(db, catalog, http, config.malClientId, { prefs(it) })
     val jellyfinSync = JellyfinSync(db, jellyfin)
+    val skipTimes = SkipTimes(works, http)
     val library = MediaDownloads(db, catalog, works, integrations, jobs, notifications, events)
     val language by lazy { WorkerLanguage(this) }
     private val animeCheck: (String) -> Boolean = { id -> sources.get(id) is com.nelson.yomukai.data.source.AnimeSource }

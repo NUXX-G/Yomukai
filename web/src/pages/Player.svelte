@@ -154,6 +154,13 @@
   const skipped = $derived(next && following && next !== following ? next.index - following.index : 0);
   const inOpening = $derived(marks?.openingEnd > 0 && current >= (marks.openingStart ?? 0) && current < marks.openingEnd - 1);
   const inEnding = $derived(marks?.endingStart > 0 && current >= marks.endingStart && current < (marks.endingEnd || duration) - 1);
+  // Skipping by itself (Settings), once per opening or ending of each episode.
+  let autoSkipped = new Set();
+  $effect(() => {
+    if (!settings.player.autoSkip) return;
+    const key = (episode?.id || '') + (inOpening ? ':op' : inEnding ? ':ed' : '');
+    if ((inOpening || inEnding) && !autoSkipped.has(key)) { autoSkipped.add(key); if (inOpening) skipOpening(); else skipEnding(); }
+  });
   const direct = $derived(servers.filter((s) => s.direct));
 
   // Plain MP4 first: the HLS servers some sites use refuse to serve their segments to anyone but them.
@@ -252,9 +259,8 @@
   /** Marks are asked for once; the first time, the worker may still be working them out (they come next time). */
   async function loadMarks() {
     const other = following?.url || chapters.find((c) => c.index === episode.index - 1)?.url;
-    if (!other) return;
     try {
-      const r = await api.skip(sourceId, episode.url, other);
+      const r = await api.skip(sourceId, episode.url, other, mediaId, episode.number || undefined);
       if (r && typeof r.openingEnd === 'number') marks = r;
       else if (r && typeof r.endingStart === 'number') marks = r;
     } catch { /* no worker, or the feature is off: the +85 s button stays */ }

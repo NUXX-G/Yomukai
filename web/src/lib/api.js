@@ -213,7 +213,7 @@ export const api = {
     if (!res.ok) throw new ApiError(data.error || tk('No se pudo subir la imagen'), res.status);
     return data.id;
   },
-  skip: (s, c, other) => request('GET', `/api/skip?${qs({ s, c, other })}`),
+  skip: (s, c, other, id, ep) => request('GET', `/api/skip?${qs({ s, c, other, id, ep })}`),
   job: (id) => request('GET', `/api/jobs/${id}`),
   adminStatus: () => request('GET', '/api/admin/status'),
   integrations: () => request('GET', '/api/admin/integrations'),

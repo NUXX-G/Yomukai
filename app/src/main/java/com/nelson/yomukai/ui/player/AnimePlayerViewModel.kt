@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nelson.yomukai.AppContainer
 import com.nelson.yomukai.data.local.ChapterEntity
+import com.nelson.yomukai.data.repository.toDomain
 import com.nelson.yomukai.data.source.AnimeSource
 import com.nelson.yomukai.domain.model.VideoSource
 import com.nelson.yomukai.i18n.tr
@@ -102,6 +103,42 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
     val settings = container.preferences.app
     fun setAutoNext(enabled: Boolean) = container.preferences.updateApp { it.copy(playerAutoNext = enabled) }
     fun setSpeed(speed: Float) = container.preferences.updateApp { it.copy(playerSpeed = speed) }
+    fun setAutoSkip(enabled: Boolean) = container.preferences.updateApp { it.copy(playerAutoSkip = enabled) }
+
+    private val _marks = MutableStateFlow<com.nelson.yomukai.data.work.SkipMarks?>(null)
+
+    /** Where this episode's opening and ending are (null: unknown, the "+85 s" button stays). */
+    val skipMarks: StateFlow<com.nelson.yomukai.data.work.SkipMarks?> = _marks
+
+    private var marksFor: String? = null
+
+    /**
+     * Opening/ending times for [chapterId]: with a server connected, its marks (the home worker's audio fingerprints,
+     * or AniSkip's); without one, AniSkip directly by the title's MyAnimeList id.
+     */
+    fun loadMarks(chapterId: String?) {
+        if (chapterId == null || chapterId == marksFor || !hasEpisodeContext) return
+        marksFor = chapterId
+        _marks.value = null
+        viewModelScope.launch(Dispatchers.IO) {
+            val chapter = repo.getChapter(sourceId, chapterId) ?: return@launch
+            val episode = chapter.number.toInt().takeIf { it > 0 } ?: return@launch
+            val sync = container.serverSync
+            val fromServer = if (sync.serverUrl != null) runCatching {
+                fun enc(s: String) = java.net.URLEncoder.encode(s, Charsets.UTF_8)
+                sync.api("GET", "/api/skip?s=${enc(sourceId)}&c=${enc(chapter.url)}&id=${enc(mediaId)}&ep=$episode")?.asJsonObject?.let { o ->
+                    fun d(k: String) = o.get(k)?.takeIf { it.isJsonPrimitive }?.asDouble
+                    com.nelson.yomukai.data.work.SkipMarks(d("openingStart"), d("openingEnd"), d("endingStart"), d("endingEnd")).takeUnless { it.isEmpty }
+                }
+            }.getOrNull() else null
+            val marks = fromServer ?: run {
+                val media = repo.getMedia(sourceId, mediaId)?.toDomain() ?: return@run null
+                val malId = runCatching { container.metadata.load(media).malId }.getOrNull() ?: return@run null
+                com.nelson.yomukai.data.work.AniSkip.fetch(container.network, malId, episode)
+            }
+            if (marksFor == chapterId) _marks.value = marks
+        }
+    }
 
     init {
         val chapterId = _state.value.playing.chapterId

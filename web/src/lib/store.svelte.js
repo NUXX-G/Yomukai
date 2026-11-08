@@ -10,7 +10,7 @@ const DEFAULT_SETTINGS = {
   exclusions: { global: [], perSource: {} },
   reader: { mode: 'vertical', fit: 'width', infinite: true },
   novel: { size: 18, line: 1.7, theme: 'dark', font: 'serif' },
-  player: { autoNext: true, speed: 1, skipFiller: false },
+  player: { autoNext: true, speed: 1, skipFiller: false, autoSkip: false },
   /** Language learning: off unless the user turns it on; with it off, nothing changes anywhere. */
   learning: { enabled: false, target: 'es' },
   searchHistory: []

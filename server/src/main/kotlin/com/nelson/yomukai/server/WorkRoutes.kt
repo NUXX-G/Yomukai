@@ -124,15 +124,24 @@ fun Route.playbackRoutes(s: Services) {
         call.respond(rows)
     }
     // Opening/ending markers of an episode from audio fingerprints (computed by the home worker, then cached).
+    skipRoute(s)
+}
+
+/** Opening/ending marks of an episode: the home worker's audio fingerprints, else AniSkip's community times. */
+private fun Route.skipRoute(s: Services) {
     get("/skip") {
         val sourceId = call.param("s", 60)
         val chapter = call.param("c")
         val next = call.request.queryParameters["other"]?.take(2_000)
         val dedup = "skip:$sourceId:$chapter"
         s.jobs.results.get(dedup)?.let { (file, _) -> return@get call.respond(JsonParser.parseString(file.readText()).asJsonObject) }
-        if (!s.features.isOn("worker_jobs") || "audio_fingerprint" !in s.workers.availability().engines || next == null) {
-            return@get call.respond(HttpStatusCode.NoContent)
-        }
+        // Not measured by the home worker (yet): AniSkip's community times, by MyAnimeList id and episode.
+        val mediaId = call.request.queryParameters["id"]?.take(2_000)
+        val episode = call.request.queryParameters["ep"]?.toFloatOrNull()?.toInt()
+        val community = if (mediaId != null && episode != null) s.skipTimes.forEpisode(sourceId, mediaId, episode) else null
+        val workerCan = s.features.isOn("worker_jobs") && "audio_fingerprint" in s.workers.availability().engines && next != null
+        if (!workerCan) return@get if (community != null) call.respond(community) else call.respond(HttpStatusCode.NoContent)
+        if (community != null) return@get call.respond(community)
         val episodes = listOf(chapter, next).map { c ->
             s.catalog.rawVideos(sourceId, c).getOrNull()?.firstOrNull { it.isDirect && !ipBound(it.videoUrl) }
         }
@@ -149,3 +158,23 @@ fun Route.playbackRoutes(s: Services) {
 
 /** Streams tied to the address that resolved them (Google's) cannot be fetched by the home worker. */
 internal fun ipBound(url: String) = listOf("googlevideo.com", "blogger.com", "googleusercontent.com").any { url.contains(it) }
+
+/** Opening/ending times from AniSkip, by the work's MyAnimeList id, kept a week (also when AniSkip knows nothing). */
+class SkipTimes(private val works: Works, private val http: com.nelson.yomukai.data.network.HttpFetcher) {
+    private val cache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, com.nelson.yomukai.data.work.SkipMarks?>>()
+
+    suspend fun forEpisode(sourceId: String, mediaId: String, episode: Int): com.nelson.yomukai.data.work.SkipMarks? {
+        val malId = runCatching { works.resolve(sourceId, mediaId).malId }.getOrNull() ?: return null
+        val key = "$malId|$episode"
+        cache[key]?.takeIf { System.currentTimeMillis() - it.first < WEEK_MS }?.let { return it.second }
+        val marks = com.nelson.yomukai.data.work.AniSkip.fetch(http, malId, episode)
+        if (cache.size > MAX_ENTRIES) cache.clear()
+        cache[key] = System.currentTimeMillis() to marks
+        return marks
+    }
+
+    private companion object {
+        const val WEEK_MS = 7 * 24 * 3_600_000L
+        const val MAX_ENTRIES = 20_000
+    }
+}

@@ -255,6 +255,7 @@
     </div>
     <label class="toggle"><span class="grow">{t('Pasar solo al siguiente capítulo')}</span><input type="checkbox" bind:checked={settings.reader.infinite} onchange={() => saveSettings()} /></label>
     <label class="toggle"><span class="grow">{t('Siguiente episodio automático')}</span><input type="checkbox" bind:checked={settings.player.autoNext} onchange={() => saveSettings()} /></label>
+    <label class="toggle"><span class="grow">{t('Saltar opening y ending solos (cuando se conocen sus tiempos)')}</span><input type="checkbox" bind:checked={settings.player.autoSkip} onchange={() => saveSettings()} /></label>
   </section>
 
   {#if !session.user.guest}

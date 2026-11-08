@@ -222,6 +222,31 @@ fun AnimePlayerScreen(
         }
     }
 
+    // Opening/ending times of this episode (server or AniSkip); unknown keeps the "+85 s" button.
+    LaunchedEffect(playing.chapterId) { viewModel.loadMarks(playing.chapterId) }
+    val marks by viewModel.skipMarks.collectAsStateWithLifecycle()
+    val positionS = currentPosition / 1000.0
+    val inOpening = marks?.openingEnd?.let { end -> positionS >= (marks?.openingStart ?: 0.0) && positionS < end - 1 } == true
+    val inEnding = marks?.endingStart?.let { start -> positionS >= start && positionS < (marks?.endingEnd ?: (totalDuration / 1000.0)) - 1 } == true
+    // Without known times, the first minutes offer the classic jump.
+    val guessOpening = marks?.openingEnd == null && positionS in 5.0..240.0
+    fun skipOpening() {
+        val target = marks?.openingEnd?.let { (it * 1000).toLong() } ?: (exoPlayer.currentPosition + SKIP_OPENING_MS)
+        exoPlayer.seekTo(target.coerceAtMost(totalDuration.takeIf { it > 0 } ?: Long.MAX_VALUE))
+        currentPosition = target
+    }
+    fun skipEnding() {
+        if (viewModel.hasNext()) viewModel.playNext()
+        else marks?.endingEnd?.let { exoPlayer.seekTo((it * 1000).toLong()) }
+    }
+    // Skipping by itself, once per opening/ending, when the user asked for it.
+    var autoSkipped by remember(playing.chapterId) { mutableStateOf(setOf<String>()) }
+    LaunchedEffect(inOpening, inEnding, settings.playerAutoSkip) {
+        if (!settings.playerAutoSkip) return@LaunchedEffect
+        if (inOpening && "op" !in autoSkipped) { autoSkipped = autoSkipped + "op"; skipOpening() }
+        if (inEnding && "ed" !in autoSkipped) { autoSkipped = autoSkipped + "ed"; skipEnding() }
+    }
+
     LaunchedEffect(exoPlayer, isPlaying, isUserSeeking) {
         while (isPlaying && !isUserSeeking) {
             currentPosition = exoPlayer.currentPosition.coerceAtLeast(0L)
@@ -341,6 +366,29 @@ fun AnimePlayerScreen(
                 }
                 TextButton(onClick = onBackClick) { Text(tr("Volver")) }
                 TextButton(onClick = viewModel::dismissError) { Text(tr("Cerrar")) }
+            }
+        }
+
+        // "Saltar opening / ending": a big button of its own while it plays, whether or not the controls show.
+        AnimatedVisibility(
+            visible = (inOpening || inEnding || guessOpening) && !inPip && ui.error == null,
+            enter = fadeIn(tween(250)),
+            exit = fadeOut(tween(250)),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = 110.dp)
+        ) {
+            Button(
+                onClick = { if (inEnding) skipEnding() else skipOpening() },
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.92f), contentColor = Color.Black)
+            ) {
+                Icon(Icons.Default.FastForward, null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    when {
+                        inEnding -> if (viewModel.hasNext()) tr("Siguiente episodio") else tr("Saltar ending")
+                        inOpening -> tr("Saltar opening")
+                        else -> tr("Saltar opening (85 s)")
+                    }
+                )
             }
         }
 
@@ -561,6 +609,8 @@ fun AnimePlayerScreen(
                         }
                         Spacer(Modifier.weight(1f))
                         if (viewModel.hasEpisodeContext) {
+                            Text(tr("Saltar solo"), color = Color.White, fontSize = 12.sp)
+                            Switch(checked = settings.playerAutoSkip, onCheckedChange = viewModel::setAutoSkip)
                             Text(tr("Auto"), color = Color.White, fontSize = 12.sp)
                             Switch(checked = settings.playerAutoNext, onCheckedChange = viewModel::setAutoNext)
                             if (viewModel.hasNext()) {
