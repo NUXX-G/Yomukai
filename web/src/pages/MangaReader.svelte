@@ -92,6 +92,8 @@
   let ocr = $state({});
   let translating = $state(false);
   let readingBubbles = $state(false);
+  /** Languages the bubbles can be translated into (the home worker's translator knows them). */
+  const TARGETS = [['es', 'Español'], ['en', 'English'], ['fr', 'Français'], ['de', 'Deutsch'], ['it', 'Italiano'], ['pt', 'Português'], ['ja', '日本語'], ['ko', '한국어'], ['zh', '中文']];
   let speakingBox = $state('');
   const ocrRequested = new Set();
   const ocrOn = $derived(features.flags.ocr !== false);
@@ -557,7 +559,12 @@
       <div class="actions">
         <button class="btn text" disabled={!current || !prevOf(current)} onclick={() => open(prevOf(current))}>{t('Anterior')}</button>
         {#if ocrOn}
-          <button class="btn text" aria-pressed={translating} onclick={() => (translating = !translating)} title={t('Traducir los bocadillos')}>{translating ? t('Ver original') : 'Traducir'}</button>
+          <button class="btn text" aria-pressed={translating} onclick={() => (translating = !translating)} title={t('Traducir los bocadillos')}>{translating ? t('Ver original') : t('Traducir')}</button>
+          <!-- Into which language: changing it translates the pages again. -->
+          <select class="tr-lang" value={settings.learning?.target || 'es'} aria-label={t('Traducir al')} title={t('Traducir al')}
+            onchange={(e) => { settings.learning = { ...settings.learning, target: e.target.value }; saveSettings(); for (const k of Object.keys(ocr)) if (ocr[k]) ocr[k] = { ...ocr[k], tr: null }; translating = true; }}>
+            {#each TARGETS as [code, name] (code)}<option value={code}>{name}</option>{/each}
+          </select>
           {#if mode === 'vertical'}<button class="icon-btn" class:active={readingBubbles} onclick={toggleBubbles} aria-label={readingBubbles ? t('Parar la lectura') : t('Leer los bocadillos en voz alta')} title={t('Leer los bocadillos')}><Icon name="speech" /></button>{/if}
         {/if}
         {#if mode === 'vertical'}<button class="icon-btn" onclick={toggleScroll} aria-label={scrolling ? 'Parar desplazamiento' : t('Desplazamiento automático')} title={t('Desplazamiento automático')}><Icon name={scrolling ? 'pause' : 'play'} /></button>{/if}
@@ -575,6 +582,10 @@
     {:else}
       <SpeedControl value={settings.reader.autoSpeed || 80} base={80} min={15} max={800} onchange={(v) => setReader('autoSpeed', v)} onstop={toggleScroll} />
     {/if}
+  {/if}
+  <!-- While the bubbles are read aloud, stopping is always one tap away (the bars may be hidden). -->
+  {#if readingBubbles}
+    <button class="stop-pill" onclick={toggleBubbles}><Icon name="pause" size={18} /> {t('Parar la lectura')}</button>
   {/if}
 </div>
 
@@ -672,6 +683,10 @@
   :global(html.immersive) .reader { min-height: 100lvh; }
   .single { height: 100vh; height: 100dvh; display: grid; place-items: center; overflow: hidden; touch-action: pan-y pinch-zoom; }
   .single img { max-width: 100%; max-height: 100vh; max-height: 100dvh; object-fit: contain; user-select: none; -webkit-user-drag: none; }
+  .stop-pill { position: fixed; left: 50%; bottom: calc(var(--safe-bottom, 0px) + 24px); transform: translateX(-50%); z-index: 30; display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 20px; border-radius: 999px; border: 0; background: var(--primary); color: var(--on-primary, #fff); font-weight: 650; box-shadow: 0 8px 28px #0009; cursor: pointer; }
+  .tr-lang { background: transparent; color: inherit; border: 1px solid #ffffff33; border-radius: 999px; padding: 6px 8px; font: inherit; font-size: 0.85rem; max-width: 110px; }
+  .tr-lang option { color: #000; }
   /* Text found on the page: translations drawn over each bubble, and the bubble being read aloud. */
   .ocr-layer { position: absolute; inset: 0; pointer-events: none; }
   .tr-bubble { position: absolute; display: flex; align-items: center; justify-content: center; text-align: center; padding: 2px 4px;

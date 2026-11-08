@@ -460,7 +460,7 @@
       <button class="icon-btn" onclick={toggleSpeech} aria-label={speechPaused ? 'Seguir' : 'Pausar'}><Icon name={speechPaused ? 'play' : 'pause'} /></button>
       <span class="small grow">{t('Leyendo en voz alta · {0} · párrafo {1}', [loaded[speaking.c]?.chapter.label, speaking.i + 1])}</span>
       <button class="btn text small" onclick={() => (voiceOpen = true)} aria-label={t('Cambiar la voz')}><Icon name="speech" size={18} /> {t('Voz')}</button>
-      <button class="icon-btn" onclick={stopSpeech} aria-label={t('Parar')}><Icon name="close" /></button>
+      <button class="btn tonal small" onclick={stopSpeech}><Icon name="close" size={18} /> {t('Parar')}</button>
     {:else}
       <span class="small grow">{t('Desplazamiento automático · toca el texto para parar')}</span>
       <button class="icon-btn" onclick={toggleScroll} aria-label={t('Parar')}><Icon name="pause" /></button>

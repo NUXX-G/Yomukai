@@ -398,6 +398,19 @@ fun NovelReaderScreen(
                     )
                 }
 
+                // While it reads aloud, stopping is always one tap away (the bars hide while reading).
+                if (reading && !overlayVisible) {
+                    androidx.compose.material3.ExtendedFloatingActionButton(
+                        onClick = { speech.stop() },
+                        icon = { Icon(Icons.Default.Stop, contentDescription = null) },
+                        text = { Text(tr("Parar la lectura")) },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .navigationBarsPadding()
+                            .padding(bottom = 24.dp)
+                    )
+                }
+
                 AnimatedVisibility(
                     visible = overlayVisible,
                     enter = fadeIn(),

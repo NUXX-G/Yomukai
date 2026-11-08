@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -293,6 +294,19 @@ fun MangaReaderScreen(
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
                     .padding(bottom = if (overlayVisible) 72.dp else if (settings.showPageNumber) 36.dp else 12.dp)
+            )
+        }
+
+        // Bubbles read aloud: stopping is one tap away, without opening the settings.
+        if (settings.speakBubbles && !overlayVisible) {
+            androidx.compose.material3.ExtendedFloatingActionButton(
+                onClick = { viewModel.updateSettings { it.copy(speakBubbles = false) } },
+                icon = { Icon(Icons.Default.Stop, contentDescription = null) },
+                text = { Text(tr("Parar la lectura")) },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = if (autoScroll && webtoon) 96.dp else 24.dp)
             )
         }
 
