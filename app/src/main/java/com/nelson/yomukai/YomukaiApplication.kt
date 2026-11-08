@@ -113,6 +113,7 @@ class AppContainer(context: Context) {
     val serverSync = com.nelson.yomukai.data.sync.ServerSync(context, database, preferences) { broken -> sourceManager.degraded = broken }
     val dictionary by lazy { com.nelson.yomukai.data.learning.OfflineDictionary(context, serverSync) }
     val deviceOcr by lazy { com.nelson.yomukai.data.ocr.DeviceOcr() }
+    val bubbleSpeaker by lazy { com.nelson.yomukai.data.ocr.BubbleSpeaker(context) }
     val videoOffline = VideoOffline(context, network)
     val downloadManager = DownloadManager(context, database, sourceManager, network, applicationScope, preferences, videoOffline)
     val contentRepository = ContentRepository(sourceManager, downloadManager)

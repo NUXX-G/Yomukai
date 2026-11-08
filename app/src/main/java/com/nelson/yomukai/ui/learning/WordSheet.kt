@@ -75,9 +75,13 @@ fun WordSheet(word: String, sentence: String, lang: String, source: String, onDi
     var downloading by remember { mutableStateOf(false) }
     val connected = container.serverSync.serverUrl != null
     val code = lang.take(2).lowercase()
+    // A whole bubble or sentence: its words are offered to look up one by one.
+    val choices = remember(word) { wordsOf(word) }
+    var current by remember(word) { mutableStateOf(choices.firstOrNull() ?: word) }
 
-    LaunchedEffect(word, code) {
-        val (s, found) = container.dictionary.lookup(code, word)
+    LaunchedEffect(current, code) {
+        status = null
+        val (s, found) = container.dictionary.lookup(code, current)
         status = s
         entries = found
     }
@@ -93,9 +97,14 @@ fun WordSheet(word: String, sentence: String, lang: String, source: String, onDi
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(word, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(current, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            if (choices.size > 1) {
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    choices.forEach { w -> androidx.compose.material3.FilterChip(selected = w == current, onClick = { current = w }, label = { Text(w) }) }
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(onClick = { tts?.speak(word, TextToSpeech.QUEUE_FLUSH, null, "word") }, enabled = tts != null) {
+                FilledTonalButton(onClick = { tts?.speak(current, TextToSpeech.QUEUE_FLUSH, null, "word") }, enabled = tts != null) {
                     Icon(Icons.AutoMirrored.Filled.VolumeUp, null)
                     Text(" " + tr("Escuchar"))
                 }
@@ -105,7 +114,7 @@ fun WordSheet(word: String, sentence: String, lang: String, source: String, onDi
                         scope.launch {
                             val meaning = entries.firstOrNull()?.let { e -> e.es.joinToString(", ").ifEmpty { e.glosses.firstOrNull().orEmpty() } }.orEmpty()
                             val body = com.google.gson.JsonObject().apply {
-                                addProperty("word", word); addProperty("lang", code); addProperty("meaning", meaning.take(500))
+                                addProperty("word", current); addProperty("lang", code); addProperty("meaning", meaning.take(500))
                                 addProperty("context", sentence.take(500)); addProperty("source", source.take(200))
                             }
                             message = runCatching { container.serverSync.api("POST", "/api/words", body); tr("Guardada para repasar") }
@@ -129,3 +138,12 @@ fun WordSheet(word: String, sentence: String, lang: String, source: String, onDi
         }
     }
 }
+
+/** The words of a bubble or sentence written with spaces, to pick from; empty for a single word or Chinese/Japanese. */
+private fun wordsOf(text: String): List<String> {
+    if (!text.trim().contains(' ')) return emptyList()
+    return text.split(' ').mapNotNull { part -> com.nelson.yomukai.data.learning.WordAt.find(part, part.indexOfFirst { it.isLetterOrDigit() })?.word }
+        .distinct().take(MAX_CHOICES)
+}
+
+private const val MAX_CHOICES = 30

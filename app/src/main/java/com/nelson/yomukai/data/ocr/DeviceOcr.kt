@@ -103,4 +103,10 @@ class DeviceOcr {
 }
 
 /** Bubbles to translate in a reader: from the source's language to the interface's. */
-data class BubbleTranslation(val from: String, val to: String)
+data class BubbleTranslation(
+    val from: String,
+    val to: String,
+    val translate: Boolean = true,
+    val learning: Boolean = false,
+    val speak: Boolean = false
+)

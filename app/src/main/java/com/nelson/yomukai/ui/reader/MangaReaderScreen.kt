@@ -61,7 +61,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -123,6 +125,7 @@ fun MangaReaderScreen(
     var showIndex by remember { mutableStateOf(false) }
     var showBookmarks by remember { mutableStateOf(false) }
     var autoScroll by remember { mutableStateOf(false) }
+    val speaker = com.nelson.yomukai.ui.LocalAppContainer.current.bubbleSpeaker
 
     ReaderWindowEffects(settings.brightness, settings.keepScreenOn, immersive = !overlayVisible)
     ReaderOrientationEffect(settings.orientation)
@@ -166,6 +169,8 @@ fun MangaReaderScreen(
     }
 
     val onLocation: (String, Int) -> Unit = { chapterId, page ->
+        if (location?.first != chapterId) speaker.reset()
+        speaker.onPage(page)
         location = chapterId to page
         viewModel.onChapterVisible(chapterId)
         val total = segments.firstOrNull { it.chapter.chapterId == chapterId }?.content?.size ?: 0
@@ -174,9 +179,19 @@ fun MangaReaderScreen(
     val onNearEnd: () -> Unit = { if (settings.infiniteScroll) viewModel.loadNext() }
 
     // Bubbles translated on the device when the source is in another language than the interface.
-    val bubbleSpec = remember(settings.translateBubbles, viewModel.language) {
+    // Learning mode also reads them, so a long press on a bubble opens its words.
+    val learning = com.nelson.yomukai.ui.LocalAppContainer.current.preferences.app.collectAsState().value.learningEnabled
+    val bubbleSpec = remember(settings.translateBubbles, settings.speakBubbles, learning, viewModel.language) {
         val from = viewModel.language.lowercase()
-        if (settings.translateBubbles && from.length == 2 && from != com.nelson.yomukai.i18n.I18n.lang) com.nelson.yomukai.data.ocr.BubbleTranslation(from, com.nelson.yomukai.i18n.I18n.lang) else null
+        val to = com.nelson.yomukai.i18n.I18n.lang
+        val translate = settings.translateBubbles && from != to
+        val speak = settings.speakBubbles
+        val wanted = translate || learning || speak
+        if (from.length == 2 && wanted) com.nelson.yomukai.data.ocr.BubbleTranslation(from, to, translate, learning, speak) else null
+    }
+    DisposableEffect(settings.speakBubbles) {
+        speaker.enabled = settings.speakBubbles
+        onDispose { speaker.enabled = false; speaker.reset() }
     }
     CompositionLocalProvider(LocalBubbleTranslation provides bubbleSpec) {
     Box(
@@ -733,7 +748,7 @@ internal fun ReaderPageImage(
                 fit == ReaderFit.HEIGHT -> com.nelson.yomukai.data.ocr.FitMode.HEIGHT
                 else -> com.nelson.yomukai.data.ocr.FitMode.INSIDE
             }
-            BubbleOverlay("${page.model}|$cropBorders", success.result.image, translation, mode, Modifier.matchParentSize())
+            BubbleOverlay("${page.model}|$cropBorders", index, success.result.image, translation, mode, Modifier.matchParentSize())
         }
     }
 }
@@ -811,6 +826,7 @@ private fun MangaReaderSettingsSheet(
             ReaderFit.entries.forEach { fit -> RadioRow(fit.displayName, settings.fit == fit) { onUpdate { it.copy(fit = fit) } } }
             SettingSwitch(tr("Recortar bordes blancos"), settings.cropBorders) { v -> onUpdate { it.copy(cropBorders = v) } }
             SettingSwitch(tr("Traducir bocadillos en el móvil"), settings.translateBubbles) { v -> onUpdate { it.copy(translateBubbles = v) } }
+            SettingSwitch(tr("Leer bocadillos en voz alta"), settings.speakBubbles) { v -> onUpdate { it.copy(speakBubbles = v) } }
 
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
             Text(tr("Filtro de color"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
