@@ -273,7 +273,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
     // ---------- Reading --------------------------------------------------------------------------------------------
 
     /** Works with a source in [lang] (multi-language sources count for every language), of [types] when given. */
-    suspend fun list(lang: String, types: Set<String>?, sort: String, page: Int): List<Card> = s.db.tx {
+    suspend fun list(lang: String, types: Set<String>?, sort: String, page: Int, hideAdult: Boolean = true): List<Card> = s.db.tx {
         val typeFilter = types?.takeIf { it.isNotEmpty() }?.joinToString(",") { "'" + it.filter(Char::isLetter) + "'" }
         val order = when (sort) {
             "az" -> "COALESCE(local_title, w.title) COLLATE NOCASE ASC"
@@ -287,7 +287,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
                  (SELECT i5.source_id FROM index_items i5 WHERE i5.work_key = w.key AND i5.cover <> '' LIMIT 1) AS cover_source,
                  (SELECT GROUP_CONCAT(DISTINCT i4.lang) FROM index_items i4 WHERE i4.work_key = w.key) AS langs
                FROM works w JOIN index_items i ON i.work_key = w.key AND i.lang = ?
-               ${if (typeFilter != null) "WHERE i.type IN ($typeFilter)" else ""}
+               WHERE 1 = 1 ${if (typeFilter != null) "AND i.type IN ($typeFilter)" else ""} ${if (hideAdult) "AND $notAdult" else ""}
                GROUP BY w.key ORDER BY $order LIMIT ? OFFSET ?""",
             lang, lang, PAGE_SIZE, (page - 1).coerceAtLeast(0) * PAGE_SIZE
         ) { card() }
@@ -303,7 +303,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
     )
 
     /** Works whose names match [query] (any word start, accents ignored), those with a source in [lang] first. */
-    suspend fun search(query: String, lang: String, types: Set<String>?): List<Card> {
+    suspend fun search(query: String, lang: String, types: Set<String>?, hideAdult: Boolean = true): List<Card> {
         val terms = query.lowercase().split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotBlank() }.take(MAX_TERMS)
         if (terms.isEmpty()) return emptyList()
         val match = terms.joinToString(" ") { "\"" + it.replace("\"", "") + "\"*" }
@@ -321,7 +321,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
                  (SELECT i5.source_id FROM index_items i5 WHERE i5.work_key = w.key AND i5.cover <> '' LIMIT 1) AS cover_source,
                      (SELECT GROUP_CONCAT(DISTINCT i4.lang) FROM index_items i4 WHERE i4.work_key = w.key) AS langs
                    FROM works w JOIN index_items i ON i.work_key = w.key
-                   WHERE w.key IN (${keys.joinToString(",") { "?" }}) GROUP BY w.key""",
+                   WHERE w.key IN (${keys.joinToString(",") { "?" }}) ${if (hideAdult) "AND $notAdult" else ""} GROUP BY w.key""",
                 lang, *keys.toTypedArray()
             ) { card() }
         }.associateBy { it.key }
@@ -338,6 +338,18 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
     }
 
     private fun squash(text: String) = text.lowercase().filter { it.isLetterOrDigit() }
+
+    /**
+     * SQL: the work [w] has no sexual genre (adult, hentai, smut, ecchi… in any spelling the taxonomy knows) in any of
+     * its sources nor in AniList's genres. Built from our own taxonomy, never from user input.
+     */
+    private val notAdult: String by lazy {
+        val likes = UserPrefs.ADULT_GENRES.flatMap { com.nelson.yomukai.data.metadata.GenreTaxonomy.variants(it) }
+            .filter { v -> v.none { it == '\'' || it == '%' || it == '_' || it == '"' } }.distinct()
+            .joinToString(" OR ") { "{col} LIKE '%\"$it\"%'" }
+        "NOT EXISTS(SELECT 1 FROM index_items a WHERE a.work_key = w.key AND (${likes.replace("{col}", "a.genres")})) " +
+            "AND NOT (${likes.replace("{col}", "COALESCE(w.genres, '')")})"
+    }
 
     /** The work behind an AniList id, if the index has it. */
     suspend fun byAniList(id: Int): String? = s.db.tx {
@@ -418,12 +430,12 @@ fun Route.workIndexRoutes(s: Services) {
         if (!call.indexOn()) return@get
         val page = call.request.queryParameters["page"]?.toIntOrNull()?.coerceIn(1, MAX_PAGE) ?: 1
         val sort = call.request.queryParameters["sort"]?.takeIf { it in setOf("updated", "popular", "az") } ?: "updated"
-        call.respond(mapOf("works" to s.workIndex.list(call.lang(), call.types(), sort, page).map { it.shown() }, "page" to page))
+        call.respond(mapOf("works" to s.workIndex.list(call.lang(), call.types(), sort, page, hideAdult = !s.prefs(call.user).showAdult).map { it.shown() }, "page" to page))
     }
     get("/obras/buscar") {
         if (!call.indexOn()) return@get
         val q = call.request.queryParameters["q"]?.trim()?.take(MAX_QUERY).orEmpty()
-        call.respond(mapOf("works" to s.workIndex.search(q, call.lang(), call.types()).map { it.shown() }))
+        call.respond(mapOf("works" to s.workIndex.search(q, call.lang(), call.types(), hideAdult = !s.prefs(call.user).showAdult).map { it.shown() }))
     }
     get("/obras/anilist/{id}") {
         if (!call.indexOn()) return@get

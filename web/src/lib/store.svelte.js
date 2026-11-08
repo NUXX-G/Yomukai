@@ -8,6 +8,8 @@ export const session = $state({ user: null, ready: false, offline: false, suspen
 const DEFAULT_SETTINGS = {
   enabledSources: null,
   exclusions: { global: [], perSource: {} },
+  /** Sexual content (adult, hentai, smut…; not ecchi) is hidden unless the user switches it on. */
+  showAdult: false,
   reader: { mode: 'vertical', fit: 'width', infinite: true },
   novel: { size: 18, line: 1.7, theme: 'dark', font: 'serif' },
   player: { autoNext: true, speed: 1, skipFiller: false, autoSkip: false },

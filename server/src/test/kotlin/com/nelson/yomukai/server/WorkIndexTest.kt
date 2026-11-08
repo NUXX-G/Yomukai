@@ -57,6 +57,23 @@ class WorkIndexTest {
     }
 
     @Test
+    fun sexualContentIsHiddenUnlessTheUserSwitchesItOn() = runBlocking {
+        val adult = item("olympus", "h1", "Obra Picante").copy(genres = listOf("Acción", "Hentai"))
+        val ecchi = item("olympus", "e1", "Obra Ecchi").copy(genres = listOf("ecchi"))
+        val clean = item("olympus", "c1", "Obra Limpia").copy(genres = listOf("Acción", "Mature"))
+        index.record("olympus", "es", listOf(adult, ecchi, clean), fresh = false)
+        index.groupPending()
+        // Ecchi is not hidden, only sexual content; "Mature" (violent, serious) is not either.
+        assertEquals(listOf("Obra Ecchi", "Obra Limpia"), index.list("es", null, "az", 1).map { it.title })
+        assertEquals(3, index.list("es", null, "az", 1, hideAdult = false).size)
+        assertTrue(index.search("obra", "es", null).none { it.title == "Obra Picante" })
+        // Settings without the switch hide it; with it, nothing is added.
+        assertTrue(UserPrefs.parse("{}").globalExclusions.containsAll(UserPrefs.ADULT_GENRES))
+        assertTrue(UserPrefs.parse(null).globalExclusions.containsAll(UserPrefs.ADULT_GENRES))
+        assertTrue(UserPrefs.parse("""{"showAdult":true}""").globalExclusions.isEmpty())
+    }
+
+    @Test
     fun crawlingASourceRecordsItsPagesAndStopsAtTheEnd() = runBlocking {
         val source = object : CatalogueSource {
             override val id = "fake"

@@ -68,7 +68,8 @@ class ServerLogicTest {
     fun settingsDecideSourcesAndExclusions() {
         val prefs = UserPrefs.parse("""{"enabledSources":["mangadex"],"exclusions":{"global":["BL"],"perSource":{"asura":["Gore"]}}}""")
         assertEquals(setOf("mangadex"), prefs.enabledSources)
-        assertEquals(setOf("BL", "Gore"), prefs.excludedFor("asura"))
+        // Sexual content is hidden too unless the user switched it on.
+        assertEquals(setOf("BL", "Gore") + UserPrefs.ADULT_GENRES, prefs.excludedFor("asura"))
         assertNull("no list means the defaults", UserPrefs.parse("""{"theme":"dark"}""").enabledSources)
         assertEquals(UserPrefs.DEFAULT, UserPrefs.parse("no es json"))
     }

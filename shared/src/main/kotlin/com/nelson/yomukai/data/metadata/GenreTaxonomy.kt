@@ -53,7 +53,9 @@ object GenreTaxonomy {
         listOf("Cocina", "cooking", "gourmet", "comida", "food"),
         listOf("Medicina", "medical", "medico"),
         listOf("Gender bender", "genderswap", "cambio de genero"),
-        listOf("Adulto", "adult", "mature", "maduro", "+18", "smut", "hentai"),
+        // Sexual content only (hidden unless the user shows it); "mature" (violent, serious) is its own group.
+        listOf("Adulto", "adult", "+18", "smut", "hentai", "erotica", "erotico", "porno", "pornografico", "xxx"),
+        listOf("Maduro", "mature"),
         listOf("Violencia sexual", "sexual violence"),
         listOf("Monstruos", "monsters", "monster girls", "monstruo"),
         listOf("Viajes en el tiempo", "time travel", "viaje en el tiempo"),

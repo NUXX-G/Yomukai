@@ -212,6 +212,9 @@
       {/each}
     </div>
     <form class="add" onsubmit={addGenre}><input class="field" placeholder={t('Otro género')} bind:value={customGenre} /><button class="btn tonal">{t('Añadir')}</button></form>
+    <!-- Sexual content (adult, hentai, smut…; not ecchi) stays hidden unless switched on here, for each user. -->
+    <label class="toggle adult"><span class="grow">{t('Mostrar contenido sexual (+18)')}<span class="small muted block-note">{t('Apagado: no salen obras para adultos ni hentai en ningún sitio (el ecchi sí).')}</span></span>
+      <input type="checkbox" checked={!!settings.showAdult} onchange={(e) => { settings.showAdult = e.target.checked; saveSettings({ reloadSources: true }); }} /></label>
   </section>
 
   {#if !session.user.guest && !isIOS}

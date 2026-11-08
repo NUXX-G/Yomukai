@@ -535,7 +535,7 @@ class Database(file: File) {
 
     companion object {
         /** Settings both the web and the Android app understand. */
-        val SHARED_SETTINGS = listOf("enabledSources", "exclusions")
+        val SHARED_SETTINGS = listOf("enabledSources", "exclusions", "showAdult")
     }
 }
 

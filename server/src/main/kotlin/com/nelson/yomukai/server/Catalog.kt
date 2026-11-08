@@ -46,7 +46,16 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
 
 /** What a user's settings say about sources and genres. The web app owns the rest of the document. */
-data class UserPrefs(val enabledSources: Set<String>?, val globalExclusions: Set<String>, val perSource: Map<String, Set<String>>) {
+/**
+ * [showAdult]: sexual content (adult, hentai, smut…; ecchi is not) is hidden unless the user switched it on; when hidden,
+ * those genres join [globalExclusions].
+ */
+data class UserPrefs(
+    val enabledSources: Set<String>?,
+    val globalExclusions: Set<String>,
+    val perSource: Map<String, Set<String>>,
+    val showAdult: Boolean = false
+) {
     /** An exact, unambiguous (JSON) form of these settings: two different settings never share a key. */
     fun cacheKey(): String = com.google.gson.Gson().toJson(
         listOf(enabledSources?.sorted(), globalExclusions.sorted(), perSource.toSortedMap().mapValues { it.value.sorted() })
@@ -55,7 +64,10 @@ data class UserPrefs(val enabledSources: Set<String>?, val globalExclusions: Set
     fun excludedFor(sourceId: String): Set<String> = globalExclusions + perSource[sourceId].orEmpty()
 
     companion object {
-        val DEFAULT = UserPrefs(null, emptySet(), emptyMap())
+        /** The genre group (see GenreTaxonomy) of sexual content: adult, hentai, smut… (ecchi is not hidden). */
+        val ADULT_GENRES = setOf("Adulto")
+
+        val DEFAULT = UserPrefs(null, ADULT_GENRES, emptyMap())
 
         /**
          * Sources that existed before lists started recording which sources the user had seen. A saved list
@@ -71,15 +83,17 @@ data class UserPrefs(val enabledSources: Set<String>?, val globalExclusions: Set
             fun JsonObject.set(key: String): Set<String>? =
                 getAsJsonArray(key)?.mapNotNull { e -> e.takeIf { it.isJsonPrimitive }?.asString }?.toSet()
             val exclusions = root.getAsJsonObject("exclusions")
+            val showAdult = root.get("showAdult")?.takeIf { it.isJsonPrimitive }?.asBoolean == true
             return UserPrefs(
                 enabledSources = root.takeIf { it.has("enabledSources") && it.get("enabledSources").isJsonArray }?.set("enabledSources")?.let { saved ->
                     val known = root.set("knownSources") ?: LEGACY_KNOWN
                     saved + (allSources - known)
                 },
-                globalExclusions = exclusions?.set("global").orEmpty(),
+                globalExclusions = exclusions?.set("global").orEmpty() + (if (showAdult) emptySet() else ADULT_GENRES),
                 perSource = exclusions?.getAsJsonObject("perSource")?.entrySet()?.associate { (k, v) ->
                     k to v.takeIf { it.isJsonArray }?.asJsonArray?.mapNotNull { it.asString }?.toSet().orEmpty()
-                }.orEmpty()
+                }.orEmpty(),
+                showAdult = showAdult
             )
         }
     }
