@@ -8,20 +8,19 @@
 # Published as ghcr.io/nuxx-g/yomukai-worker (light) and ghcr.io/nuxx-g/yomukai-worker-full (all engines).
 # Translation (LibreTranslate) runs as its own container: see docker-compose.worker.yml.
 
-FROM eclipse-temurin:25-jdk AS build
+FROM gradle:9.6.0-jdk25-noble AS build
 WORKDIR /src
-# The Java 21 the Gradle toolchain asks for, taken from its Docker image (not downloaded from GitHub at build time).
+# Gradle 9.6.0 (the wrapper's version) comes in this image, and the Java 21 its toolchain asks for is copied from its
+# own image: nothing is downloaded from GitHub while building, so its hiccups cannot break the images.
 COPY --from=eclipse-temurin:21-jdk /opt/java/openjdk /opt/jdk21
 ENV YOMUKAI_SERVER_ONLY=true GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.configuration-cache=false -Dorg.gradle.java.installations.paths=/opt/jdk21 -Dorg.gradle.java.installations.auto-download=false"
 COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
 COPY gradle/ gradle/
 RUN printf '\norg.gradle.java.installations.paths=/opt/jdk21\norg.gradle.java.installations.auto-download=false\n' >> gradle.properties
-# GitHub (where Gradle downloads from) sometimes answers 5xx for a moment: a few spaced retries.
-RUN for i in 1 2 3 4 5; do ./gradlew --version --console=plain -q && exit 0; sleep $((i * 20)); done; exit 1
 COPY shared/ shared/
 COPY server/ server/
 COPY worker/ worker/
-RUN for i in 1 2 3; do ./gradlew :worker:installDist --console=plain -q && exit 0; sleep $((i * 30)); done; exit 1
+RUN for i in 1 2 3; do gradle :worker:installDist --console=plain -q && exit 0; sleep $((i * 30)); done; exit 1
 
 # whisper.cpp, built only when asked (a static binary, no OpenMP), plus the small multilingual model.
 FROM ubuntu:24.04 AS whisper

@@ -11,19 +11,18 @@ COPY web/ ./
 RUN npm run build
 
 # 2. Server (no Android SDK here: YOMUKAI_SERVER_ONLY leaves the app module out)
-FROM eclipse-temurin:25-jdk AS server
+FROM gradle:9.6.0-jdk25-noble AS server
 WORKDIR /src
-# The Java 21 the Gradle toolchain asks for, taken from its Docker image (not downloaded from GitHub at build time).
+# Gradle 9.6.0 (the wrapper's version) comes in this image, and the Java 21 its toolchain asks for is copied from its
+# own image: nothing is downloaded from GitHub while building, so its hiccups cannot break the images.
 COPY --from=eclipse-temurin:21-jdk /opt/java/openjdk /opt/jdk21
 ENV YOMUKAI_SERVER_ONLY=true GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.configuration-cache=false -Dorg.gradle.java.installations.paths=/opt/jdk21 -Dorg.gradle.java.installations.auto-download=false"
 COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
 COPY gradle/ gradle/
 RUN printf '\norg.gradle.java.installations.paths=/opt/jdk21\norg.gradle.java.installations.auto-download=false\n' >> gradle.properties
-# GitHub (where Gradle downloads from) sometimes answers 5xx for a moment: a few spaced retries.
-RUN for i in 1 2 3 4 5; do ./gradlew --version --console=plain -q && exit 0; sleep $((i * 20)); done; exit 1
 COPY shared/ shared/
 COPY server/ server/
-RUN for i in 1 2 3; do ./gradlew :server:installDist --console=plain -q && exit 0; sleep $((i * 30)); done; exit 1
+RUN for i in 1 2 3; do gradle :server:installDist --console=plain -q && exit 0; sleep $((i * 30)); done; exit 1
 
 # 3. Natural voices for reading novels aloud: Piper (open source, runs offline on this machine).
 #    The voice models are downloaded by the server the first time each one is used.
