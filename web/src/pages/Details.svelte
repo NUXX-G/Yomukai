@@ -9,6 +9,7 @@
   import { TYPE_NAMES, TYPE_COLORS, parseStatus, statusName, score, monthYear, chapterNoun } from '../lib/format.js';
   import { progressMap, continueTarget, markThrough, markOne } from '../lib/progress.js';
   import { openRelated } from '../lib/open.svelte.js';
+  import { copyRoomLink } from '../lib/party.svelte.js';
   import Icon from '../components/Icon.svelte';
   import MediaCard from '../components/MediaCard.svelte';
   import Sheet from '../components/Sheet.svelte';
@@ -279,6 +280,17 @@
     }
   });
 
+  /** «Ver con amigos» from the work's page: your room, its link copied, and the episode opens inside it. */
+  async function watchWithFriends(chapter) {
+    try {
+      const room = await api.roomMine();
+      const copied = await copyRoomLink(room.code).catch(() => false);
+      notify(copied ? t('Enlace de la sala copiado: pásalo a tus amigos') : t('Sala ') + room.code);
+      const base = chapter.foreign ? reader(source?.kind, chapter.sourceId, chapter.mediaId, chapter.chapterId) : reader(source?.kind, sourceId, mediaId, chapter.id);
+      navigate(base + '?sala=' + encodeURIComponent(room.code));
+    } catch (e) { notify(e.message); }
+  }
+
   function open(chapter) {
     if (chapter.foreign) navigate(reader(source?.kind, chapter.sourceId, chapter.mediaId, chapter.chapterId));
     else navigate(reader(source?.kind, sourceId, mediaId, chapter.id));
@@ -376,6 +388,11 @@
         <button class="btn primary block start" onclick={() => open(target.chapter)}>
           <Icon name="play" size={20} /> {target.started ? 'Continuar' : anime ? t('Empezar a ver') : t('Empezar a leer')} · {target.chapter.label}
         </button>
+        {#if anime && session.user && !session.user.guest}
+          <button class="btn outline block lib" onclick={() => watchWithFriends(target.chapter)} title={t('Abre tu sala y copia el enlace')}>
+            <Icon name="share" size={18} /> {t('Ver con amigos')}
+          </button>
+        {/if}
       {/if}
       <button class="btn tonal block lib" onclick={library}>
         <Icon name={saved ? 'heart' : 'heartOutline'} size={18} /> {saved ? t('En tu biblioteca') : t('Añadir a la biblioteca')}
