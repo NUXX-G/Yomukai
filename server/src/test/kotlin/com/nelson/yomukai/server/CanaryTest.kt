@@ -23,10 +23,19 @@ class CanaryTest {
     })
 
     @Test
+    fun aSiteThatMovedIsNoticed() = runBlocking {
+        val asura = sources.require("asura")
+        val moved = Canary(store, Notifier(null, null), pauseMs = 0, landing = { "https://asura-nuevo.net/home" }, diagnose = { emptyList() })
+        assertEquals("asura-nuevo.net", moved.movedTo(asura))
+        val same = Canary(store, Notifier(null, null), pauseMs = 0, landing = { asura.baseUrl.replace("://", "://www.") + "/x" }, diagnose = { emptyList() })
+        assertEquals(null, same.movedTo(asura))
+    }
+
+    @Test
     fun brokenSourcesHideAndComeBackOnTheirOwn() = runBlocking {
         var steps = listOf(DiagnosticStep("Novedades", true, "20"), DiagnosticStep("Capítulos", false, "Sin capítulos"))
         val repairs = mutableListOf<String>()
-        val canary = Canary(store, Notifier(null, null), pauseMs = 0, onBroken = { s, _ -> repairs += s.id }) { steps }
+        val canary = Canary(store, Notifier(null, null), pauseMs = 0, onBroken = { s, _ -> repairs += s.id }, diagnose = { steps })
         val asura = sources.require("asura")
         assertTrue(asura in sources.enabled(null))
 
@@ -56,7 +65,7 @@ class CanaryTest {
 
     @Test
     fun aCrashingCheckCountsAsBroken() = runBlocking {
-        val canary = Canary(store, Notifier(null, null), pauseMs = 0) { error("se colgó") }
+        val canary = Canary(store, Notifier(null, null), pauseMs = 0, diagnose = { error("se colgó") })
         assertEquals(SourceHealth.DEGRADED, canary.check(sources.require("mangadex")).status)
     }
 }

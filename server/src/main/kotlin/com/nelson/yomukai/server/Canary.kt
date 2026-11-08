@@ -6,6 +6,7 @@ import com.nelson.yomukai.data.source.SourceDiagnostics
 import com.nelson.yomukai.data.source.SourceHealth
 import com.nelson.yomukai.data.source.SourceVerdict
 import kotlinx.coroutines.delay
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.slf4j.LoggerFactory
 
 data class SourceHealthRow(
@@ -62,13 +63,21 @@ class Canary(
     private val notifier: Notifier,
     private val pauseMs: Long = 20_000,
     private val onBroken: suspend (CatalogueSource, List<DiagnosticStep>) -> Unit = { _, _ -> },
-    private val diagnose: suspend (CatalogueSource) -> List<DiagnosticStep> = { SourceDiagnostics.run(it) }
+    private val diagnose: suspend (CatalogueSource) -> List<DiagnosticStep> = { SourceDiagnostics.run(it) },
+    /** Where the source's home page ends up after redirects (null = could not tell); JSON sources follow by themselves. */
+    private val landing: suspend (CatalogueSource) -> String? = { null }
 ) {
     private val log = LoggerFactory.getLogger("Canary")
 
     data class Outcome(val source: String, val status: SourceHealth, val summary: String, val changed: Boolean)
 
     suspend fun check(source: CatalogueSource): Outcome {
+        movedTo(source)?.let { host ->
+            notifier.admin(
+                "domain-${source.id}-$host", "${source.name} se ha mudado a $host",
+                "Su web redirige ahora a $host. Si deja de funcionar, cambia su dirección en el código o en su JSON."
+            )
+        }
         val steps = runCatching { diagnose(source) }.getOrElse { listOf(DiagnosticStep("Prueba", false, it.message ?: "Error")) }
         val status = SourceVerdict.of(steps)
         val summary = SourceVerdict.summary(steps)
@@ -87,6 +96,15 @@ class Canary(
             }
         }
         return Outcome(source.id, status, summary, broken != wasBroken)
+    }
+
+    /** The new host when the source's site now sends visitors to another domain (www. and paths aside). */
+    internal suspend fun movedTo(source: CatalogueSource): String? {
+        if (source is com.nelson.yomukai.data.source.declarative.DeclarativeSource) return null
+        val base = source.baseUrl.toHttpUrlOrNull() ?: return null
+        val final = runCatching { landing(source) }.getOrNull()?.toHttpUrlOrNull() ?: return null
+        fun root(h: String) = h.lowercase().removePrefix("www.")
+        return root(final.host).takeIf { it != root(base.host) && !it.endsWith("." + root(base.host)) }
     }
 
     suspend fun checkAll(sources: List<CatalogueSource>): List<Outcome> = sources.mapIndexed { i, source ->

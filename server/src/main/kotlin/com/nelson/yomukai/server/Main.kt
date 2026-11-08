@@ -169,7 +169,7 @@ class Services(val config: Config) {
             val day = System.currentTimeMillis() / Auth.DAY_MS
             jobs.enqueue(JobQueue.Request(JobTypes.SOURCE_REPAIR, payload, JobPriority.BACKGROUND, dedupKey = "repair:${source.id}:$day", ttlMs = Auth.DAY_MS, maxAttempts = 1))
         }
-    })
+    }, landing = { source -> http.getStringWithUrl(source.baseUrl).second })
     val works = Works(db, catalog, aniList, sources).also { w ->
         catalog.workKeys = w::knownKeys
         catalog.dtos.betterCover = w::betterCover
