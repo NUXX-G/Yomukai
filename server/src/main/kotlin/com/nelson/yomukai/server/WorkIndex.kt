@@ -340,7 +340,10 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
     private fun squash(text: String) = text.lowercase().filter { it.isLetterOrDigit() }
 
     /** The work behind an AniList id, if the index has it. */
-    suspend fun byAniList(id: Int): String? = s.db.tx { queryOne("SELECT key FROM works WHERE anilist_id = ? LIMIT 1", id) { getString(1) } }
+    suspend fun byAniList(id: Int): String? = s.db.tx {
+        // Only a work some source has (works known only from metadata or a library have nowhere to open).
+        queryOne("SELECT w.key FROM works w WHERE w.anilist_id = ? AND EXISTS(SELECT 1 FROM index_items i WHERE i.work_key = w.key) LIMIT 1", id) { getString(1) }
+    }
 
     /**
      * The work of the index that is [names] (by AniList id first, else by any name, with the same normalised keys used
