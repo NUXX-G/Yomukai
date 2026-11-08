@@ -8,6 +8,7 @@
   import { route, back, navigate, media as mediaHref, reader } from '../lib/router.svelte.js';
   import { settings, saveSettings, notify, features, sourceById } from '../lib/store.svelte.js';
   import { readingOrder, directionFor, stripMs, analyze, wordsIn } from '../lib/ocr.js';
+  import { translateTexts } from '../lib/translate.js';
   import { track, markThrough, flush, progressMap } from '../lib/progress.js';
   import { clock } from '../lib/format.js';
   import { detectCrop, cropStyles } from '../lib/crop.js';
@@ -130,14 +131,14 @@
     if (translatingNow.has(key)) return;
     translatingNow.add(key);
     try {
-      const r = await api.translate(bubbles.map((b) => b.text), textLang, settings.learning?.target || 'es');
+      const r = await translateTexts(bubbles.map((b) => b.text), textLang, settings.learning?.target || 'es');
       // Still being translated at home (a slow computer): asked again by the retry below.
       if (r?.pending) return;
       ocr[key] = { ...data, tr: r.translations };
     } catch (e) {
       if (e.status === 503) {
         translating = false;
-        notify(t('Traducir necesita el servidor de casa encendido'));
+        notify(t('Para traducir hace falta el traductor del servidor de casa o un navegador que traduzca solo (Chrome o Edge actualizados).'));
       } else if (!translateWarned) {
         // One page failing must not switch translation off for the rest: it is tried again.
         translateWarned = true;
@@ -150,6 +151,13 @@
   const translatingNow = new Set();
   let translateWarned = false;
 
+  // Already in the language asked for: nothing to translate, and the reader is told how to pick another.
+  $effect(() => {
+    if (translating && textLang === (settings.learning?.target || 'es')) {
+      translating = false;
+      notify(t('Este capítulo ya está en ese idioma: elige otro en «Traducir al».'));
+    }
+  });
   // While translating, the pages around the one being read are done (and again as the reader moves on).
   $effect(() => {
     if (!translating || !current) return;

@@ -1,4 +1,6 @@
 {
+ "Para traducir hace falta el traductor del servidor de casa o un navegador que traduzca solo (Chrome o Edge actualizados).": "Translating needs the home server's translator or a browser that translates by itself (an up-to-date Chrome or Edge).",
+ "Este capítulo ya está en ese idioma: elige otro en «Traducir al».": "This chapter is already in that language: pick another one in “Translate into”.",
  "Webs que se han mudado de dominio": "Sites that moved to a new domain",
  "Si una fuente deja de funcionar porque su web cambió de dirección (pasa a menudo), escribe el dominio viejo y el nuevo: el servidor irá al nuevo para todo, sin esperar a una actualización.": "If a source stops working because its site changed address (it happens often), write the old domain and the new one: the server will go to the new one for everything, without waiting for an update.",
  "Dominio viejo (p. ej. lectortmo.com)": "Old domain (e.g. lectortmo.com)",
