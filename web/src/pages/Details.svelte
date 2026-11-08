@@ -76,13 +76,10 @@
   /** Episode number -> 'FILLER' | 'MIXED' (AnimeFillerList); only for anime. */
   let fillers = $state({});
   let hideFiller = $state(false);
-  /** Names of chapters ahead of where you are stay blurred until hovered or focused. */
-  let shield = $state(safeGet('spoilerShield') !== '0');
+
   let where = $state(null);
   let pointOpen = $state(false);
   let point = $state({ target: '', episode: '', chapter: '', volume: '' });
-  function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
-  function toggleShield() { shield = !shield; try { localStorage.setItem('spoilerShield', shield ? '1' : '0'); } catch { /* private mode */ } }
   const fillerOf = (c) => (anime && c.number != null ? fillers[Math.floor(c.number)] : undefined);
   const fillerCount = $derived(Object.values(fillers).filter((k) => k === 'FILLER').length);
   /** Last watched/read chapter number (by number, not position). */
@@ -206,8 +203,6 @@
     return q ? visible.filter((c) => matches(c, q)) : visible;
   });
   const altNames = $derived([...new Set([...(work?.altTitles || []), ...(item?.altTitles || [])])].filter((n) => n && n.toLowerCase() !== item?.title?.toLowerCase()));
-  /** Chapters after this number are "ahead of you": their names may spoil. */
-  const ahead = $derived(Math.max(lastDone, target ? (target.chapter.number ?? 0) : 0));
   const whereTarget = $derived(where?.next?.length ? relationByKey(where.next[0].targetKey) : null);
   const whereText = $derived.by(() => {
     if (!where) return '';
@@ -453,7 +448,6 @@
         <span class="bar-actions">
           {#if list.chapters.length}<button class="btn text" onclick={openDownloads}><Icon name="download" size={18} /> <span class="lbl">{t('Descargar')}</span></button>{/if}
           {#if fillerCount}<button class="btn text" class:on={hideFiller} aria-pressed={hideFiller} onclick={() => (hideFiller = !hideFiller)}>{hideFiller ? 'Mostrar relleno' : 'Ocultar relleno'}</button>{/if}
-          <button class="btn text" aria-pressed={shield} onclick={toggleShield} title={t('Difumina los títulos de lo que aún no has visto')}><Icon name="eye" size={18} /> <span class="lbl">{shield ? t('Sin spoilers') : t('Títulos visibles')}</span></button>
           <button class="btn text" onclick={() => (descending = !descending)}><Icon name="sort" size={18} /> <span class="lbl">{descending ? t('Más recientes') : t('Desde el principio')}</span></button>
         </span>
       </div>
@@ -488,7 +482,7 @@
           {@const p = c.foreign ? (c.read ? { read: true } : null) : progress[c.id]}
           <li class="chapter" class:read={p?.read}>
             <button class="ch-main" onclick={() => open(c)}>
-              <span class="ch-label">{c.label}{#if c.name}<span class="ch-name" class:veil={shield && !p?.read && c.number > ahead}>{c.name}</span>{/if}{#if fillerOf(c) === 'FILLER'}<span class="kind filler">{t('Relleno')}</span>{:else if fillerOf(c) === 'MIXED'}<span class="kind mixed">{t('Mixto')}</span>{/if}</span>
+              <span class="ch-label">{c.label}{#if fillerOf(c) === 'FILLER'}<span class="kind filler">{t('Relleno')}</span>{:else if fillerOf(c) === 'MIXED'}<span class="kind mixed">{t('Mixto')}</span>{/if}</span>
               <span class="ch-meta">
                 {#if c.foreign}<span class="accent">{t('De {0}', [c.sourceName])}</span>{/if}
                 {#if c.date}<span class="date">{c.date}</span>{/if}
@@ -716,8 +710,6 @@
   .where > :global(svg) { color: var(--primary); flex: none; margin-top: 2px; }
   .where-title { font-weight: 700; margin-bottom: 2px; }
   .link { color: var(--primary); font-weight: 600; font-size: 0.85rem; margin-top: 4px; padding: 0; }
-  .veil { filter: blur(5px); transition: filter 0.2s; }
-  .chapter:hover .veil, .chapter:focus-within .veil { filter: none; }
   .kind { margin-left: 8px; font-size: 0.68rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; vertical-align: 2px; }
   .kind.filler { background: color-mix(in srgb, var(--tertiary) 22%, transparent); color: var(--tertiary); }
   .kind.mixed { background: var(--surface-high); color: var(--text-dim); }
@@ -725,7 +717,6 @@
   .point { display: flex; flex-direction: column; gap: 12px; }
   .point label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--text-dim); flex: 1; }
   .point .field { height: 44px; }
-  @media (prefers-reduced-motion: reduce) { .veil { transition: none; } }
   .statuses { position: relative; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
   .statuses .chip { height: 30px; padding: 0 12px; font-size: 0.8rem; }
   .ch-search { display: flex; align-items: center; gap: 8px; margin: 4px 16px 8px; padding: 0 12px; height: 40px; border-radius: 20px; background: var(--surface-high); color: var(--text-dim); }
@@ -764,11 +755,10 @@
   .chapter { display: flex; align-items: center; }
   .ch-main { flex: 1; text-align: left; padding: 10px 8px 10px 16px; min-width: 0; }
   .ch-label { display: block; font-size: 1.02rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ch-name { color: var(--text-dim); font-size: 0.9rem; font-weight: 400; margin-left: 8px; }
   .ch-meta { display: block; font-size: 0.74rem; margin-top: 2px; }
   .date { color: color-mix(in srgb, var(--text-dim) 60%, transparent); }
   .accent { color: var(--primary); }
-  .chapter.read .ch-label, .chapter.read .ch-name, .chapter.read .date { opacity: 0.5; }
+  .chapter.read .ch-label, .chapter.read .date { opacity: 0.5; }
   .read-toggle { width: 48px; height: 48px; display: grid; place-items: center; color: color-mix(in srgb, var(--primary) 80%, transparent); }
   .ring { width: 18px; height: 18px; border-radius: 50%; background: color-mix(in srgb, var(--text-dim) 15%, transparent); }
   .gap { display: flex; align-items: center; gap: 8px; padding: 2px 16px; color: var(--tertiary); font-size: 0.74rem; }
