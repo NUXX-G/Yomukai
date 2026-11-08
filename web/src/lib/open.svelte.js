@@ -12,8 +12,15 @@ export async function openRelated(related) {
   locating.options = [];
   locating.related = related;
   try {
-    const options = await api.locate(related);
+    // The first source sure to have the work opens at once: nothing to choose (its page gathers the others).
+    const found = await api.locateFirst(related);
     if (locating.related !== related) return;
+    if (found.open) {
+      locating.open = false;
+      navigate(media(found.open.item.sourceId, found.open.item.id));
+      return;
+    }
+    const options = found.options || [];
     locating.options = options;
     // A single sure place needs no question.
     if (options.length === 1 && !options[0].approximate) {

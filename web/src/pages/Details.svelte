@@ -175,9 +175,26 @@
     const digits = q.replace(/[^\d.]/g, '');
     return (digits && String(c.number) === digits) || (c.label + ' ' + (c.name || '')).toLowerCase().includes(q);
   };
+  // The same work in the user's other sources: what this source lacks comes from them, so this is one list for the
+  // work (one One Piece, not several) and nothing is lost if this source fails or stops.
+  let extras = $state([]);
+  async function loadWhole() {
+    try {
+      const whole = await api.workWhole(sourceId, mediaId);
+      const own = new Set(list.chapters.map((c) => String(Math.round(c.number * 10) / 10)));
+      extras = (whole.chapters?.chapters || [])
+        .filter((c) => c.sourceId !== sourceId && c.number > 0 && c.mediaId && !own.has(String(Math.round(c.number * 10) / 10)))
+        .map((c) => ({
+          id: c.sourceId + '|' + c.chapterId, chapterId: c.chapterId, sourceId: c.sourceId, mediaId: c.mediaId, number: c.number,
+          label: (anime ? t('Ep. {0}', [c.key]) : t('Cap. {0}', [c.key])), name: c.title, date: '', foreign: true, read: c.read,
+          sourceName: sourceById(c.sourceId)?.name || c.sourceId
+        }));
+    } catch { /* the source's own list stays */ }
+  }
+  const allChapters = $derived(extras.length ? [...list.chapters, ...extras].sort((a, b) => a.number - b.number) : list.chapters);
   const shown = $derived.by(() => {
     const q = chapterQuery.trim().toLowerCase();
-    const all = descending ? [...list.chapters].reverse() : list.chapters;
+    const all = descending ? [...allChapters].reverse() : allChapters;
     const visible = hideFiller ? all.filter((c) => fillerOf(c) !== 'FILLER') : all;
     return q ? visible.filter((c) => matches(c, q)) : visible;
   });
@@ -226,8 +243,8 @@
     setTimeout(() => (coverWaitOver = true), 2500);
     // Everything at once: the chapter list and the database answer do not need the title page first.
     api.chapters(sourceId, mediaId).then(
-      (r) => (list = { ...r, loading: false, error: '' }),
-      (e) => (list = { ...list, loading: false, error: e.message })
+      (r) => { list = { ...r, loading: false, error: '' }; loadWhole(); },
+      (e) => { list = { ...list, loading: false, error: e.message }; loadWhole(); }
     );
     progressMap(sourceId, mediaId).then((p) => (progress = p));
     api.metadata(sourceId, mediaId).then((m) => (meta = m), () => {}).finally(() => (metaLoading = false));
@@ -256,7 +273,10 @@
     }
   });
 
-  function open(chapter) { navigate(reader(source?.kind, sourceId, mediaId, chapter.id)); }
+  function open(chapter) {
+    if (chapter.foreign) navigate(reader(source?.kind, chapter.sourceId, chapter.mediaId, chapter.chapterId));
+    else navigate(reader(source?.kind, sourceId, mediaId, chapter.id));
+  }
 
   async function toggleRead(chapter) {
     const read = !progress[chapter.id]?.read;
@@ -432,23 +452,24 @@
       {/if}
       <ol class="chapters">
         {#each shown as c (c.id)}
-          {#if descending && gapAfter[c.id]}<li class="gap"><span>{gapAfter[c.id].text}</span></li>{/if}
-          {@const p = progress[c.id]}
+          {#if descending && gapAfter[c.id] && !extras.length}<li class="gap"><span>{gapAfter[c.id].text}</span></li>{/if}
+          {@const p = c.foreign ? (c.read ? { read: true } : null) : progress[c.id]}
           <li class="chapter" class:read={p?.read}>
             <button class="ch-main" onclick={() => open(c)}>
               <span class="ch-label">{c.label}{#if c.name}<span class="ch-name" class:veil={shield && !p?.read && c.number > ahead}>{c.name}</span>{/if}{#if fillerOf(c) === 'FILLER'}<span class="kind filler">{t('Relleno')}</span>{:else if fillerOf(c) === 'MIXED'}<span class="kind mixed">{t('Mixto')}</span>{/if}</span>
               <span class="ch-meta">
+                {#if c.foreign}<span class="accent">{t('De {0}', [c.sourceName])}</span>{/if}
                 {#if c.date}<span class="date">{c.date}</span>{/if}
                 {#if p && !p.read && anime && p.page > 0}<span class="accent">{t('· Vas por el minuto {0}', [Math.floor(p.page / 60)])}</span>
                 {:else if p && !p.read && !anime && p.total > 0}<span class="accent">{t('· Página {0} de {1}', [p.page + 1, p.total])}</span>
                 {:else if p && !p.read && p.fraction > 0.01}<span class="accent">{t('· {0}% leído', [Math.round(p.fraction * 100)])}</span>{/if}
               </span>
             </button>
-            <button class="read-toggle" onclick={() => toggleRead(c)} aria-label={p?.read ? t('Marcar como no leído') : t('Marcar como leído')}>
+            <button class="read-toggle" disabled={c.foreign} onclick={() => toggleRead(c)} aria-label={p?.read ? t('Marcar como no leído') : t('Marcar como leído')}>
               {#if p?.read}<Icon name="check" size={20} />{:else}<span class="ring"></span>{/if}
             </button>
           </li>
-          {#if !descending && gapAfter[c.id]}<li class="gap"><span>{gapAfter[c.id].text}</span></li>{/if}
+          {#if !descending && gapAfter[c.id] && !extras.length}<li class="gap"><span>{gapAfter[c.id].text}</span></li>{/if}
         {/each}
       </ol>
     {:else if tab === 2}

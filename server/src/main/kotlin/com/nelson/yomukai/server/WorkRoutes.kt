@@ -41,6 +41,19 @@ fun Route.workRoutes(s: Services) {
         val w = s.works.get(key) ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Obra desconocida"))
         call.respond(s.works.dto(w, s.works.sourcesOf(key)) { s.proxy.cover(it, emptyMap()) })
     }
+    // The whole work from one of its pages: its sister sources (confirmed same work) are linked, and the chapters of
+    // all of them come back as one list, this page's source first for each number.
+    get("/works/whole") {
+        val sourceId = call.param("s", 60)
+        val mediaId = call.param("id", 2_000)
+        val work = s.works.resolve(sourceId, mediaId)
+        s.catalog.alternatives(call.user, s.prefs(call.user), sourceId, mediaId).getOrDefault(emptyList())
+            .filter { it.confidence == com.nelson.yomukai.data.discovery.MatchConfidence.SAME_WORK.name }
+            .forEach { runCatching { s.works.link(work.key, it.item.sourceId, it.item.id, it.confidence) } }
+        val (languages, order) = s.mergePrefsOf(call.user)
+        val first = order.takeWhile { it == JellyfinSource.ID } + sourceId
+        call.respond(mapOf("key" to work.key, "chapters" to s.works.chapters(call.user, work.key, languages, (first + order).distinct())))
+    }
     get("/works/{key}/chapters") {
         val key = workKey(call.parameters["key"])
         val (languages, order) = s.mergePrefsOf(call.user)

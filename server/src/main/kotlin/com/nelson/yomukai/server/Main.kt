@@ -603,6 +603,11 @@ private fun Route.catalogRoutes(s: Services) {
         val related = gson.fromJson(call.receiveText(), RelatedDto::class.java)
         call.reply(s.catalog.locate(call.user, s.prefs(call.user), s.catalog.relatedFrom(related)))
     }
+    // Open a work at once: the first source confirmed to have it (the rest keep coming in behind).
+    post("/locate/first") {
+        val related = gson.fromJson(call.receiveText(), RelatedDto::class.java)
+        call.reply(s.catalog.locateFirst(call.user, s.prefs(call.user), s.catalog.relatedFrom(related)))
+    }
     get("/random") {
         val kind = call.request.queryParameters["kind"]?.let { runCatching { RandomKind.valueOf(it) }.getOrNull() } ?: RandomKind.ANY
         val genre = call.request.queryParameters["genre"]?.ifBlank { null }

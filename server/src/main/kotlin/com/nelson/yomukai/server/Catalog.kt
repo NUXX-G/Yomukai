@@ -455,6 +455,27 @@ class Catalog(
         discovery(user, prefs).locate(related).onEach { remember(listOf(it.item)) }.map(dtos::alternative)
     }
 
+    /**
+     * Opening a recommended title without asking which source: answers as soon as one source is confirmed to have the
+     * same work ([LocateFirst.open]), while the search goes on in the background and fills the cache for next time.
+     * Only when no source is sure does it wait for everything and return the possible matches to choose from.
+     */
+    suspend fun locateFirst(user: User, prefs: UserPrefs, related: RelatedTitle): Result<LocateFirst> = runCatching {
+        val first = kotlinx.coroutines.CompletableDeferred<AlternativeDto?>()
+        val repo = discovery(user, prefs)
+        val all = probeScope.async {
+            repo.locate(related) { hit ->
+                if (hit.confidence == com.nelson.yomukai.data.discovery.MatchConfidence.SAME_WORK && !first.isCompleted) {
+                    remember(listOf(hit.item))
+                    first.complete(dtos.alternative(hit))
+                }
+            }.onEach { remember(listOf(it.item)) }.map(dtos::alternative).also { first.complete(null) }
+        }
+        first.await()?.let { LocateFirst(open = it, options = listOf(it)) } ?: LocateFirst(open = null, options = all.await())
+    }
+
+    data class LocateFirst(val open: AlternativeDto?, val options: List<AlternativeDto>)
+
     suspend fun random(user: User, prefs: UserPrefs, kind: RandomKind, genre: String?): Result<Pair<RelatedDto, List<AlternativeDto>>?> = runCatching {
         discovery(user, prefs).randomAvailable(kind, genre)?.let { (pick, places) ->
             places.forEach { remember(listOf(it.item)) }

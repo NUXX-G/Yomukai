@@ -179,7 +179,9 @@ class Works(
 
     data class MergedChapterDto(
         val number: Float, val key: String, val title: String, val sourceId: String, val chapterId: String, val url: String,
-        val read: Boolean, val options: List<Map<String, String>>
+        val read: Boolean, val options: List<Map<String, String>>,
+        /** The page of the chosen source (to open the chapter there). */
+        val mediaId: String = ""
     )
 
     data class WorkChaptersDto(val chapters: List<MergedChapterDto>, val gaps: List<List<Int>>, val next: String?, val sourcesFailed: List<String>)
@@ -211,7 +213,8 @@ class Works(
             merged.chapters.map { c ->
                 MergedChapterDto(
                     c.number, c.key, c.title, c.chosen.sourceId, c.chosen.chapter.id, c.chosen.chapter.url, c.key in readKeys,
-                    c.options.map { mapOf("sourceId" to it.sourceId, "language" to it.language, "chapterId" to it.chapter.id) }
+                    c.options.map { mapOf("sourceId" to it.sourceId, "language" to it.language, "chapterId" to it.chapter.id) },
+                    links.firstOrNull { it.sourceId == c.chosen.sourceId }?.mediaId.orEmpty()
                 )
             },
             merged.gaps.map { listOf(it.first, it.last) },
