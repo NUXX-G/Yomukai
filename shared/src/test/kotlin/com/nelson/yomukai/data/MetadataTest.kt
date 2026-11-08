@@ -154,6 +154,16 @@ class MetadataTest {
     }
 
     @Test
+    fun kitsuGivesTheBannerAndPosterOfTheSameWorkOnly() {
+        val json = fixture("kitsu_gate_images.json")
+        val images = KitsuClient.parseImages(json, listOf("Steins;Gate 0"), MediaType.ANIME)!!
+        assertEquals("https://media.kitsu.app/anime/cover_images/10788/original.jpeg", images.banner)
+        assertTrue(images.poster.startsWith("https://media.kitsu.app/anime/poster_images/10788/"))
+        // «Gate» alone is another work: no images.
+        assertNull(KitsuClient.parseImages(json, listOf("Gate"), MediaType.ANIME))
+    }
+
+    @Test
     fun theNovelNeverTakesTheManhwaScore() {
         val json = fixture("kitsu_manga.json")
         // Kitsu lists the novel as "Only I Level Up"; as "Solo Leveling" only the manhwa exists there.

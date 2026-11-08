@@ -59,6 +59,30 @@ class Works(
     /** Optional TMDB: a wide 1920 px+ backdrop for anime instead of AniList's narrower banner. */
     var tmdb: com.nelson.yomukai.data.metadata.TmdbClient? = null
 
+    /** Kitsu: a wide banner (and a large poster) for works AniList gives none for. */
+    var kitsu: com.nelson.yomukai.data.metadata.KitsuClient? = null
+
+    /** Works already asked to Kitsu in this run (found or not): never asked twice. */
+    private val imagesTried = ConcurrentHashMap.newKeySet<String>()
+
+    /**
+     * [row] with a wide banner, and a large poster when AniList does not know the work, from Kitsu when it has
+     * neither (asked once per work and run, a few seconds at most; kept in the database).
+     */
+    suspend fun withImages(row: WorkRow): WorkRow {
+        val client = kitsu ?: return row
+        val needsBanner = row.banner.isBlank()
+        val needsPoster = row.anilistId == null
+        if (!needsBanner && !needsPoster || !imagesTried.add(row.key)) return row
+        val type = runCatching { com.nelson.yomukai.domain.model.MediaType.valueOf(row.type) }.getOrNull() ?: return row
+        val found = withTimeoutOrNull(KITSU_WAIT_MS) { runCatching { client.images(listOf(row.title) + row.altTitles, type) }.getOrNull() } ?: return row
+        val banner = if (needsBanner && found.banner.isNotBlank()) found.banner else row.banner
+        val cover = if (needsPoster && found.poster.isNotBlank()) found.poster else row.cover
+        if (banner == row.banner && cover == row.cover) return row
+        db.tx { update("UPDATE works SET banner = ?, cover = ? WHERE key = ?", banner, cover, row.key) }
+        return row.copy(banner = banner, cover = cover)
+    }
+
     /** The work a source page belongs to, when already known. */
     fun keyOf(sourceId: String, mediaId: String): String? = known[WorkKey.itemKey(sourceId, mediaId)]
 
@@ -388,6 +412,7 @@ class Works(
 
     companion object {
         private const val TMDB_WAIT_MS = 4_000L
+        private const val KITSU_WAIT_MS = 4_000L
         private const val WANTED_MAX = 300
         private const val WANTED_PER_RUN = 4
         fun numberOf(text: String): String? = text.toFloatOrNull()?.let(::numberKey)

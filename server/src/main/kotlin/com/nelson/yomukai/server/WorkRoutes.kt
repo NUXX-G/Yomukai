@@ -33,12 +33,12 @@ private suspend fun Services.mergePrefsOf(user: User): Pair<List<String>, List<S
 fun Route.workRoutes(s: Services) {
     // The work behind a source page (resolved on first use).
     get("/work") {
-        val w = s.works.resolve(call.param("s", 60), call.param("id"))
+        val w = s.works.withImages(s.works.resolve(call.param("s", 60), call.param("id")))
         call.respond(s.works.dto(w, s.works.sourcesOf(w.key)) { s.proxy.cover(it, emptyMap()) })
     }
     get("/works/{key}") {
         val key = workKey(call.parameters["key"])
-        val w = s.works.get(key) ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Obra desconocida"))
+        val w = s.works.get(key)?.let { s.works.withImages(it) } ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Obra desconocida"))
         call.respond(s.works.dto(w, s.works.sourcesOf(key)) { s.proxy.cover(it, emptyMap()) })
     }
     // The whole work from one of its pages: its sister sources (confirmed same work) are linked, and the chapters of

@@ -55,15 +55,41 @@ data class TitleMetadata(
 
 /** Kitsu's public API: only a score, used when AniList does not know the title or is out of reach. */
 class KitsuClient(private val network: HttpFetcher) {
+    /** A wide banner and a large poster of the work, for works AniList has none for (or does not know). */
+    data class Images(val banner: String, val poster: String)
+
+    suspend fun images(names: List<String>, type: MediaType): Images? {
+        val title = MalClient.searchName(names) ?: return null
+        val kind = if (type == MediaType.ANIME) "anime" else "manga"
+        val url = "$BASE/$kind?filter%5Btext%5D=${URLEncoder.encode(title, "UTF-8")}" +
+            "&page%5Blimit%5D=5&fields%5B$kind%5D=canonicalTitle,titles,abbreviatedTitles,subtype,coverImage,posterImage"
+        return parseImages(network.getString(url, mapOf("Accept" to "application/vnd.api+json"), cloudflareFallback = false), names, type)
+    }
+
     suspend fun score(names: List<String>, type: MediaType): Float? {
         val title = MalClient.searchName(names) ?: return null
         val kind = if (type == MediaType.ANIME) "anime" else "manga"
-        val url = "https://kitsu.io/api/edge/$kind?filter%5Btext%5D=${URLEncoder.encode(title, "UTF-8")}" +
+        val url = "$BASE/$kind?filter%5Btext%5D=${URLEncoder.encode(title, "UTF-8")}" +
             "&page%5Blimit%5D=5&fields%5B$kind%5D=canonicalTitle,averageRating,titles,abbreviatedTitles,subtype"
         return parseScore(network.getString(url, mapOf("Accept" to "application/vnd.api+json"), cloudflareFallback = false), names, type)
     }
 
     companion object {
+        /** Kitsu moved from kitsu.io to kitsu.app. */
+        private const val BASE = "https://kitsu.app/api/edge"
+
+        /** The banner (wide) and poster of the first result of the same kind sharing a name with [names]. */
+        fun parseImages(json: String, names: List<String>, type: MediaType): Images? =
+            parseJson(json).asJsonObject.arr("data").objects().firstNotNullOfOrNull { entry ->
+                val attributes = entry.obj("attributes") ?: return@firstNotNullOfOrNull null
+                if (!MalClient.sameKind(attributes.str("subtype"), type)) return@firstNotNullOfOrNull null
+                val titles = attributes.obj("titles")?.entrySet()?.mapNotNull { (_, v) -> v.takeIf { it.isJsonPrimitive }?.asString }.orEmpty() +
+                    listOfNotNull(attributes.str("canonicalTitle")) + attributes.arr("abbreviatedTitles").strings()
+                if (!TitleMatcher.shareName(names, titles)) return@firstNotNullOfOrNull null
+                fun best(o: com.google.gson.JsonObject?) = o?.let { it.str("original") ?: it.str("large") }.orEmpty()
+                Images(best(attributes.obj("coverImage")), best(attributes.obj("posterImage"))).takeIf { it.banner.isNotBlank() || it.poster.isNotBlank() }
+            }
+
         /**
          * The score of the first result of the same kind sharing a name with [names], out of 10.
          * Kitsu lists novels with manga ("Solo Leveling" is both), so its subtype must agree.

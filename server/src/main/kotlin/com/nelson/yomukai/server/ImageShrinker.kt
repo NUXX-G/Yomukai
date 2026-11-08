@@ -16,8 +16,11 @@ import kotlin.math.max
  * width as good-quality JPEG, often a tenth of the size. Small or already light images go untouched.
  */
 object ImageShrinker {
-    /** Widths the browser may ask for: few, so the same size is shared (and cached) by many screens. */
-    private val WIDTHS = listOf(720, 1080, 1440, 1920, 2560)
+    /**
+     * Widths the browser may ask for: few, so the same size is shared (and cached) by many screens. 240-480 are covers
+     * (small, medium), 720 and up large covers and reader pages.
+     */
+    private val WIDTHS = listOf(240, 360, 480, 720, 1080, 1440, 1920, 2560)
 
     /** The width bucket for a requested width; null when none or nonsense was asked for. */
     fun bucket(requested: String?): Int? {

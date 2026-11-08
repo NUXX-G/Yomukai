@@ -120,8 +120,19 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
             query("SELECT title, alt_titles FROM index_items WHERE work_key = ? LIMIT 6", key) { getString(1) to getString(2) }
         }.flatMap { (t, alts) -> listOf(t) + runCatching { gson.fromJson<List<String>>(alts, listType) }.getOrDefault(emptyList()) }
             .filter { it.isNotBlank() }.distinct().take(MAX_LOOKUP_NAMES)
-        val entry = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { s.aniList.lookup(names, type) }.getOrNull() } ?: return true
-        if (entry.id <= 0) return true
+        val entry = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { s.aniList.lookup(names, type) }.getOrNull() }
+        if (entry == null || entry.id <= 0) {
+            // AniList does not know it: Kitsu's large poster and wide banner instead of the site's thumbnail.
+            kitsuImages(names, type)?.let { img ->
+                s.db.tx {
+                    update(
+                        "UPDATE works SET cover = CASE WHEN ? <> '' THEN ? ELSE cover END, banner = CASE WHEN banner = '' THEN ? ELSE banner END WHERE key = ?",
+                        img.poster, img.poster, img.banner, key
+                    )
+                }
+            }
+            return true
+        }
         val newKey = WorkKey.of(type, entry.names.firstOrNull() ?: names.first(), entry.id)
         s.db.tx {
             update(
@@ -142,8 +153,15 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
             update("DELETE FROM works_fts WHERE work_key = ?", key)
         }
         refreshSearch(newKey)
+        // AniList has no wide banner for many works: Kitsu's.
+        if (entry.banner.isBlank()) kitsuImages(names, type)?.banner?.takeIf { it.isNotBlank() }?.let { banner ->
+            s.db.tx { update("UPDATE works SET banner = ? WHERE key = ? AND banner = ''", banner, newKey) }
+        }
         return true
     }
+
+    private suspend fun kitsuImages(names: List<String>, type: MediaType) =
+        withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { s.kitsu.images(names, type) }.getOrNull() }
 
     /** The search rows of [key]: one per language, with every name its sources and AniList give it. */
     private suspend fun refreshSearch(key: String) = s.db.tx {
@@ -193,6 +211,13 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
             confirmed++
             delay(ANILIST_PAUSE_MS)
         }
+    }
+
+    /** Sources down now (the canary's, or failing the crawl): their covers are the last choice for a card. */
+    private fun unhealthySql(): String {
+        val now = clock()
+        val ids = s.sources.degraded.keys + failures.filterValues { it.second > now }.keys
+        return ids.filter { id -> id.all { it.isLetterOrDigit() || it == '_' || it == '-' } }.joinToString(",") { "'$it'" }.ifEmpty { "''" }
     }
 
     /** Sources that failed: how many times in a row, and when to try again. */
@@ -283,8 +308,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         query(
             """SELECT w.key, w.title, w.cover, w.type, w.score, w.status, MAX(i.updated_at) AS updated, COUNT(DISTINCT i.source_id) AS sources,
                  (SELECT i2.title FROM index_items i2 WHERE i2.work_key = w.key AND i2.lang = ? LIMIT 1) AS local_title,
-                 (SELECT i3.cover FROM index_items i3 WHERE i3.work_key = w.key AND i3.cover <> '' LIMIT 1) AS item_cover,
-                 (SELECT i5.source_id FROM index_items i5 WHERE i5.work_key = w.key AND i5.cover <> '' LIMIT 1) AS cover_source,
+                 (SELECT i3.source_id || char(31) || i3.cover FROM index_items i3 WHERE i3.work_key = w.key AND i3.cover <> '' ORDER BY (i3.source_id IN (${unhealthySql()})) ASC, i3.updated_at DESC LIMIT 1) AS item_cover,
                  (SELECT GROUP_CONCAT(DISTINCT i4.lang) FROM index_items i4 WHERE i4.work_key = w.key) AS langs
                FROM works w JOIN index_items i ON i.work_key = w.key AND i.lang = ?
                WHERE 1 = 1 ${if (typeFilter != null) "AND i.type IN ($typeFilter)" else ""} ${if (hideAdult) "AND $notAdult" else ""}
@@ -296,10 +320,10 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
     private fun java.sql.ResultSet.card() = Card(
         key = getString("key"),
         title = getString("local_title")?.takeIf { it.isNotBlank() } ?: getString("title"),
-        cover = getString("cover")?.takeIf { it.isNotBlank() } ?: getString("item_cover").orEmpty(),
+        cover = getString("cover")?.takeIf { it.isNotBlank() } ?: getString("item_cover").orEmpty().substringAfter('\u001F'),
         type = getString("type"), langs = getString("langs").orEmpty().split(',').filter { it.isNotBlank() },
         sources = getInt("sources"), updatedAt = getLong("updated"), status = getString("status").orEmpty(),
-        coverSource = if (getString("cover").isNullOrBlank()) getString("cover_source").orEmpty() else ""
+        coverSource = if (getString("cover").isNullOrBlank()) getString("item_cover").orEmpty().substringBefore('\u001F', "") else ""
     )
 
     /** Works whose names match [query] (any word start, accents ignored), those with a source in [lang] first. */
@@ -317,8 +341,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
             query(
                 """SELECT w.key, w.title, w.cover, w.type, w.score, w.status, MAX(i.updated_at) AS updated, COUNT(DISTINCT i.source_id) AS sources,
                      (SELECT i2.title FROM index_items i2 WHERE i2.work_key = w.key AND i2.lang = ? LIMIT 1) AS local_title,
-                     (SELECT i3.cover FROM index_items i3 WHERE i3.work_key = w.key AND i3.cover <> '' LIMIT 1) AS item_cover,
-                 (SELECT i5.source_id FROM index_items i5 WHERE i5.work_key = w.key AND i5.cover <> '' LIMIT 1) AS cover_source,
+                     (SELECT i3.source_id || char(31) || i3.cover FROM index_items i3 WHERE i3.work_key = w.key AND i3.cover <> '' ORDER BY (i3.source_id IN (${unhealthySql()})) ASC, i3.updated_at DESC LIMIT 1) AS item_cover,
                      (SELECT GROUP_CONCAT(DISTINCT i4.lang) FROM index_items i4 WHERE i4.work_key = w.key) AS langs
                    FROM works w JOIN index_items i ON i.work_key = w.key
                    WHERE w.key IN (${keys.joinToString(",") { "?" }}) ${if (hideAdult) "AND $notAdult" else ""} GROUP BY w.key""",

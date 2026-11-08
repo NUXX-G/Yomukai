@@ -142,7 +142,8 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
 
     /** The image no wider than [width] (see [ImageShrinker]); the original when shrinking gains nothing. */
     private suspend fun fetchShrunk(url: String, headers: Map<String, String>, width: Int): Pair<ByteArray, String>? {
-        recentWidths[width] = System.currentTimeMillis()
+        // Covers (240-480) are not reading widths: only those are prepared ahead for readers.
+        if (width >= READER_MIN_WIDTH) recentWidths[width] = System.currentTimeMillis()
         val key = "$url#w=$width"
         imageCache.get(key)?.let { (bytes, type) -> return if (type == SAME_AS_ORIGINAL) fetchImage(url, headers) else bytes to type }
         val mine = imageScope.async(start = kotlinx.coroutines.CoroutineStart.LAZY) { shrinkNow(url, headers, width, key) }
@@ -352,6 +353,7 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
 
         private const val MAX_IMAGE_BYTES = 20 * 1024 * 1024
         private const val COVER_WIDTH = 720
+        private const val READER_MIN_WIDTH = 720
         private const val SAME_AS_ORIGINAL = "x-yomukai/original"
         private const val WARM_PARALLEL = 12
         private const val WARM_MAX_PAGES = 80

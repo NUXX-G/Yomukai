@@ -133,8 +133,9 @@ class Services(val config: Config) {
         http.solverHosts = manager.all.mapNotNull { it.baseUrl.toHttpUrlOrNull()?.host?.lowercase()?.removePrefix("www.") }.toSet()
     }
     val aniList = AniListClient(http)
+    val kitsu = KitsuClient(http)
     val metadata = MetadataRepository(
-        aniList, KitsuClient(http), MalClient(http, config.malClientId), MetadataStore(config.dataDir),
+        aniList, kitsu, MalClient(http, config.malClientId), MetadataStore(config.dataDir),
         MangaUpdatesClient(http), OpenLibraryClient(http)
     )
     val proxy = MediaProxy(http, config.secret, File(config.dataDir, "cache"), config.guestStreams, config.imageCacheBytes)
@@ -173,6 +174,7 @@ class Services(val config: Config) {
     }, landing = { source -> http.getStringWithUrl(source.baseUrl).second })
     val works = Works(db, catalog, aniList, sources).also { w ->
         w.tmdb = com.nelson.yomukai.data.metadata.TmdbClient(http, config.tmdbApiKey)
+        w.kitsu = kitsu
         catalog.workKeys = w::knownKeys
         catalog.dtos.betterCover = w::betterCover
     }
