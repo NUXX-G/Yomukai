@@ -24,6 +24,12 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
+      # sherpa-onnx (voces del móvil): se descarga una vez de sus releases y se guarda; si GitHub falla, se usa la copia.
+      - uses: actions/cache@v4
+        with:
+          path: .android-libs
+          key: android-libs-${{ hashFiles('app/build.gradle.kts') }}
+          restore-keys: android-libs-
       - name: SDK de Android
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" >/dev/null
       - name: Clave de firma
