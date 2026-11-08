@@ -49,7 +49,8 @@ class SourceManager(
         // Anime
         AnimeAv1Source(network),
         AnimeFlvSource(network),
-        AnitakuSource(network)
+        AnitakuSource(network),
+        com.nelson.yomukai.data.source.anime.JkAnimeSource(network)
     )
 
     @Volatile

@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video</title>
+
+    <script>
+    const wpart1 = 'local';
+    const wpart2 = 'Storage';
+    const cacheLocal = window[wpart1 + wpart2];
+     const spart1 = 'session';
+    const sessionLocal = window[spart1 + wpart2];
+    const jparse = window['JSON']['parse'];
+
+    </script>
+
+    <!-- Script -->
+    <script src="https://cdn.jkdesa.com/assets/filters-save.js?v=1794173162"></script>
+
+    <script src="https://cdn.jkdesa.com/assets/dplayer-1.27.js?v=1.24"></script>
+
+    <!-- Script -->
+    <script src="https://cdn.jkdesa.com/assets/p2p-media-loader-core.min.js"></script>
+    <script src="https://cdn.jkdesa.com/assets/p2p-media-loader-hlsjs.min.js"></script>
+
+    <script src="https://cdn.jkdesa.com/assets3/js/hls.min.js"></script>
+
+
+
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="https://cdn.jkdesa.com/assets/DPlayer.min.css">
+
+    <!-- Estilos -->
+    <style type="text/css">
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: auto;
+            overflow: hidden;
+        }
+
+        canvas#cnv {
+            display: none;
+        }
+
+        .dplayer-icon.dplayer-camera-icon {
+            display: inline-block !important;
+        }
+
+      span.dplayer-bezel-icon.cplay {
+    opacity: 1;
+    color: #fff;
+    background: #f97a29;
+    height: 110px;
+    width: 110px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0;
+}
+@media screen and (max-width: 500px) {
+span.dplayer-bezel-icon.cplay {
+    height: 80px;
+    width: 80px;
+}
+}
+
+
+
+        .dplayer-mobile-play {
+            opacity: 0 !important;
+            height: 80px;
+            width: 80px;
+        }
+
+        span.dplayer-bezel-icon.cplay svg.splay {
+            position: relative;
+            left: 2px;
+        }
+        div#hlsload {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    margin: auto;
+    background: #000;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    z-index: 99;
+}
+
+
+#hlsload p {
+    color: #fff;
+    margin: auto;
+    width: 250px;
+    height: 30px;
+    font-size: 20px;
+    top: 0;
+    bottom: 0;
+    position: absolute;
+    left: 0;
+    right: 0;
+}
+#hlsload b {
+font-weight: normal;
+}
+/*Modal*/
+#confirm_modal {position: absolute;width: 100%;color: #5A5A5A;padding: 10px;top:0;bottom: 0;margin: auto;z-index: 99;font-family: arial;}
+#modal-back {position: fixed;opacity: 0.8;z-index: 10;background: #000000;top: 0;left: 0;right: 0;bottom: 0;margin: auto;}
+
+
+div#modal-c {height: 100%;position: relative;z-index: 16;}
+#confirm_modal h3 {padding: 15px 0px;text-align: center;margin: 0;}
+
+#confirm_modal span {display: block;padding: 0px 19px;}
+
+div#buttons {position: absolute;right: 0;bottom: 0;padding: 0px 0px;margin-bottom: -35px;width: 100%;text-align: center;}
+
+div#buttons a{height: 100%;padding: 10px 43px;color: #000000;display: inline-block;background: #fff;border-radius: 5px;text-decoration: none;margin: 5px 5px;}
+
+.modal {
+    margin: auto;
+    width: 50%;
+    padding-top: 15%;
+    color: #fff;
+}
+
+@media screen and (max-width: 780px) {
+    #confirm_modal .modal {
+    padding-top: 2%;
+    width: auto;
+    max-width: 440px;
+    }
+}
+@media screen and (max-width: 500px) {
+    div#buttons {
+        margin-bottom: -6px;
+    }
+
+    div#buttons a {
+        font-size: 14px;
+        padding: 8px 23px;
+    }
+
+    span#mc {
+        font-size: 15px;
+    }
+}
+
+button.skip-intro {
+    position: absolute;
+    left: 17px;
+    bottom: 60px;
+    background: #ffffff;
+    padding: 10px 17px;
+    border: none;
+    border-radius: 2px;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, .1);
+    cursor: pointer;
+    z-index: 99;
+}
+.dplayer-setting-box-image .dplayer-setting-image-panel {    display: block !important; }.dplayer-controller .dplayer-icons .dplayer-setting .dplayer-setting-box.dplayer-setting-box-image .dplayer-setting-origin-panel {display: none;}.dplayer-controller .dplayer-icons .dplayer-setting .dplayer-setting-box.dplayer-setting-box-image {  width: 250px !important;  height: 235px !important;}.dplayer-setting-image-panel label {display: block;}.dplayer-setting-image-panel aside div { padding:10px; transition:background 0.3s ease;}.dplayer-setting-image-panel aside div:first-child { padding-top:20px; }.dplayer-setting-image-panel aside div:last-child { border-radius:0 0 4px 0; }.dplayer-setting-image-panel aside div:hover { background:#373737; }.dplayer-setting-image-panel label { display:block; font:13px "Helvetica", sans-serif; color:#fff; text-align: left;    padding-left: 6px;    margin-bottom: 3px;}.dplayer-setting-image-panel code { display:inline-block; font:12px "Courier new"; float:right; color:#fff; }.dplayer-setting-image-panel input { appearance:none!important; background:#dcdcdc;  width:100%; border-radius:10px; height:20px; }.dplayer-setting-image-panel input::-webkit-slider-thumb {appearance:none!important; width:32px; height:20px;  background:#f57c2b; border-radius:10px;}button#resetFilters {display: block;width: 150px;background: #777;border-radius: 6px;padding: 5px 5px;font-size: 12px;margin: auto;color: #fff;border: none;cursor: pointer;}
+    </style>
+</head>
+
+<body>
+    <div id='hlsload'><p><b class="i">Obteniendo servidores</b><span id="loadingDots"></span></p></div>
+    <div id="mse"></div>
+
+
+    <script>
+	var times_modal = 0;
+	function modal_confirm(titulo = false, msj = false, callback = false, callback_cancel = false) {
+	if(times_modal == 0) {
+	var modal = document.createElement("div");
+	modal.id = 'confirm_modal';
+	document.body.appendChild(modal);
+	var ModalData=document.getElementById("confirm_modal");
+	var boton='';
+	var boton='<a href="#" id="acp">Aceptar</a>';
+	ModalData.innerHTML='<div id="modal-back"></div><div class="modal"><div id="modal-c"><h3>'+titulo+'</h3><span id="mc">'+msj+'</span><div id="buttons"><a id="mclose" href="#">Cancelar</a>'+boton+'</div></div></div>';
+	document.querySelector(".modal").style.height=document.getElementById("mc").offsetHeight+100+'px';
+	document.getElementById('mclose').onclick=function(){ModalData.remove();callback_cancel();return false;};
+	document.getElementById('acp').onclick=function(){ModalData.remove();callback();return false;};
+	}
+	times_modal++;
+	}
+    </script>
+
+    <script>
+        /** Dragurimu */
+       /* if (p2pml.hlsjs.Engine.isSupported()) {
+
+            window.dp = new DPlayer({
+                container: document.getElementById('mse'),
+                preload: 'auto', // metadata
+                screenshot: true,
+                theme: '#f97a29',
+                airplay: true,
+                hotkey: true,
+
+                video: {
+                    url: 'https://nika.playmudos.com/RTVjeXB3eksxQ2tPa0c5ZThpVVpjQmU5N3doekNpRkYzMUtNU3VraVNvR3JoQ2pkdUV3QVRrUWh4VkZsdWZNMg.m3u8?st=RJD-GDJWKysPvr8-i7RIUg&e=1794183962',
+                    pic: 'https://cdn.jkdesa.com/assets/images/animes/video/image/jkvideo_ec205081c4e29bd31fba8c97e5ef9d32.jpg',            type: 'customHls', // Usamos un tipo personalizado
+        customType: {
+            customHls: function (video, url) {
+                // Aquí forzamos la inicialización de hls.js
+                if (Hls.isSupported()) {
+                    var hls = new Hls();
+                    hls.loadSource(url);
+                    hls.attachMedia(video);
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Fallback nativo para Safari, etc.
+                    video.src = url;
+                } else {
+                    console.error('Navegador no soporta HLS');
+                }
+            }
+        }
+                }
+            });
+
+            dp.on('fullscreen', function() {
+                if (/Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                    screen.orientation.lock('landscape');
+                }
+            });
+        } else {*/
+
+            window.dp = new DPlayer({
+                container: document.getElementById('mse'),
+                preload: 'auto', // metadata
+                screenshot: true,
+                theme: '#f97a29',
+                airplay: true,
+                hotkey: true,
+                chromecast: true,
+                video: {
+                    url: atob('aHR0cHM6Ly9uaWthLnBsYXltdWRvcy5jb20vUlRWamVYQjNla3N4UTJ0UGEwYzVaVGhwVlZwalFtVTVOM2RvZWtOcFJrWXpNVXROVTNWcmFWTnZSM0pvUTJwa2RVVjNRVlJyVVdoNFZrWnNkV1pOTWcubTN1OD9zdD1SSkQtR0RKV0t5c1B2cjgtaTdSSVVnJmU9MTc5NDE4Mzk2Mg=='),
+                    pic: 'https://cdn.jkdesa.com/assets/images/animes/video/image/jkvideo_ec205081c4e29bd31fba8c97e5ef9d32.jpg',                      type: 'customHls', // Usamos un tipo personalizado
+        customType: {
+            customHls: function (video, url) {
+                // Aquí forzamos la inicialización de hls.js
+                if (Hls.isSupported()) {
+                    var hls = new Hls();
+                    hls.loadSource( 'https://nika.playmudos.com/RTVjeXB3eksxQ2tPa0c5ZThpVVpjQmU5N3doekNpRkYzMUtNU3VraVNvR3JoQ2pkdUV3QVRrUWh4VkZsdWZNMg.m3u8?st=RJD-GDJWKysPvr8-i7RIUg&e=1794183962');
+                    hls.attachMedia(video);
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Fallback nativo para Safari, etc
+                    video.src = url;
+                } else {
+                    console.error('Navegador no soporta HLS');
+                }
+            }
+        }
+                }
+            });
+
+
+            dp.on('fullscreen', function() {
+                if (/Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                    screen.orientation.lock('landscape');
+                }
+            });
+
+        //}
+
+        function addplaybutton() {
+            document.querySelector(".dplayer-bezel-icon").innerHTML = '<svg class="splay" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 16 32"><path d="M15.552 15.168q0.448 0.32 0.448 0.832 0 0.448-0.448 0.768l-13.696 8.512q-0.768 0.512-1.312 0.192t-0.544-1.28v-16.448q0-0.96 0.544-1.28t1.312 0.192z"></path></svg>';
+            document.querySelector(".dplayer-bezel-icon").className = "dplayer-bezel-icon cplay";
+        }
+
+        addplaybutton();
+
+
+
+
+            var hlsloaded = 0;
+            var showDots;
+            var updatet;
+            dp.on('loadstart', function () {
+            if(hlsloaded == 0) {
+            hlsloaded = 1;
+            document.querySelector("#hlsload").style.display = "none";
+            clearTimeout(updatet);
+            clearTimeout(showDots);
+	    }
+
+	//Recordar minuto
+	var jkplayer = document.querySelector('.dplayer-video');
+	var actual_status = cacheLocal.getItem('remember_players');
+	var jkplayer_status = actual_status == null ? [] : jparse(actual_status);
+    var urlParams = new URLSearchParams(window.location.search);
+    var hash = urlParams.get('t');
+
+     function addskip() {
+            const noticePlayer = document.querySelector('.dplayer-notice');
+
+            if (noticePlayer) {
+                // 2. Crear el nuevo elemento (un párrafo de ejemplo)
+                const skipBtn = document.createElement('button');
+                skipBtn.innerHTML = "Saltar opening";
+                skipBtn.classList.add('skip-intro');
+                skipBtn.style.display = "none";
+
+                                 let op_data = {};
+
+                if(op_data.op !== undefined) {
+                 dp.on('timeupdate', () => {
+
+                        console.log(op_data);
+                        console.log(jkplayer.currentTime);
+
+                        if (jkplayer.currentTime >= op_data.op.s) {
+                           skipBtn.style.display = "block";
+                        }
+                        if (jkplayer.currentTime >= op_data.op.e-10) {
+                            skipBtn.style.display = "none";
+                        }
+                         if (jkplayer.currentTime < op_data.op.s) {
+                            skipBtn.style.display = "none";
+                        }
+
+                });
+                }
+
+                skipBtn.onclick = function() {
+                skipBtn.style.display = "none";
+                jkplayer.currentTime = op_data.op.e-4;
+                }
+
+                // 3. Insertar: Poner el nuevo elemento justo DESPUÉS del elemento de referencia
+                noticePlayer.after(skipBtn);
+
+                             }
+
+
+        }
+
+    addskip();
+
+	function update_jkstatus() {
+	setInterval(function(){
+
+	var new_time = {'time': jkplayer.currentTime, 'hash': hash};
+	//Si no existe se crea
+	if (!jkplayer_status.find(o => o.hash === hash)) {
+	if(jkplayer.currentTime > 5) {
+	jkplayer_status.push(new_time);
+	cacheLocal.setItem('remember_players', JSON.stringify(jkplayer_status));
+	}
+	} else {
+	//Si existe se actualiza
+	jkplayer_status[jkplayer_status.findIndex(o => o.hash === hash)]['time'] = jkplayer.currentTime;
+	cacheLocal.setItem('remember_players', JSON.stringify(jkplayer_status));
+
+	}
+	}, 1000);
+
+	}
+
+	if(jkplayer_status.find(o => o.hash === hash)) {
+	//Pregunta si quiere continuar
+	var player_newtime = jkplayer_status[jkplayer_status.findIndex(o => o.hash === hash)]['time'];
+
+	var humantime = new Date(player_newtime * 1000).toISOString().substr(11, 8);
+	modal_confirm("Un momento!", "Parece que anteriormente estabas mirando este vídeo ¿Deseas continuar donde te quedaste? "+humantime, function() {
+	jkplayer.currentTime = player_newtime;
+	jkplayer.play();
+
+	update_jkstatus();
+	}, function() {
+	update_jkstatus();
+	});
+
+	} else {
+	//Si no hay info, crea o actualiz
+	update_jkstatus();
+	}
+
+
+
+            });
+
+            setTimeout(function(){
+            document.querySelector("#hlsload").style.display = "none";
+            clearTimeout(updatet);
+            clearTimeout(showDots);
+            }, 15000);
+
+            var showLoadingDots = function() {
+            showDots = setInterval(function(){
+                var d = document.querySelector("#loadingDots");
+                if(d.innerHTML.length >= 3) {
+                d.innerHTML = ''}
+                else {
+                d.innerHTML = d.innerHTML+'.';
+                }
+            },300);
+            }
+            showLoadingDots();
+
+            var updateText = function() {
+            var segundo_actual = 0;
+            updatet = setInterval(function(){
+            var d = document.querySelector("#hlsload b.i");
+            segundo_actual++;
+            if(segundo_actual == 4) {
+            d.innerHTML = "Obtenidos, desencriptando";
+            }
+            if(segundo_actual == 3) {
+            d.innerHTML = "Cargando player";
+            }
+            },1000);
+            }
+            updateText();
+
+        dp.on('play', function() {
+            document.querySelector(".dplayer-bezel-icon").className = "dplayer-bezel-icon";
+        });
+
+        let lastSentTime = 0;
+        let opButtonShow = false;
+
+        dp.on('timeupdate', () => {
+            const currentTime = document.querySelector('.dplayer-video').currentTime;
+            const duration = document.querySelector('.dplayer-video').duration;
+            const percent = (currentTime / duration) * 100;
+
+            // Enviar el tiempo al padre (evitando saturación de mensajes)
+            if (Math.abs(currentTime - lastSentTime) >= 0.5) { // Enviar cada 0.5s
+                window.parent.postMessage({
+                    action: 'history_play',
+                    time: percent,
+                }, '*'); // Usa tu dominio en lugar de '*' en producción
+                lastSentTime = currentTime;
+            }
+        });
+
+
+        dp.on('playing', function() {
+            document.querySelector(".dplayer-bezel-icon").className = "dplayer-bezel-icon";
+        });
+        dp.on('pause', function() {
+            document.querySelector(".dplayer-bezel-icon").className = "dplayer-bezel-icon cplay";
+            document.querySelector(".dplayer-bezel-icon").innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 17 32"><path d="M14.080 4.8q2.88 0 2.88 2.048v18.24q0 2.112-2.88 2.112t-2.88-2.112v-18.24q0-2.048 2.88-2.048zM2.88 4.8q2.88 0 2.88 2.048v18.24q0 2.112-2.88 2.112t-2.88-2.112v-18.24q0-2.048 2.88-2.048z"></path></svg>';
+        });
+
+
+    </script>
+
+    <script type="text/javascript">
+        window.onload = function() {
+            document.getElementById('mse').style.height = window.innerHeight + 'px';
+        }
+
+        window.addEventListener('resize', function() {
+            document.getElementById('mse').style.height = window.innerHeight + 'px';
+        });
+    </script>
+
+    <script
+    defer
+    data-domain="jkanime.net"
+    src="https://stats.jkdesa.com/js/script.manual.js"
+    ></script>
+
+    <script>
+    //    plausible('player', { props: "" });
+    document.addEventListener('DOMContentLoaded', function() {
+        plausible('player', { props: { main_player: 'desu' } });
+    });
+    </script>
+
+</body>
+
+</html>
