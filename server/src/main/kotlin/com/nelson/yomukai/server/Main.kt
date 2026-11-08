@@ -182,6 +182,7 @@ class Services(val config: Config) {
     val voices by lazy { VoiceRouter(this) }
     val ocr by lazy { OcrStore(this) }
     val words = Words(db, events)
+    val dictionaries by lazy { Dictionaries(this) }
     val integrations = Integrations(db, config.secret)
     val jellyfin = JellyfinLink(integrations, features, sources)
     val imports = Imports(db, catalog, http, config.malClientId, { prefs(it) })

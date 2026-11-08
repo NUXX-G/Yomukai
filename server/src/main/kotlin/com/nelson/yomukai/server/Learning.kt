@@ -183,6 +183,7 @@ fun Route.learningRoutes(s: Services) {
     }
 
     wordRoutes(s)
+    dictionaryRoutes(s)
 }
 
 private fun Route.wordRoutes(s: Services) {

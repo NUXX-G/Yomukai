@@ -195,6 +195,7 @@ export const api = {
   ocr: (s, c, p) => request('GET', `/api/ocr?${qs({ s, c, p })}`),
   ocrRequest: (sourceId, chapterId, lang) => request('POST', '/api/ocr/request', { sourceId, chapterId, lang }),
   translate: (texts, from, to) => request('POST', '/api/translate', { texts, from, to }),
+  dictLookup: (lang, w) => request('GET', `/api/dictionary/${encodeURIComponent(lang)}/lookup?${qs({ w })}`),
   wordLevels: (lang) => request('GET', `/api/words/levels?${qs({ lang })}`),
   saveWord: (body) => request('POST', '/api/words', body),
   wordsDue: () => request('GET', '/api/words/due'),

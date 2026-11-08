@@ -17,6 +17,7 @@ application {
 dependencies {
     implementation(project(":shared"))
     implementation(libs.okhttp)
+    implementation("org.xerial:sqlite-jdbc:3.50.3.0")
     implementation("ch.qos.logback:logback-classic:1.5.18")
     testImplementation(libs.junit)
     testImplementation(project(":server"))
