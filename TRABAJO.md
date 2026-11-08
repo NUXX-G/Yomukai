@@ -3,7 +3,7 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
-Última actualización: 2026-11-08 (noche). Versión de la app: **2.1.0** (versionCode 27): un APK por procesador (arm64 29 MB) + universal; la release se publica sola al subir la etiqueta v2.1.0.
+Última actualización: 2026-11-08 (noche). Versión de la app: **2.2.0** (versionCode 28): un APK por procesador (arm64 29 MB) + universal; la release se publica sola al subir la etiqueta v2.1.0.
 
 **ESTADO 2026-11-08 (noche) — fallos de la 2.1.0 y prioridad nº 1**
 - [x] PRIORIDAD Nº 1, catálogo por OBRAS: `WorkIndex.kt` (migración 18, rastreo de 4 fuentes a la vez, novedades cada 2 h, confirmación con AniList), API `/api/obras*`, web (Inicio «Recién actualizado», buscador con «Obras» primero, `/obras/:key?lang=` abre la mejor fuente del idioma con `?obra=`, chips de idioma en la ficha) y app (recomendaciones por `/api/obras/anilist`). Medido en local: abrir una obra en ~0,5 s.
@@ -19,7 +19,12 @@ Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este ficher
   - OK: MangaDex ES/EN/ZH, Olympus, NovelCool x3, MegaBanana, YSK, SkyNovels, AnimeFLV, Marmota y Anitaku (vía /ver).
   - Flame: caída, su dominio redirige a Discord (el canario la oculta).
   - Asura, LectorTMO, ZonaTMO y AnimeAV1: certificado no fiable desde esta red, también con curl (bloqueo de la operadora en España, Cloudflare). Comprobar desde el VPS en Administración › Salud de las fuentes. Los errores ya se explican en palabras claras.
-- **SIGUIENTE**: (8) traducción de bocadillos poco fiable, revisar OCR/agrupado de cajas y reintentos (web `MangaReader.svelte` + worker; app `BubbleOverlay`); (6) que crear sala sea evidente; volver a sondear las fuentes desde el VPS; medir rendimiento; release 2.2.0 con instrucciones de actualización (`install.sh` y `docker compose up -d`).
+- [x] 8 Traducción de bocadillos: el servidor perdía la posición de los textos vacíos (traducciones en el bocadillo equivocado) y daba 503 si el worker tardaba más de 20 s; ahora 202 «pendiente» y la web reintenta cada 5 s. Selector «Traducir al» en el lector.
+- [x] 6 Salas: «Ver con amigos» en la ficha de cada anime (web). Guía rápida (/guia en la web y en Ajustes de la app) y explicaciones en Repaso, mazos y logros.
+- [x] Parar la voz con un toque (web y app, también con las barras ocultas).
+- [x] Dominios mudados: Administración › «Webs que se han mudado de dominio» (migración 19, `DomainAliases.kt`). lectortmo.com y zonatmo.com no resuelven en el DNS público: hace falta su dominio nuevo (ponerlo ahí).
+- [x] Release 2.2.0 (versionCode 28).
+- **SIGUIENTE**: sondear todas las fuentes DESDE EL VPS (en local la red bloquea varias) y poner los dominios nuevos; más fuentes en español e inglés para que se vean más obras; la app conectada debería usar también los dominios mudados (ahora solo el servidor); ficha por obra en la app con chips de idioma (paridad con la web); medir rendimiento.
 
 ### PLAN: ÍNDICE DE OBRAS (prioridad nº 1, empezado el 2026-11-08)
 **Por qué ahora va lento**: las filas de Inicio vienen de AniList y al pulsar una el servidor busca en directo en todas las fuentes (locate). Si una fuente tarda, la obra se queda cargando 20 s o más. Hay que cambiarlo por un índice construido por adelantado.
