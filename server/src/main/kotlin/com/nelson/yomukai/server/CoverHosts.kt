@@ -11,11 +11,17 @@ object CoverHosts {
     private val bySource = ConcurrentHashMap<String, MutableSet<String>>()
     private const val MAX_HOSTS_PER_SOURCE = 50
 
+    /** A dotted name ending in letters (so no IPv4 literal, no IPv6, no "localhost"). */
+    private val PUBLIC_NAME = Regex("^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,24}$")
+
     fun learn(items: List<MediaItem>) = items.forEach { learn(it.sourceId, it.coverUrl) }
 
     fun learn(sourceId: String, cover: String) {
         if (sourceId.isBlank() || !cover.startsWith("https://") && !cover.startsWith("http://")) return
-        val host = runCatching { java.net.URI(cover).host?.lowercase() }.getOrNull() ?: return
+        val host = runCatching { java.net.URI(cover).host?.lowercase()?.trimEnd('.') }.getOrNull() ?: return
+        // Only host names (never addresses, which a scraped page could point anywhere). Fetches still go through
+        // ServerHttp, whose DNS and network guards refuse private, loopback and link-local addresses on every hop.
+        if (!PUBLIC_NAME.matches(host)) return
         val set = bySource.getOrPut(sourceId) { ConcurrentHashMap.newKeySet() }
         if (set.size < MAX_HOSTS_PER_SOURCE) set.add(host)
     }

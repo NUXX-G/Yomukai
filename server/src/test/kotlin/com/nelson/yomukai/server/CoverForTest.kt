@@ -22,5 +22,10 @@ class CoverForTest {
         CoverHosts.learn("olympus", "https://cdn.olympus-covers.example/a.webp")
         assertTrue(s.coverFor("https://cdn.olympus-covers.example/b.webp", "olympus").startsWith("/api/img?"))
         assertEquals("", s.coverFor("https://cdn.olympus-covers.example/b.webp", "animeflv"))
+        // Addresses are never learnt, whatever a scraped page says.
+        listOf("http://127.0.0.1/a.jpg", "http://169.254.169.254/a.jpg", "http://localhost/a.jpg", "http://[::1]/a.jpg").forEach {
+            CoverHosts.learn("olympus", it)
+            assertEquals("", s.coverFor(it, "olympus"))
+        }
     }
 }
