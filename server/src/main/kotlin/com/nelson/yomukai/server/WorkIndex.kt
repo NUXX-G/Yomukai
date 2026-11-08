@@ -11,6 +11,9 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import org.slf4j.LoggerFactory
@@ -167,26 +170,36 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
     /** Called every minute: a few pages of crawling, grouping what came in and some AniList confirmations. */
     suspend fun tick() {
         if (!s.features.isOn("work_index")) return
-        val source = nextSource()
-        if (source != null) runCatching { crawlSome(source) }.onFailure {
-            if (it is CancellationException) throw it
-            s.db.tx { update("UPDATE index_state SET error = ? WHERE source_id = ?", it.message?.take(MAX_SHORT), source.id) }
-            log.debug("Índice {}: {}", source.id, it.message)
+        // Several sources at once (each one is a different site, so none gets more than its own gentle pace).
+        coroutineScope {
+            dueSources().take(PARALLEL_SOURCES).map { source ->
+                async {
+                    runCatching { crawlSome(source) }.onFailure {
+                        if (it is CancellationException) throw it
+                        s.db.tx { update("UPDATE index_state SET error = ? WHERE source_id = ?", it.message?.take(MAX_SHORT), source.id) }
+                        log.debug("Índice {}: {}", source.id, it.message)
+                    }
+                }
+            }.awaitAll()
         }
         groupPending()
-        repeat(CONFIRMS_PER_TICK) {
-            if (!confirmNext()) return@repeat
+        var confirmed = 0
+        while (confirmed < CONFIRMS_PER_TICK && confirmNext()) {
+            confirmed++
             delay(ANILIST_PAUSE_MS)
         }
     }
 
-    /** The source to work on: one whose first crawl is unfinished, else the one whose latest updates are oldest. */
-    private suspend fun nextSource(): CatalogueSource? {
-        val candidates = s.sources.all.filter { it.id !in s.sources.hidden && !s.sources.degraded.containsKey(it.id) && !it.isExperimental && it.language != "MULTI" }
-        if (candidates.isEmpty()) return null
+    /** Sources with work to do: first crawls unfinished first, then those whose latest updates are due (oldest first). */
+    private suspend fun dueSources(): List<CatalogueSource> {
+        val candidates = s.sources.all.filter {
+            it.id !in s.sources.hidden && !s.sources.degraded.containsKey(it.id) && !it.isExperimental && it.language != "MULTI"
+        }
         val states = s.db.tx { query("SELECT source_id, full_done, latest_at FROM index_state") { getString(1) to (getInt(2) to getLong(3)) } }.toMap()
-        candidates.firstOrNull { states[it.id]?.first != 1 }?.let { return it }
-        return candidates.minByOrNull { states[it.id]?.second ?: 0L }?.takeIf { clock() - (states[it.id]?.second ?: 0L) >= LATEST_EVERY_MS }
+        val unfinished = candidates.filter { states[it.id]?.first != 1 }
+        val due = candidates.filter { states[it.id]?.first == 1 && clock() - (states[it.id]?.second ?: 0L) >= LATEST_EVERY_MS }
+            .sortedBy { states[it.id]?.second ?: 0L }
+        return unfinished + due
     }
 
     private suspend fun crawlSome(source: CatalogueSource) {
@@ -196,12 +209,17 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
             var page = nextPage
             var finished = false
             val seen = HashSet<String>()
-            repeat(PAGES_PER_TICK) {
+            var done = 0
+            while (done < PAGES_PER_TICK && !finished) {
                 val items = crawlPage(source, page, full = true)
                 // The end: an empty page, a page that repeats (some sites loop) or the cap.
-                if (items.isEmpty() || items.all { !seen.add(it.id) } || page >= MAX_FULL_PAGES) { finished = true; return@repeat }
-                page++
-                delay(PAGE_PAUSE_MS)
+                if (items.isEmpty() || items.all { !seen.add(it.id) } || page >= MAX_FULL_PAGES) {
+                    finished = true
+                } else {
+                    page++
+                    done++
+                    delay(PAGE_PAUSE_MS)
+                }
             }
             s.db.tx {
                 update(
@@ -315,6 +333,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         const val PAGE_SIZE = 40
         const val LATEST_EVERY_MS = 2 * 3_600_000L
         private const val PAGES_PER_TICK = 6
+        private const val PARALLEL_SOURCES = 4
         private const val PAGE_PAUSE_MS = 2_000L
         private const val MAX_FULL_PAGES = 300
         private const val LATEST_PAGES = 8
