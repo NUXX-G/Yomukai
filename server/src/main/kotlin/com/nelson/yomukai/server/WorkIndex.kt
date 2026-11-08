@@ -6,6 +6,7 @@ import com.nelson.yomukai.data.source.CatalogueSource
 import com.nelson.yomukai.data.work.WorkKey
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
+import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
@@ -174,9 +175,12 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         coroutineScope {
             dueSources().take(PARALLEL_SOURCES).map { source ->
                 async {
-                    runCatching { crawlSome(source) }.onFailure {
+                    runCatching { crawlSome(source) }.onSuccess { failures.remove(source.id) }.onFailure {
                         if (it is CancellationException) throw it
                         s.db.tx { update("UPDATE index_state SET error = ? WHERE source_id = ?", it.message?.take(MAX_SHORT), source.id) }
+                        // A broken site waits (longer each time) and leaves its turn to the others.
+                        val n = (failures[source.id]?.first ?: 0) + 1
+                        failures[source.id] = n to clock() + (RETRY_BASE_MS shl (n - 1).coerceAtMost(RETRY_MAX_SHIFT))
                         log.debug("Índice {}: {}", source.id, it.message)
                     }
                 }
@@ -190,10 +194,18 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         }
     }
 
-    /** Sources with work to do: first crawls unfinished first, then those whose latest updates are due (oldest first). */
-    private suspend fun dueSources(): List<CatalogueSource> {
+    /** Sources that failed: how many times in a row, and when to try again. */
+    private val failures = java.util.concurrent.ConcurrentHashMap<String, Pair<Int, Long>>()
+
+    /**
+     * Sources with work to do: first crawls unfinished first, then those whose latest updates are due (oldest first).
+     * A source that keeps failing waits its turn (10 min, 20, 40… up to ~5 h), so it never blocks the healthy ones.
+     */
+    internal suspend fun dueSources(): List<CatalogueSource> {
+        val now = clock()
         val candidates = s.sources.all.filter {
-            it.id !in s.sources.hidden && !s.sources.degraded.containsKey(it.id) && !it.isExperimental && it.language != "MULTI"
+            it.id !in s.sources.hidden && !s.sources.degraded.containsKey(it.id) && !it.isExperimental && it.language != "MULTI" &&
+                (failures[it.id]?.second ?: 0L) <= now
         }
         val states = s.db.tx { query("SELECT source_id, full_done, latest_at FROM index_state") { getString(1) to (getInt(2) to getLong(3)) } }.toMap()
         val unfinished = candidates.filter { states[it.id]?.first != 1 }
@@ -316,6 +328,17 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
     /** The work behind an AniList id, if the index has it. */
     suspend fun byAniList(id: Int): String? = s.db.tx { queryOne("SELECT key FROM works WHERE anilist_id = ? LIMIT 1", id) { getString(1) } }
 
+    /**
+     * The work of the index that is [names] (by AniList id first, else by any name, with the same normalised keys used
+     * to group titles, so "Ao Ashi Season 2" never opens "Ao Ashi"), preferring one readable in [lang].
+     */
+    suspend fun match(type: MediaType, names: List<String>, anilistId: Int?, lang: String): String? {
+        anilistId?.let { byAniList(it) }?.let { return it }
+        val keys = names.filter { it.isNotBlank() && it.length <= MAX_ALT_LENGTH }.take(MAX_LOOKUP_NAMES * 2).map { WorkKey.of(type, it) }.distinct()
+        val found = s.db.tx { keys.mapNotNull { k -> queryOne("SELECT work_key FROM index_names WHERE name_key = ?", k) { getString(1) } } }.distinct()
+        return found.firstOrNull { sourcesOf(it, lang).isNotEmpty() } ?: found.firstOrNull()
+    }
+
     /** A work's sources in [lang] (multi-language ones too), most recently updated first. */
     suspend fun sourcesOf(key: String, lang: String): List<Pair<String, String>> = s.db.tx {
         query(
@@ -334,6 +357,8 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         const val LATEST_EVERY_MS = 2 * 3_600_000L
         private const val PAGES_PER_TICK = 6
         private const val PARALLEL_SOURCES = 4
+        private const val RETRY_BASE_MS = 10 * 60_000L
+        private const val RETRY_MAX_SHIFT = 5
         private const val PAGE_PAUSE_MS = 2_000L
         private const val MAX_FULL_PAGES = 300
         private const val LATEST_PAGES = 8
@@ -388,6 +413,18 @@ fun Route.workIndexRoutes(s: Services) {
             ?: return@get call.respond(io.ktor.http.HttpStatusCode.NotFound, mapOf("error" to "Esa obra aún no está en el índice"))
         call.respond(mapOf("key" to key))
     }
+    // Opening a title from AniList's rows (or anything with names): the work the index already has, or 404 at once.
+    post("/obras/encontrar") {
+        if (!call.indexOn()) return@post
+        val body = com.google.gson.JsonParser.parseString(call.receiveText().take(MAX_BODY)).asJsonObject
+        val type = body.get("type")?.takeIf { it.isJsonPrimitive }?.asString?.let { t -> MediaType.entries.firstOrNull { it.name == t } } ?: MediaType.MANGA
+        val names = body.getAsJsonArray("names")?.mapNotNull { it.takeIf { e -> e.isJsonPrimitive }?.asString?.take(MAX_NAME) }.orEmpty()
+        val title = body.get("title")?.takeIf { it.isJsonPrimitive }?.asString?.take(MAX_NAME)
+        val anilistId = body.get("anilistId")?.takeIf { it.isJsonPrimitive }?.asInt
+        val key = s.workIndex.match(type, listOfNotNull(title) + names, anilistId, call.lang())
+            ?: return@post call.respond(io.ktor.http.HttpStatusCode.NotFound, mapOf("error" to "Esa obra aún no está en el índice"))
+        call.respond(mapOf("key" to key))
+    }
     workFichaRoute(s)
 }
 
@@ -419,6 +456,8 @@ private fun Route.workFichaRoute(s: Services) {
 }
 
 private const val MAX_PAGE = 500
+private const val MAX_BODY = 8_000
+private const val MAX_NAME = 200
 private const val MAX_QUERY = 100
 private const val MAX_KEY = 300
 private const val FICHA_WAIT_MS = 8_000L

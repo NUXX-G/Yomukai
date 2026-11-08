@@ -42,6 +42,21 @@ class WorkIndexTest {
     }
 
     @Test
+    fun aTitleFromAniListOpensItsWorkByNameButNeverAnotherSeason() = runBlocking {
+        index.record("animeflv", "es", listOf(item("animeflv", "f1", "Ao Ashi Season 2", MediaType.ANIME), item("animeflv", "f2", "Ao Ashi", MediaType.ANIME)), fresh = false)
+        index.record("anitaku", "en", listOf(item("anitaku", "t1", "SPY x FAMILY", MediaType.ANIME)), fresh = false)
+        index.groupPending()
+        val season2 = index.match(MediaType.ANIME, listOf("Aoashi Season 2", "Ao Ashi Season 2"), anilistId = 999_999, lang = "es")
+        assertTrue(season2 != null && index.sourcesOf(season2, "es").single().second == "f1")
+        assertEquals(index.match(MediaType.ANIME, listOf("Ao Ashi"), null, "es"), index.match(MediaType.ANIME, listOf("Ao Ashi"), null, "en"))
+        assertTrue(index.sourcesOf(index.match(MediaType.ANIME, listOf("Ao Ashi"), null, "es")!!, "es").single().second == "f2")
+        // "Spy x Family" with other spacing and case is the same work; a manga of the same name is not.
+        assertTrue(index.match(MediaType.ANIME, listOf("Spy × Family", "SPY x FAMILY"), null, "es") != null)
+        assertEquals(null, index.match(MediaType.MANGA, listOf("SPY x FAMILY"), null, "es"))
+        assertEquals(null, index.match(MediaType.ANIME, listOf("Nada parecido"), null, "es"))
+    }
+
+    @Test
     fun crawlingASourceRecordsItsPagesAndStopsAtTheEnd() = runBlocking {
         val source = object : CatalogueSource {
             override val id = "fake"

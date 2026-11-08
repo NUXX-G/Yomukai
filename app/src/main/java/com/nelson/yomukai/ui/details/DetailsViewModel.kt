@@ -132,7 +132,7 @@ internal suspend fun locateAndOpen(
 /** The first place the connected server finds [related] as the same work, if this app has that source too. */
 private suspend fun serverLocateFirst(container: com.nelson.yomukai.AppContainer, related: RelatedTitle): MediaItem? {
     // The server's works index usually has it already (built ahead): no searching at all.
-    related.anilistId?.let { id -> runCatching { serverIndexFirst(container, id, related.type) }.getOrNull()?.let { return it } }
+    runCatching { serverIndexFirst(container, related) }.getOrNull()?.let { return it }
     val body = com.google.gson.JsonObject().apply {
         addProperty("title", related.title)
         add("names", com.google.gson.JsonArray().apply { related.names.forEach(::add) })
@@ -159,10 +159,18 @@ private suspend fun serverLocateFirst(container: com.nelson.yomukai.AppContainer
 }
 
 /** Where the server's works index has AniList work [anilistId] in the app's language, in a source this app has. */
-private suspend fun serverIndexFirst(container: com.nelson.yomukai.AppContainer, anilistId: Int, type: com.nelson.yomukai.domain.model.MediaType): MediaItem? {
-    val key = container.serverSync.api("GET", "/api/obras/anilist/$anilistId")?.asJsonObject?.get("key")
-        ?.takeIf { it.isJsonPrimitive }?.asString ?: return null
+private suspend fun serverIndexFirst(container: com.nelson.yomukai.AppContainer, related: RelatedTitle): MediaItem? {
+    val type = related.type
     val lang = com.nelson.yomukai.i18n.I18n.lang
+    // By AniList id or by any of its names (normalised as the index groups them).
+    val ask = com.google.gson.JsonObject().apply {
+        addProperty("title", related.title)
+        add("names", com.google.gson.JsonArray().apply { related.names.forEach(::add) })
+        addProperty("type", type.name)
+        related.anilistId?.let { addProperty("anilistId", it) }
+    }
+    val key = container.serverSync.api("POST", "/api/obras/encontrar?lang=$lang", ask)?.asJsonObject?.get("key")
+        ?.takeIf { it.isJsonPrimitive }?.asString ?: return null
     val ficha = container.serverSync.api("GET", "/api/obras/ficha/${java.net.URLEncoder.encode(key, Charsets.UTF_8).replace("+", "%20")}?lang=$lang&light=1")
         ?.takeIf { it.isJsonObject }?.asJsonObject ?: return null
     val work = ficha.get("work")?.takeIf { it.isJsonObject }?.asJsonObject

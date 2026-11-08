@@ -7,11 +7,10 @@ export const locating = $state({ open: false, title: '', searching: false, optio
 
 export async function openRelated(related) {
   if (related.item) return navigate(media(related.item.sourceId, related.item.id));
-  // The server's works index usually knows it already: open the work at once, no search across sources.
-  if (related.anilistId) {
-    const found = await api.obraAniList(related.anilistId).catch(() => null);
-    if (found?.key) return navigate('/obras/' + encodeURIComponent(found.key) + '?lang=' + i18n.lang);
-  }
+  // The server's works index usually knows it already (by AniList id or by any of its names): open the work at
+  // once, no search across sources.
+  const found = await api.obraEncontrar(related, i18n.lang).catch(() => null);
+  if (found?.key) return navigate('/obras/' + encodeURIComponent(found.key) + '?lang=' + i18n.lang);
   locating.open = true;
   locating.title = related.title;
   locating.searching = true;
