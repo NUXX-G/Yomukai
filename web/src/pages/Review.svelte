@@ -18,6 +18,25 @@
   }
   load();
 
+  // Shared decks (snapshots of someone's words, to copy) and this week's ranking of reviews, among this server's people.
+  let decks = $state([]);
+  let ranking = $state([]);
+  let deckName = $state('');
+  let deckLang = $state('en');
+  async function loadShared() {
+    [decks, ranking] = await Promise.all([api.decks().catch(() => []), api.wordRanking().catch(() => [])]);
+  }
+  loadShared();
+  async function publish() {
+    try { await api.publishDeck(deckName, deckLang); deckName = ''; notify(t('Mazo compartido')); loadShared(); } catch (e) { notify(e.message); }
+  }
+  async function copyDeck(d) {
+    try { const r = await api.importDeck(d.id); notify(t('{0} palabras nuevas para repasar', [r.added])); load(); } catch (e) { notify(e.message); }
+  }
+  async function removeDeck(d) {
+    try { await api.deleteDeck(d.id); loadShared(); } catch (e) { notify(e.message); }
+  }
+
   const card = $derived(due?.[0]);
 
   async function grade(g) {
@@ -71,6 +90,30 @@
       </div>
     {/if}
   {/if}
+
+  <section class="shared">
+    <h2>{t('Ranking de la semana')}</h2>
+    {#if ranking.length}
+      <ol class="rank">{#each ranking as r, i (r.name)}<li><span class="pos">{i + 1}</span><span class="who">{r.name}</span><span class="muted">{t('{0} repasos', [r.reviews])}</span></li>{/each}</ol>
+    {:else}<p class="muted">{t('Nadie ha repasado esta semana todavía.')}</p>{/if}
+
+    <h2>{t('Mazos compartidos')}</h2>
+    <form class="publish" onsubmit={(e) => { e.preventDefault(); publish(); }}>
+      <input class="input" bind:value={deckName} maxlength="80" placeholder={t('Nombre del mazo')} required />
+      <select class="input" bind:value={deckLang} aria-label={t('Idioma')}>
+        <option value="en">{t('Inglés')}</option><option value="zh">{t('Chino')}</option><option value="ja">{t('Japonés')}</option>
+        <option value="ko">{t('Coreano')}</option><option value="fr">{t('Francés')}</option><option value="de">{t('Alemán')}</option>
+        <option value="it">{t('Italiano')}</option><option value="pt">{t('Portugués')}</option><option value="ru">{t('Ruso')}</option>
+      </select>
+      <button class="btn tonal">{t('Compartir mis palabras')}</button>
+    </form>
+    {#each decks as d (d.id)}
+      <div class="deck">
+        <div class="grow"><strong>{d.name}</strong><div class="small muted">{d.owner} · {d.lang.toUpperCase()} · {t('{0} palabras', [d.size])}</div></div>
+        {#if d.mine}<button class="btn text" onclick={() => removeDeck(d)}>{t('Quitar')}</button>{:else}<button class="btn primary" onclick={() => copyDeck(d)}>{t('Copiar')}</button>{/if}
+      </div>
+    {:else}<p class="muted">{t('Aún no hay mazos compartidos.')}</p>{/each}
+  </section>
 </div>
 
 <style>
@@ -88,4 +131,14 @@
   .grade.good { color: var(--c-success); }
   .empty { padding: 30px 0; }
   .big { font-size: 1.2rem; font-weight: 700; }
+  .shared { margin-top: 36px; display: flex; flex-direction: column; gap: 10px; }
+  h2 { font-size: 1.1rem; font-weight: 750; margin: 14px 0 4px; }
+  .rank { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .rank li { display: flex; gap: 12px; align-items: center; padding: 8px 12px; border-radius: var(--r-md); background: var(--c-surface); }
+  .pos { font-weight: 800; color: var(--c-accent); width: 1.5em; }
+  .who { flex: 1; font-weight: 650; }
+  .publish { display: flex; flex-wrap: wrap; gap: 8px; }
+  .publish .input:first-child { flex: 1; min-width: 160px; }
+  .deck { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-md); background: var(--c-surface); }
+  .grow { flex: 1; min-width: 0; }
 </style>

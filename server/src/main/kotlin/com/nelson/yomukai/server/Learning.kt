@@ -142,12 +142,74 @@ class Words(private val db: Database, private val events: Events, private val cl
 
     suspend fun anki(user: User): String = AnkiExport.tsv(list(user, false, null).map { AnkiExport.Entry(it.word, it.meaning, it.context, it.source) })
 
+    data class Deck(val id: Long, val owner: String, val mine: Boolean, val name: String, val lang: String, val size: Int, val createdAt: Long)
+    private data class DeckWord(val word: String = "", val meaning: String = "", val context: String = "")
+
+    /** Shares a snapshot of the user's [lang] words (up to [MAX_DECK]) for others on this server to copy. */
+    suspend fun publishDeck(user: User, name: String, lang: String): Long {
+        require(!user.isGuest) { "Los invitados no comparten mazos" }
+        val clean = name.filter { !it.isISOControl() }.trim().take(80)
+        require(clean.isNotEmpty()) { "Falta el nombre" }
+        val words = list(user, false, lang.take(5).lowercase()).take(MAX_DECK).map { DeckWord(it.word, it.meaning, it.context) }
+        require(words.isNotEmpty()) { "No tienes palabras guardadas en ese idioma" }
+        val mine = db.tx { queryOne("SELECT COUNT(*) FROM decks WHERE user_id = ?", user.id) { getInt(1) } } ?: 0
+        require(mine < MAX_DECKS_PER_USER) { "Ya compartes $MAX_DECKS_PER_USER mazos" }
+        return db.tx {
+            update(
+                "INSERT INTO decks(user_id, name, lang, words, size, created_at) VALUES(?,?,?,?,?,?)",
+                user.id, clean, lang.take(5).lowercase(), gson.toJson(words), words.size, clock()
+            )
+            lastId()
+        }
+    }
+
+    suspend fun decks(viewer: User): List<Deck> = db.tx {
+        query(
+            """SELECT d.id, u.name, d.user_id, d.name, d.lang, d.size, d.created_at FROM decks d JOIN users u ON u.id = d.user_id
+               WHERE u.hidden = 0 OR d.user_id = ? ORDER BY d.created_at DESC LIMIT 200""",
+            viewer.id
+        ) { Deck(getLong(1), getString(2), getLong(3) == viewer.id, getString(4), getString(5), getInt(6), getLong(7)) }
+    }
+
+    /** Copies a shared deck's words into the user's own (those already saved stay as they are); how many were new. */
+    suspend fun importDeck(user: User, id: Long): Int {
+        require(!user.isGuest) { "Los invitados no guardan palabras" }
+        val (lang, json) = db.tx { queryOne("SELECT lang, words FROM decks WHERE id = ?", id) { getString(1) to getString(2) } }
+            ?: throw NoSuchElementException("Ese mazo ya no existe")
+        val words = runCatching { gson.fromJson(json, Array<DeckWord>::class.java).toList() }.getOrDefault(emptyList())
+        var added = 0
+        for (w in words) {
+            val body = JsonObject().apply { addProperty("word", w.word); addProperty("lang", lang); addProperty("meaning", w.meaning); addProperty("context", w.context) }
+            val before = db.tx { queryOne("SELECT 1 FROM words WHERE user_id = ? AND lang = ? AND word = ?", user.id, lang, w.word.lowercase().trim()) { 1 } }
+            if (before == null && runCatching { save(user, body) }.isSuccess) added++
+        }
+        return added
+    }
+
+    suspend fun deleteDeck(user: User, id: Long) = db.tx { update("DELETE FROM decks WHERE id = ? AND (user_id = ? OR ?)", id, user.id, user.isAdmin) }
+
+    /** This week's reviews per person on the server (from Monday, UTC), most first; people who hide their profile are left out. */
+    suspend fun ranking(now: Long = clock()): List<Map<String, Any>> {
+        val monday = java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneOffset.UTC).toLocalDate()
+            .with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+        return db.tx {
+            query(
+                """SELECT u.name, COUNT(*) AS n FROM events e JOIN users u ON u.id = e.user_id
+                   WHERE e.kind = 'word_reviewed' AND e.created_at >= ? AND u.hidden = 0 AND u.is_guest = 0
+                   GROUP BY e.user_id ORDER BY n DESC LIMIT 20""",
+                monday
+            ) { mapOf("name" to getString(1), "reviews" to getInt(2)) }
+        }
+    }
+
     /** Known/learning per word, for marking text discreetly and the comprehension percentage (computed by the client). */
     suspend fun levels(user: User, lang: String): Map<String, String> = list(user, false, lang).associate { it.word to it.level }
 
     companion object {
         const val MAX_WORDS = 20_000
         const val DAILY_SESSION = 50
+        const val MAX_DECK = 500
+        const val MAX_DECKS_PER_USER = 20
     }
 }
 
@@ -213,6 +275,33 @@ private fun Route.wordRoutes(s: Services) {
         call.response.header(HttpHeaders.ContentDisposition, "attachment; filename=\"yomukai-palabras.txt\"")
         call.respondText(s.words.anki(call.user), ContentType.Text.Plain)
     }
+    deckRoutes(s)
+}
+
+/** Shared decks and the weekly ranking of reviews. */
+private fun Route.deckRoutes(s: Services) {
+    suspend fun io.ktor.server.application.ApplicationCall.on(flag: String): Boolean {
+        if (s.features.isOn(flag)) return true
+        respond(HttpStatusCode.NotFound, mapOf("error" to "Desactivado por el administrador"))
+        return false
+    }
+    fun io.ktor.server.application.ApplicationCall.id(): Long = parameters["id"]?.toLongOrNull() ?: throw IllegalArgumentException("No válido")
+
+    get("/words/decks") { if (call.on("learning")) call.respond(s.words.decks(call.user)) }
+    post("/words/decks") {
+        if (!call.on("learning")) return@post
+        val body = call.jsonBody(1_024)
+        call.respond(mapOf("id" to s.words.publishDeck(call.user, body.text("name", 80), body.text("lang", 5))))
+    }
+    post("/words/decks/{id}/import") {
+        if (!call.on("learning")) return@post
+        call.respond(mapOf("added" to s.words.importDeck(call.user, call.id())))
+    }
+    delete("/words/decks/{id}") {
+        s.words.deleteDeck(call.user, call.id())
+        call.respond(mapOf("ok" to true))
+    }
+    get("/words/ranking") { if (call.on("learning")) call.respond(s.words.ranking()) }
 }
 
 /** Subtitles and translations made by the home worker (whisper.cpp, LibreTranslate), cached and shared. */

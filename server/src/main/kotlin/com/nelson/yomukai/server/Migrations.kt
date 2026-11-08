@@ -257,6 +257,12 @@ object Migrations {
                    origin TEXT NOT NULL, data TEXT NOT NULL, state TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)"""
             )
             exec("CREATE INDEX IF NOT EXISTS imports_pending ON imports(state, id)")
+        },
+        Migration(16, "Mazos de palabras compartidos entre los usuarios del servidor") {
+            exec(
+                """CREATE TABLE IF NOT EXISTS decks(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                   name TEXT NOT NULL, lang TEXT NOT NULL, words TEXT NOT NULL, size INTEGER NOT NULL, created_at INTEGER NOT NULL)"""
+            )
         }
     )
 

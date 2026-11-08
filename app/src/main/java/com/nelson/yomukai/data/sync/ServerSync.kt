@@ -496,8 +496,21 @@ class ServerSync(
                     val body = r.body
                     if (!r.isSuccessful || body == null || body.contentLength() > maxBytes) return@use false
                     part.parentFile?.mkdirs()
-                    part.outputStream().use { out -> body.byteStream().use { it.copyTo(out) } }
-                    part.length() in 1..maxBytes && part.renameTo(target)
+                    // Counted as it arrives: a response without a size cannot fill the phone.
+                    var written = 0L
+                    part.outputStream().use { out ->
+                        body.byteStream().use { input ->
+                            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                            while (true) {
+                                val n = input.read(buffer)
+                                if (n < 0) break
+                                written += n
+                                if (written > maxBytes) return@use false
+                                out.write(buffer, 0, n)
+                            }
+                        }
+                    }
+                    written in 1..maxBytes && part.renameTo(target)
                 }
         }.getOrDefault(false)
         if (!ok) part.delete()
