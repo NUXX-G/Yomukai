@@ -13,6 +13,7 @@
   import Source from './pages/Source.svelte';
   import Details from './pages/Details.svelte';
   import Work from './pages/Work.svelte';
+  import Guide from './pages/Guide.svelte';
   import MangaReader from './pages/MangaReader.svelte';
   import NovelReader from './pages/NovelReader.svelte';
   import Player from './pages/Player.svelte';
@@ -41,6 +42,7 @@
   define('source', '/fuente/:id');
   define('details', '/obra/:source/:id');
   define('work', '/obras/:key');
+  define('guide', '/guia');
   define('read', '/leer/:source/:id/:chapter');
   define('watch', '/ver/:source/:id/:chapter');
   define('room', '/sala/:code');
@@ -128,6 +130,7 @@
       case 'source': return Source;
       case 'details': return Details;
       case 'work': return Work;
+      case 'guide': return Guide;
       case 'watch': return Player;
       case 'read': return sources.list.find((s) => s.id === route.params.source)?.kind === 'novel' ? NovelReader : MangaReader;
       default: return Home;
@@ -240,6 +243,7 @@
                 {#if settings.learning?.enabled && features.flags.learning !== false}<a role="menuitem" href="/repaso" onclick={() => (menu = false)}><Icon name="book" size={18} /> {t('Repaso')}</a>{/if}
                 {#if features.flags.forum !== false}<a role="menuitem" href="/foro" onclick={() => (menu = false)}><Icon name="list" size={18} /> {t('Foro')}</a>{/if}
               {/if}
+              <a role="menuitem" href="/guia" onclick={() => (menu = false)}><Icon name="info" size={18} /> {t('Guía rápida')}</a>
               <a role="menuitem" href="/ajustes" onclick={() => (menu = false)}><Icon name="settings" size={18} /> {t('Ajustes')}</a>
               <a role="menuitem" href="/calendario" onclick={() => (menu = false)}><Icon name="calendar" size={18} /> {t('Calendario')}</a>
               <button role="menuitem" onclick={logout}><Icon name="logout" size={18} /> {t('Salir')}</button>

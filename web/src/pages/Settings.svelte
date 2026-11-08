@@ -155,6 +155,8 @@
     </div>
   </section>
 
+  <a class="card guide-link" href="/guia"><Icon name="info" size={20} /> <span class="grow">{t('¿Qué puedo hacer en Yomukai? Guía rápida')}</span> <Icon name="chevronRight" size={20} /></a>
+
   <h2 class="h">{t('Idioma')} · Language</h2>
   <section class="card">
     <div class="small muted">{t('El idioma de la interfaz. Puedes leer y ver contenido en cualquier idioma igual.')}</div>
@@ -332,6 +334,8 @@
 <style>
   .narrow { max-width: 720px; }
   .h { font-size: 0.85rem; color: var(--primary); margin: 24px 4px 8px; }
+  .guide-link { display: flex; align-items: center; gap: 10px; margin-top: 12px; color: inherit; text-decoration: none; font-weight: 600; }
+  .guide-link :global(svg:first-child) { color: var(--primary); }
   .row-flex { display: flex; align-items: center; gap: 12px; }
   .grow { flex: 1; min-width: 0; }
   .name { font-weight: 600; }

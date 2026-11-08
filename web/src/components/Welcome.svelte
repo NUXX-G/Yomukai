@@ -19,10 +19,14 @@
         <li><Icon name="search" size={18} /> {t('Busca cualquier anime, manga, manhwa, novela o cómic: se busca en todas tus fuentes a la vez y sale una tarjeta por obra.')}</li>
         <li><Icon name="library" size={18} /> {t('Guarda lo que sigues en tu biblioteca: te avisa de capítulos nuevos y se sincroniza con la app.')}</li>
         <li><Icon name="download" size={18} /> {t('Descarga capítulos y episodios para verlos sin conexión, desde la ficha de cada obra.')}</li>
+        <li><Icon name="speech" size={18} /> {t('Escucha las novelas con voz, traduce los bocadillos del manga y mira anime con amigos en una sala.')}</li>
         <li><Icon name="settings" size={18} /> {t('En Ajustes: idioma, temas, importar tu lista de AniList/MAL/Mihon y la app de Android.')}</li>
       </ul>
     </div>
-    <button class="btn primary" onclick={close}>{t('Entendido')}</button>
+    <div class="buttons">
+      <a class="btn tonal" href="/guia" onclick={close}>{t('Ver la guía (1 minuto)')}</a>
+      <button class="btn primary" onclick={close}>{t('Entendido')}</button>
+    </div>
   </section>
 {/if}
 
@@ -33,6 +37,7 @@
     display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;
   }
   .text { flex: 1; min-width: 240px; }
+  .buttons { display: flex; gap: 8px; flex-wrap: wrap; }
   h2 { margin: 0 0 8px; font-size: var(--fs-section); }
   ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; color: var(--c-text-dim); font-size: var(--fs-small); }
   li { display: flex; gap: 8px; align-items: flex-start; }
