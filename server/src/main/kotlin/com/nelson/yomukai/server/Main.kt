@@ -930,6 +930,16 @@ private fun HistoryRow.asItem() = itemOf(sourceId, mediaId, title, type)
 /**
  * A cover the pages can show: addresses of other sites (what the app syncs, as its sources give them) go through this
  * server's image proxy, as the pages only load images from here; this server's own addresses stay as they are.
+ * Covers come from clients, so only addresses of that source's own sites (or of the metadata databases) are signed:
+ * the proxy never becomes a way to fetch anything else. Others are dropped (the page shows its placeholder).
  */
-fun Services.coverFor(cover: String, sourceId: String): String =
-    if (cover.startsWith("http://") || cover.startsWith("https://")) proxy.cover(cover, sources.get(sourceId)?.imageHeaders.orEmpty()) else cover
+fun Services.coverFor(cover: String, sourceId: String): String {
+    if (!cover.startsWith("http://") && !cover.startsWith("https://")) return cover
+    val host = runCatching { java.net.URI(cover).host?.lowercase() }.getOrNull() ?: return ""
+    val allowed = sources.domainsOf(setOf(sourceId)) + COVER_DATABASES
+    if (allowed.none { host == it || host.endsWith(".$it") }) return ""
+    return proxy.cover(cover, sources.get(sourceId)?.imageHeaders.orEmpty())
+}
+
+/** Where metadata covers come from (AniList, MyAnimeList, Kitsu, MangaDex, MangaUpdates, Open Library, TMDB). */
+private val COVER_DATABASES = setOf("anilist.co", "anili.st", "myanimelist.net", "kitsu.io", "kitsu.app", "mangadex.org", "mangaupdates.com", "openlibrary.org", "tmdb.org")
