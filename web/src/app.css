@@ -83,6 +83,10 @@ img { display: block; }
 .field { width: 100%; height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--outline); background: var(--surface); outline: none; }
 .field:focus { border-color: var(--primary); }
 .card { background: var(--surface); border-radius: var(--radius); padding: 16px; }
+/* Cards one after another never touch (panels that bring their own card sat glued to the one before). */
+.card + .card { margin-top: 12px; }
+/* A title inside a card reads as a card title, not as a page heading (components may still style their own). */
+.card > :is(h2, h3):where(:first-child) { font-size: 1.05rem; margin: 0 0 10px; }
 .list-item { display: flex; align-items: center; gap: 12px; padding: 12px 4px; border-bottom: 1px solid var(--outline-variant); }
 
 .skeleton { background: var(--surface-variant); border-radius: var(--radius); }
