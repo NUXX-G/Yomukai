@@ -116,6 +116,7 @@ private tailrec fun Context.findComponentActivity(): ComponentActivity? = when (
 fun AnimePlayerScreen(
     onBackClick: () -> Unit = {},
     onOpenWeb: (String) -> Unit = {},
+    onOpenRoomEpisode: (String, String, String, String) -> Unit = { _, _, _, _ -> },
     viewModel: AnimePlayerViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val context = LocalContext.current
@@ -221,6 +222,15 @@ fun AnimePlayerScreen(
             exoPlayer.release()
         }
     }
+
+    // Watching with friends: this player follows (or drives) its room.
+    val party by viewModel.party.collectAsStateWithLifecycle()
+    var roomOpen by remember { mutableStateOf(false) }
+    party?.let { RoomSync(it, exoPlayer, viewModel, playing.chapterId) }
+    LaunchedEffect(viewModel) {
+        viewModel.openOther.collect { (s, m, c) -> viewModel.party.value?.code?.let { code -> onOpenRoomEpisode(s, m, c, code) } }
+    }
+    if (roomOpen) RoomSheet(viewModel) { roomOpen = false }
 
     // Opening/ending times of this episode (server or AniSkip); unknown keeps the "+85 s" button.
     LaunchedEffect(playing.chapterId) { viewModel.loadMarks(playing.chapterId) }
@@ -445,6 +455,8 @@ fun AnimePlayerScreen(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
+
+                    if (viewModel.hasEpisodeContext) RoomButton(viewModel) { roomOpen = true }
 
                     if (viewModel.hasEpisodeContext) {
                         IconButton(onClick = { showIndex = true }) {

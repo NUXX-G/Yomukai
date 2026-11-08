@@ -115,6 +115,9 @@ class AppContainer(context: Context) {
     val deviceOcr by lazy { com.nelson.yomukai.data.ocr.DeviceOcr() }
     val bubbleSpeaker by lazy { com.nelson.yomukai.data.ocr.BubbleSpeaker(context) }
     val scrollProfiles by lazy { com.nelson.yomukai.data.ocr.ScrollProfiles(context, deviceOcr) }
+
+    /** The watch-party room this phone is in: any player opened meanwhile joins it. */
+    val activeRoom = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
     val deviceVoices by lazy { com.nelson.yomukai.data.speech.DeviceVoices(context) { network.client } }
     val videoOffline = VideoOffline(context, network)
     val downloadManager = DownloadManager(context, database, sourceManager, network, applicationScope, preferences, videoOffline)

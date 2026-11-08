@@ -50,7 +50,8 @@ private val STATUS = mapOf(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun WorkSocialSection(sourceId: String, mediaId: String, title: String, cover: String, anime: Boolean, modifier: Modifier = Modifier) {
-    val sync = LocalAppContainer.current.serverSync
+    val container = LocalAppContainer.current
+    val sync = container.serverSync
     if (sync.serverUrl == null) return
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -85,7 +86,16 @@ fun WorkSocialSection(sourceId: String, mediaId: String, title: String, cover: S
                         scope.launch {
                             runCatching {
                                 val code = sync.api("GET", "/api/rooms/mine")?.asJsonObject?.get("code")?.asString ?: return@launch
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("${sync.serverUrl}/sala/$code")))
+                                // Your room becomes the active one: the episode you put on next is watched together.
+                                container.activeRoom.value = code
+                                val link = sync.serverUrl.orEmpty().trimEnd('/') + "/sala/" + code
+                                context.startActivity(
+                                    Intent.createChooser(
+                                        Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, tr("Ven a ver conmigo en Yomukai: {0} (sala {1})", link, code)),
+                                        tr("Invitar a la sala")
+                                    )
+                                )
+                                error = tr("Sala lista: pon un episodio y lo veréis a la vez")
                             }.onFailure { error = it.message }
                         }
                     },

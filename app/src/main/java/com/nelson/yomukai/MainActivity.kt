@@ -273,8 +273,20 @@ fun YomukaiApp(
         val tabModifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
 
         NavHost(navController = navController, startDestination = Routes.HOME) {
+            composable(Routes.ROOM, arguments = listOf(navArgument("code") { type = NavType.StringType })) { entry ->
+                com.nelson.yomukai.ui.player.RoomLobbyScreen(
+                    code = entry.arguments?.getString("code").orEmpty(),
+                    onBack = { navController.popBackStack() },
+                    onEpisode = { s, m, c ->
+                        val code = entry.arguments?.getString("code").orEmpty()
+                        navController.popBackStack()
+                        navController.navigate(Routes.animePlayer("", tr("Anime"), sourceId = s, mediaId = m, chapterId = c, sala = code))
+                    }
+                )
+            }
             composable(Routes.HOME) {
                 HomeScreen(
+                    onJoinRoom = { navController.navigate(Routes.room(it)) },
                     onMediaClick = ::openMedia,
                     onContinueClick = { openReader(it.sourceId, it.mediaId, it.chapterId) },
                     onBrowseSource = { navController.navigate(Routes.browse(it)) },
@@ -355,18 +367,23 @@ fun YomukaiApp(
             composable(
                 Routes.ANIME_PLAYER,
                 arguments = listOf(
-                    navArgument("url") { type = NavType.StringType },
+                    navArgument("url") { type = NavType.StringType; defaultValue = "" },
                     navArgument("title") { type = NavType.StringType; defaultValue = "Anime" },
                     navArgument("referer") { type = NavType.StringType; defaultValue = "" },
                     navArgument("sourceId") { type = NavType.StringType; defaultValue = "" },
                     navArgument("mediaId") { type = NavType.StringType; defaultValue = "" },
                     navArgument("chapterId") { type = NavType.StringType; defaultValue = "" },
                     navArgument("server") { type = NavType.StringType; defaultValue = "" },
-                    navArgument("local") { type = NavType.StringType; defaultValue = "" }
+                    navArgument("local") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("sala") { type = NavType.StringType; defaultValue = "" }
                 )
             ) {
                 AnimePlayerScreen(
                     onBackClick = { navController.popBackStack() },
+                    onOpenRoomEpisode = { s, m, c, sala ->
+                        navController.popBackStack()
+                        navController.navigate(Routes.animePlayer("", tr("Anime"), sourceId = s, mediaId = m, chapterId = c, sala = sala))
+                    },
                     onOpenWeb = { navController.navigate(Routes.webCapture(it)) }
                 )
             }

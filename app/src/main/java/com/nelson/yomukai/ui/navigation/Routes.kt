@@ -12,10 +12,12 @@ object Routes {
     const val DETAILS = "details/{sourceId}/{mediaId}"
     const val MANGA_READER = "manga_reader/{sourceId}/{mediaId}/{chapterId}"
     const val NOVEL_READER = "novel_reader/{sourceId}/{mediaId}/{chapterId}"
-    const val ANIME_PLAYER = "anime_player?url={url}&title={title}&referer={referer}&sourceId={sourceId}&mediaId={mediaId}&chapterId={chapterId}&server={server}&local={local}"
+    const val ANIME_PLAYER = "anime_player?url={url}&title={title}&referer={referer}&sourceId={sourceId}&mediaId={mediaId}&chapterId={chapterId}&server={server}&local={local}&sala={sala}"
 
     const val WEB_CAPTURE = "web_capture?url={url}"
     const val QUICK_READER = "quick_reader"
+    const val ROOM = "room/{code}"
+    fun room(code: String) = "room/${enc(code)}"
 
     const val ARG_SOURCE = "sourceId"
     const val ARG_MEDIA = "mediaId"
@@ -34,8 +36,8 @@ object Routes {
     fun webCapture(url: String = "") = "web_capture?url=${enc(url)}"
     fun animePlayer(
         url: String, title: String, referer: String = "",
-        sourceId: String = "", mediaId: String = "", chapterId: String = "", server: String = "", local: String = ""
+        sourceId: String = "", mediaId: String = "", chapterId: String = "", server: String = "", local: String = "", sala: String = ""
     ) =
         "anime_player?url=${enc(url)}&title=${enc(title)}&referer=${enc(referer)}" +
-            "&sourceId=${enc(sourceId)}&mediaId=${enc(mediaId)}&chapterId=${enc(chapterId)}&server=${enc(server)}&local=${enc(local)}"
+            "&sourceId=${enc(sourceId)}&mediaId=${enc(mediaId)}&chapterId=${enc(chapterId)}&server=${enc(server)}&local=${enc(local)}&sala=${enc(sala)}"
 }

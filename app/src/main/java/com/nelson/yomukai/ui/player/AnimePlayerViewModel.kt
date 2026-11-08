@@ -145,7 +145,15 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
         if (hasEpisodeContext) {
             viewModelScope.launch(Dispatchers.IO) {
                 chapters = repo.getChapters(sourceId, mediaId)
+                // Opened by a room for a series this phone has not seen: its episodes are fetched first.
+                if (chapters.none { it.chapterId == chapterId }) {
+                    if (repo.getMedia(sourceId, mediaId) == null) repo.refreshDetails(sourceId, mediaId)
+                    repo.refreshChapters(sourceId, mediaId)
+                    chapters = repo.getChapters(sourceId, mediaId)
+                }
                 val chapter = chapterId?.let { repo.getChapter(sourceId, it) }
+                // Without a video yet (a room's episode): resolve it here like any other episode.
+                if (chapter != null && _state.value.playing.videoUrl.isBlank()) { playEpisode(chapter); return@launch }
                 if (chapter != null) {
                     // Resume where this episode was left (unless it was already finished).
                     val start = if (!chapter.read && chapter.lastPageRead > 10) chapter.lastPageRead * 1000L else 0L
@@ -154,6 +162,77 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
                 }
             }
         }
+    }
+
+    // --- Watch party ------------------------------------------------------------------------------
+
+    private val _party = MutableStateFlow<com.nelson.yomukai.data.social.PartyClient?>(null)
+
+    /** The room this player is in (watching with friends), or null. */
+    val party: StateFlow<com.nelson.yomukai.data.social.PartyClient?> = _party.asStateFlow()
+
+    /** Another series picked by the room: the screen opens a player for it. (sourceId, mediaId, chapterId) */
+    private val _openOther = kotlinx.coroutines.flow.MutableSharedFlow<Triple<String, String, String>>(extraBufferCapacity = 1)
+    val openOther: kotlinx.coroutines.flow.SharedFlow<Triple<String, String, String>> = _openOther
+
+    init {
+        // After the room's fields above exist (initialisers run in order).
+        val startRoom = handle.get<String>("sala").orEmpty().ifBlank { container.activeRoom.value.orEmpty() }
+        if (startRoom.isNotBlank()) joinRoom(startRoom)
+    }
+
+    fun joinRoom(code: String) {
+        if (_party.value?.code == code) return
+        _party.value?.close()
+        _party.value = com.nelson.yomukai.data.social.PartyClient(container.serverSync, code).also { it.open() }
+        container.activeRoom.value = code
+    }
+
+    /** «Ver con amigos»: into your own room on the server; its code, to pass to friends. */
+    suspend fun watchTogether(): Result<String> = runCatching {
+        _party.value?.code ?: run {
+            val code = container.serverSync.api("GET", "/api/rooms/mine")?.asJsonObject?.get("code")?.asString
+                ?: error(tr("Conecta la app con tu servidor para ver con amigos"))
+            joinRoom(code)
+            code
+        }
+    }
+
+    /** The address friends open (web) for room [code]; the app joins with the code. */
+    fun roomLink(code: String): String = (container.serverSync.serverUrl ?: "").trimEnd('/') + "/sala/" + code
+
+    fun leaveRoom() {
+        _party.value?.close()
+        _party.value = null
+        container.activeRoom.value = null
+    }
+
+    /** What plays now, as the room hears it from a host on this phone. */
+    fun partyState(positionS: Double, playing: Boolean, speed: Double): com.nelson.yomukai.data.social.PartyState? {
+        val chapter = currentChapter() ?: return null
+        return com.nelson.yomukai.data.social.PartyState(
+            sourceId, mediaId, chapter.chapterId, title = _state.value.playing.title.substringBefore(" - "), episode = chapter.title,
+            server = _state.value.playing.serverName, position = positionS, playing = playing, speed = speed
+        )
+    }
+
+    /** The room moved to another episode: this one, or another series (the screen opens it). */
+    fun followRoomEpisode(state: com.nelson.yomukai.data.social.PartyState) {
+        if (state.chapterId == _state.value.playing.chapterId || _state.value.isResolving) return
+        if (state.sourceId != sourceId || state.mediaId != mediaId) { _openOther.tryEmit(Triple(state.sourceId, state.mediaId, state.chapterId)); return }
+        viewModelScope.launch(Dispatchers.IO) {
+            val chapter = chapterById(state.chapterId) ?: run {
+                repo.refreshChapters(sourceId, mediaId)
+                chapters = repo.getChapters(sourceId, mediaId)
+                chapterById(state.chapterId)
+            } ?: return@launch
+            playEpisode(chapter)
+        }
+    }
+
+    override fun onCleared() {
+        _party.value?.close()
+        super.onCleared()
     }
 
     private fun chapterById(id: String?): ChapterEntity? = id?.let { chapters.firstOrNull { c -> c.chapterId == it } }

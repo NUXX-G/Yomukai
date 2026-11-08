@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
@@ -78,6 +79,7 @@ fun HomeScreen(
     onOpenWeb: () -> Unit,
     onSearchTitle: (String) -> Unit = {},
     modifier: Modifier = Modifier,
+    onJoinRoom: (String) -> Unit = {},
     viewModel: HomeViewModel = viewModel(factory = AppViewModelProvider.Factory),
     discoverViewModel: DiscoverViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
@@ -104,6 +106,11 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    if (com.nelson.yomukai.ui.LocalAppContainer.current.serverSync.serverUrl != null) {
+                        var joining by remember { mutableStateOf(false) }
+                        IconButton(onClick = { joining = true }) { Icon(androidx.compose.material.icons.Icons.Default.Group, tr("Unirse a una sala")) }
+                        if (joining) com.nelson.yomukai.ui.player.JoinRoomDialog(onDismiss = { joining = false }) { joining = false; onJoinRoom(it) }
+                    }
                     NotificationsButton()
                     IconButton(onClick = { shuffle = true }) { Icon(Icons.Default.Shuffle, contentDescription = tr("Descubrir al azar")) }
                     IconButton(onClick = onOpenWeb) { Icon(Icons.Default.Public, contentDescription = tr("Abrir enlace en el navegador integrado")) }

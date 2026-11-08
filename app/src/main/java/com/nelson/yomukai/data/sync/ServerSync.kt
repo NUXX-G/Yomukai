@@ -484,6 +484,17 @@ class ServerSync(
         }
     }
 
+    /** A WebSocket to the connected server's API with the session (watch-party rooms); null when not connected. */
+    fun webSocket(path: String, listener: okhttp3.WebSocketListener): okhttp3.WebSocket? {
+        val server = _state.value.server ?: return null
+        val session = token ?: return null
+        require(path.startsWith("/api/")) { "Ruta no válida" }
+        val url = server.replaceFirst("https://", "wss://").replaceFirst("http://", "ws://") + path
+        val socketClient = client.newBuilder().readTimeout(0, TimeUnit.SECONDS).callTimeout(0, TimeUnit.SECONDS)
+            .pingInterval(20, TimeUnit.SECONDS).build()
+        return socketClient.newWebSocket(authed(Request.Builder().url(url), session).build(), listener)
+    }
+
     /** Saves a file of the connected server's API (e.g. a dictionary) to [target]; false when not connected or refused. */
     suspend fun download(path: String, target: java.io.File, maxBytes: Long): Boolean = withContext(Dispatchers.IO) {
         val server = _state.value.server ?: return@withContext false
