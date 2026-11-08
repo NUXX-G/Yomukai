@@ -131,6 +131,8 @@ internal suspend fun locateAndOpen(
 
 /** The first place the connected server finds [related] as the same work, if this app has that source too. */
 private suspend fun serverLocateFirst(container: com.nelson.yomukai.AppContainer, related: RelatedTitle): MediaItem? {
+    // The server's works index usually has it already (built ahead): no searching at all.
+    related.anilistId?.let { id -> runCatching { serverIndexFirst(container, id, related.type) }.getOrNull()?.let { return it } }
     val body = com.google.gson.JsonObject().apply {
         addProperty("title", related.title)
         add("names", com.google.gson.JsonArray().apply { related.names.forEach(::add) })
@@ -153,6 +155,25 @@ private suspend fun serverLocateFirst(container: com.nelson.yomukai.AppContainer
         type = runCatching { com.nelson.yomukai.domain.model.MediaType.valueOf(str("type")) }.getOrDefault(related.type),
         status = str("status"), description = str("description"), sourceId = sourceId,
         author = str("author"), genres = list("genres"), altTitles = list("altTitles")
+    )
+}
+
+/** Where the server's works index has AniList work [anilistId] in the app's language, in a source this app has. */
+private suspend fun serverIndexFirst(container: com.nelson.yomukai.AppContainer, anilistId: Int, type: com.nelson.yomukai.domain.model.MediaType): MediaItem? {
+    val key = container.serverSync.api("GET", "/api/obras/anilist/$anilistId")?.asJsonObject?.get("key")
+        ?.takeIf { it.isJsonPrimitive }?.asString ?: return null
+    val lang = com.nelson.yomukai.i18n.I18n.lang
+    val ficha = container.serverSync.api("GET", "/api/obras/ficha/${java.net.URLEncoder.encode(key, Charsets.UTF_8).replace("+", "%20")}?lang=$lang&light=1")
+        ?.takeIf { it.isJsonObject }?.asJsonObject ?: return null
+    val work = ficha.get("work")?.takeIf { it.isJsonObject }?.asJsonObject
+    fun str(o: com.google.gson.JsonObject?, k: String) = o?.get(k)?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+    val place = ficha.get("sources")?.takeIf { it.isJsonArray }?.asJsonArray
+        ?.mapNotNull { it.takeIf { e -> e.isJsonObject }?.asJsonObject }
+        ?.firstOrNull { container.sourceManager.get(str(it, "sourceId")) != null && str(it, "mediaId").isNotBlank() } ?: return null
+    return MediaItem(
+        id = str(place, "mediaId"), title = str(work, "title"), coverUrl = str(work, "cover").takeIf { it.startsWith("http") }.orEmpty(),
+        type = runCatching { com.nelson.yomukai.domain.model.MediaType.valueOf(str(work, "type")) }.getOrDefault(type),
+        status = "", description = "", sourceId = str(place, "sourceId"), author = "", genres = emptyList(), altTitles = emptyList()
     )
 }
 
