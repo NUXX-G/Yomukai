@@ -8,8 +8,7 @@
 # Published as ghcr.io/nuxx-g/yomukai-worker (light) and ghcr.io/nuxx-g/yomukai-worker-full (all engines).
 # Translation (LibreTranslate) runs as its own container: see docker-compose.worker.yml.
 
-# Same JDK as the Gradle toolchain (21): nothing to download while building. The image runs on Java 25.
-FROM eclipse-temurin:21-jdk AS build
+FROM eclipse-temurin:25-jdk AS build
 WORKDIR /src
 ENV YOMUKAI_SERVER_ONLY=true GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.configuration-cache=false"
 COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
@@ -19,7 +18,8 @@ RUN for i in 1 2 3 4 5; do ./gradlew --version --console=plain -q && exit 0; sle
 COPY shared/ shared/
 COPY server/ server/
 COPY worker/ worker/
-RUN ./gradlew :worker:installDist --console=plain -q
+# The build fetches the Java 21 toolchain from GitHub, which sometimes fails for a moment: retried.
+RUN for i in 1 2 3; do ./gradlew :worker:installDist --console=plain -q && exit 0; sleep $((i * 30)); done; exit 1
 
 # whisper.cpp, built only when asked (a static binary, no OpenMP), plus the small multilingual model.
 FROM ubuntu:24.04 AS whisper

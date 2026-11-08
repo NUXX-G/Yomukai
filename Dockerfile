@@ -11,8 +11,7 @@ COPY web/ ./
 RUN npm run build
 
 # 2. Server (no Android SDK here: YOMUKAI_SERVER_ONLY leaves the app module out)
-# Same JDK as the Gradle toolchain (21): nothing to download while building. The image runs on Java 25.
-FROM eclipse-temurin:21-jdk AS server
+FROM eclipse-temurin:25-jdk AS server
 WORKDIR /src
 ENV YOMUKAI_SERVER_ONLY=true GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.configuration-cache=false"
 COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
@@ -21,7 +20,8 @@ COPY gradle/ gradle/
 RUN for i in 1 2 3 4 5; do ./gradlew --version --console=plain -q && exit 0; sleep $((i * 20)); done; exit 1
 COPY shared/ shared/
 COPY server/ server/
-RUN ./gradlew :server:installDist --console=plain -q
+# The build fetches the Java 21 toolchain from GitHub, which sometimes fails for a moment: retried.
+RUN for i in 1 2 3; do ./gradlew :server:installDist --console=plain -q && exit 0; sleep $((i * 30)); done; exit 1
 
 # 3. Natural voices for reading novels aloud: Piper (open source, runs offline on this machine).
 #    The voice models are downloaded by the server the first time each one is used.
