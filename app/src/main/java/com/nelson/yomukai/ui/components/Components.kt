@@ -161,8 +161,12 @@ fun CoverImage(url: String, sourceId: String, contentDescription: String?, modif
                 modifier = Modifier.size(36.dp)
             )
         } else {
+            // The site's larger cover when its thumbnail has a known original; the thumbnail again if that fails.
+            val better = remember(url) { com.nelson.yomukai.data.image.HighResCovers.upgrade(url) }
+            var fallback by remember(url) { mutableStateOf(false) }
             AsyncImage(
-                model = rememberImageRequest(url, headers),
+                model = rememberImageRequest(if (fallback) url else better, headers),
+                onError = { if (better != url) fallback = true },
                 contentDescription = contentDescription,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()

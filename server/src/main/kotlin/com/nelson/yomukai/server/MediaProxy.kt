@@ -2,6 +2,7 @@ package com.nelson.yomukai.server
 
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.nelson.yomukai.data.image.HighResCovers
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -402,18 +403,4 @@ internal class ImageCache(private val dir: File, private val maxBytes: Long = 2L
         }
         approxSize = size
     }
-}
-
-/**
- * Larger versions of the thumbnails sites put in their lists. Only patterns whose original is known to exist next to
- * the thumbnail; anything else stays as it is.
- */
-object HighResCovers {
-    private val MANGADEX = Regex("""^(https://uploads\.mangadex\.org/covers/[^/?#]+/[^/?#]+\.(?:jpe?g|png|webp|gif))\.(?:256|512)\.jpg$""", RegexOption.IGNORE_CASE)
-    private val WORDPRESS = Regex("""^(https?://[^?#]+/wp-content/uploads/[^?#]+?)-\d{2,4}x\d{2,4}(\.(?:jpe?g|png|webp))$""", RegexOption.IGNORE_CASE)
-
-    fun upgrade(url: String): String =
-        MANGADEX.matchEntire(url)?.groupValues?.get(1)
-            ?: WORDPRESS.matchEntire(url)?.let { it.groupValues[1] + it.groupValues[2] }
-            ?: url
 }
