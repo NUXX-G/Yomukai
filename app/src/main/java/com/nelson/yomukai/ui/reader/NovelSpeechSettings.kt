@@ -58,7 +58,7 @@ fun SpeechVoicesSection(
     val engine = if (useNatural) "natural" else "system"
     val roles = listOf("narrator" to "Narrador", "female" to "Personajes femeninos", "male" to "Personajes masculinos")
     val defaults = if (lang == "en") mapOf("narrator" to "en-lessac", "female" to "en-amy", "male" to "en-ryan")
-    else mapOf("narrator" to "es-david", "female" to "es-lucia", "male" to "es-sergio")
+    else mapOf("narrator" to "es-claude", "female" to "es-daniela", "male" to "es-sergio")
     roles.forEach { (role, label) ->
         val key = "$engine.$lang.$role"
         val current = settings.ttsVoices[key]

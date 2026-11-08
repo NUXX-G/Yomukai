@@ -15,12 +15,16 @@ test('reading order by kind of work', () => {
 
 test('strip times like ScrollPlanner', () => {
   assert.equal(stripMs({ words: 22 }, 220), 6400);
-  assert.equal(stripMs({ empty: true }), 150);
+  assert.equal(stripMs({ empty: true }), 250);
   assert.ok(stripMs({ detail: 1 }) > stripMs({ detail: 0 }));
 });
 
 test('picture analysis and words per band', () => {
-  assert.deepEqual(analyze(new Array(400).fill(250), 20), { empty: true, detail: 0 });
+  assert.deepEqual(analyze(new Array(400).fill(250), 20), { empty: true, detail: 0, textLike: false });
+  // A shrunk bubble (white with grey smudges) is read like text, slower than a dark busy drawing.
+  const bubble = Array.from({ length: 400 }, (_, i) => (i % 7 === 0 ? 150 : 250));
+  assert.ok(analyze(bubble, 20).textLike);
+  assert.ok(stripMs(analyze(bubble, 20)) > stripMs({ detail: 1 }));
   assert.equal(analyze(Array.from({ length: 400 }, (_, i) => (i % 2 ? 255 : 0)), 20).detail, 1);
   const boxes = [{ ...box(0, 0.1, 'Hola qué tal') }, { ...box(0, 0.8, 'BOOM'), kind: 'SFX' }];
   assert.equal(wordsIn(boxes, 0, 0.5), 3);

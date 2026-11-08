@@ -223,7 +223,7 @@ class NovelSpeech(
 
     private fun serverDefault(role: String): String = when (lang) {
         "en" -> mapOf("narrator" to "en-lessac", "female" to "en-amy", "male" to "en-ryan")
-        else -> mapOf("narrator" to "es-david", "female" to "es-lucia", "male" to "es-sergio")
+        else -> mapOf("narrator" to "es-claude", "female" to "es-daniela", "male" to "es-sergio")
     }.getValue(role)
 
     private fun pieces(paragraph: String, natural: Boolean): List<Piece> {

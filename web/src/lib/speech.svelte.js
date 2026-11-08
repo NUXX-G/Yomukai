@@ -56,14 +56,27 @@ export function browserScore(v) {
 }
 
 export const DEFAULT_NATURAL = {
-  es: { narrator: 'es-david', female: 'es-lucia', male: 'es-sergio' },
+  // The "high" Piper voices: the "medium" ones (David, Lucía) sound robotic.
+  es: { narrator: 'es-claude', female: 'es-daniela', male: 'es-sergio' },
   en: { narrator: 'en-lessac', female: 'en-amy', male: 'en-ryan' }
 };
 
 /** The voice settings for a language, with the defaults filled in. */
 export function voiceSettings(lang) {
   const saved = settings.novel.voices?.[lang] || {};
-  return { ...DEFAULT_NATURAL[lang], ...saved };
+  const wanted = { ...DEFAULT_NATURAL[lang], ...saved };
+  if (!speechVoices.loaded || !speechVoices.server.length) return wanted;
+  // A voice that this server does not have (the defaults are Piper's; a worker may be off) would fail and drop to the
+  // browser's robotic voice: the best voice that exists takes its place instead.
+  const mine = speechVoices.server.filter((v) => v.lang === lang && !v.id.startsWith(KOKORO_PREFIX));
+  const out = {};
+  for (const [role, id] of Object.entries(wanted)) {
+    if (!mine.length || mine.some((v) => v.id === id) || String(id).startsWith(KOKORO_PREFIX)) { out[role] = id; continue; }
+    const gender = role === 'female' ? 'f' : role === 'male' ? 'm' : null;
+    const rank = (v) => (v.tier === 'worker' && !v.id.includes('clone:') ? 4 : 0) + (/high|alta/i.test(v.label) ? 2 : 0) + (gender && v.gender === gender ? 3 : 0);
+    out[role] = [...mine].sort((x, y) => rank(y) - rank(x))[0].id;
+  }
+  return out;
 }
 
 export function setVoice(lang, role, value) {

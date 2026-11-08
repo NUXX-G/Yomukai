@@ -33,6 +33,7 @@
   let ui = $state(true);
   let now = $state(clock());
   let options = $state(false);
+  let voiceOpen = $state(false);
   let indexOpen = $state(false);
   let indexTab = $state('chapters');
   let indexQuery = $state('');
@@ -458,6 +459,7 @@
     {#if speaking}
       <button class="icon-btn" onclick={toggleSpeech} aria-label={speechPaused ? 'Seguir' : 'Pausar'}><Icon name={speechPaused ? 'play' : 'pause'} /></button>
       <span class="small grow">{t('Leyendo en voz alta · {0} · párrafo {1}', [loaded[speaking.c]?.chapter.label, speaking.i + 1])}</span>
+      <button class="btn text small" onclick={() => (voiceOpen = true)} aria-label={t('Cambiar la voz')}><Icon name="speech" size={18} /> {t('Voz')}</button>
       <button class="icon-btn" onclick={stopSpeech} aria-label={t('Parar')}><Icon name="close" /></button>
     {:else}
       <span class="small grow">{t('Desplazamiento automático · toca el texto para parar')}</span>
@@ -522,7 +524,13 @@
   <div class="opt-row"><span class="grow">{t('Desplazamiento automático')}</span><button class="btn outline" onclick={() => { options = false; toggleScroll(); }}>{scrolling ? 'Parar' : 'Empezar'}</button></div>
   <input class="range" type="range" min="5" max="300" step="5" value={settings.novel.autoSpeed || 30} oninput={(e) => set('autoSpeed', +e.target.value)} aria-label={t('Velocidad del desplazamiento')} />
   {#if canSpeak}
-    <div class="small muted" style="margin-top:12px">{t('Leer en voz alta')}</div>
+    <div class="opt-row"><span class="grow">{t('Leer en voz alta')}</span><button class="btn outline" onclick={() => { options = false; voiceOpen = true; }}><Icon name="speech" size={18} /> {t('Elegir voz')}</button></div>
+  {/if}
+</Sheet>
+
+<!-- The voice, on its own sheet: reachable from the reading bar while it speaks and from the text options. -->
+<Sheet bind:open={voiceOpen} title={t('Voz')}>
+  {#if canSpeak}
     {#if speechVoices.natural}
       <div class="opt-row wrap">
         <button class="chip" class:on={settings.novel.ttsEngine !== 'browser'} onclick={() => { set('ttsEngine', 'natural'); voice.naturalFailed = false; }}>{t('Voces naturales')}</button>
