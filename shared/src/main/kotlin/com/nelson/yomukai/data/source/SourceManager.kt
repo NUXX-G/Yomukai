@@ -38,6 +38,7 @@ class SourceManager(
         LectorTmoSource(network),
         ZonaTmoSource(network),
         com.nelson.yomukai.data.source.manga.ZonaTmoToSource(network),
+        com.nelson.yomukai.data.source.manga.ManhwaWebSource(network),
         NovelCoolSource(network, "es"),
         NovelCoolSource(network, "en"),
         MegaBananaSource(network),
