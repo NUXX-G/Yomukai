@@ -55,10 +55,10 @@ class DiscoveryRepository(
         MediaType.ANIME -> source is AnimeSource
         MediaType.NOVEL -> source is NovelSource
         MediaType.COMIC -> source is MangaSource && MediaType.COMIC in source.supportedTypes
-        else -> source is MangaSource && source.supportedTypes.any { it in ASIAN_COMICS }
+        else -> source is MangaSource && source.supportedTypes.any { it in asianComics }
     }
 
-    private val ASIAN_COMICS = setOf(MediaType.MANGA, MediaType.MANHWA, MediaType.MANHUA)
+    private val asianComics = setOf(MediaType.MANGA, MediaType.MANHWA, MediaType.MANHUA)
 
     private fun candidates(type: MediaType, excludeSourceId: String?): List<CatalogueSource> =
         sources.enabled(enabledIds())
