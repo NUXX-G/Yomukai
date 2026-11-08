@@ -1,5 +1,5 @@
 <script>
-  import { t } from '../lib/i18n.svelte.js';
+  import { t, i18n } from '../lib/i18n.svelte.js';
   import { onMount } from 'svelte';
   import { api } from '../lib/api.js';
   import { route, navigate, back, media as mediaHref, reader } from '../lib/router.svelte.js';
@@ -66,6 +66,12 @@
 
   // ---------- The work behind this page (AniList): banner, other names, fillers, where to continue ----------
   let work = $state(null);
+  // The work in other languages (from the works index): chips to switch, e.g. from the Spanish edition to the English one.
+  const obraKey = route.query.get('obra');
+  const obraLang = route.query.get('lang') || i18n.lang;
+  let obraLangs = $state([]);
+  if (obraKey) api.obraFicha(obraKey, obraLang, true).then((r) => (obraLangs = r.langs || []), () => {});
+  const LANG_NAMES = { es: 'Español', en: 'English', zh: '中文', ja: '日本語', ko: '한국어', fr: 'Français', de: 'Deutsch', it: 'Italiano', pt: 'Português', ru: 'Русский' };
   /** Episode number -> 'FILLER' | 'MIXED' (AnimeFillerList); only for anime. */
   let fillers = $state({});
   let hideFiller = $state(false);
@@ -346,6 +352,15 @@
           </div>
         </div>
       </div>
+
+      {#if obraLangs.length > 1}
+        <div class="obra-langs" role="group" aria-label={t('Idioma')}>
+          {#each obraLangs as l (l)}
+            <a class="chip" class:on={l === obraLang} aria-current={l === obraLang ? 'true' : undefined}
+              href={'/obras/' + encodeURIComponent(obraKey) + '?lang=' + l}>{LANG_NAMES[l] || l.toUpperCase()}</a>
+          {/each}
+        </div>
+      {/if}
 
       {#if work?.sources?.length > 1}
         <button class="in-sources" onclick={openAlternatives}>
@@ -657,6 +672,9 @@
 </Sheet>
 
 <style>
+  .obra-langs { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+  .obra-langs .chip { padding: 6px 12px; border-radius: 999px; background: var(--surface-2, rgba(127,127,127,.15)); color: inherit; text-decoration: none; font-size: .9rem; }
+  .obra-langs .chip.on { background: var(--accent); color: var(--on-accent, #fff); }
   .details { position: relative; background: var(--bg); min-height: 100vh; transition: background 0.45s; overflow-x: clip; }
   .wrap { position: relative; max-width: 1200px; margin: 0 auto; }
   /* The bar's colour follows the scroll (--fill from 0 to 1) instead of switching on and off. */

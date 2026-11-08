@@ -12,6 +12,7 @@
   import Settings from './pages/Settings.svelte';
   import Source from './pages/Source.svelte';
   import Details from './pages/Details.svelte';
+  import Work from './pages/Work.svelte';
   import MangaReader from './pages/MangaReader.svelte';
   import NovelReader from './pages/NovelReader.svelte';
   import Player from './pages/Player.svelte';
@@ -39,6 +40,7 @@
   define('settings', '/ajustes');
   define('source', '/fuente/:id');
   define('details', '/obra/:source/:id');
+  define('work', '/obras/:key');
   define('read', '/leer/:source/:id/:chapter');
   define('watch', '/ver/:source/:id/:chapter');
   define('room', '/sala/:code');
@@ -125,6 +127,7 @@
       case 'settings': return Settings;
       case 'source': return Source;
       case 'details': return Details;
+      case 'work': return Work;
       case 'watch': return Player;
       case 'read': return sources.list.find((s) => s.id === route.params.source)?.kind === 'novel' ? NovelReader : MangaReader;
       default: return Home;

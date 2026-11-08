@@ -1,7 +1,7 @@
 <script>
-  import { t } from '../lib/i18n.svelte.js';
+  import { t, i18n } from '../lib/i18n.svelte.js';
   import { onDestroy } from 'svelte';
-  import { searchStream } from '../lib/api.js';
+  import { searchStream, api } from '../lib/api.js';
   import { settings, rememberSearch, saveSettings, rememberItems, sourceById } from '../lib/store.svelte.js';
   import { route, navigate, media } from '../lib/router.svelte.js';
   import { TYPE_FILTERS, LANGUAGES, groupBadges } from '../lib/format.js';
@@ -9,12 +9,14 @@
   import MediaCard from '../components/MediaCard.svelte';
 
   /** Results grouped by kind, anime first, then the comics, then novels. */
-  const SECTIONS = [['Anime', ['ANIME']], ['Manga', ['MANGA']], [t('Manhwa y manhua'), ['MANHWA', 'MANHUA']], [t('Cómics'), ['COMIC']], ['Novelas', ['NOVEL']]];
+  const SECTIONS = [['Anime', ['ANIME']], ['Manga', ['MANGA']], [t('Manhwa y manhua'), ['MANHWA', 'MANHUA']], [t('Cómics'), ['COMIC']], [t('Novelas'), ['NOVEL']]];
 
   let query = $state(route.query.get('q') || '');
   let typeKey = $state('ALL');
   let lang = $state('');
   let groups = $state([]);
+  /** Works from the server's index: one card per work in the chosen language, answered at once. */
+  let works = $state([]);
   let pending = $state([]);
   let errors = $state({});
   let searching = $state(false);
@@ -27,8 +29,10 @@
     stop?.();
     if (save) rememberSearch(q);
     navigate('/buscar?q=' + encodeURIComponent(q), { replace: true });
-    groups = []; pending = []; errors = {}; searching = true; searched = true;
+    groups = []; works = []; pending = []; errors = {}; searching = true; searched = true;
     const types = TYPE_FILTERS.find((f) => f.key === typeKey).types;
+    const wanted = (lang || i18n.lang).toLowerCase();
+    api.obrasBuscar(q, wanted, types?.join(',')).then((r) => { if (query.trim() === q) works = (r.works || []).map((w) => ({ ...w, lang: wanted })); }, () => {});
     stop = searchStream(q, { types, lang }, (update) => {
       groups = update.groups; pending = update.pending; errors = update.errors;
       rememberItems(update.groups.flatMap((g) => [g.primary, ...g.others]));
@@ -41,7 +45,7 @@
 
   function setType(k) { typeKey = k; if (searched) run(false); }
   function setLang(k) { lang = k; if (searched) run(false); }
-  function clear() { query = ''; groups = []; searched = false; stop?.(); searching = false; }
+  function clear() { query = ''; groups = []; works = []; searched = false; stop?.(); searching = false; }
   const sections = $derived(SECTIONS.map(([title, types]) => [title, groups.filter((g) => types.includes(g.primary.type))]).filter(([, list]) => list.length));
   const sourceName = (id) => sourceById(id)?.name ?? id;
   const line = (g) => [sourceName(g.primary.sourceId), g.others.length ? `+${g.others.length} ${g.others.length === 1 ? 'fuente' : 'fuentes'}` : ''].filter(Boolean).join(' · ');
@@ -75,7 +79,18 @@
     {#if searching}
       <p class="small muted status"><span class="spinner tiny"></span> {t('Buscando en {0}...', [pending.join(', ') || t('tus fuentes')])}</p>
     {/if}
-    {#if !searching && !groups.length}
+    {#if works.length}
+      <section class="kind" aria-label={t('Obras')}>
+        <h2>{t('Obras')} <span class="count">{works.length}</span></h2>
+        <div class="grid results">
+          {#each works as w (w.key)}
+            <MediaCard title={w.title} cover={w.cover} href={'/obras/' + encodeURIComponent(w.key) + '?lang=' + w.lang} showType type={w.type}
+              badges={w.sources > 1 ? [{ text: t('En {0} fuentes', [w.sources]), tone: 'dark' }] : []} />
+          {/each}
+        </div>
+      </section>
+    {/if}
+    {#if !searching && !groups.length && !works.length}
       <p class="muted" style="margin-top:24px">{t('Sin resultados para «{0}».', [query])}</p>
     {/if}
     {#each sections as [title, list] (title)}

@@ -146,6 +146,11 @@ export const api = {
   unified: () => request('GET', '/api/updates/unified'),
   work: (s, id) => request('GET', `/api/work?${qs({ s, id })}`),
   workChapters: (key) => request('GET', `/api/works/${encodeURIComponent(key)}/chapters`),
+  // The catalogue by works (the server's index): lists, instant search and where a work is in a language.
+  obras: ({ lang, type, sort = 'updated', page = 1 } = {}) => request('GET', `/api/obras?${qs({ lang, type, sort, page })}`),
+  obrasBuscar: (q, lang, type) => request('GET', `/api/obras/buscar?${qs({ q, lang, type })}`),
+  obraFicha: (key, lang, light = false) => request('GET', `/api/obras/ficha/${encodeURIComponent(key)}?${qs({ lang, light: light ? 1 : undefined })}`),
+  obraAniList: (id) => request('GET', `/api/obras/anilist/${id}`),
   workWhole: (s, id) => request('GET', `/api/works/whole?${qs({ s, id })}`),
   workChoice: (key, number, sourceId) => request('PUT', `/api/works/${encodeURIComponent(key)}/choice`, { number, sourceId }),
   workContinue: (key, episode) => request('GET', `/api/works/${encodeURIComponent(key)}/continue?${qs({ episode })}`),

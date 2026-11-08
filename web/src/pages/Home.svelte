@@ -1,5 +1,5 @@
 <script>
-  import { t } from '../lib/i18n.svelte.js';
+  import { t, i18n } from '../lib/i18n.svelte.js';
   // Inicio: a hero carousel and rows of works (never of sources): continue, new in the library, airing, trending,
   // for you, recently updated everywhere (one card per work) and genres. Rows can be hidden and reordered.
   import { onMount } from 'svelte';
@@ -46,7 +46,12 @@
     load('continue', () => api.continueList(), 30_000);
     load('anime', () => api.discover('anime').then((r) => r.rows), 30 * 60_000);
     load('manga', () => api.discover('manga').then((r) => r.rows), 30 * 60_000);
-    load('unified', () => api.unified());
+    // From the works index in the interface's language (one card per work, ready at once); the old live merge only
+    // while the index is empty or off.
+    load('unified', async () => {
+      const r = await api.obras({ lang: i18n.lang, sort: 'updated' }).catch(() => null);
+      return r?.works?.length ? r.works.map((work) => ({ work })) : api.unified();
+    });
     load('forYou', () => api.forYou(), 15 * 60_000);
     loadUpdates();
     // Who is watching together right now, refreshed while the page is open.
@@ -212,9 +217,14 @@
       </Shelf>
     {:else if r.id === 'unified'}
       <Shelf title={t('Recién actualizado')} subtitle={t('De todas tus fuentes, una tarjeta por obra')} loading={loading('unified')}>
-        {#each items('unified') as u (u.primary.sourceId + u.primary.id)}
-          <MediaCard href={media(u.primary.sourceId, u.primary.id)} title={u.primary.title} cover={u.primary.cover} showType type={u.primary.type}
-            badges={groupBadges(u)} />
+        {#each items('unified') as u (u.work ? u.work.key : u.primary.sourceId + u.primary.id)}
+          {#if u.work}
+            <MediaCard href={'/obras/' + encodeURIComponent(u.work.key) + '?lang=' + i18n.lang} title={u.work.title} cover={u.work.cover} showType type={u.work.type}
+              badges={u.work.sources > 1 ? [{ text: t('En {0} fuentes', [u.work.sources]), tone: 'dark' }] : []} />
+          {:else}
+            <MediaCard href={media(u.primary.sourceId, u.primary.id)} title={u.primary.title} cover={u.primary.cover} showType type={u.primary.type}
+              badges={groupBadges(u)} />
+          {/if}
         {/each}
       </Shelf>
     {/if}

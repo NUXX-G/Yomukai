@@ -405,7 +405,9 @@ private fun Route.workFichaRoute(s: Services) {
         val lang = call.indexLang().takeIf { it in langs } ?: langs.firstOrNull() ?: call.indexLang()
         val places = s.workIndex.sourcesOf(key, lang).filter { s.sources.get(it.first) != null }
         val only = places.map { it.first }.toSet()
-        val chapters = s.works.chapters(call.user, key, listOf(lang.uppercase()), places.map { it.first }, only = only, waitMs = FICHA_WAIT_MS)
+        // ?light=1: only where it is (the clients open the work right away and load its chapters there).
+        val light = call.request.queryParameters["light"] == "1"
+        val chapters = if (light) null else s.works.chapters(call.user, key, listOf(lang.uppercase()), places.map { it.first }, only = only, waitMs = FICHA_WAIT_MS)
         call.respond(
             mapOf(
                 "work" to s.works.dto(work, s.works.sourcesOf(key)) { s.proxy.cover(it, emptyMap()) }, "lang" to lang, "langs" to langs,

@@ -1,11 +1,17 @@
 // Opening a recommendation: find where it can be read, and go there.
 import { api } from './api.js';
 import { navigate, media } from './router.svelte.js';
+import { i18n } from './i18n.svelte.js';
 
 export const locating = $state({ open: false, title: '', searching: false, options: [], related: null });
 
 export async function openRelated(related) {
   if (related.item) return navigate(media(related.item.sourceId, related.item.id));
+  // The server's works index usually knows it already: open the work at once, no search across sources.
+  if (related.anilistId) {
+    const found = await api.obraAniList(related.anilistId).catch(() => null);
+    if (found?.key) return navigate('/obras/' + encodeURIComponent(found.key) + '?lang=' + i18n.lang);
+  }
   locating.open = true;
   locating.title = related.title;
   locating.searching = true;
