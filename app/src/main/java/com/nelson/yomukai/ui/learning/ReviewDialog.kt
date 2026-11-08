@@ -37,6 +37,56 @@ import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.LocalAppContainer
 import kotlinx.coroutines.launch
 
+private data class SharedDeck(val id: Long, val name: String, val owner: String, val lang: String, val size: Int, val mine: Boolean)
+
+/** This week's ranking of reviews and the decks people share, as on the web's review page. */
+@Composable
+private fun SharedLearning(onCopied: (Int) -> Unit) {
+    val sync = LocalAppContainer.current.serverSync
+    val scope = rememberCoroutineScope()
+    var ranking by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
+    var decks by remember { mutableStateOf<List<SharedDeck>>(emptyList()) }
+    var message by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        ranking = runCatching {
+            sync.api("GET", "/api/words/ranking")?.asJsonArray?.mapNotNull { e ->
+                val o = e.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
+                (o.get("name")?.asString ?: return@mapNotNull null) to (o.get("reviews")?.asInt ?: 0)
+            }.orEmpty()
+        }.getOrDefault(emptyList())
+        decks = runCatching {
+            sync.api("GET", "/api/words/decks")?.asJsonArray?.mapNotNull { e ->
+                val o = e.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
+                fun s(k: String) = o.get(k)?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+                SharedDeck(o.get("id")?.asLong ?: return@mapNotNull null, s("name"), s("owner"), s("lang"), o.get("size")?.asInt ?: 0, o.get("mine")?.asBoolean == true)
+            }.orEmpty()
+        }.getOrDefault(emptyList())
+    }
+    if (ranking.isNotEmpty()) {
+        Text(tr("Ranking de la semana"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        ranking.forEachIndexed { i, (name, n) -> Text("${i + 1}. $name · " + tr("{0} repasos", n)) }
+    }
+    val others = decks.filterNot { it.mine }
+    if (others.isNotEmpty()) {
+        Text(tr("Mazos compartidos"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        others.take(MAX_DECKS_SHOWN).forEach { d ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("${d.name} · ${d.owner} · ${d.lang.uppercase()} · " + tr("{0} palabras", d.size), modifier = Modifier.weight(1f))
+                FilledTonalButton(onClick = {
+                    scope.launch {
+                        val added = runCatching { sync.api("POST", "/api/words/decks/${d.id}/import", JsonObject())?.asJsonObject?.get("added")?.asInt ?: 0 }
+                        message = added.fold({ tr("{0} palabras nuevas para repasar", it) }, { it.message })
+                        added.getOrNull()?.let(onCopied)
+                    }
+                }) { Text(tr("Copiar")) }
+            }
+        }
+    }
+    message?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+}
+
+private const val MAX_DECKS_SHOWN = 20
+
 private data class DueWord(val id: Long, val word: String, val meaning: String, val context: String, val source: String)
 
 /** Today's review (spaced repetition with FSRS, kept on the server like on the web): word, answer, how well it went. */
@@ -68,10 +118,13 @@ fun ReviewDialog(onDismiss: () -> Unit) {
                     when {
                         list == null -> CircularProgressIndicator()
                         error != null -> Text(error.orEmpty(), textAlign = TextAlign.Center)
-                        card == null -> Text(
-                            if (list.isEmpty()) tr("No tienes palabras para repasar hoy.") else tr("¡Repaso de hoy terminado!"),
-                            style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center
-                        )
+                        card == null -> {
+                            Text(
+                                if (list.isEmpty()) tr("No tienes palabras para repasar hoy.") else tr("¡Repaso de hoy terminado!"),
+                                style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center
+                            )
+                            SharedLearning(onCopied = { added -> if (added > 0) { due = null; index = 0 } })
+                        }
                         else -> {
                             Text("${index + 1} / ${list.size}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(card.word, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
