@@ -11,7 +11,8 @@ COPY web/ ./
 RUN npm run build
 
 # 2. Server (no Android SDK here: YOMUKAI_SERVER_ONLY leaves the app module out)
-FROM eclipse-temurin:25-jdk AS server
+# Same JDK as the Gradle toolchain (21): nothing to download while building. The image runs on Java 25.
+FROM eclipse-temurin:21-jdk AS server
 WORKDIR /src
 ENV YOMUKAI_SERVER_ONLY=true GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.configuration-cache=false"
 COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
