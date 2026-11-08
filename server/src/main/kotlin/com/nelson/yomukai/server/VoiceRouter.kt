@@ -81,19 +81,28 @@ class VoiceRouter(private val s: Services) {
     }
 
     /** Queues the next texts (e.g. the next chapter's paragraphs) at lower priority, so they are ready when reached. */
-    suspend fun prefetch(user: User, texts: List<String>, voice: String, rate: Float): Int {
+    suspend fun prefetch(
+        user: User,
+        texts: List<String>,
+        voice: String,
+        rate: Float,
+        priority: Int = JobPriority.NEXT,
+        limit: Int = MAX_PREFETCH,
+        maxPending: Int = MAX_PENDING_PER_USER,
+        ttlMs: Long = 6 * 3_600_000L
+    ): Int {
         if (!voice.startsWith("w:") || user.isGuest) return 0
         val id = voice.removePrefix("w:")
         val r = normalRate(rate)
-        var room = MAX_PENDING_PER_USER - pending(user)
+        var room = maxPending - pending(user)
         if (!usable(id)) return 0
         var queued = 0
-        for (t in texts.map { it.replace(Regex("\\s+"), " ").trim() }.distinct().take(MAX_PREFETCH)) {
+        for (t in texts.map { it.replace(Regex("\\s+"), " ").trim() }.distinct().take(limit)) {
             val clean = t.replace(Regex("\\s+"), " ").trim().take(MAX_CHARS).takeIf { it.isNotEmpty() } ?: continue
             val key = key(id, r, clean)
             if (s.jobs.results.has(key)) continue
             if (room-- <= 0) break
-            s.jobs.enqueue(JobQueue.Request(JobTypes.TTS, payload(clean, id, r), JobPriority.NEXT, dedupKey = key, requestedBy = user.id, ttlMs = 6 * 3_600_000L))
+            s.jobs.enqueue(JobQueue.Request(JobTypes.TTS, payload(clean, id, r), priority, dedupKey = key, requestedBy = user.id, ttlMs = ttlMs))
             queued++
         }
         return queued

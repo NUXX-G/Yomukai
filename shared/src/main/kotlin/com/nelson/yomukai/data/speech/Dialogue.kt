@@ -12,24 +12,30 @@ enum class Gender { FEMALE, MALE, UNKNOWN }
  */
 object Dialogue {
     private const val L = "\\p{L}"
+
+    // What JavaScript's \s matches (Java's leaves out no-break and wide spaces): the web cuts text with it, and the
+    // server's audio is only reused when both cut the same way.
+    const val SPACE_CHARS = "\\t\\n\\u000B\\f\\r \\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000\\uFEFF"
+    private const val WS = "[$SPACE_CHARS]"
+    private const val NOT_WS = "[^$SPACE_CHARS]"
     private val FEMALE = Regex(
-        "(?<!$L)(ella|ellas|la\\s+(?:chica|mujer|joven|niña|muchacha|señora|señorita|princesa|reina|madre|hermana|maga|doncella|dama|anciana|emperatriz|santa|bruja|diosa|maestra|profesora|doctora|capitana)|she|her|the\\s+(?:girl|woman|lady|princess|queen|mother|sister|witch|goddess|maid))(?!$L)",
+        "(?<!$L)(ella|ellas|la$WS+(?:chica|mujer|joven|niña|muchacha|señora|señorita|princesa|reina|madre|hermana|maga|doncella|dama|anciana|emperatriz|santa|bruja|diosa|maestra|profesora|doctora|capitana)|she|her|the$WS+(?:girl|woman|lady|princess|queen|mother|sister|witch|goddess|maid))(?!$L)",
         RegexOption.IGNORE_CASE
     )
     private val MALE = Regex(
-        "(?<!$L)(él|ellos|el\\s+(?:chico|hombre|joven|niño|muchacho|señor|príncipe|rey|padre|hermano|mago|caballero|anciano|emperador|santo|brujo|dios|maestro|profesor|doctor|capitán|duque)|he|him|his|the\\s+(?:boy|man|lord|prince|king|father|brother|wizard|god|knight))(?!$L)",
+        "(?<!$L)(él|ellos|el$WS+(?:chico|hombre|joven|niño|muchacho|señor|príncipe|rey|padre|hermano|mago|caballero|anciano|emperador|santo|brujo|dios|maestro|profesor|doctor|capitán|duque)|he|him|his|the$WS+(?:boy|man|lord|prince|king|father|brother|wizard|god|knight))(?!$L)",
         RegexOption.IGNORE_CASE
     )
-    private val DASH_START = Regex("^[—–―-]\\s*\\S")
-    private val DASH_LEAD = Regex("^[—–―-]\\s*")
-    private val DASH = Regex("\\s*[—–―]\\s*")
+    private val DASH_START = Regex("^[—–―-]$WS*$NOT_WS")
+    private val DASH_LEAD = Regex("^[—–―-]$WS*")
+    private val DASH = Regex("$WS*[—–―]$WS*")
     private val QUOTED = Regex("«([^»]+)»|“([^”]+)”|\"([^\"]+)\"")
     private val WORDY = Regex("[\\p{L}\\p{N}]")
     private val INVISIBLE = Regex("[\\u200B-\\u200F\\u2060-\\u2064\\uFEFF]")
     private val ESCAPE = Regex("\\\\([\\[\\]()*_~`#>-])")
     private val RULE = Regex("[*_~#=]{3,}")
-    private val SPACES = Regex("\\s+")
-    private val SENTENCE = Regex("[^.!?…]+[.!?…]+[\"»”')\\]]*\\s*|[^.!?…]+$")
+    private val SPACES = Regex("$WS+")
+    private val SENTENCE = Regex("[^.!?…]+[.!?…]+[\"»”')\\]]*$WS*|[^.!?…]+$")
 
     fun genderHint(narration: String): Gender {
         val f = FEMALE.containsMatchIn(narration)

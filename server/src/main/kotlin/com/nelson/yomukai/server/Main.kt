@@ -184,6 +184,7 @@ class Services(val config: Config) {
     val words = Words(db, events)
     val dictionaries by lazy { Dictionaries(this) }
     val voiceSamples = VoiceSamples(db, config.dataDir)
+    val nightlyVoices by lazy { NightlyVoices(this) }
     val integrations = Integrations(db, config.secret)
     val jellyfin = JellyfinLink(integrations, features, sources)
     val imports = Imports(db, catalog, http, config.malClientId, { prefs(it) })
@@ -290,6 +291,14 @@ private fun Application.startBackgroundJobs(config: Config, services: Services) 
             // What was watched in Jellyfin's own apps, every 15 min.
             if (++jellyfinTicks % 3 == 0) runCatching { services.jellyfinSync.pullAll() }.onFailure { log.debug("Jellyfin progreso: {}", it.message) }
             delay(5 * 60_000L)
+        }
+    }
+    // Voices prepared overnight for the novels people are reading (once a night, 3-6 h).
+    launch {
+        delay(5 * 60_000L)
+        while (true) {
+            runCatching { services.nightlyVoices.tick() }.onFailure { log.warn("Voces de madrugada", it) }
+            delay(15 * 60_000L)
         }
     }
     // Followed works: new episodes/chapters go to the NAS on their own (every 3 h, spaced out between works).

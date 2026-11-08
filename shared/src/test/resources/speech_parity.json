@@ -1,0 +1,228 @@
+[
+ {
+  "paragraph": "—No pienso volver —dijo ella—. Nunca más.",
+  "characters": [
+   {
+    "text": "No pienso volver",
+    "role": "female"
+   },
+   {
+    "text": "dijo ella",
+    "role": "narrator"
+   },
+   {
+    "text": ". Nunca más.",
+    "role": "female"
+   }
+  ],
+  "single": [
+   {
+    "text": "—No pienso volver —dijo ella—. Nunca más.",
+    "role": "narrator"
+   }
+  ]
+ },
+ {
+  "paragraph": "—¿Estás seguro? —preguntó el rey, sin levantar la vista—. Te arrepentirás.",
+  "characters": [
+   {
+    "text": "¿Estás seguro?",
+    "role": "male"
+   },
+   {
+    "text": "preguntó el rey, sin levantar la vista",
+    "role": "narrator"
+   },
+   {
+    "text": ". Te arrepentirás.",
+    "role": "male"
+   }
+  ],
+  "single": [
+   {
+    "text": "—¿Estás seguro? —preguntó el rey, sin levantar la vista—. Te arrepentirás.",
+    "role": "narrator"
+   }
+  ]
+ },
+ {
+  "paragraph": "\"I told you so,\" she said. \"You never listen.\"",
+  "characters": [
+   {
+    "text": "I told you so,",
+    "role": "female"
+   },
+   {
+    "text": "she said.",
+    "role": "narrator"
+   },
+   {
+    "text": "You never listen.",
+    "role": "female"
+   }
+  ],
+  "single": [
+   {
+    "text": "\"I told you so,\" she said. \"You never listen.\"",
+    "role": "narrator"
+   }
+  ]
+ },
+ {
+  "paragraph": "He looked at the door. \"Who is there?\" he asked.",
+  "characters": [
+   {
+    "text": "He looked at the door.",
+    "role": "narrator"
+   },
+   {
+    "text": "Who is there?",
+    "role": "male"
+   },
+   {
+    "text": "he asked.",
+    "role": "narrator"
+   }
+  ],
+  "single": [
+   {
+    "text": "He looked at the door. \"Who is there?\" he asked.",
+    "role": "narrator"
+   }
+  ]
+ },
+ {
+  "paragraph": "«Ven conmigo», susurró la princesa.",
+  "characters": [
+   {
+    "text": "Ven conmigo",
+    "role": "female"
+   },
+   {
+    "text": ", susurró la princesa.",
+    "role": "narrator"
+   }
+  ],
+  "single": [
+   {
+    "text": "«Ven conmigo», susurró la princesa.",
+    "role": "narrator"
+   }
+  ]
+ },
+ {
+  "paragraph": "La noche era fría y nadie hablaba en la taberna.",
+  "characters": [
+   {
+    "text": "La noche era fría y nadie hablaba en la taberna.",
+    "role": "narrator"
+   }
+  ],
+  "single": [
+   {
+    "text": "La noche era fría y nadie hablaba en la taberna.",
+    "role": "narrator"
+   }
+  ]
+ },
+ {
+  "paragraph": "他看着窗外，说：“明天会下雨。”",
+  "characters": [
+   {
+    "text": "他看着窗外，说：",
+    "role": "narrator"
+   },
+   {
+    "text": "明天会下雨。",
+    "role": "narrator"
+   }
+  ],
+  "single": [
+   {
+    "text": "他看着窗外，说：“明天会下雨。”",
+    "role": "narrator"
+   }
+  ]
+ },
+ {
+  "paragraph": "***",
+  "characters": [],
+  "single": []
+ },
+ {
+  "paragraph": "Espacio duro y　ancho al final ",
+  "characters": [
+   {
+    "text": "Espacio duro y ancho al final",
+    "role": "narrator"
+   }
+  ],
+  "single": [
+   {
+    "text": "Espacio duro y ancho al final",
+    "role": "narrator"
+   }
+  ]
+ },
+ {
+  "paragraph": "—Hola —dijo ella —. Adiós.",
+  "characters": [
+   {
+    "text": "Hola",
+    "role": "female"
+   },
+   {
+    "text": "dijo ella",
+    "role": "narrator"
+   },
+   {
+    "text": ". Adiós.",
+    "role": "female"
+   }
+  ],
+  "single": [
+   {
+    "text": "—Hola —dijo ella —. Adiós.",
+    "role": "narrator"
+   }
+  ]
+ },
+ {
+  "paragraph": "Texto con\\*asteriscos\\* escapados y espacios   raros​.",
+  "characters": [
+   {
+    "text": "Texto con*asteriscos* escapados y espacios raros.",
+    "role": "narrator"
+   }
+  ],
+  "single": [
+   {
+    "text": "Texto con*asteriscos* escapados y espacios raros.",
+    "role": "narrator"
+   }
+  ]
+ },
+ {
+  "paragraph": "El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. ¿Quién sabe lo que pasará mañana? Nadie lo sabía.",
+  "characters": [
+   {
+    "text": "El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba.",
+    "role": "narrator"
+   },
+   {
+    "text": "El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. ¿Quién sabe lo que pasará mañana? Nadie lo sabía.",
+    "role": "narrator"
+   }
+  ],
+  "single": [
+   {
+    "text": "El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba.",
+    "role": "narrator"
+   },
+   {
+    "text": "El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. El viento soplaba sobre la colina mientras el ejército avanzaba. ¿Quién sabe lo que pasará mañana? Nadie lo sabía.",
+    "role": "narrator"
+   }
+  ]
+ }
+]
