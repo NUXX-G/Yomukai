@@ -26,6 +26,11 @@ class DecksTest {
         save(leo, "river")
         assertEquals(1, s.words.importDeck(leo, id))
         assertEquals(setOf("apple", "river"), s.words.list(leo, false, "en").map { it.word }.toSet())
+        // Someone who hides their profile: their decks can't be listed or copied by guessing the id.
+        s.db.tx { update("UPDATE users SET hidden = 1 WHERE id = ?", ana.id) }
+        assertTrue(s.words.decks(leo).isEmpty())
+        assertTrue(runCatching { s.words.importDeck(leo, id) }.exceptionOrNull() is NoSuchElementException)
+        s.db.tx { update("UPDATE users SET hidden = 0 WHERE id = ?", ana.id) }
         // Only its owner (or an admin) removes it.
         s.words.deleteDeck(leo, id)
         assertEquals(1, s.words.decks(ana).size)

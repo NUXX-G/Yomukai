@@ -174,7 +174,12 @@ class Words(private val db: Database, private val events: Events, private val cl
     /** Copies a shared deck's words into the user's own (those already saved stay as they are); how many were new. */
     suspend fun importDeck(user: User, id: Long): Int {
         require(!user.isGuest) { "Los invitados no guardan palabras" }
-        val (lang, json) = db.tx { queryOne("SELECT lang, words FROM decks WHERE id = ?", id) { getString(1) to getString(2) } }
+        val (lang, json) = db.tx {
+            queryOne(
+                "SELECT d.lang, d.words FROM decks d JOIN users u ON u.id = d.user_id WHERE d.id = ? AND (u.hidden = 0 OR d.user_id = ?)",
+                id, user.id
+            ) { getString(1) to getString(2) }
+        }
             ?: throw NoSuchElementException("Ese mazo ya no existe")
         val words = runCatching { gson.fromJson(json, Array<DeckWord>::class.java).toList() }.getOrDefault(emptyList())
         var added = 0
