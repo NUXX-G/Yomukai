@@ -28,21 +28,28 @@ export function readingOrder(boxes, direction) {
 export const DEFAULT_WPM = 220;
 
 /** Milliseconds for a strip: text by its words and the reader's speed, panels by their detail, gutters almost none. */
-export function stripMs({ words = 0, detail = 0.5, empty = false }, wpm = DEFAULT_WPM) {
-  if (empty) return 150;
-  if (words > 0) return 400 + (words / Math.min(700, Math.max(80, wpm))) * 60_000;
-  return 900 + Math.min(1, Math.max(0, detail)) * 1100;
+export function stripMs({ words = 0, detail = 0.5, empty = false, textLike = false }, wpm = DEFAULT_WPM) {
+  if (empty) return 250;
+  const pace = Math.min(700, Math.max(80, wpm));
+  if (words > 0) return 400 + (words / pace) * 60_000;
+  // No OCR, but it looks like a bubble: read time for a short line, never the quick panel pace (as ScrollPlanner).
+  if (textLike) return 400 + (5 / pace) * 60_000;
+  return 900 + Math.min(1, Math.max(0, detail)) * 500;
 }
 
-/** Plan B without OCR: grey values of a strip (0..255, row by row of [width]) → { empty, detail }. */
+/** Plan B without OCR: grey values of a strip (0..255, row by row of [width]) → { empty, detail, textLike }. */
 export function analyze(grey, width) {
-  if (!grey.length || width <= 1) return { empty: true, detail: 0 };
+  if (!grey.length || width <= 1) return { empty: true, detail: 0, textLike: false };
   let mean = 0;
   for (const v of grey) mean += v;
   mean /= grey.length;
   let variance = 0;
   for (const v of grey) variance += (v - mean) ** 2;
-  if (Math.sqrt(variance / grey.length) < 6) return { empty: true, detail: 0 };
+  if (Math.sqrt(variance / grey.length) < 6) return { empty: true, detail: 0, textLike: false };
+  // Mostly light with something on it: paper or bubbles with (shrunk) letters.
+  let light = 0;
+  for (const v of grey) if (v >= 200) light++;
+  const textLike = light / grey.length >= 0.55;
   let edges = 0;
   let pairs = 0;
   for (let i = 0; i + 1 < grey.length; i++) {
@@ -50,7 +57,7 @@ export function analyze(grey, width) {
     pairs++;
     if (Math.abs(grey[i] - grey[i + 1]) > 24) edges++;
   }
-  return { empty: false, detail: pairs ? Math.min(1, edges / pairs / 0.35) : 0 };
+  return { empty: false, detail: pairs ? Math.min(1, edges / pairs / 0.35) : 0, textLike };
 }
 
 /** Words of the OCR boxes inside the band [top, bottom] of a page (fractions), speech only. */

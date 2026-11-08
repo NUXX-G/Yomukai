@@ -204,7 +204,7 @@
     // The speed control still works: it scales the plan (80 = as planned).
     // Panels without text follow the reader's pace too (text already uses it through the words per minute).
     const pace = strip.words ? 1 : (settings.reader.wpm || 220) / 220;
-    return Math.min(2000, Math.max(15, pxPerSecond * pace * (base / 80)));
+    return Math.min(900, Math.max(15, pxPerSecond * pace * (base / 80)));
   }
   const STRIP_PX = 300;
   function pictureStrip(img, from, to) {
@@ -231,10 +231,15 @@
   function glide() {
     let last = performance.now();
     let carry = 0;
+    let speed = 0;
     const step = (t) => {
       if (!scrolling) return;
       const base = settings.reader.autoSpeed || 80;
-      carry += ((t - last) / 1000) * (settings.reader.smartScroll !== false ? smartSpeed(80) : base);
+      const dt = Math.min(0.1, (t - last) / 1000);
+      const target = settings.reader.smartScroll !== false ? smartSpeed(base) : base;
+      // Eases from one strip's speed to the next (no sudden jumps between a gutter and a bubble).
+      speed = speed ? speed + (target - speed) * Math.min(1, dt * 2.5) : target;
+      carry += dt * speed;
       last = t;
       const px = Math.floor(carry);
       if (px > 0) { window.scrollBy(0, px); carry -= px; }

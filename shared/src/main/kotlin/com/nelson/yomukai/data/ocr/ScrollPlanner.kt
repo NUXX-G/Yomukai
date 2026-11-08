@@ -9,8 +9,14 @@ import kotlin.math.sqrt
  * detailed), almost instant over empty gutters. The reader's speed is learnt from how they correct the scroll.
  */
 object ScrollPlanner {
-    /** One strip of a page: its height in pixels, words in it (from OCR), how detailed the drawing is (0..1), empty or not. */
-    data class Strip(val height: Int, val words: Int, val detail: Double, val empty: Boolean)
+    /**
+     * One strip of a page: its height in pixels, words in it (from OCR), how detailed the drawing is (0..1), empty or not,
+     * and, without OCR, whether it looks like text (light paper or bubbles with marks on it).
+     */
+    data class Strip(val height: Int, val words: Int, val detail: Double, val empty: Boolean, val textLike: Boolean = false)
+
+    /** What the picture alone says about a strip. */
+    data class Look(val empty: Boolean, val detail: Double, val textLike: Boolean)
 
     const val DEFAULT_WPM = 220.0
     const val MIN_WPM = 80.0
@@ -20,6 +26,8 @@ object ScrollPlanner {
     fun durationMs(strip: Strip, wpm: Double = DEFAULT_WPM): Long = when {
         strip.empty -> EMPTY_MS
         strip.words > 0 -> (BASE_TEXT_MS + strip.words / wpm.coerceIn(MIN_WPM, MAX_WPM) * 60_000).toLong()
+        // No OCR, but it looks like a bubble or a caption: read time for a short line, never the quick panel pace.
+        strip.textLike -> (BASE_TEXT_MS + GUESSED_WORDS / wpm.coerceIn(MIN_WPM, MAX_WPM) * 60_000).toLong()
         else -> (PLAIN_PANEL_MS + strip.detail.coerceIn(0.0, 1.0) * (DETAILED_PANEL_MS - PLAIN_PANEL_MS)).toLong()
     }
 
@@ -69,11 +77,19 @@ object ScrollPlanner {
      * Plan B without OCR, from the picture alone: grey values (0..255) of a strip, sampled. Nearly flat means an empty
      * gutter; how much neighbouring pixels differ says how detailed the drawing is.
      */
-    fun analyze(grey: IntArray, width: Int): Pair<Boolean, Double> {
-        if (grey.isEmpty() || width <= 1) return true to 0.0
+    fun analyze(grey: IntArray, width: Int): Pair<Boolean, Double> = look(grey, width).let { it.empty to it.detail }
+
+    /**
+     * Like [analyze], and whether the strip looks like text: mostly light (paper, bubbles) with something drawn on it.
+     * A shrunk bubble turns its letters into soft grey smudges, which would otherwise read as a plain, quick panel
+     * (the reason text used to fly past while dark drawings crawled).
+     */
+    fun look(grey: IntArray, width: Int): Look {
+        if (grey.isEmpty() || width <= 1) return Look(true, 0.0, false)
         val mean = grey.average()
         val sd = sqrt(grey.sumOf { (it - mean) * (it - mean) } / grey.size)
-        if (sd < EMPTY_SD) return true to 0.0
+        if (sd < EMPTY_SD) return Look(true, 0.0, false)
+        val light = grey.count { it >= LIGHT_GREY }.toDouble() / grey.size
         var edges = 0
         var pairs = 0
         for (i in grey.indices) {
@@ -81,16 +97,19 @@ object ScrollPlanner {
             if (i + 1 < grey.size) { pairs++; if (abs(grey[i] - grey[i + 1]) > EDGE_STEP) edges++ }
         }
         val detail = if (pairs == 0) 0.0 else (edges.toDouble() / pairs / EDGE_FULL).coerceIn(0.0, 1.0)
-        return false to detail
+        return Look(false, detail, light >= TEXT_LIGHT_SHARE)
     }
 
-    private const val EMPTY_MS = 150L
+    private const val EMPTY_MS = 250L
     private const val MIN_FACTOR = 0.2
-    private const val MAX_FACTOR = 4.0
+    const val MAX_FACTOR = 3.0
+    private const val GUESSED_WORDS = 5.0
+    private const val LIGHT_GREY = 200
+    private const val TEXT_LIGHT_SHARE = 0.55
     private const val CJK_CHARS_PER_WORD = 2
     private const val BASE_TEXT_MS = 400.0
     private const val PLAIN_PANEL_MS = 900.0
-    private const val DETAILED_PANEL_MS = 2_000.0
+    private const val DETAILED_PANEL_MS = 1_400.0
     private const val EMPTY_SD = 6.0
     private const val EDGE_STEP = 24
     private const val EDGE_FULL = 0.35

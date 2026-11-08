@@ -42,13 +42,28 @@ class ScrollPlannerTest {
     }
 
     @Test
+    fun aShrunkBubbleIsReadSlowerThanADarkDrawing() {
+        // White paper with grey smudges where the letters were (what a 48-pixel-wide copy leaves of a bubble).
+        val bubble = IntArray(400) { if (it % 7 == 0) 150 else 250 }
+        val look = ScrollPlanner.look(bubble, 20)
+        assertTrue(!look.empty && look.textLike)
+        // A dark, busy drawing.
+        val drawing = IntArray(400) { if (it % 2 == 0) 20 else 120 }
+        assertTrue(!ScrollPlanner.look(drawing, 20).textLike)
+        val text = ScrollPlanner.Strip(400, 0, look.detail, false, textLike = true)
+        val art = ScrollPlanner.Strip(400, 0, 1.0, false)
+        assertTrue(ScrollPlanner.durationMs(text) > ScrollPlanner.durationMs(art))
+        assertTrue(ScrollPlanner.factor(text) < ScrollPlanner.factor(art))
+    }
+
+    @Test
     fun factorsAndWordsPerStrip() {
         val text = ScrollPlanner.Strip(400, 15, 0.0, false)
         val plain = ScrollPlanner.Strip(400, 0, 0.0, false)
         val gutter = ScrollPlanner.Strip(400, 0, 0.0, true)
         assertEquals(1.0, ScrollPlanner.factor(plain), 1e-9)
         assertTrue(ScrollPlanner.factor(text) < 0.5)
-        assertEquals(4.0, ScrollPlanner.factor(gutter), 1e-9)
+        assertEquals(ScrollPlanner.MAX_FACTOR, ScrollPlanner.factor(gutter), 1e-9)
         val boxes = listOf(
             TextBox(0.1, 0.0, 0.5, 0.25, "one two three four"),
             TextBox(0.1, 0.5, 0.5, 0.5, "我们去北京吧"),

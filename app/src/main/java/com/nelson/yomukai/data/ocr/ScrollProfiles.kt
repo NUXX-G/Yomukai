@@ -55,8 +55,10 @@ class ScrollProfiles(private val context: Context, private val ocr: DeviceOcr) {
             val pixels = IntArray(w * (bottom - top))
             bitmap.getPixels(pixels, 0, w, 0, top, w, bottom - top)
             val grey = IntArray(pixels.size) { p -> val c = pixels[p]; ((c shr 16 and 0xff) * 3 + (c shr 8 and 0xff) * 6 + (c and 0xff)) / 10 }
-            val (empty, detail) = ScrollPlanner.analyze(grey, w)
-            ScrollPlanner.Strip(bottom - top, words?.get(i) ?: 0, detail, empty && (words?.get(i) ?: 0) == 0)
+            val look = ScrollPlanner.look(grey, w)
+            val n = words?.get(i) ?: 0
+            // With OCR its words decide; without it, what looks like text is read slowly.
+            ScrollPlanner.Strip(bottom - top, n, look.detail, look.empty && n == 0, textLike = words == null && look.textLike)
         }
     }
 
