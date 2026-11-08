@@ -53,13 +53,16 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
             val known = queryOne("SELECT 1 FROM index_items WHERE source_id = ? AND media_id = ?", sourceId, it.id) { 1 } != null
             if (!known) added++
             update(
-                """INSERT INTO index_items(source_id, media_id, lang, type, title, alt_titles, cover, status, genres, seen_at, updated_at)
-                   VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                """INSERT INTO index_items(source_id, media_id, lang, type, title, alt_titles, cover, status, genres, seen_at, updated_at, adult)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
                    ON CONFLICT(source_id, media_id) DO UPDATE SET title = excluded.title, alt_titles = excluded.alt_titles,
                      cover = CASE WHEN excluded.cover <> '' THEN excluded.cover ELSE cover END, status = excluded.status,
-                     genres = excluded.genres, seen_at = excluded.seen_at, updated_at = CASE WHEN ? THEN excluded.updated_at ELSE updated_at END""",
+                     genres = excluded.genres, seen_at = excluded.seen_at, updated_at = CASE WHEN ? THEN excluded.updated_at ELSE updated_at END,
+                     adult = MAX(adult, excluded.adult)""",
                 sourceId, it.id.take(MAX_ID), lang, it.type.name, it.title.take(MAX_TITLE), gson.toJson(it.altTitles.take(MAX_NAMES)),
-                it.coverUrl.take(MAX_URL), it.status.take(MAX_SHORT), gson.toJson(it.genres.take(MAX_NAMES)), now, now, fresh
+                it.coverUrl.take(MAX_URL), it.status.take(MAX_SHORT), gson.toJson(it.genres.take(MAX_NAMES)), now, now,
+                // A title that says it is sexual content is marked so, whatever its genres (and stays marked).
+                if (com.nelson.yomukai.data.metadata.AdultHints.isExplicit(it.title)) 1 else 0, fresh
             )
         }
         added
@@ -242,6 +245,23 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         return unfinished + due
     }
 
+    /** The source's lists of sexual content, up to [pages] pages each: their titles are recorded and marked adult. */
+    internal suspend fun crawlAdult(source: CatalogueSource, pages: Int) {
+        val lang = langOf(source)
+        for (list in 0 until source.adultLists) {
+            val seen = HashSet<String>()
+            for (page in 1..pages) {
+                val items = source.adultTitles(list, page).getOrNull().orEmpty()
+                if (items.isEmpty() || items.all { !seen.add(it.id) }) break
+                record(source.id, lang, items, fresh = false)
+                s.db.tx {
+                    items.forEach { update("UPDATE index_items SET adult = 1 WHERE source_id = ? AND media_id = ?", source.id, it.id.take(MAX_ID)) }
+                }
+                delay(PAGE_PAUSE_MS)
+            }
+        }
+    }
+
     private suspend fun crawlSome(source: CatalogueSource) {
         s.db.tx { update("INSERT OR IGNORE INTO index_state(source_id) VALUES(?)", source.id) }
         val (nextPage, fullDone) = s.db.tx { queryOne("SELECT next_page, full_done FROM index_state WHERE source_id = ?", source.id) { getInt(1) to (getInt(2) == 1) } }!!
@@ -261,6 +281,8 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
                     delay(PAGE_PAUSE_MS)
                 }
             }
+            // Once the whole catalogue is in, the site's own lists of sexual content mark what it did not tag.
+            if (finished) crawlAdult(source, MAX_ADULT_PAGES)
             s.db.tx {
                 update(
                     "UPDATE index_state SET next_page = ?, full_done = ?, latest_at = CASE WHEN ? THEN ? ELSE latest_at END, error = NULL, " +
@@ -270,6 +292,8 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
             }
             return
         }
+        // New sexual content (the first pages of the site's adult lists), then the latest updates.
+        crawlAdult(source, LATEST_ADULT_PAGES)
         // Latest updates: pages until one brings nothing new to this index (everything already seen as fresh).
         for (page in 1..LATEST_PAGES) {
             val before = s.db.tx { queryOne("SELECT COUNT(*) FROM index_items WHERE source_id = ?", source.id) { getInt(1) } } ?: 0
@@ -370,7 +394,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         val likes = UserPrefs.ADULT_GENRES.flatMap { com.nelson.yomukai.data.metadata.GenreTaxonomy.variants(it) }
             .filter { v -> v.none { it == '\'' || it == '%' || it == '_' || it == '"' } }.distinct()
             .joinToString(" OR ") { "{col} LIKE '%\"$it\"%'" }
-        "NOT EXISTS(SELECT 1 FROM index_items a WHERE a.work_key = w.key AND (${likes.replace("{col}", "a.genres")})) " +
+        "NOT EXISTS(SELECT 1 FROM index_items a WHERE a.work_key = w.key AND (a.adult = 1 OR ${likes.replace("{col}", "a.genres")})) " +
             "AND NOT (${likes.replace("{col}", "COALESCE(w.genres, '')")})"
     }
 
@@ -414,6 +438,8 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         const val LATEST_EVERY_MS = 2 * 3_600_000L
         private const val PAGES_PER_TICK = 6
         private const val PARALLEL_SOURCES = 4
+        private const val MAX_ADULT_PAGES = 200
+        private const val LATEST_ADULT_PAGES = 2
         private const val RETRY_BASE_MS = 10 * 60_000L
         private const val RETRY_MAX_SHIFT = 5
         private const val PAGE_PAUSE_MS = 2_000L

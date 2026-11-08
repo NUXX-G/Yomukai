@@ -9,6 +9,10 @@
   "domains": ["https://tmomanhwa.com"],
   "extraHosts": ["img01.tmomanhwa.com"],
   "latest": { "url": "{base}/", "nextUrl": "{base}/page/{page}/", "item": ".latest-item" },
+  "adult": [
+    { "url": "{base}/genero/adulto/", "nextUrl": "{base}/genero/adulto/page/{page}/", "item": ".latest-item" },
+    { "url": "{base}/genero/smut/", "nextUrl": "{base}/genero/smut/page/{page}/", "item": ".latest-item" }
+  ],
   "search": { "url": "{base}/search/?s={query}", "item": ".latest-item" },
   "card": { "link": ".latest-left a@href", "title": "h3", "cover": "img.img-latest@data-src" },
   "details": {

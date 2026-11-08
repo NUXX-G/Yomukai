@@ -33,6 +33,8 @@ data class SourceConfig(
     val latest: ListRule? = null,
     val search: ListRule? = null,
     val browse: ListRule? = null,
+    /** The site's own lists of sexual content (its "adult", "smut"... genre pages), when it does not tag each title. */
+    val adult: List<ListRule> = emptyList(),
     val card: CardRule? = null,
     val details: DetailsRule? = null,
     val chapters: ChaptersRule? = null,

@@ -74,6 +74,30 @@ class WorkIndexTest {
     }
 
     @Test
+    fun untaggedSexualContentIsCaughtByTitleAndByTheSitesAdultLists() = runBlocking {
+        val site = object : CatalogueSource {
+            override val id = "tmo"
+            override val name = "Tmo"
+            override val baseUrl = "https://tmo.example"
+            override val language = "ES"
+            override val supportedTypes = setOf(MediaType.MANHWA)
+            override val adultLists = 1
+            override suspend fun adultTitles(list: Int, page: Int) =
+                Result.success(if (page == 1) listOf(item("tmo", "a1", "Una Vecina Muy Amable")) else emptyList())
+            override suspend fun fetchLatestUpdates(page: Int) = Result.success(emptyList<MediaItem>())
+            override suspend fun searchMedia(query: String) = Result.success(emptyList<MediaItem>())
+            override suspend fun fetchChapterList(mediaId: String) = Result.success(emptyList<Chapter>())
+        }
+        index.record("tmo", "es", listOf(item("tmo", "a1", "Una Vecina Muy Amable"), item("tmo", "b1", "Teniendo sexo con mi jefa"), item("tmo", "c1", "Super Humanos")), fresh = false)
+        index.crawlAdult(site, 5)
+        // A later ordinary crawl (genres not tagged) does not clear the mark.
+        index.record("tmo", "es", listOf(item("tmo", "a1", "Una Vecina Muy Amable")), fresh = true)
+        index.groupPending()
+        assertEquals(listOf("Super Humanos"), index.list("es", null, "az", 1).map { it.title })
+        assertEquals(3, index.list("es", null, "az", 1, hideAdult = false).size)
+    }
+
+    @Test
     fun crawlingASourceRecordsItsPagesAndStopsAtTheEnd() = runBlocking {
         val source = object : CatalogueSource {
             override val id = "fake"

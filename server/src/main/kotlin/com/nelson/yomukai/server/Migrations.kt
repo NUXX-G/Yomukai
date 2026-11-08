@@ -293,6 +293,9 @@ object Migrations {
         },
         Migration(19, "Dominios nuevos de las fuentes: el admin dice a qué dominio se ha mudado una web") {
             exec("CREATE TABLE IF NOT EXISTS domain_aliases(old_host TEXT PRIMARY KEY, new_host TEXT NOT NULL, updated_at INTEGER NOT NULL)")
+        },
+        Migration(20, "Contenido sexual marcado por título o por las listas de adultos de la fuente (oculto salvo que el usuario lo active)") {
+            addColumn("index_items", "adult", "INTEGER NOT NULL DEFAULT 0")
         }
     )
 

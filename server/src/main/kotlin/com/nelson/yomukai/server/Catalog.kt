@@ -104,11 +104,14 @@ class UserFilter(private val prefs: UserPrefs, private val knownGenres: (MediaIt
     override suspend fun known(source: CatalogueSource, items: List<MediaItem>): List<MediaItem> {
         val excluded = prefs.excludedFor(source.id)
         if (excluded.isEmpty()) return items
-        return items.filterNot { GenreRules.isExcluded(knownGenres(it) + it.type.displayName, excluded) }
+        return items.filterNot { GenreRules.isExcluded(knownGenres(it) + it.type.displayName, excluded) || hiddenAsAdult(it.title) }
     }
 
     override fun allows(related: RelatedTitle): Boolean =
-        !GenreRules.isExcluded(related.genres + related.tags + related.type.displayName, prefs.globalExclusions)
+        !GenreRules.isExcluded(related.genres + related.tags + related.type.displayName, prefs.globalExclusions) && !hiddenAsAdult(related.title)
+
+    /** Sites that do not tag sexual content: a title that says so is hidden too, unless the user shows such content. */
+    private fun hiddenAsAdult(title: String) = !prefs.showAdult && com.nelson.yomukai.data.metadata.AdultHints.isExplicit(title)
 }
 
 /**

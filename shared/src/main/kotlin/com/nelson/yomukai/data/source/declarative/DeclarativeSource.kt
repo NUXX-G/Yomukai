@@ -192,6 +192,14 @@ abstract class DeclarativeSource(
         list(rule, Extract.template(t, vars(mapOf("page" to page.toString()))))
     }
 
+    override val adultLists: Int get() = config.adult.size
+
+    override suspend fun adultTitles(list: Int, page: Int): Result<List<MediaItem>> = runCatching {
+        val rule = config.adult.getOrNull(list) ?: return@runCatching emptyList()
+        val t = if (page > 1) rule.nextUrl ?: rule.url else rule.url
+        list(rule, Extract.template(t, vars(mapOf("page" to page.toString()))))
+    }
+
     override suspend fun searchMedia(query: String): Result<List<MediaItem>> = runCatching {
         val rule = config.search ?: error("Esta fuente no permite buscar")
         list(rule, Extract.template(rule.url, vars(mapOf("query" to Extract.encode(query), "page" to "1"))))

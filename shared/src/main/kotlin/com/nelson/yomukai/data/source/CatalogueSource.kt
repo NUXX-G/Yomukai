@@ -45,6 +45,15 @@ interface CatalogueSource {
     suspend fun browse(page: Int, values: FilterValues = emptyMap()): Result<List<MediaItem>> = fetchLatestUpdates(page)
 
     suspend fun fetchLatestUpdates(page: Int = 1): Result<List<MediaItem>>
+
+    /** How many lists of sexual content the site has (its "adult" or "smut" genre pages): see [adultTitles]. */
+    val adultLists: Int get() = 0
+
+    /**
+     * Page [page] of the site's list [list] (0 until [adultLists]) of sexual content, for sites that do not tag each
+     * title: whatever is there is hidden unless the user shows such content.
+     */
+    suspend fun adultTitles(list: Int, page: Int): Result<List<MediaItem>> = Result.success(emptyList())
     suspend fun searchMedia(query: String): Result<List<MediaItem>>
 
     /** Full metadata (description, author, genres...). Defaults to no extra info. */
