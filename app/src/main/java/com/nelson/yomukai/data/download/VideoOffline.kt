@@ -63,8 +63,17 @@ class VideoOffline(context: Context, private val network: NetworkHelper) {
     }
 
     /** Plain playback of an online stream (any scheme the source gave), still through the app proxy. */
+
+    /** The session for the connected server's own streams (set by the app); null for every other address. */
+    @Volatile var sessionFor: (okhttp3.HttpUrl) -> String? = { null }
+
     fun playbackFactory(referer: String): DataSource.Factory =
-        OkHttpDataSource.Factory(network.videoCallFactory)
+        OkHttpDataSource.Factory(
+            okhttp3.Call.Factory { request ->
+                val cookie = sessionFor(request.url)
+                network.videoCallFactory.newCall(if (cookie != null) request.newBuilder().header("Cookie", cookie).build() else request)
+            }
+        )
             .setUserAgent(NetworkHelper.USER_AGENT)
             .apply { if (referer.isNotBlank()) setDefaultRequestProperties(mapOf("Referer" to referer)) }
 

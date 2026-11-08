@@ -181,6 +181,13 @@ class Catalog(
     /** Whether the chapter list is already in memory, so reading it costs the site nothing. */
     fun hasCachedChapters(sourceId: String, mediaId: String) = chapters.get("chapters|" + key(sourceId, mediaId)) != null
 
+    /** [query] in one source only; what it finds is remembered like any other result. */
+    suspend fun searchOne(sourceId: String, query: String): Result<List<MediaItem>> = runCatching {
+        val source = require(sourceId)
+        require(source.id !in sources.hidden) { "Fuente quitada por el administrador" }
+        source.searchMedia(query).getOrThrow().also { remember(it) }
+    }
+
     private fun require(id: String): CatalogueSource = sources.get(id) ?: throw NoSuchElementException("Fuente desconocida: $id")
 
     suspend fun latest(sourceId: String, page: Int, prefs: UserPrefs): Result<List<MediaDto>> {

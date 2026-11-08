@@ -484,6 +484,28 @@ class ServerSync(
         }
     }
 
+    /**
+     * The session cookie for [url] when it is an address of the connected server (same scheme, host and port), so the
+     * player can open its streams (the home Jellyfin); null for any other site, which never gets it.
+     */
+    fun cookieFor(url: okhttp3.HttpUrl): String? {
+        val server = _state.value.server?.toHttpUrlOrNull() ?: return null
+        val session = token ?: return null
+        return if (sameServer(server, url)) "$COOKIE=$session" else null
+    }
+
+    /** Sources only the server has (its home Jellyfin), offered here while connected; none otherwise. */
+    suspend fun hostedSources(): List<ServerHostedSource> = runCatching {
+        api("GET", "/api/sources")?.asJsonArray?.toList().orEmpty().mapNotNull { e ->
+            val o = e.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
+            val id = o.get("id")?.asString ?: return@mapNotNull null
+            if (id !in ServerHostedSource.HOSTED) return@mapNotNull null
+            val types = o.getAsJsonArray("types")?.mapNotNull { t -> runCatching { com.nelson.yomukai.domain.model.MediaType.valueOf(t.asString) }.getOrNull() }
+                ?.toSet()?.ifEmpty { null } ?: setOf(com.nelson.yomukai.domain.model.MediaType.ANIME)
+            ServerHostedSource(this, id, o.get("name")?.asString ?: id, types)
+        }
+    }.getOrDefault(emptyList())
+
     /** A WebSocket to the connected server's API with the session (watch-party rooms); null when not connected. */
     fun webSocket(path: String, listener: okhttp3.WebSocketListener): okhttp3.WebSocket? {
         val server = _state.value.server ?: return null
@@ -561,6 +583,10 @@ class ServerSync(
 
     companion object {
         private const val COOKIE = "yk_session"
+
+        /** Whether [url] is an address of [server] (scheme, host and port all equal): only those get the session. */
+        fun sameServer(server: okhttp3.HttpUrl, url: okhttp3.HttpUrl): Boolean =
+            server.scheme == url.scheme && server.host.equals(url.host, ignoreCase = true) && server.port == url.port
         private const val PROGRESS_BATCH = 5_000
 
         /** "yomukai.example.com" or "https://yomukai.example.com/" -> "https://yomukai.example.com". */

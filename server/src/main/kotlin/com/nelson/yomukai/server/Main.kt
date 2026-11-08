@@ -588,6 +588,12 @@ private fun Route.catalogRoutes(s: Services) {
         val page = call.request.queryParameters["page"]?.toIntOrNull() ?: 1
         call.reply(s.catalog.latest(call.parameters["id"]!!, page, s.prefs(call.user)))
     }
+    // One source's search (the app's view of a source only this server has, like its home Jellyfin).
+    get("/sources/{id}/search") {
+        val query = call.request.queryParameters["q"]?.trim()?.take(200).orEmpty()
+        require(query.isNotEmpty()) { "Falta la búsqueda" }
+        call.reply(s.catalog.searchOne(call.parameters["id"]!!, query).map { list -> list.map(s.catalog.dtos::media) })
+    }
     get("/sources/{id}/browse") {
         val page = call.request.queryParameters["page"]?.toIntOrNull() ?: 1
         call.reply(s.catalog.browse(call.parameters["id"]!!, page, call.request.queryParameters["f"], s.prefs(call.user)))

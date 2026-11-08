@@ -119,7 +119,7 @@ class AppContainer(context: Context) {
     /** The watch-party room this phone is in: any player opened meanwhile joins it. */
     val activeRoom = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
     val deviceVoices by lazy { com.nelson.yomukai.data.speech.DeviceVoices(context) { network.client } }
-    val videoOffline = VideoOffline(context, network)
+    val videoOffline = VideoOffline(context, network).also { v -> v.sessionFor = { url -> serverSync.cookieFor(url) } }
     val downloadManager = DownloadManager(context, database, sourceManager, network, applicationScope, preferences, videoOffline)
     val contentRepository = ContentRepository(sourceManager, downloadManager)
     val captureStore = CaptureStore()
@@ -199,6 +199,8 @@ class YomukaiApplication : Application(), SingletonImageLoader.Factory {
             sync.state.map { it.connected }.distinctUntilChanged().collect { connected ->
                 com.nelson.yomukai.data.sync.SyncWorker.schedule(this@YomukaiApplication, connected)
                 if (connected) com.nelson.yomukai.data.sync.SyncWorker.soon(this@YomukaiApplication, 0)
+                // The server's home Jellyfin shows as one more source while connected.
+                container.sourceManager.setExtra(if (connected) sync.hostedSources() else emptyList())
             }
         }
     }
