@@ -99,6 +99,35 @@ class DeclarativeSourceTest {
         assertEquals(13f, chapters.first().chapterNumber)
     }
 
+    // ---------- TmoManhwa (plain HTML engine) against pages the site really served ----------
+
+    private val tmo by lazy { declarativeSource(bundle.configs.first { it.id == "tmomanhwa" }, NoNetwork) as DeclarativeSource }
+    private fun tmoDoc(name: String, base: String = "https://tmomanhwa.com/") = Jsoup.parse(fixture(name), base)
+
+    @Test
+    fun tmoManhwaListsSearchDetailsChaptersAndPages() {
+        val latest = tmo.parseList(tmo.config.latest!!, fixture("tmomanhwa_latest.html"), tmoDoc("tmomanhwa_latest.html"))
+        assertTrue(latest.size >= 20)
+        assertTrue(latest.all { it.id.startsWith("https://tmomanhwa.com/manhwa/") && it.title.isNotBlank() && it.coverUrl.startsWith("https://") })
+        val found = tmo.parseList(tmo.config.search!!, fixture("tmomanhwa_search.html"), tmoDoc("tmomanhwa_search.html"))
+        assertTrue(found.any { it.title.contains("Super", ignoreCase = true) })
+
+        val base = MediaItem("https://tmomanhwa.com/manhwa/super-humanos/", "Super Humanos", "", MediaType.MANHWA, "", "", "tmomanhwa")
+        val d = tmo.parseDetails(fixture("tmomanhwa_detail.html"), tmoDoc("tmomanhwa_detail.html", base.id), base)
+        assertEquals("Super Humanos", d.title)
+        assertEquals("Ongoing", d.status)
+        assertTrue(d.genres.containsAll(listOf("Accion", "Fantasia")))
+        assertTrue(d.description.startsWith("Cuando comenzó la invasión"))
+        val chapters = tmo.parseChapters(fixture("tmomanhwa_detail.html"), tmoDoc("tmomanhwa_detail.html", base.id), base.id)
+        assertEquals(33, chapters.size)
+        assertEquals("https://tmomanhwa.com/manhwa/super-humanos/capitulo-256/", chapters.first().url)
+        assertEquals(256f, chapters.first().chapterNumber)
+
+        val pages = tmo.parsePages(fixture("tmomanhwa_chapter.html"), tmoDoc("tmomanhwa_chapter.html"))
+        assertTrue(pages.size > 20)
+        assertEquals("https://img01.tmomanhwa.com/online/9308/256/001.webp", pages.first())
+    }
+
     @Test
     fun madaraPagesAreCleanHttps() {
         val pages = marmota.parsePages(fixture("marmota_chapter.html"), doc("marmota_chapter.html"))

@@ -1,0 +1,24 @@
+{
+  "id": "tmomanhwa",
+  "name": "TmoManhwa",
+  "lang": "ES",
+  "kind": "manga",
+  "types": ["MANHWA", "MANHUA", "MANGA"],
+  "engine": "html",
+  "baseUrl": "https://tmomanhwa.com",
+  "domains": ["https://tmomanhwa.com"],
+  "extraHosts": ["img01.tmomanhwa.com"],
+  "latest": { "url": "{base}/", "nextUrl": "{base}/page/{page}/", "item": ".latest-item" },
+  "search": { "url": "{base}/search/?s={query}", "item": ".latest-item" },
+  "card": { "link": ".latest-left a@href", "title": "h3", "cover": "img.img-latest@data-src" },
+  "details": {
+    "title": "h1.main-info-title",
+    "cover": "img.img-cover@data-src",
+    "author": ".main-info-list li:has(h5:matchesOwn(^Autores$)) p",
+    "genres": ".main-info-list a[rel=tag]",
+    "status": { "rows": ".post-status li", "heading": "h5", "match": ["Estado"], "value": "span" }
+  },
+  "chapters": { "item": "ul.chapter-list li", "link": "a@href", "title": ".chapter-name", "date": ".ct-update" },
+  "pages": { "image": ".reading-content img" },
+  "images": { "attrs": ["data-src", "src"], "forceHttps": true }
+}
