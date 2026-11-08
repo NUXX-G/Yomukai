@@ -135,6 +135,7 @@ class SecurityTest {
         application { yomukai(c, Services(c)) }
         val r = client.get("/auth/me")
         assertTrue(r.headers["Content-Security-Policy"]!!.contains("script-src 'self'"))
+        assertEquals("require-corp", r.headers["Cross-Origin-Embedder-Policy"])
         assertTrue(r.headers["Content-Security-Policy"]!!.contains("frame-ancestors 'none'"))
         assertEquals("nosniff", r.headers["X-Content-Type-Options"])
         assertEquals("no-referrer", r.headers["Referrer-Policy"])

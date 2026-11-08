@@ -124,8 +124,12 @@ fun Route.playbackRoutes(s: Services) {
                 mapOf(
                     "sourceId" to getString("source_id"), "mediaId" to getString("media_id"), "chapterId" to getString("chapter_id"),
                     "chapterTitle" to getString("chapter_title"), "title" to getString("title"), "type" to getString("type"),
-                    // History covers are already proxied addresses; AniList ones are not.
-                    "cover" to (getString("work_cover")?.takeIf { it.startsWith("https://") }?.let { s.proxy.cover(it, emptyMap()) } ?: getString("cover")),
+                    // The work's cover (AniList) first; else the history's, which the app syncs as the source's own
+                    // address: anything external goes through this server's image proxy (pages load only from here).
+                    "cover" to (
+                        getString("work_cover")?.takeIf { it.startsWith("https://") }?.let { s.proxy.cover(it, emptyMap()) }
+                            ?: s.coverFor(getString("cover").orEmpty(), getString("source_id"))
+                        ),
                     "banner" to getString("banner")?.takeIf { it.isNotBlank() }?.let { s.proxy.cover(it, emptyMap()) },
                     "readAt" to getLong("read_at"), "workKey" to getString("work_key"),
                     "fraction" to getDouble("fraction"), "finished" to (getInt("read") == 1),

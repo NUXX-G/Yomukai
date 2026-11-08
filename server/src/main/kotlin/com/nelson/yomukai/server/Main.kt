@@ -186,6 +186,7 @@ class Services(val config: Config) {
     val dictionaries by lazy { Dictionaries(this) }
     val voiceSamples = VoiceSamples(db, config.dataDir)
     val nightlyVoices by lazy { NightlyVoices(this) }
+    val kokoro by lazy { KokoroModels(config.dataDir) }
     val integrations = Integrations(db, config.secret)
     val jellyfin = JellyfinLink(integrations, features, sources)
     val imports = Imports(db, catalog, http, config.malClientId, { prefs(it) })
@@ -608,6 +609,7 @@ private fun Route.catalogRoutes(s: Services) {
     get("/pages") { call.reply(s.catalog.pages(call.q("s"), call.q("c"))) }
     get("/text") { call.reply(s.catalog.text(call.q("s"), call.q("c")).map { mapOf("text" to it) }) }
     voiceRoutes(s)
+    kokoroRoutes(s)
     get("/videos") { call.reply(s.catalog.videos(call.q("s"), call.q("c"))) }
     get("/metadata") { call.reply(s.catalog.metadata(call.q("s"), call.q("id"))) }
     get("/similar") { call.reply(s.catalog.similar(call.user, s.prefs(call.user), call.q("s"), call.q("id"))) }
@@ -714,7 +716,8 @@ private fun Route.userRoutes(s: Services) {
         call.respond(
             rows.map { r ->
                 val row = s.works.betterCover(r.sourceId, r.mediaId)?.let { r.copy(cover = s.proxy.cover(it, emptyMap())) } ?: r
-                if (com.nelson.yomukai.data.work.WorkKey.itemKey(r.sourceId, r.mediaId) in shown) row else row.copy(sameWorkShown = true)
+                val proxied = row.copy(cover = s.coverFor(row.cover, row.sourceId))
+                if (com.nelson.yomukai.data.work.WorkKey.itemKey(r.sourceId, r.mediaId) in shown) proxied else proxied.copy(sameWorkShown = true)
             }
         )
     }
@@ -806,7 +809,7 @@ private fun Route.userRoutes(s: Services) {
         // One entry per work, the latest read: the same title read in two sources is one line.
         val rows = s.db.history(call.user.id)
         val shown = com.nelson.yomukai.data.work.WorkGrouper.firstOfEachWork(rows.map { it.asItem() })
-        call.respond(rows.filter { com.nelson.yomukai.data.work.WorkKey.itemKey(it.sourceId, it.mediaId) in shown })
+        call.respond(rows.filter { com.nelson.yomukai.data.work.WorkKey.itemKey(it.sourceId, it.mediaId) in shown }.map { it.copy(cover = s.coverFor(it.cover, it.sourceId)) })
     }
     delete("/history") {
         s.db.removeHistory(call.user.id, call.q("s"), call.q("id"))
@@ -923,3 +926,10 @@ private fun itemOf(sourceId: String, mediaId: String, title: String, type: Strin
 
 private fun LibraryRow.asItem() = itemOf(sourceId, mediaId, title, type)
 private fun HistoryRow.asItem() = itemOf(sourceId, mediaId, title, type)
+
+/**
+ * A cover the pages can show: addresses of other sites (what the app syncs, as its sources give them) go through this
+ * server's image proxy, as the pages only load images from here; this server's own addresses stay as they are.
+ */
+fun Services.coverFor(cover: String, sourceId: String): String =
+    if (cover.startsWith("http://") || cover.startsWith("https://")) proxy.cover(cover, sources.get(sourceId)?.imageHeaders.orEmpty()) else cover

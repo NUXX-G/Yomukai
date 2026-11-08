@@ -21,7 +21,7 @@ import javax.crypto.spec.SecretKeySpec
  * scripts are not. blob: is for spoken audio and the HLS player's worker.
  */
 const val CONTENT_SECURITY_POLICY =
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; " +
+    "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; " +
         "media-src 'self' blob:; connect-src 'self'; worker-src 'self' blob:; frame-src 'self'; font-src 'self' data:; " +
         "manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 
@@ -43,6 +43,9 @@ fun securityHeaders(config: Config) = createApplicationPlugin("SecurityHeaders")
         h.header("Referrer-Policy", "no-referrer")
         h.header("X-Frame-Options", "DENY")
         h.header("Cross-Origin-Opener-Policy", "same-origin")
+        // Cross-origin isolation: lets the browser use several threads for its own voices (WebAssembly). Everything
+        // the pages load already comes from this site (see the CSP), so nothing else is affected.
+        h.header("Cross-Origin-Embedder-Policy", "require-corp")
         if (isSecure(call, config)) h.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
     }
 }

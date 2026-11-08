@@ -1,4 +1,7 @@
 {
+ "Preparando la voz del navegador (solo la primera vez): {0} %": "Preparing the browser voice (first time only): {0}%",
+ "Voces naturales en el navegador": "Natural voices in the browser",
+ "Voces inglesas Kokoro que el navegador genera solo (unos 90 MB la primera vez); el servidor solo guarda el modelo": "English Kokoro voices the browser makes by itself (about 90 MB the first time); the server only keeps the model",
  "Voces preparadas de madrugada": "Voices prepared overnight",
  "De 3 a 6 el servidor de casa prepara el audio del siguiente capítulo de las novelas que cada uno lee, con sus voces": "From 3 to 6 am the home server prepares the audio of the next chapter of the novels each person reads, with their voices",
  "Añadir muestra": "Add sample",

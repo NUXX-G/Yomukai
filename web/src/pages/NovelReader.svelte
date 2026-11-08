@@ -14,6 +14,7 @@
   import Sheet from '../components/Sheet.svelte';
   import SpeedControl from '../components/SpeedControl.svelte';
   import { SpeechReader, speechVoices, loadVoices, voiceSettings, setVoice } from '../lib/speech.svelte.js';
+  import { kokoroState } from '../lib/kokoro.svelte.js';
   import { screen, canFullscreen, toggleFullscreen, enterFullscreen, enterFullscreenQuietly, leaveImmersive } from '../lib/fullscreen.svelte.js';
 
   const sourceId = route.params.source;
@@ -565,7 +566,13 @@
 
 <WordSheet bind:pick={wordPick} />
 
+{#if kokoroState.progress != null}
+  <div class="voice-download" role="status">{t('Preparando la voz del navegador (solo la primera vez): {0} %', [Math.round(kokoroState.progress * 100)])}</div>
+{/if}
+
 <style>
+  .voice-download { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 60;
+    padding: 8px 14px; border-radius: var(--r-pill, 999px); background: var(--c-surface-high); color: var(--c-text); font-size: var(--fs-small); box-shadow: var(--shadow-2, 0 4px 16px #0006); }
   :global(::highlight(yk-learning)) { text-decoration: underline dotted color-mix(in srgb, var(--c-accent) 70%, transparent); text-underline-offset: 3px; }
   .novel { min-height: 100vh; transition: background 0.3s, color 0.3s; }
   article { margin: 0 auto; padding: calc(var(--safe-top) + 72px) 22px calc(var(--safe-bottom) + 96px); }

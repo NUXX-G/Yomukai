@@ -3,7 +3,7 @@ import svelte from 'eslint-plugin-svelte';
 import globals from 'globals';
 
 export default [
-  { ignores: ['dist/', 'node_modules/', 'public/sw.js'] },
+  { ignores: ['dist/', 'node_modules/', 'public/sw.js', 'public/ort/'] },
   js.configs.recommended,
   ...svelte.configs.recommended,
   {

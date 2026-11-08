@@ -425,7 +425,7 @@ fun Route.socialRoutes(s: Services) {
         s.social.setPresence(call.user, call.jsonBody(4_096))
         call.respond(mapOf("ok" to true))
     }
-    get("/feed") { call.respond(s.social.feed(call.user)) }
+    get("/feed") { call.respond(s.social.feed(call.user).map { it.copy(cover = s.coverFor(it.cover, it.sourceId)) }) }
     get("/friends-on") { call.respond(s.social.friendsOn(call.user, call.q("s", 60), call.q("id", 2_000))) }
     get("/ratings") { call.respond(s.social.ratings(call.user, call.q("s", 60), call.q("id", 2_000))) }
     put("/ratings") {
@@ -440,7 +440,9 @@ fun Route.socialRoutes(s: Services) {
         s.social.recommend(call.user, call.parameters["name"].orEmpty(), call.jsonBody(8_192))
         call.respond(mapOf("ok" to true))
     }
-    get("/recommendations") { call.respond(s.social.inbox(call.user)) }
+    get("/recommendations") {
+        call.respond(s.social.inbox(call.user).map { r -> r + ("cover" to s.coverFor(r["cover"] as? String ?: "", r["sourceId"] as? String ?: "")) })
+    }
     post("/recommendations/seen") {
         s.social.markSeen(call.user)
         call.respond(mapOf("ok" to true))

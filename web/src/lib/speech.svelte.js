@@ -8,6 +8,7 @@
 
 import { settings } from './store.svelte.js';
 import { t } from './i18n.svelte.js';
+import { kokoroVoices, kokoroSpeak, KOKORO_PREFIX } from './kokoro.svelte.js';
 
 export const speechVoices = $state({ loaded: false, natural: false, server: [], browser: [] });
 
@@ -21,6 +22,17 @@ export function loadVoices() {
         const j = await r.json();
         speechVoices.natural = !!j.available;
         speechVoices.server = j.voices || [];
+      }
+    } catch {}
+    // Natural English voices made in this browser (Kokoro): they need neither the home server nor the VPS's. They are
+    // slower than real time on most devices, so they are offered to pick (great for hearing English words), never
+    // chosen by themselves.
+    try {
+      const k = await kokoroVoices();
+      if (k.length) {
+        speechVoices.server = [...speechVoices.server, ...k];
+        const chosen = Object.values(settings.novel.voices || {}).some((roles) => Object.values(roles || {}).some((v) => String(v).startsWith(KOKORO_PREFIX)));
+        if (chosen) speechVoices.natural = true;
       }
     } catch {}
     const browser = () => (speechVoices.browser = typeof speechSynthesis === 'undefined' ? [] : [...speechSynthesis.getVoices()].sort((a, b) => browserScore(b) - browserScore(a)));
@@ -56,6 +68,8 @@ export function voiceSettings(lang) {
 
 export function setVoice(lang, role, value) {
   settings.novel.voices = { ...(settings.novel.voices || {}), [lang]: { ...(settings.novel.voices?.[lang] || {}), [role]: value } };
+  // Picking a browser-made voice turns natural voices on even without a server that has any.
+  if (String(value).startsWith(KOKORO_PREFIX)) speechVoices.natural = true;
 }
 
 // The text rules (who speaks, what is heard, pieces) live in dialogue.js: plain functions shared with the tests and
@@ -74,7 +88,9 @@ function audioKey(text, voice, rate) { return voice + '|' + rate + '|' + text; }
 function naturalAudio(text, voice, rate) {
   const key = audioKey(text, voice, rate);
   let p = audioCache.get(key);
-  if (!p) {
+  if (!p && voice?.startsWith(KOKORO_PREFIX)) {
+    p = kokoroSpeak(text, voice, rate);
+  } else if (!p) {
     p = fetch('/api/tts', {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, voice, rate })
@@ -82,6 +98,8 @@ function naturalAudio(text, voice, rate) {
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || t('Sin voz'));
       return URL.createObjectURL(await r.blob());
     });
+  }
+  if (!audioCache.has(key)) {
     p.catch(() => audioCache.delete(key));
     audioCache.set(key, p);
     while (audioCache.size > AUDIO_KEEP) {
