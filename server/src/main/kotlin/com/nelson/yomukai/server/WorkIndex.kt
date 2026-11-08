@@ -306,10 +306,10 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         if (terms.isEmpty()) return emptyList()
         val match = terms.joinToString(" ") { "\"" + it.replace("\"", "") + "\"*" }
         val keys = s.db.tx {
-            query("SELECT work_key, lang FROM works_fts WHERE works_fts MATCH ? ORDER BY (lang = ?) DESC, rank LIMIT ?", match, lang, SEARCH_LIMIT * 2) {
+            query("SELECT work_key, lang FROM works_fts WHERE works_fts MATCH ? ORDER BY (lang = ?) DESC, rank LIMIT ?", match, lang, SEARCH_CANDIDATES) {
                 getString(1)
             }
-        }.distinct().take(SEARCH_LIMIT)
+        }.distinct()
         if (keys.isEmpty()) return emptyList()
         val cards = s.db.tx {
             query(
@@ -323,8 +323,19 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
                 lang, *keys.toTypedArray()
             ) { card() }
         }.associateBy { it.key }
-        return keys.mapNotNull { cards[it] }.filter { c -> types.isNullOrEmpty() || c.type in types }
+        // The kind first (before the limit, so «Anime» never comes back empty), then the title itself: «One Piece»
+        // before «One Piece Academy», then the ones that start the same, then the work in more sources.
+        val wanted = squash(query)
+        val order = keys.withIndex().associate { (i, k) -> k to i }
+        return keys.mapNotNull { cards[it] }
+            .filter { c -> types.isNullOrEmpty() || c.type in types }
+            .sortedWith(
+                compareBy<Card>({ c -> squash(c.title).let { t -> if (t == wanted) 0 else if (t.startsWith(wanted)) 1 else 2 } }, { -it.sources }, { order[it.key] ?: 0 })
+            )
+            .take(SEARCH_LIMIT)
     }
+
+    private fun squash(text: String) = text.lowercase().filter { it.isLetterOrDigit() }
 
     /** The work behind an AniList id, if the index has it. */
     suspend fun byAniList(id: Int): String? = s.db.tx { queryOne("SELECT key FROM works WHERE anilist_id = ? LIMIT 1", id) { getString(1) } }
@@ -369,6 +380,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         private const val LOOKUP_TIMEOUT_MS = 10_000L
         private const val MAX_LOOKUP_NAMES = 5
         private const val SEARCH_LIMIT = 40
+        private const val SEARCH_CANDIDATES = 300
         private const val MAX_TERMS = 8
         private const val MAX_ID = 2_000
         private const val MAX_TITLE = 300
