@@ -3,13 +3,15 @@
   // A forum thread: posts (markdown drawn safely), reply with quote, reactions, spoilers "up to ep./ch. N" hidden from
   // whoever is behind, images uploaded to the server, and the admin's tools (pin, close, delete, mute).
   import { api } from '../lib/api.js';
+  import { navigate } from '../lib/router.svelte.js';
   import { session, notify } from '../lib/store.svelte.js';
   import { quoteOf } from '../lib/markdown.js';
   import Markdown from './Markdown.svelte';
   import Icon from './Icon.svelte';
 
   /** threadId: an existing thread. Or newFor: { sourceId, mediaId, title } to start a work's thread on first post. */
-  let { threadId = null, newFor = null, upTo = null, anime = false } = $props();
+  /** ondeleted: called once the whole thread is gone (deleted by the admin, or its last post removed). */
+  let { threadId = null, newFor = null, upTo = null, anime = false, ondeleted = () => navigate('/foro') } = $props();
   const REACTIONS = ['😂', '😮', '😭', '😡', '❤️', '👏', '🔥', '💀', '🤯', '👀'];
 
   let thread = $state(null);
@@ -24,14 +26,24 @@
   let input;
   let id = $state(threadId);
 
-  async function load() {
+  async function load(afterDelete = false) {
     if (!id) return;
     loading = true;
     try {
       const r = await api.forumThread(id, upTo ?? undefined);
       thread = r.thread;
       posts = r.posts;
-    } catch (e) { notify(e.message); } finally { loading = false; }
+      if (afterDelete && (!r.thread || r.thread.deleted || !r.posts?.length)) gone();
+    } catch (e) { if (afterDelete) gone(); else notify(e.message); } finally { loading = false; }
+  }
+
+  // The thread no longer exists: leave it (it must not look alive until the page is left).
+  function gone() {
+    thread = null;
+    posts = [];
+    id = null;
+    notify(t('Hilo borrado'));
+    ondeleted();
   }
   load();
 
@@ -75,11 +87,16 @@
 
   async function remove(p) {
     if (!confirm(t('¿Borrar este mensaje?'))) return;
-    try { await api.forumDelete(p.id); await load(); } catch (err) { notify(err.message); }
+    try { await api.forumDelete(p.id); await load(true); } catch (err) { notify(err.message); }
   }
 
   async function moderate(change) {
-    try { await api.adminThread(id, change); notify(t('Hecho')); await load(); } catch (err) { notify(err.message); }
+    try {
+      await api.adminThread(id, change);
+      if (change.deleted) return gone();
+      notify(t('Hecho'));
+      await load();
+    } catch (err) { notify(err.message); }
   }
 
   async function mute(name) {

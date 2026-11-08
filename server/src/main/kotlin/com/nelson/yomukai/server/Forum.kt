@@ -174,7 +174,15 @@ class Forum(
     suspend fun deletePost(user: User, postId: Long) {
         val owner = db.tx { queryOne("SELECT author_id FROM forum_posts WHERE id = ? AND deleted = 0", postId) { getLong(1) } } ?: throw NoSuchElementException("No existe")
         require(owner == user.id || user.isAdmin) { "Solo puedes borrar lo tuyo" }
-        db.tx { update("UPDATE forum_posts SET deleted = 1 WHERE id = ?", postId) }
+        db.tx {
+            update("UPDATE forum_posts SET deleted = 1 WHERE id = ?", postId)
+            // A thread left without posts goes too (an empty thread would linger in the list).
+            update(
+                """UPDATE forum_threads SET deleted = 1 WHERE id = (SELECT thread_id FROM forum_posts WHERE id = ?)
+                   AND NOT EXISTS (SELECT 1 FROM forum_posts WHERE thread_id = forum_threads.id AND deleted = 0)""",
+                postId
+            )
+        }
     }
 
     suspend fun react(user: User, postId: Long, emoji: String) {

@@ -4,6 +4,7 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.cookies.HttpCookies
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.put
@@ -99,6 +100,14 @@ class ForumTest {
         assertEquals(HttpStatusCode.BadRequest, beto.postJson("/api/forum/posts/$postId/react", """{"emoji":"😂"}""").status)
         delay(300)
         assertTrue(admin.get("/api/admin/audit").bodyAsText().contains("POST /mute"))
+
+        // Deleting the only post of a thread deletes the thread too: it leaves the list.
+        val lone = JsonParser.parseString(
+            ana.postJson("/api/forum", """{"category":"recomendaciones","title":"Hilo solo","body":"uno"}""").bodyAsText()
+        ).asJsonObject["id"].asLong
+        val lonePost = ana.json("/api/forum/$lone")["posts"].asJsonArray.single().asJsonObject["id"].asLong
+        ana.delete("/api/forum/posts/$lonePost")
+        assertTrue(JsonParser.parseString(ana.get("/api/forum?c=recomendaciones").bodyAsText()).asJsonArray.isEmpty)
 
         // The switch in the admin panel turns the forum off.
         s.features.set("forum", false)

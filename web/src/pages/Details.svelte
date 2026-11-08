@@ -492,7 +492,7 @@
         {#if !work?.key || forumThread === undefined}
           <div class="spinner"></div>
         {:else if forumThread}
-          <ForumThread threadId={forumThread.id} upTo={lastDone} {anime} />
+          <ForumThread threadId={forumThread.id} upTo={lastDone} {anime} ondeleted={() => (forumThread = null)} />
         {:else}
           <ForumThread newFor={{ sourceId, mediaId, title: item.title }} upTo={lastDone} {anime} />
         {/if}
