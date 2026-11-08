@@ -28,6 +28,34 @@ object ScrollPlanner {
         strips.map { s -> s.height * 1000.0 / durationMs(s, wpm).coerceAtLeast(1) }
 
     /**
+     * How much faster (> 1) or slower (< 1) than over a plain panel the scroll should go over [strip], for a reader that
+     * sets one base speed: strips of a page are the same height, so the speed is the inverse of the time each needs.
+     */
+    fun factor(strip: Strip, wpm: Double = DEFAULT_WPM): Double =
+        (PLAIN_PANEL_MS / durationMs(strip, wpm).coerceAtLeast(1)).coerceIn(MIN_FACTOR, MAX_FACTOR)
+
+    /**
+     * Words in each of [count] equal strips of a page, from OCR boxes (fractions of the page): a box's words go to the
+     * strips it covers, in proportion.
+     */
+    fun wordsPerStrip(boxes: List<TextBox>, count: Int): IntArray {
+        val words = DoubleArray(count)
+        for (b in boxes) {
+            if (b.kind != BoxKind.BUBBLE || b.h <= 0) continue
+            val spaced = b.text.split(' ').count { it.isNotBlank() }
+            val n = if (spaced > 1) spaced else maxOf(1, b.text.length / CJK_CHARS_PER_WORD)
+            val first = (b.y * count).toInt().coerceIn(0, count - 1)
+            val last = ((b.y + b.h) * count).toInt().coerceIn(0, count - 1)
+            for (i in first..last) {
+                val top = maxOf(b.y, i.toDouble() / count)
+                val bottom = minOf(b.y + b.h, (i + 1).toDouble() / count)
+                if (bottom > top) words[i] += n * (bottom - top) / b.h
+            }
+        }
+        return IntArray(count) { kotlin.math.round(words[it]).toInt() }
+    }
+
+    /**
      * New words-per-minute after the reader slowed down, sped up or went back over a text strip: [expectedMs] is what the
      * plan gave it, [actualMs] what it really took. A moving average, so one distraction does not change much.
      */
@@ -57,6 +85,9 @@ object ScrollPlanner {
     }
 
     private const val EMPTY_MS = 150L
+    private const val MIN_FACTOR = 0.2
+    private const val MAX_FACTOR = 4.0
+    private const val CJK_CHARS_PER_WORD = 2
     private const val BASE_TEXT_MS = 400.0
     private const val PLAIN_PANEL_MS = 900.0
     private const val DETAILED_PANEL_MS = 2_000.0

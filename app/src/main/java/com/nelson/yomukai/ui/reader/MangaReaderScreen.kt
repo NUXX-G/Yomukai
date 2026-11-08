@@ -520,15 +520,25 @@ private fun ContinuousWebtoon(
                     ?.let { currentOnLocation(it.chapterId, it.index) }
             }
     }
-    // Auto-scroll: a steady pixel rate per frame; user dragging takes over and it resumes afterwards.
-    LaunchedEffect(autoScroll, settings.autoScrollSpeed) {
+    // Auto-scroll: the user's pixel rate, and with smart autoscroll slower over text and quicker over plain panels and
+    // gutters (eased so it never jerks). User dragging takes over and it resumes afterwards.
+    val profiles = com.nelson.yomukai.ui.LocalAppContainer.current.scrollProfiles
+    LaunchedEffect(autoScroll, settings.autoScrollSpeed, settings.smartAutoScroll) {
         if (!autoScroll) return@LaunchedEffect
         var last = withFrameNanos { it }
+        var factor = 1.0
         while (true) {
             val now = withFrameNanos { it }
             val dt = (now - last) / 1_000_000_000f
             last = now
-            listState.scrollBy(settings.autoScrollSpeed * AUTO_SCROLL_PX_PER_SECOND * dt)
+            if (settings.smartAutoScroll) {
+                val info = listState.layoutInfo
+                val center = (info.viewportStartOffset + info.viewportEndOffset) / 2
+                val item = info.visibleItemsInfo.firstOrNull { it.offset <= center && it.offset + it.size > center }
+                val target = item?.let { profiles.factorAt(it.key, (center - it.offset).toFloat() / it.size.coerceAtLeast(1)) } ?: 1.0
+                factor += (target - factor) * minOf(1.0, dt * SMART_EASE)
+            }
+            listState.scrollBy((settings.autoScrollSpeed * AUTO_SCROLL_PX_PER_SECOND * dt * factor).toFloat())
         }
     }
 
@@ -543,7 +553,8 @@ private fun ContinuousWebtoon(
                 is ReaderItem.Header -> ChapterSeparator(item.chapter.title)
                 is ReaderItem.Page -> ReaderPageImage(
                     item.data, item.index, ReaderFit.WIDTH, fitScreen = false,
-                    colorFilter = colorFilter, cropBorders = settings.cropBorders
+                    colorFilter = colorFilter, cropBorders = settings.cropBorders,
+                    profileKey = item.key.takeIf { settings.smartAutoScroll }
                 )
             }
         }
@@ -693,7 +704,9 @@ internal fun ReaderPageImage(
     fit: ReaderFit,
     fitScreen: Boolean,
     colorFilter: ColorFilter?,
-    cropBorders: Boolean
+    cropBorders: Boolean,
+    /** Long-strip mode with smart autoscroll: the list item whose speed profile this page gives. */
+    profileKey: String? = null
 ) {
     var retry by remember { mutableIntStateOf(0) }
     var imageState by remember(retry) { mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty) }
@@ -740,17 +753,35 @@ internal fun ReaderPageImage(
                 Text("${index + 1}", color = Color.White.copy(alpha = 0.5f))
             }
         }
-        val translation = LocalBubbleTranslation.current
-        val success = imageState as? AsyncImagePainter.State.Success
-        if (translation != null && success != null && !scrollWidthFit) {
-            val mode = when {
-                !fitScreen -> com.nelson.yomukai.data.ocr.FitMode.WIDTH
-                fit == ReaderFit.HEIGHT -> com.nelson.yomukai.data.ocr.FitMode.HEIGHT
-                else -> com.nelson.yomukai.data.ocr.FitMode.INSIDE
-            }
-            BubbleOverlay("${page.model}|$cropBorders", index, success.result.image, translation, mode, Modifier.matchParentSize())
-        }
+        (imageState as? AsyncImagePainter.State.Success)?.let { PageExtras(page, index, it.result.image, fit, fitScreen, cropBorders, profileKey) }
     }
+}
+
+/** What a loaded page adds over itself: its smart-autoscroll profile and its bubbles (translation, voice, learning). */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.PageExtras(
+    page: PageData,
+    index: Int,
+    image: coil3.Image,
+    fit: ReaderFit,
+    fitScreen: Boolean,
+    cropBorders: Boolean,
+    profileKey: String?
+) {
+    val ocrKey = "${page.model}|$cropBorders"
+    if (profileKey != null) {
+        val profiles = com.nelson.yomukai.ui.LocalAppContainer.current.scrollProfiles
+        LaunchedEffect(profileKey) { runCatching { profiles.compute(profileKey, page.model, page.headers, ocrKey) } }
+    }
+    val translation = LocalBubbleTranslation.current ?: return
+    // A page fitted to the width inside its own scroll moves under the bubbles: no overlay there.
+    if (fitScreen && fit == ReaderFit.WIDTH) return
+    val mode = when {
+        !fitScreen -> com.nelson.yomukai.data.ocr.FitMode.WIDTH
+        fit == ReaderFit.HEIGHT -> com.nelson.yomukai.data.ocr.FitMode.HEIGHT
+        else -> com.nelson.yomukai.data.ocr.FitMode.INSIDE
+    }
+    BubbleOverlay(ocrKey, index, image, translation, mode, Modifier.matchParentSize())
 }
 
 @Composable
@@ -827,6 +858,7 @@ private fun MangaReaderSettingsSheet(
             SettingSwitch(tr("Recortar bordes blancos"), settings.cropBorders) { v -> onUpdate { it.copy(cropBorders = v) } }
             SettingSwitch(tr("Traducir bocadillos en el móvil"), settings.translateBubbles) { v -> onUpdate { it.copy(translateBubbles = v) } }
             SettingSwitch(tr("Leer bocadillos en voz alta"), settings.speakBubbles) { v -> onUpdate { it.copy(speakBubbles = v) } }
+            SettingSwitch(tr("Desplazamiento automático inteligente"), settings.smartAutoScroll) { v -> onUpdate { it.copy(smartAutoScroll = v) } }
 
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
             Text(tr("Filtro de color"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -905,3 +937,4 @@ internal fun SettingSwitch(label: String, checked: Boolean, onChange: (Boolean) 
 
 private const val PREFETCH_AHEAD = 8
 private const val AUTO_SCROLL_PX_PER_SECOND = 40f
+private const val SMART_EASE = 3.0

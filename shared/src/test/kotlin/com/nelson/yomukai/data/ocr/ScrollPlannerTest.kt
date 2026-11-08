@@ -40,4 +40,20 @@ class ScrollPlannerTest {
         val soft = IntArray(400) { 100 + (it % 20) }
         assertTrue(ScrollPlanner.analyze(soft, 20).second < 0.1)
     }
+
+    @Test
+    fun factorsAndWordsPerStrip() {
+        val text = ScrollPlanner.Strip(400, 15, 0.0, false)
+        val plain = ScrollPlanner.Strip(400, 0, 0.0, false)
+        val gutter = ScrollPlanner.Strip(400, 0, 0.0, true)
+        assertEquals(1.0, ScrollPlanner.factor(plain), 1e-9)
+        assertTrue(ScrollPlanner.factor(text) < 0.5)
+        assertEquals(4.0, ScrollPlanner.factor(gutter), 1e-9)
+        val boxes = listOf(
+            TextBox(0.1, 0.0, 0.5, 0.25, "one two three four"),
+            TextBox(0.1, 0.5, 0.5, 0.5, "我们去北京吧"),
+            TextBox(0.1, 0.9, 0.2, 0.1, "BOOM", kind = BoxKind.SFX)
+        )
+        assertEquals(listOf(4, 0, 2, 2), ScrollPlanner.wordsPerStrip(boxes, 4).toList())
+    }
 }

@@ -53,6 +53,10 @@ class DeviceOcr {
      * The text blocks of a page as fractions of it, bubbles and sound effects told apart. Tall strips (manhwa) are read
      * in slices, as the recognizer shrinks huge images until the text is unreadable. Results are kept per [key].
      */
+
+    /** What was read of page [key] already, without reading it. */
+    suspend fun peek(key: String): List<TextBox>? = lock.withLock { pages[key] }
+
     suspend fun read(key: String, bitmap: Bitmap, lang: String): List<TextBox> {
         lock.withLock { pages[key] }?.let { return it }
         val boxes = withContext(Dispatchers.Default) {

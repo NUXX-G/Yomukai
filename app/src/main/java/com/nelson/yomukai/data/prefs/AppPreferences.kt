@@ -49,6 +49,8 @@ data class MangaReaderSettings(
     val translateBubbles: Boolean = false,
     /** Bubbles of the page on screen read aloud with the device voice, in reading order. */
     val speakBubbles: Boolean = false,
+    /** Autoscroll slows down over text and speeds through plain panels and gutters. */
+    val smartAutoScroll: Boolean = true,
     val orientation: OrientationLock = OrientationLock.AUTO,
     /** Auto-scroll speed, 1..10 (screen heights per minute x ~0.5). */
     val autoScrollSpeed: Float = 3f
@@ -339,6 +341,7 @@ class AppPreferences(context: Context) {
             .putBoolean("manga_crop", value.cropBorders)
             .putBoolean("manga_translate", value.translateBubbles)
             .putBoolean("manga_speak", value.speakBubbles)
+            .putBoolean("manga_smart_scroll", value.smartAutoScroll)
             .putString("manga_orientation", value.orientation.name)
             .putFloat("manga_autoscroll", value.autoScrollSpeed)
             .apply()
@@ -409,6 +412,7 @@ class AppPreferences(context: Context) {
         cropBorders = prefs.getBoolean("manga_crop", false),
         translateBubbles = prefs.getBoolean("manga_translate", false),
         speakBubbles = prefs.getBoolean("manga_speak", false),
+        smartAutoScroll = prefs.getBoolean("manga_smart_scroll", true),
         orientation = enumOr(prefs.getString("manga_orientation", null), OrientationLock.AUTO),
         autoScrollSpeed = prefs.getFloat("manga_autoscroll", 3f)
     )
