@@ -187,6 +187,7 @@ class Services(val config: Config) {
     val voiceSamples = VoiceSamples(db, config.dataDir)
     val nightlyVoices by lazy { NightlyVoices(this) }
     val kokoro by lazy { KokoroModels(config.dataDir) }
+    val workIndex by lazy { WorkIndex(this) }
     val integrations = Integrations(db, config.secret)
     val jellyfin = JellyfinLink(integrations, features, sources)
     val imports = Imports(db, catalog, http, config.malClientId, { prefs(it) })
@@ -215,6 +216,26 @@ class Services(val config: Config) {
     suspend fun prefs(user: User) = UserPrefs.parse(db.settings(user.id), sources.defaultEnabledIds).let { p ->
         // The home NAS is for the group, never for guests.
         if (user.isGuest) p.copy(enabledSources = (p.enabledSources ?: sources.defaultEnabledIds) - JellyfinSource.ID) else p
+    }
+}
+
+/** The works index and the voices prepared overnight: slow loops of their own. */
+private fun Application.startCatalogJobs(services: Services) {
+    // The works index: crawls the sources gently and groups their titles into works (a few pages a minute).
+    launch {
+        delay(2 * 60_000L)
+        while (true) {
+            runCatching { services.workIndex.tick() }.onFailure { log.warn("Índice de obras", it) }
+            delay(60_000L)
+        }
+    }
+    // Voices prepared overnight for the novels people are reading (once a night, 3-6 h).
+    launch {
+        delay(5 * 60_000L)
+        while (true) {
+            runCatching { services.nightlyVoices.tick() }.onFailure { log.warn("Voces de madrugada", it) }
+            delay(15 * 60_000L)
+        }
     }
 }
 
@@ -295,14 +316,7 @@ private fun Application.startBackgroundJobs(config: Config, services: Services) 
             delay(5 * 60_000L)
         }
     }
-    // Voices prepared overnight for the novels people are reading (once a night, 3-6 h).
-    launch {
-        delay(5 * 60_000L)
-        while (true) {
-            runCatching { services.nightlyVoices.tick() }.onFailure { log.warn("Voces de madrugada", it) }
-            delay(15 * 60_000L)
-        }
-    }
+    startCatalogJobs(services)
     // Followed works: new episodes/chapters go to the NAS on their own (every 3 h, spaced out between works).
     launch {
         delay(10 * 60_000L)

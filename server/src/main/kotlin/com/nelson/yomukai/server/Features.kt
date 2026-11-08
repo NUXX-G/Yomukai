@@ -18,6 +18,7 @@ object FeatureCatalog {
         Feature("learning", "Aprender idiomas", "Palabras guardadas con repaso espaciado (FSRS) y exportación a Anki; cada usuario lo activa"),
         Feature("themes", "Temas", "Temas personalizados con editor, contraste WCAG y galería entre amigos"),
         Feature("forum", "Foro", "Hilo por obra y categorías generales, con spoilers por capítulo y moderación"),
+        Feature("work_index", "Índice de obras", "El servidor recorre las fuentes poco a poco y junta sus títulos en obras por idioma: listas, búsqueda y fichas al instante"),
         Feature("tts_browser", "Voces naturales en el navegador", "Voces inglesas Kokoro que el navegador genera solo (unos 90 MB la primera vez); el servidor solo guarda el modelo"),
         Feature("tts_nightly", "Voces preparadas de madrugada", "De 3 a 6 el servidor de casa prepara el audio del siguiente capítulo de las novelas que cada uno lee, con sus voces"),
         Feature("rooms", "Salas para ver juntos", "Watch party sincronizada con chat y reacciones; cada cliente reproduce su propio vídeo"),

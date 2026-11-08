@@ -1,0 +1,326 @@
+package com.nelson.yomukai.server
+
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.nelson.yomukai.data.source.CatalogueSource
+import com.nelson.yomukai.data.work.WorkKey
+import com.nelson.yomukai.domain.model.MediaItem
+import com.nelson.yomukai.domain.model.MediaType
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
+import org.slf4j.LoggerFactory
+
+/**
+ * The works index: every title of every source, gathered into works and kept by language, built ahead by the server so
+ * that lists, search and opening a work are database reads, never a live search across sources.
+ *
+ * - Crawling: the first time each source's whole listing, then every [LATEST_EVERY_MS] its latest pages (new chapters
+ *   and new titles). Gentle: a pause between pages, a few pages per [tick], one source at a time.
+ * - Grouping: a title joins a work at once by any of its names (and format family: a manhwa and its novel stay apart);
+ *   later, in the background, AniList confirms it and the work becomes "al:ID", merging names that were apart.
+ * - Languages: a work shows in a language when one of its sources is in it; the sources of that language make its list.
+ */
+class WorkIndex(private val s: Services, private val clock: () -> Long = System::currentTimeMillis) {
+    private val log = LoggerFactory.getLogger("WorkIndex")
+    private val gson = Gson()
+    private val listType = object : TypeToken<List<String>>() {}.type
+
+    data class Card(
+        val key: String, val title: String, val cover: String, val type: String, val langs: List<String>,
+        val sources: Int, val updatedAt: Long, val status: String
+    )
+
+    data class SourceState(val sourceId: String, val items: Int, val fullDone: Boolean, val nextPage: Int, val latestAt: Long, val error: String?)
+
+    // ---------- Store ----------------------------------------------------------------------------------------------
+
+    /** Keeps [items] of a source (in [lang]); [fresh]: they come from its latest updates (new chapters). New ones count. */
+    suspend fun record(sourceId: String, lang: String, items: List<MediaItem>, fresh: Boolean): Int = s.db.tx {
+        val now = clock()
+        var added = 0
+        for (it in items) {
+            if (it.id.isBlank() || it.title.isBlank()) continue
+            val known = queryOne("SELECT 1 FROM index_items WHERE source_id = ? AND media_id = ?", sourceId, it.id) { 1 } != null
+            if (!known) added++
+            update(
+                """INSERT INTO index_items(source_id, media_id, lang, type, title, alt_titles, cover, status, genres, seen_at, updated_at)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                   ON CONFLICT(source_id, media_id) DO UPDATE SET title = excluded.title, alt_titles = excluded.alt_titles,
+                     cover = CASE WHEN excluded.cover <> '' THEN excluded.cover ELSE cover END, status = excluded.status,
+                     genres = excluded.genres, seen_at = excluded.seen_at, updated_at = CASE WHEN ? THEN excluded.updated_at ELSE updated_at END""",
+                sourceId, it.id.take(MAX_ID), lang, it.type.name, it.title.take(MAX_TITLE), gson.toJson(it.altTitles.take(MAX_NAMES)),
+                it.coverUrl.take(MAX_URL), it.status.take(MAX_SHORT), gson.toJson(it.genres.take(MAX_NAMES)), now, now, fresh
+            )
+        }
+        added
+    }
+
+    /** Titles not in a work yet join one by name: an existing work with any of their names, else a new one. */
+    suspend fun groupPending(limit: Int = GROUP_BATCH): Int {
+        val pending = s.db.tx {
+            query("SELECT source_id, media_id, lang, type, title, alt_titles, cover FROM index_items WHERE work_key IS NULL LIMIT ?", limit) {
+                Pending(getString(1), getString(2), getString(3), getString(4), getString(5), getString(6), getString(7))
+            }
+        }
+        for (p in pending) {
+            val type = runCatching { MediaType.valueOf(p.type) }.getOrDefault(MediaType.MANGA)
+            val names = (listOf(p.title) + runCatching { gson.fromJson<List<String>>(p.altTitles, listType) }.getOrDefault(emptyList()))
+                .filter { it.isNotBlank() }.distinct()
+            val nameKeys = names.map { WorkKey.of(type, it) }.distinct()
+            s.db.tx {
+                val existing = nameKeys.firstNotNullOfOrNull { k -> queryOne("SELECT work_key FROM index_names WHERE name_key = ?", k) { getString(1) } }
+                val key = existing ?: nameKeys.first()
+                nameKeys.forEach { k -> update("INSERT OR IGNORE INTO index_names(name_key, work_key) VALUES(?,?)", k, key) }
+                update("UPDATE index_items SET work_key = ? WHERE source_id = ? AND media_id = ?", key, p.sourceId, p.mediaId)
+                update(
+                    "INSERT OR IGNORE INTO works(key, type, title, cover, updated_at) VALUES(?,?,?,?,?)",
+                    key, type.name, p.title.take(MAX_TITLE), p.cover.take(MAX_URL), clock()
+                )
+                update(
+                    """INSERT INTO work_sources(source_id, media_id, work_key, confidence, added_at) VALUES(?,?,?,?,?)
+                       ON CONFLICT(source_id, media_id) DO UPDATE SET work_key = excluded.work_key WHERE work_sources.confidence <> 'manual'""",
+                    p.sourceId, p.mediaId, key, "name", clock()
+                )
+            }
+            refreshSearch(s.db.tx { queryOne("SELECT work_key FROM index_items WHERE source_id = ? AND media_id = ?", p.sourceId, p.mediaId) { getString(1) } } ?: continue)
+        }
+        return pending.size
+    }
+
+    private data class Pending(val sourceId: String, val mediaId: String, val lang: String, val type: String, val title: String, val altTitles: String, val cover: String)
+
+    /**
+     * One work known only by name is looked up in AniList: found, it becomes "al:ID" (with AniList's cover, banner and
+     * synopsis), and any other work with the same id is merged into it. Returns false when there was none to check.
+     */
+    suspend fun confirmNext(): Boolean {
+        val row = s.db.tx {
+            queryOne(
+                """SELECT w.key, w.type FROM works w WHERE w.key LIKE 't:%' AND w.anilist_checked_at IS NULL
+                   AND EXISTS(SELECT 1 FROM index_items i WHERE i.work_key = w.key) ORDER BY w.updated_at DESC LIMIT 1"""
+            ) { getString(1) to getString(2) }
+        } ?: return false
+        val (key, typeName) = row
+        val type = runCatching { MediaType.valueOf(typeName) }.getOrDefault(MediaType.MANGA)
+        s.db.tx { update("UPDATE works SET anilist_checked_at = ? WHERE key = ?", clock(), key) }
+        val names = s.db.tx {
+            query("SELECT title, alt_titles FROM index_items WHERE work_key = ? LIMIT 6", key) { getString(1) to getString(2) }
+        }.flatMap { (t, alts) -> listOf(t) + runCatching { gson.fromJson<List<String>>(alts, listType) }.getOrDefault(emptyList()) }
+            .filter { it.isNotBlank() }.distinct().take(MAX_LOOKUP_NAMES)
+        val entry = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { s.aniList.lookup(names, type) }.getOrNull() } ?: return true
+        if (entry.id <= 0) return true
+        val newKey = WorkKey.of(type, entry.names.firstOrNull() ?: names.first(), entry.id)
+        s.db.tx {
+            update(
+                """INSERT INTO works(key, anilist_id, mal_id, type, title, alt_titles, cover, banner, synopsis, genres, score, status, episodes, chapters, updated_at, anilist_checked_at)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                   ON CONFLICT(key) DO UPDATE SET cover = CASE WHEN excluded.cover <> '' THEN excluded.cover ELSE cover END,
+                     banner = CASE WHEN excluded.banner <> '' THEN excluded.banner ELSE banner END, anilist_checked_at = excluded.anilist_checked_at""",
+                newKey, entry.id, entry.malId, type.name, (entry.names.firstOrNull() ?: names.first()).take(MAX_TITLE), gson.toJson(entry.names.take(MAX_NAMES)),
+                entry.cover, entry.banner, entry.description.take(MAX_SYNOPSIS), gson.toJson(entry.genres), entry.score, entry.status, entry.episodes, entry.chapters,
+                clock(), clock()
+            )
+            update("UPDATE index_items SET work_key = ? WHERE work_key = ?", newKey, key)
+            update("UPDATE index_names SET work_key = ? WHERE work_key = ?", newKey, key)
+            update("UPDATE work_sources SET work_key = ? WHERE work_key = ? AND confidence <> 'manual'", newKey, key)
+            update("UPDATE library SET work_key = ? WHERE work_key = ?", newKey, key)
+            update("UPDATE history SET work_key = ? WHERE work_key = ?", newKey, key)
+            update("DELETE FROM works WHERE key = ?", key)
+            update("DELETE FROM works_fts WHERE work_key = ?", key)
+        }
+        refreshSearch(newKey)
+        return true
+    }
+
+    /** The search rows of [key]: one per language, with every name its sources and AniList give it. */
+    private suspend fun refreshSearch(key: String) = s.db.tx {
+        val byLang = query("SELECT lang, title, alt_titles FROM index_items WHERE work_key = ?", key) { Triple(getString(1), getString(2), getString(3)) }
+            .groupBy({ it.first }, { listOf(it.second) + runCatching { gson.fromJson<List<String>>(it.third, listType) }.getOrDefault(emptyList()) })
+        val workNames = queryOne("SELECT title, alt_titles FROM works WHERE key = ?", key) { getString(1) to getString(2) }
+            ?.let { (t, a) -> listOf(t) + runCatching { gson.fromJson<List<String>>(a, listType) }.getOrDefault(emptyList()) }.orEmpty()
+        update("DELETE FROM works_fts WHERE work_key = ?", key)
+        byLang.forEach { (lang, lists) ->
+            val text = (lists.flatten() + workNames).filter { it.isNotBlank() }.distinct().joinToString(" | ").take(MAX_SEARCH_TEXT)
+            update("INSERT INTO works_fts(work_key, lang, names) VALUES(?,?,?)", key, lang, text)
+        }
+    }
+
+    // ---------- Crawling -------------------------------------------------------------------------------------------
+
+    /** One page of [source]: its whole listing while the first crawl lasts, else its latest updates. */
+    suspend fun crawlPage(source: CatalogueSource, page: Int, full: Boolean): List<MediaItem> {
+        val items = (if (full) source.browse(page) else source.fetchLatestUpdates(page)).getOrThrow()
+        record(source.id, langOf(source), items, fresh = !full)
+        return items
+    }
+
+    private fun langOf(source: CatalogueSource) = source.language.lowercase().take(5)
+
+    /** Called every minute: a few pages of crawling, grouping what came in and some AniList confirmations. */
+    suspend fun tick() {
+        if (!s.features.isOn("work_index")) return
+        val source = nextSource()
+        if (source != null) runCatching { crawlSome(source) }.onFailure {
+            if (it is CancellationException) throw it
+            s.db.tx { update("UPDATE index_state SET error = ? WHERE source_id = ?", it.message?.take(MAX_SHORT), source.id) }
+            log.debug("Índice {}: {}", source.id, it.message)
+        }
+        groupPending()
+        repeat(CONFIRMS_PER_TICK) {
+            if (!confirmNext()) return@repeat
+            delay(ANILIST_PAUSE_MS)
+        }
+    }
+
+    /** The source to work on: one whose first crawl is unfinished, else the one whose latest updates are oldest. */
+    private suspend fun nextSource(): CatalogueSource? {
+        val candidates = s.sources.all.filter { it.id !in s.sources.hidden && !s.sources.degraded.containsKey(it.id) && !it.isExperimental && it.language != "MULTI" }
+        if (candidates.isEmpty()) return null
+        val states = s.db.tx { query("SELECT source_id, full_done, latest_at FROM index_state") { getString(1) to (getInt(2) to getLong(3)) } }.toMap()
+        candidates.firstOrNull { states[it.id]?.first != 1 }?.let { return it }
+        return candidates.minByOrNull { states[it.id]?.second ?: 0L }?.takeIf { clock() - (states[it.id]?.second ?: 0L) >= LATEST_EVERY_MS }
+    }
+
+    private suspend fun crawlSome(source: CatalogueSource) {
+        s.db.tx { update("INSERT OR IGNORE INTO index_state(source_id) VALUES(?)", source.id) }
+        val (nextPage, fullDone) = s.db.tx { queryOne("SELECT next_page, full_done FROM index_state WHERE source_id = ?", source.id) { getInt(1) to (getInt(2) == 1) } }!!
+        if (!fullDone) {
+            var page = nextPage
+            var finished = false
+            val seen = HashSet<String>()
+            repeat(PAGES_PER_TICK) {
+                val items = crawlPage(source, page, full = true)
+                // The end: an empty page, a page that repeats (some sites loop) or the cap.
+                if (items.isEmpty() || items.all { !seen.add(it.id) } || page >= MAX_FULL_PAGES) { finished = true; return@repeat }
+                page++
+                delay(PAGE_PAUSE_MS)
+            }
+            s.db.tx {
+                update(
+                    "UPDATE index_state SET next_page = ?, full_done = ?, latest_at = CASE WHEN ? THEN ? ELSE latest_at END, error = NULL, " +
+                        "items = (SELECT COUNT(*) FROM index_items WHERE source_id = ?) WHERE source_id = ?",
+                    page, if (finished) 1 else 0, finished, clock(), source.id, source.id
+                )
+            }
+            return
+        }
+        // Latest updates: pages until one brings nothing new to this index (everything already seen as fresh).
+        for (page in 1..LATEST_PAGES) {
+            val before = s.db.tx { queryOne("SELECT COUNT(*) FROM index_items WHERE source_id = ?", source.id) { getInt(1) } } ?: 0
+            val items = crawlPage(source, page, full = false)
+            val after = s.db.tx { queryOne("SELECT COUNT(*) FROM index_items WHERE source_id = ?", source.id) { getInt(1) } } ?: 0
+            if (items.isEmpty() || (after == before && page > 1)) break
+            delay(PAGE_PAUSE_MS)
+        }
+        s.db.tx {
+            update(
+                "UPDATE index_state SET latest_at = ?, error = NULL, items = (SELECT COUNT(*) FROM index_items WHERE source_id = ?) WHERE source_id = ?",
+                clock(), source.id, source.id
+            )
+        }
+    }
+
+    suspend fun states(): List<SourceState> = s.db.tx {
+        query("SELECT source_id, items, full_done, next_page, latest_at, error FROM index_state ORDER BY source_id") {
+            SourceState(getString(1), getInt(2), getInt(3) == 1, getInt(4), getLong(5), getString(6))
+        }
+    }
+
+    /** Admin: crawl everything again from the first page (keeps what is known). */
+    suspend fun restart() = s.db.tx { update("UPDATE index_state SET next_page = 1, full_done = 0") }
+
+    // ---------- Reading --------------------------------------------------------------------------------------------
+
+    /** Works with a source in [lang] (multi-language sources count for every language), of [types] when given. */
+    suspend fun list(lang: String, types: Set<String>?, sort: String, page: Int): List<Card> = s.db.tx {
+        val typeFilter = types?.takeIf { it.isNotEmpty() }?.joinToString(",") { "'" + it.filter(Char::isLetter) + "'" }
+        val order = when (sort) {
+            "az" -> "COALESCE(local_title, w.title) COLLATE NOCASE ASC"
+            "popular" -> "sources DESC, w.score DESC NULLS LAST, updated DESC"
+            else -> "updated DESC"
+        }
+        query(
+            """SELECT w.key, w.title, w.cover, w.type, w.score, w.status, MAX(i.updated_at) AS updated, COUNT(DISTINCT i.source_id) AS sources,
+                 (SELECT i2.title FROM index_items i2 WHERE i2.work_key = w.key AND i2.lang = ? LIMIT 1) AS local_title,
+                 (SELECT i3.cover FROM index_items i3 WHERE i3.work_key = w.key AND i3.cover <> '' LIMIT 1) AS item_cover,
+                 (SELECT GROUP_CONCAT(DISTINCT i4.lang) FROM index_items i4 WHERE i4.work_key = w.key) AS langs
+               FROM works w JOIN index_items i ON i.work_key = w.key AND i.lang = ?
+               ${if (typeFilter != null) "WHERE i.type IN ($typeFilter)" else ""}
+               GROUP BY w.key ORDER BY $order LIMIT ? OFFSET ?""",
+            lang, lang, PAGE_SIZE, (page - 1).coerceAtLeast(0) * PAGE_SIZE
+        ) { card() }
+    }
+
+    private fun java.sql.ResultSet.card() = Card(
+        key = getString("key"),
+        title = getString("local_title")?.takeIf { it.isNotBlank() } ?: getString("title"),
+        cover = getString("cover")?.takeIf { it.isNotBlank() } ?: getString("item_cover").orEmpty(),
+        type = getString("type"), langs = getString("langs").orEmpty().split(',').filter { it.isNotBlank() },
+        sources = getInt("sources"), updatedAt = getLong("updated"), status = getString("status").orEmpty()
+    )
+
+    /** Works whose names match [query] (any word start, accents ignored), those with a source in [lang] first. */
+    suspend fun search(query: String, lang: String, types: Set<String>?): List<Card> {
+        val terms = query.lowercase().split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotBlank() }.take(MAX_TERMS)
+        if (terms.isEmpty()) return emptyList()
+        val match = terms.joinToString(" ") { "\"" + it.replace("\"", "") + "\"*" }
+        val keys = s.db.tx {
+            query("SELECT work_key, lang FROM works_fts WHERE works_fts MATCH ? ORDER BY (lang = ?) DESC, rank LIMIT ?", match, lang, SEARCH_LIMIT * 2) {
+                getString(1)
+            }
+        }.distinct().take(SEARCH_LIMIT)
+        if (keys.isEmpty()) return emptyList()
+        val cards = s.db.tx {
+            query(
+                """SELECT w.key, w.title, w.cover, w.type, w.score, w.status, MAX(i.updated_at) AS updated, COUNT(DISTINCT i.source_id) AS sources,
+                     (SELECT i2.title FROM index_items i2 WHERE i2.work_key = w.key AND i2.lang = ? LIMIT 1) AS local_title,
+                     (SELECT i3.cover FROM index_items i3 WHERE i3.work_key = w.key AND i3.cover <> '' LIMIT 1) AS item_cover,
+                     (SELECT GROUP_CONCAT(DISTINCT i4.lang) FROM index_items i4 WHERE i4.work_key = w.key) AS langs
+                   FROM works w JOIN index_items i ON i.work_key = w.key
+                   WHERE w.key IN (${keys.joinToString(",") { "?" }}) GROUP BY w.key""",
+                lang, *keys.toTypedArray()
+            ) { card() }
+        }.associateBy { it.key }
+        return keys.mapNotNull { cards[it] }.filter { c -> types.isNullOrEmpty() || c.type in types }
+    }
+
+    /** The work behind an AniList id, if the index has it. */
+    suspend fun byAniList(id: Int): String? = s.db.tx { queryOne("SELECT key FROM works WHERE anilist_id = ? LIMIT 1", id) { getString(1) } }
+
+    /** A work's sources in [lang] (multi-language ones too), most recently updated first. */
+    suspend fun sourcesOf(key: String, lang: String): List<Pair<String, String>> = s.db.tx {
+        query(
+            "SELECT source_id, media_id FROM index_items WHERE work_key = ? AND (lang = ? OR lang = 'multi') ORDER BY updated_at DESC",
+            key, lang
+        ) { getString(1) to getString(2) }
+    }
+
+    /** Languages a work is in. */
+    suspend fun langsOf(key: String): List<String> = s.db.tx {
+        query("SELECT DISTINCT lang FROM index_items WHERE work_key = ?", key) { getString(1) }
+    }
+
+    companion object {
+        const val PAGE_SIZE = 40
+        const val LATEST_EVERY_MS = 2 * 3_600_000L
+        private const val PAGES_PER_TICK = 6
+        private const val PAGE_PAUSE_MS = 2_000L
+        private const val MAX_FULL_PAGES = 300
+        private const val LATEST_PAGES = 8
+        private const val GROUP_BATCH = 500
+        private const val CONFIRMS_PER_TICK = 25
+        private const val ANILIST_PAUSE_MS = 1_500L
+        private const val LOOKUP_TIMEOUT_MS = 10_000L
+        private const val MAX_LOOKUP_NAMES = 5
+        private const val SEARCH_LIMIT = 40
+        private const val MAX_TERMS = 8
+        private const val MAX_ID = 2_000
+        private const val MAX_TITLE = 300
+        private const val MAX_URL = 1_000
+        private const val MAX_SHORT = 200
+        private const val MAX_NAMES = 30
+        private const val MAX_SYNOPSIS = 5_000
+        private const val MAX_SEARCH_TEXT = 4_000
+    }
+}

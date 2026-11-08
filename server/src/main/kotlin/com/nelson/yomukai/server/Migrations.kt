@@ -269,6 +269,27 @@ object Migrations {
                 """CREATE TABLE IF NOT EXISTS voice_samples(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, lang TEXT NOT NULL,
                    gender TEXT NOT NULL, license TEXT NOT NULL, source TEXT NOT NULL, seconds REAL NOT NULL, created_at INTEGER NOT NULL)"""
             )
+        },
+        Migration(18, "Índice de obras: cada título de cada fuente agrupado en obras, por idioma, con búsqueda al instante") {
+            exec(
+                """CREATE TABLE IF NOT EXISTS index_items(source_id TEXT NOT NULL, media_id TEXT NOT NULL, lang TEXT NOT NULL, type TEXT NOT NULL,
+                   title TEXT NOT NULL, alt_titles TEXT NOT NULL DEFAULT '[]', cover TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT '',
+                   genres TEXT NOT NULL DEFAULT '[]', work_key TEXT, seen_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+                   PRIMARY KEY(source_id, media_id))"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS index_items_work ON index_items(work_key, lang)")
+            exec("CREATE INDEX IF NOT EXISTS index_items_pending ON index_items(work_key) WHERE work_key IS NULL")
+            exec("CREATE INDEX IF NOT EXISTS index_items_updated ON index_items(lang, updated_at)")
+            // Every name of every title (with its format family) → its work: grouping by any of a title's names.
+            exec("CREATE TABLE IF NOT EXISTS index_names(name_key TEXT PRIMARY KEY, work_key TEXT NOT NULL)")
+            exec("CREATE INDEX IF NOT EXISTS index_names_work ON index_names(work_key)")
+            exec(
+                """CREATE TABLE IF NOT EXISTS index_state(source_id TEXT PRIMARY KEY, next_page INTEGER NOT NULL DEFAULT 1, full_done INTEGER NOT NULL DEFAULT 0,
+                   latest_at INTEGER NOT NULL DEFAULT 0, items INTEGER NOT NULL DEFAULT 0, error TEXT)"""
+            )
+            exec("CREATE VIRTUAL TABLE IF NOT EXISTS works_fts USING fts5(work_key UNINDEXED, lang UNINDEXED, names, tokenize = 'unicode61 remove_diacritics 2')")
+            addColumn("works", "popularity", "INTEGER")
+            addColumn("works", "anilist_checked_at", "INTEGER")
         }
     )
 
