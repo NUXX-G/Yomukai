@@ -5,6 +5,17 @@ Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este ficher
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
 Última actualización: 2026-11-08 (noche). Versión de la app: **2.2.0** (versionCode 28): un APK por procesador (arm64 29 MB) + universal; la release se publica sola al subir la etiqueta v2.1.0.
 
+**PEDIDO 2026-11-08 (noche, tras probar la web) — PRIORIDAD MÁXIMA, dejarlo «de putísima madre». Autonomía total, subir a GitHub, NO release (se prueba en web y luego se migra a la app).**
+1. [ ] Relacionados mal (algunos bien, otros nada; p. ej. GATE parte 2 / «temporada 2» no muestra nada).
+2. [ ] Portadas: pequeña, mediana, grande y horizontal (banner) para el máximo de obras (AniList, TMDB, MangaDex, Kitsu…; ideas del usuario: SteamGridDB, TheTVDB, Zerochan, Wallhaven).
+3. [ ] Portadas que no cargan en las tarjetas de fuera pero sí dentro de la obra.
+4. [ ] Quitar los títulos de capítulo censurados (difuminados) junto a «Cap. 194»: ruido.
+5. [ ] Pulir la web: zona negra en el pie al bajar mucho dentro de una obra; HUD de herramientas saturado.
+6. [ ] Fuentes nuevas. Anime: veranimeonline.co, animedlatino.com, jkanime.net (AnimeAV1 caído). Manga/manhwa: zonatmo.to, manhwaweb.com, tmomanhwa.com. Arreglar las que fallen por culpa nuestra (muchas caídas por bloqueos de LaLiga).
+7. [ ] Contenido sexual oculto por defecto; solo si el usuario lo activa.
+8. [ ] Detectar solo el dominio nuevo de una fuente que se muda (reutilizar DomainAliases).
+9. «Buscar en tus fuentes» solo le salió con JoJo Steel Ball Run: lo de obras ha mejorado mucho.
+
 **ESTADO 2026-11-08 (noche) — fallos de la 2.1.0 y prioridad nº 1**
 - [x] PRIORIDAD Nº 1, catálogo por OBRAS: `WorkIndex.kt` (migración 18, rastreo de 4 fuentes a la vez, novedades cada 2 h, confirmación con AniList), API `/api/obras*`, web (Inicio «Recién actualizado», buscador con «Obras» primero, `/obras/:key?lang=` abre la mejor fuente del idioma con `?obra=`, chips de idioma en la ficha) y app (recomendaciones por `/api/obras/anilist`). Medido en local: abrir una obra en ~0,5 s.
 - [x] 1 Ajustes: las `.card` seguidas ya no se pegan (app.css global). La app usa listas: no le pasaba.
