@@ -115,6 +115,7 @@ class AppContainer(context: Context) {
     val deviceOcr by lazy { com.nelson.yomukai.data.ocr.DeviceOcr() }
     val bubbleSpeaker by lazy { com.nelson.yomukai.data.ocr.BubbleSpeaker(context) }
     val scrollProfiles by lazy { com.nelson.yomukai.data.ocr.ScrollProfiles(context, deviceOcr) }
+    val deviceVoices by lazy { com.nelson.yomukai.data.speech.DeviceVoices(context) { network.client } }
     val videoOffline = VideoOffline(context, network)
     val downloadManager = DownloadManager(context, database, sourceManager, network, applicationScope, preferences, videoOffline)
     val contentRepository = ContentRepository(sourceManager, downloadManager)

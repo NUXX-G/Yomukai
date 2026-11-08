@@ -39,3 +39,6 @@ server/data/
 # Stray captures
 /t.html
 /.lint-tools/
+
+# Native libraries fetched by the build (checked by SHA-256)
+.android-libs/

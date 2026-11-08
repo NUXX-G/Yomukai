@@ -48,7 +48,12 @@ import kotlin.coroutines.resumeWithException
  * With voices by character, dialogue is read by the voice of whoever speaks when the text says it
  * ("—dijo ella", "he said"): a woman's or a man's, the narrator's otherwise.
  */
-class NovelSpeech(context: Context, private val server: ServerSync, private val onNeedMore: () -> Unit) {
+class NovelSpeech(
+    context: Context,
+    private val server: ServerSync,
+    private val device: com.nelson.yomukai.data.speech.DeviceVoices,
+    private val onNeedMore: () -> Unit
+) {
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -114,7 +119,13 @@ class NovelSpeech(context: Context, private val server: ServerSync, private val 
             }
         }
         scope.launch {
-            _naturalVoices.value = server.voices()
+            // The phone's own natural voices (downloaded in Ajustes) count too, and need no server.
+            val onPhone = if (device.supported) {
+                com.nelson.yomukai.data.speech.DeviceVoices.CATALOG.filter { it.id in device.installed.value }.map {
+                    ServerSync.ServerVoice(com.nelson.yomukai.data.speech.DeviceVoices.PREFIX + it.id, it.label, it.lang, it.gender, tr("en el móvil"))
+                }
+            } else emptyList()
+            _naturalVoices.value = server.voices() + onPhone
             if (_naturalVoices.value.isNotEmpty()) _ready.value = true
         }
     }
@@ -199,7 +210,18 @@ class NovelSpeech(context: Context, private val server: ServerSync, private val 
     private fun chosen(engine: String, role: String): String? = settings.ttsVoices[voiceKey(engine, role)]?.takeIf { it.isNotBlank() }
 
     /** Default natural voices: a man narrates, women and men speak with their own. */
-    private fun naturalDefault(role: String): String = when (lang) {
+    private fun naturalDefault(role: String): String {
+        // Without the server's voices for this language, the phone's: a man narrates when there is one.
+        val serverHas = _naturalVoices.value.any { it.lang == lang && !it.id.startsWith(com.nelson.yomukai.data.speech.DeviceVoices.PREFIX) }
+        if (!serverHas) {
+            val local = _naturalVoices.value.filter { it.lang == lang }
+            val wanted = if (role == "female") "female" else "male"
+            (local.firstOrNull { it.gender == wanted } ?: local.firstOrNull())?.let { return it.id }
+        }
+        return serverDefault(role)
+    }
+
+    private fun serverDefault(role: String): String = when (lang) {
         "en" -> mapOf("narrator" to "en-lessac", "female" to "en-amy", "male" to "en-ryan")
         else -> mapOf("narrator" to "es-david", "female" to "es-lucia", "male" to "es-sergio")
     }.getValue(role)
@@ -266,7 +288,9 @@ class NovelSpeech(context: Context, private val server: ServerSync, private val 
     private fun audioKey(piece: Piece) = "${piece.voice}|${settings.ttsRate}|${piece.text}"
 
     private suspend fun fetchAudio(text: String, voice: String): File = withContext(Dispatchers.IO) {
-        val bytes = server.speak(text, voice, settings.ttsRate)
+        val prefix = com.nelson.yomukai.data.speech.DeviceVoices.PREFIX
+        val bytes = if (voice.startsWith(prefix)) device.speak(voice.removePrefix(prefix), text, settings.ttsRate)
+        else server.speak(text, voice, settings.ttsRate)
         val dir = appContext.cacheDir.resolve(AUDIO_DIR).apply { mkdirs() }
         File(dir, "${(voice + text).hashCode().toUInt()}-${System.nanoTime()}.wav").apply { writeBytes(bytes) }
     }
@@ -353,7 +377,8 @@ class NovelSpeech(context: Context, private val server: ServerSync, private val 
 fun rememberNovelSpeech(onNeedMore: () -> Unit): NovelSpeech {
     val context = LocalContext.current
     val server = LocalAppContainer.current.serverSync
-    val speech = remember { NovelSpeech(context, server, onNeedMore) }
+    val device = LocalAppContainer.current.deviceVoices
+    val speech = remember { NovelSpeech(context, server, device, onNeedMore) }
     DisposableEffect(speech) { onDispose { speech.shutdown() } }
     return speech
 }

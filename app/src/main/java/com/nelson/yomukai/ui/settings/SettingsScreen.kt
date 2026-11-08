@@ -126,6 +126,8 @@ fun SettingsScreen(
 
             item { GroupTitle(tr("Idioma") + " · Language") }
             item { LanguagePicker() }
+            item { GroupTitle(tr("Voces naturales en el móvil")) }
+            item { DeviceVoicesSection() }
             item { GroupTitle(tr("Aprender idiomas")) }
             item {
                 SwitchItem(tr("Modo aprendizaje"), tr("Mantén pulsada una palabra de una novela para ver su significado, oírla y guardarla"), app.learningEnabled) { v ->

@@ -1,3 +1,5 @@
+import java.net.URI
+import java.security.MessageDigest
 import java.util.Properties
 
 plugins {
@@ -5,6 +7,30 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
 }
+
+// sherpa-onnx (Apache-2.0): natural voices on the phone, without a connection. Kept on 1.x: 2.x dropped the built-in
+// espeak-ng phonemizer that Piper voices need (tested: 2.0.1 makes empty audio). Its official AAR is not on Maven
+// Central, so it is fetched from the project's GitHub release once, checked against this SHA-256, and kept out of git.
+val sherpaVersion = "1.13.8"
+val sherpaSha256 = "b22c3fc1b6a45666d28892bb2f7694beeb77a8362d7ebd77c1a5431ec9435471"
+val sherpaAar = rootProject.file(".android-libs/sherpa-onnx-static-$sherpaVersion.aar")
+val fetchSherpa by tasks.registering {
+    // Plain values only: the configuration cache cannot keep references to this script.
+    val target = sherpaAar
+    val expected = sherpaSha256
+    val url = "https://github.com/k2-fsa/sherpa-onnx/releases/download/v$sherpaVersion/sherpa-onnx-static-link-onnxruntime-$sherpaVersion.aar"
+    outputs.file(target)
+    doLast {
+        fun sha(f: File) = MessageDigest.getInstance("SHA-256").digest(f.readBytes()).joinToString("") { "%02x".format(it) }
+        if (target.isFile && sha(target) == expected) return@doLast
+        target.parentFile.mkdirs()
+        val part = File(target.path + ".part")
+        URI(url).toURL().openStream().use { input -> part.outputStream().use { input.copyTo(it) } }
+        check(sha(part) == expected) { "sherpa-onnx: SHA-256 incorrecto" }
+        part.renameTo(target)
+    }
+}
+tasks.named("preBuild") { dependsOn(fetchSherpa) }
 
 val malClientId: String = run {
     val props = Properties()
@@ -89,6 +115,9 @@ dependencies {
     implementation("com.google.android.gms:play-services-mlkit-text-recognition-japanese:16.0.1")
     implementation("com.google.android.gms:play-services-mlkit-text-recognition-korean:16.0.1")
     implementation("com.google.mlkit:translate:17.0.3")
+    implementation(files(sherpaAar))
+    // Voice packs come as .tar.bz2 from sherpa-onnx's releases.
+    implementation("org.apache.commons:commons-compress:1.28.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
 
     // Coil (Image Loading for Manga & Light Novels)
