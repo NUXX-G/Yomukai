@@ -290,6 +290,9 @@ object Migrations {
             exec("CREATE VIRTUAL TABLE IF NOT EXISTS works_fts USING fts5(work_key UNINDEXED, lang UNINDEXED, names, tokenize = 'unicode61 remove_diacritics 2')")
             addColumn("works", "popularity", "INTEGER")
             addColumn("works", "anilist_checked_at", "INTEGER")
+        },
+        Migration(19, "Dominios nuevos de las fuentes: el admin dice a qué dominio se ha mudado una web") {
+            exec("CREATE TABLE IF NOT EXISTS domain_aliases(old_host TEXT PRIMARY KEY, new_host TEXT NOT NULL, updated_at INTEGER NOT NULL)")
         }
     )
 

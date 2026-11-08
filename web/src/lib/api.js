@@ -98,6 +98,9 @@ export const api = {
   importData: (text, mode) => request('POST', `/api/import?${qs({ mode })}`, text),
 
   adminUsers: () => request('GET', '/api/admin/users'),
+  adminDomains: () => request('GET', '/api/admin/domains'),
+  adminDomainSet: (from, to) => request('PUT', '/api/admin/domains', { from, to }),
+  adminDomainRemove: (from) => request('DELETE', `/api/admin/domains/${encodeURIComponent(from)}`),
   adminCreate: (name, password, admin) => request('POST', '/api/admin/users', { name, password, admin }),
   adminReset: (id) => request('POST', `/api/admin/users/${id}/password`),
   adminDelete: (id) => request('DELETE', `/api/admin/users/${id}`),

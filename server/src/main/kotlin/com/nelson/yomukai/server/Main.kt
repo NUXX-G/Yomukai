@@ -126,6 +126,7 @@ fun runCommand(config: Config, args: List<String>): Int {
 
 class Services(val config: Config) {
     val http = ServerHttp(config.flareSolverrUrl)
+    val domainAliases by lazy { DomainAliases(db, http) }
     val db = Database(File(config.dataDir, "yomukai.db"))
     val auth = Auth(db, config)
     val sources = SourceManager(http, null).also { manager ->
@@ -362,6 +363,8 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
         }
     }
 
+    // Sites that moved: their new domains are in use before any source is asked for anything.
+    kotlinx.coroutines.runBlocking { runCatching { services.domainAliases.load() } }
     startBackgroundJobs(config, services)
 
     routing {
@@ -423,6 +426,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 sourceCatalogAdminRoutes(services)
                 voiceSampleAdminRoutes(services)
                 workIndexAdminRoutes(services)
+                domainAliasRoutes(services)
                 get("/status") {
                     call.respond(mapOf<String, Any?>("bandwidth" to services.bandwidth.summary(), "memory" to memoryStatus(), "machine" to machineStatus(config.dataDir)))
                 }

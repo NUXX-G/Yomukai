@@ -104,6 +104,22 @@ class ServerHttp(private val flareSolverrUrl: String?) : HttpFetcher {
     private val pool = ConnectionPool(64, 5, TimeUnit.MINUTES)
     private val dispatcher = Dispatcher().apply { maxRequests = 256; maxRequestsPerHost = 24 }
 
+    /** Old host → new host, for sites that moved (see DomainAliases); swapped before anything else. */
+    @Volatile var hostAliases: Map<String, String> = emptyMap()
+
+    private val aliasInterceptor = okhttp3.Interceptor { chain ->
+        val request = chain.request()
+        val to = hostAliases[request.url.host]
+        if (to == null) {
+            chain.proceed(request)
+        } else {
+            val from = request.url.host
+            val moved = request.newBuilder().url(request.url.newBuilder().host(to).build())
+            listOf("Referer", "Origin").forEach { h -> request.header(h)?.let { moved.header(h, it.replace("//$from", "//$to")) } }
+            chain.proceed(moved.build())
+        }
+    }
+
     /** Set by FlareSolverr: Cloudflare ties its clearance cookie to the browser's user agent. */
     private val agentByHost = ConcurrentHashMap<String, String>()
 
@@ -112,6 +128,7 @@ class ServerHttp(private val flareSolverrUrl: String?) : HttpFetcher {
         .dispatcher(dispatcher)
         .cookieJar(cookies)
         .dns(PublicAddresses.dns)
+        .addInterceptor(aliasInterceptor)
         .addInterceptor(PublicAddresses.literalGuard)
         .addNetworkInterceptor(PublicAddresses.guard)
         .connectTimeout(10, TimeUnit.SECONDS)
