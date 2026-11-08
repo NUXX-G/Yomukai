@@ -823,8 +823,7 @@ private fun ChapterRow(
     isAnime: Boolean,
     hideName: Boolean,
     kind: com.nelson.yomukai.data.work.EpisodeKind?,
-    /** Name of the other source this chapter comes from (this one lacks it), or null. */
-    fromSource: String? = null,
+    fromSource: String?,
     onClick: () -> Unit,
     onToggleRead: () -> Unit,
     onMarkPrevious: () -> Unit,
