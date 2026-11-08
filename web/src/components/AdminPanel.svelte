@@ -7,6 +7,7 @@
   import Icon from './Icon.svelte';
   import IntegrationsPanel from './IntegrationsPanel.svelte';
   import SourceCatalogPanel from './SourceCatalogPanel.svelte';
+  import VoiceSamplesPanel from './VoiceSamplesPanel.svelte';
 
   let status = $state(null);
   let workers = $state(null);
@@ -193,6 +194,7 @@
 <IntegrationsPanel />
 
 <SourceCatalogPanel />
+<VoiceSamplesPanel />
 
 <section class="card">
   <h3 class="sub">{t('Salud de las fuentes')}</h3>

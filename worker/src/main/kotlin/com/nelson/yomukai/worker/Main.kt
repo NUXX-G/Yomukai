@@ -105,7 +105,14 @@ class Worker(
         val work = launch(Dispatchers.Default) {
             var output: JobOutput? = null
             try {
-                output = handler.run(job, JobContext(config.workDir, vps.http, vps::freshVideo))
+                // Voice samples stay in the work folder (made only when needed); its 6-hour clean-up just means
+                // they are fetched again.
+                val samples = java.io.File(config.workDir, "voice-samples")
+                val voiceSample = { id: Long ->
+                    samples.mkdirs()
+                    java.io.File(samples, "$id.wav").takeIf { it.isFile || vps.voiceSample(id, it) }
+                }
+                output = handler.run(job, JobContext(config.workDir, vps.http, vps::freshVideo, voiceSample))
                 withContext(Dispatchers.IO) { vps.upload(job.id, output) }
                 log.info("Trabajo {} terminado", job.id)
             } catch (e: CancellationException) {

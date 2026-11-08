@@ -147,6 +147,8 @@ class WorkerRegistry(private val db: Database, private val clock: () -> Long = S
             input.get("os")?.takeIf { it.isJsonPrimitive }?.asString?.take(80)?.let { addProperty("os", it) }
             input.get("busy")?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isBoolean }?.asBoolean?.let { addProperty("busy", it) }
             add("disks", sanitizeDisks(input))
+            // Its TTS engine can clone a voice from a short sample (voices per character).
+            input.get("cloning")?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isBoolean }?.asBoolean?.let { addProperty("cloning", it) }
             add("engines", com.google.gson.JsonArray().also { arr ->
                 input.getAsJsonArray("engines")?.mapNotNull { e -> e.takeIf { it.isJsonPrimitive }?.asString }
                     ?.filter { it in JobTypes.ALL }?.distinct()?.forEach(arr::add)
@@ -187,12 +189,19 @@ fun requireWorker(registry: WorkerRegistry, limiter: RateLimiter) = createRouteS
 private const val WORKER_RATE = 600
 
 /** What each job type needs to be offered to users right now. */
-data class Availability(val workersOnline: Int, val gpu: Boolean, val engines: Set<String>, val voices: List<JsonObject> = emptyList())
+data class Availability(
+    val workersOnline: Int,
+    val gpu: Boolean,
+    val engines: Set<String>,
+    val voices: List<JsonObject> = emptyList(),
+    val cloning: Boolean = false
+)
 
 suspend fun WorkerRegistry.availability(): Availability {
     val online = online()
     val voices = online.flatMap { w -> w.capabilities.getAsJsonArray("voices")?.mapNotNull { it as? JsonObject }.orEmpty() }.distinctBy { it.get("id")?.asString }
-    return Availability(online.size, online.any { it.hasGpu }, online.flatMap { it.engines }.toSet(), voices)
+    val cloning = online.any { w -> JobTypes.TTS in w.engines && w.capabilities.get("cloning")?.asBoolean == true }
+    return Availability(online.size, online.any { it.hasGpu }, online.flatMap { it.engines }.toSet(), voices, cloning)
 }
 
 /** The API the workers call. They connect out to the VPS: nothing at home is ever exposed. */
@@ -229,6 +238,7 @@ fun Route.workerRoutes(s: Services) {
             runCatching { s.library.failed(job) }
             call.respond(mapOf("ok" to true, "status" to job.status.db))
         }
+        workerVoiceSampleRoute(s)
         // Latest database backup, so a home worker can keep a copy on the NAS.
         get("/backups/latest") {
             if (!call.worker.canBackup || call.worker.paused) {

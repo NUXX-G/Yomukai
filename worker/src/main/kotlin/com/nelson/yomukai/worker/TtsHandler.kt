@@ -30,8 +30,16 @@ class TtsHandler(
     override suspend fun run(job: ClaimedJob, context: JobContext): JobOutput {
         val text = job.payload.get("text")?.asString.orEmpty().replace(Regex("\\s+"), " ").trim()
         if (text.isEmpty() || text.length > MAX_CHARS) throw PermanentJobFailure("Texto vacío o demasiado largo")
-        val voice = job.payload.get("voice")?.asString.orEmpty()
-        if (voices.none { it.id == voice }) throw PermanentJobFailure("Voz desconocida en este worker")
+        val requested = job.payload.get("voice")?.asString.orEmpty()
+        // "clone:<id>": a voice per character, cloned from the server's sample (fetched once, kept in the work folder).
+        val voice = if (requested.startsWith(CLONE)) {
+            if (!canClone) throw PermanentJobFailure("Este worker no puede clonar voces")
+            val id = requested.removePrefix(CLONE).toLongOrNull() ?: throw PermanentJobFailure("Muestra no válida")
+            (context.voiceSample(id) ?: throw PermanentJobFailure("No se pudo descargar la muestra de voz")).absolutePath
+        } else {
+            if (voices.none { it.id == requested }) throw PermanentJobFailure("Voz desconocida en este worker")
+            requested
+        }
         val rate = (job.payload.get("rate")?.asDouble ?: 1.0).coerceIn(0.5, 2.0)
         val raw = context.newFile(".wav")
         val args = (effectiveCommand ?: throw PermanentJobFailure("No hay motor de voz")).map { a ->
@@ -45,8 +53,12 @@ class TtsHandler(
         return if (ff.exitCode == 0 && out.length() > 1_000) JobOutput(out, "audio/wav") else JobOutput(raw, "audio/wav")
     }
 
+    /** Pocket TTS clones a voice from a short WAV given as --voice; other engines plugged in may not. */
+    val canClone: Boolean get() = command == null && effectiveCommand != null
+
     companion object {
         const val MAX_CHARS = 2_000
+        const val CLONE = "clone:"
 
         /** Pocket TTS's command line (pip install pocket-tts). If its flags change, set WORKER_TTS_COMMAND. */
         val POCKET = listOf("pocket-tts", "generate", "--voice", "{voice}", "--text", "{text}", "--output-path", "{out}")

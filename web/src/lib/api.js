@@ -120,6 +120,13 @@ export const api = {
   adminAudit: () => request('GET', '/api/admin/audit'),
   adminCanary: () => request('GET', '/api/admin/canary'),
   sourceCatalog: () => request('GET', '/api/admin/sources/catalog'),
+  voiceSamples: () => request('GET', '/api/admin/voice-samples'),
+  addVoiceSample: async (file, meta) => {
+    const res = await fetch(`/api/admin/voice-samples?${qs(meta)}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'audio/wav' }, body: file });
+    if (!res.ok) throw new ApiError((await res.json().catch(() => ({}))).error || tk('No se pudo subir la muestra'), res.status);
+    return res.json();
+  },
+  deleteVoiceSample: (id) => request('DELETE', `/api/admin/voice-samples/${id}`),
   importList: (origin, user) => request('POST', `/api/import/${origin}`, { user }),
   importMihon: async (file) => {
     if (!file) throw new ApiError(t('Elige el archivo de la copia'), 400);

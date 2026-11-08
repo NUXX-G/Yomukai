@@ -27,7 +27,9 @@ class JobContext(
     val workDir: File,
     val http: okhttp3.OkHttpClient,
     /** Asks the VPS for a fresh, direct video of an episode (addresses expire while a job waits). */
-    val freshVideo: (sourceId: String, episodeUrl: String, preferredServer: String) -> JsonObject? = { _, _, _ -> null }
+    val freshVideo: (sourceId: String, episodeUrl: String, preferredServer: String) -> JsonObject? = { _, _, _ -> null },
+    /** A voice sample of the server (voices per character), downloaded once into the work folder; null if it failed. */
+    val voiceSample: (id: Long) -> File? = { null }
 ) {
     fun newFile(suffix: String): File = File.createTempFile("job-", suffix, workDir)
 }

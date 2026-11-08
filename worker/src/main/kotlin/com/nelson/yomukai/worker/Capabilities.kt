@@ -42,7 +42,10 @@ object Capabilities {
         addProperty("busy", busy)
         addProperty("maxConcurrent", concurrency)
         add("engines", JsonArray().also { a -> handlers.map { it.type }.distinct().forEach(a::add) })
-        handlers.filterIsInstance<TtsHandler>().firstOrNull()?.let { add("voices", it.info()) }
+        handlers.filterIsInstance<TtsHandler>().firstOrNull()?.let { tts ->
+            add("voices", tts.info())
+            addProperty("cloning", tts.available() && tts.canClone)
+        }
         add("disks", disks())
     }
 

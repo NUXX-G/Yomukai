@@ -183,6 +183,7 @@ class Services(val config: Config) {
     val ocr by lazy { OcrStore(this) }
     val words = Words(db, events)
     val dictionaries by lazy { Dictionaries(this) }
+    val voiceSamples = VoiceSamples(db, config.dataDir)
     val integrations = Integrations(db, config.secret)
     val jellyfin = JellyfinLink(integrations, features, sources)
     val imports = Imports(db, catalog, http, config.malClientId, { prefs(it) })
@@ -392,6 +393,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 mediaLibraryAdminRoutes(services)
                 jellyfinLinkAdminRoutes(services)
                 sourceCatalogAdminRoutes(services)
+                voiceSampleAdminRoutes(services)
                 get("/status") {
                     call.respond(mapOf<String, Any?>("bandwidth" to services.bandwidth.summary(), "memory" to memoryStatus(), "machine" to machineStatus(config.dataDir)))
                 }

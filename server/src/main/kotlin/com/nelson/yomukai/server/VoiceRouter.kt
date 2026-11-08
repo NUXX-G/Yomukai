@@ -25,6 +25,8 @@ import java.security.MessageDigest
 class VoiceRouter(private val s: Services) {
     suspend fun voices(): Map<String, Any?> {
         val worker = workerVoices()
+        // Voices per character cloned from the admin's samples, when a worker that can clone is online.
+        val clones = if (worker.isNotEmpty() && canClone()) s.voiceSamples.list() else emptyList()
         val server = if (s.speech.available) s.speech.voices() else emptyList()
         val tiers = buildSet {
             if (worker.isNotEmpty()) add(TtsTier.WORKER)
@@ -36,9 +38,18 @@ class VoiceRouter(private val s: Services) {
             "voices" to worker.map { v ->
                 mapOf("id" to "w:" + v.get("id").asString, "label" to v.get("label")?.asString + " (alta calidad)", "lang" to v.get("lang")?.asString,
                     "gender" to v.get("gender")?.asString, "region" to "", "tier" to "worker")
+            } + clones.map { c ->
+                mapOf("id" to "w:" + CLONE + c.id, "label" to c.name + " (voz clonada)", "lang" to c.lang, "gender" to c.gender, "region" to "", "tier" to "worker")
             } + server.map { mapOf("id" to it.id, "label" to it.label, "lang" to it.lang, "gender" to it.gender, "region" to it.region, "tier" to "server") }
         )
     }
+
+    private suspend fun canClone(): Boolean = s.features.isOn("worker_jobs") && s.workers.availability().cloning
+
+    /** A worker voice id ("pocket-alba", or "clone:3" for a sample) that can be used right now. */
+    private suspend fun usable(id: String): Boolean =
+        if (id.startsWith(CLONE)) canClone() && id.removePrefix(CLONE).toLongOrNull()?.let(s.voiceSamples::file) != null
+        else workerVoices().any { it.get("id")?.asString == id }
 
     private suspend fun workerVoices(): List<JsonObject> {
         if (!s.features.isOn("worker_jobs")) return emptyList()
@@ -53,7 +64,7 @@ class VoiceRouter(private val s: Services) {
         require(clean.isNotEmpty()) { "Texto vacío" }
         val id = voice.removePrefix("w:")
         require(!user.isGuest) { "Las voces del servidor de casa no están disponibles para invitados" }
-        require(workerVoices().any { it.get("id")?.asString == id }) { "Esa voz no está disponible ahora (¿el servidor de casa está apagado?)" }
+        require(usable(id)) { "Esa voz no está disponible ahora (¿el servidor de casa está apagado?)" }
         val r = normalRate(rate)
         val key = key(id, r, clean)
         s.jobs.results.get(key)?.let { (file, _) -> return file.readBytes() }
@@ -75,7 +86,7 @@ class VoiceRouter(private val s: Services) {
         val id = voice.removePrefix("w:")
         val r = normalRate(rate)
         var room = MAX_PENDING_PER_USER - pending(user)
-        if (workerVoices().none { it.get("id")?.asString == id }) return 0
+        if (!usable(id)) return 0
         var queued = 0
         for (t in texts.map { it.replace(Regex("\\s+"), " ").trim() }.distinct().take(MAX_PREFETCH)) {
             val clean = t.replace(Regex("\\s+"), " ").trim().take(MAX_CHARS).takeIf { it.isNotEmpty() } ?: continue
@@ -105,6 +116,7 @@ class VoiceRouter(private val s: Services) {
 
     companion object {
         const val MAX_CHARS = 2_000
+        const val CLONE = "clone:"
         const val MAX_PREFETCH = 60
         const val POLL_MS = 300L
         const val MAX_PENDING_PER_USER = 120

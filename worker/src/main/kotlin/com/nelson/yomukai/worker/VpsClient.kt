@@ -47,6 +47,29 @@ class VpsClient(private val baseUrl: String, private val token: String, val http
         return if (code == 200) runCatching { com.google.gson.JsonParser.parseString(text).asJsonObject }.getOrNull() else null
     }
 
+    /** Saves the server's voice sample [id] to [target] (at most 5 MB); false when it could not. */
+    fun voiceSample(id: Long, target: java.io.File): Boolean = runCatching {
+        http.newCall(request("/worker/voice-samples/$id").get().build()).execute().use { r ->
+            val body = r.body
+            if (!r.isSuccessful || body == null) return@use false
+            val part = java.io.File(target.path + ".part")
+            var total = 0L
+            part.outputStream().use { out ->
+                body.byteStream().use { input ->
+                    val buf = ByteArray(1 shl 16)
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        total += n
+                        if (total > MAX_SAMPLE) return@use false
+                        out.write(buf, 0, n)
+                    }
+                }
+            }
+            total > 0 && part.renameTo(target)
+        }
+    }.getOrDefault(false)
+
     fun heartbeat(jobId: Long): Boolean = call(request("/worker/jobs/$jobId/heartbeat").post("{}".toRequestBody(json)).build()).first == 200
 
     fun upload(jobId: Long, output: JobOutput) {
@@ -77,6 +100,7 @@ class VpsClient(private val baseUrl: String, private val token: String, val http
 
     companion object {
         const val VERSION = "1.0"
+        const val MAX_SAMPLE = 5L * 1024 * 1024
         fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(120, TimeUnit.SECONDS)

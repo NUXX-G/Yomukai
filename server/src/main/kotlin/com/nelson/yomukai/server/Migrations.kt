@@ -263,6 +263,12 @@ object Migrations {
                 """CREATE TABLE IF NOT EXISTS decks(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                    name TEXT NOT NULL, lang TEXT NOT NULL, words TEXT NOT NULL, size INTEGER NOT NULL, created_at INTEGER NOT NULL)"""
             )
+        },
+        Migration(17, "Voces por personaje: muestras con licencia libre para clonar en el worker") {
+            exec(
+                """CREATE TABLE IF NOT EXISTS voice_samples(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, lang TEXT NOT NULL,
+                   gender TEXT NOT NULL, license TEXT NOT NULL, source TEXT NOT NULL, seconds REAL NOT NULL, created_at INTEGER NOT NULL)"""
+            )
         }
     )
 
