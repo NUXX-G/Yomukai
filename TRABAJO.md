@@ -24,6 +24,11 @@ Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este ficher
 - [x] Parar la voz con un toque (web y app, también con las barras ocultas).
 - [x] Dominios mudados: Administración › «Webs que se han mudado de dominio» (migración 19, `DomainAliases.kt`). lectortmo.com y zonatmo.com no resuelven en el DNS público: hace falta su dominio nuevo (ponerlo ahí).
 - [x] Release 2.2.0 (versionCode 28).
+- [x] (2026-11-08, tras probar la 2.2.0) Abrir un anime se quedaba «buscando en tus fuentes»: el índice nunca llegaba al anime porque las 4 fuentes rotas ocupaban los 4 huecos de rastreo (ahora esperan su turno con espera creciente) + POST /api/obras/encontrar por id de AniList o por nombre normalizado (web y app). La búsqueda de animeflv.or.at está rota en su web: el anime entra por el rastreo de su catálogo.
+- [x] Portadas de manhwa en biblioteca: `CoverHosts` (CDN aprendidas de las respuestas de cada fuente). Buscador: título exacto primero, tipo antes de cortar, cambiar de categoría filtra sin volver a buscar, fuentes caídas (3 búsquedas distintas) se saltan 10 min. Cada fuente solo para su tipo (manga/manhwa/manhua, cómic, novela, anime).
+- [x] Traducción de manga: el worker del usuario probablemente no tiene LibreTranslate (WORKER_TRANSLATION=true); la web usa el traductor de Chrome/Edge si el servidor no puede, y avisa si el capítulo ya está en el idioma de destino. App: botón «Voz» mientras lee.
+- [x] F5 en un capítulo = 404 de Apache por los %2F: docs/APACHE.md (AllowEncodedSlashes NoDecode + nocanon). Darle al usuario los comandos.
+- **SIGUIENTE**: confirmar con el usuario la salud de las fuentes desde el VPS; si One Piece sigue con «error de fuente», ver qué fuente abre (probablemente lectortmo/zonatmo, dominios muertos); precarga en el servidor de lo que leen (siguiente capítulo, listas de capítulos de la biblioteca); ficha por obra en la app con chips de idioma; más fuentes.
 - **SIGUIENTE**: sondear todas las fuentes DESDE EL VPS (en local la red bloquea varias) y poner los dominios nuevos; más fuentes en español e inglés para que se vean más obras; la app conectada debería usar también los dominios mudados (ahora solo el servidor); ficha por obra en la app con chips de idioma (paridad con la web); medir rendimiento.
 
 ### PLAN: ÍNDICE DE OBRAS (prioridad nº 1, empezado el 2026-11-08)
