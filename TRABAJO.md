@@ -3,19 +3,23 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
-Última actualización: 2026-11-08 (tarde). Versión de la app: **2.1.0** (versionCode 27): un APK por procesador (arm64 29 MB) + universal; la release se publica sola al subir la etiqueta v2.1.0.
+Última actualización: 2026-11-08 (noche). Versión de la app: **2.1.0** (versionCode 27): un APK por procesador (arm64 29 MB) + universal; la release se publica sola al subir la etiqueta v2.1.0.
 
-**FALLOS QUE ENCUENTRA EL USUARIO PROBANDO LA 2.1.0 (2026-11-08; NO TOCAR hasta que diga: él busca, yo apunto)**
-1. Ajustes / panel de configuración: las tarjetas de las distintas secciones se ven colapsadas o pegadas unas a otras (falta espacio entre ellas); se ve mal. Pendiente: confirmar si es la web, la app o ambas.
-2. Abrir obras: algunas abren rápido, otras se quedan 20 s o más cargando una y otra vez sin terminar.
-3. Desplazamiento automático: da saltos raros y va al revés de lo esperado (muy rápido sobre el texto, lento donde no hay texto). Revisar AutoScroller, ScrollProfiles y ScrollPlanner.factor.
-4. Portadas: algunas grandes se ven bien, pero la mayoría salen en baja resolución. Buscar portadas de calidad con APIs (AniList extraLarge, MangaDex original, TMDB…) y usarlas siempre.
-5. Voz: suena horrible y no sabe cómo cambiarla, porque no es intuitivo. Hacer evidente dónde se elige la voz y que la calidad por defecto sea buena.
-6. Pide saber cómo crear una sala para ver anime (se le explicó; revisar si es fácil de encontrar).
-7. No ve la fuente en chino.
-8. Traducción de bocadillos: funciona solo a veces y no en todos los bocadillos.
-9. Foro: al eliminar un hilo se borra, pero no te saca de él y sigue pareciendo que existe hasta que sales.
-**PRIORIDAD Nº 1 (la que más ha repetido)**: catálogo por OBRAS, no por fuentes. Nada de «One Piece en la fuente X» ni de buscar entre fuentes: una obra por idioma (según el idioma de la interfaz; dentro de la ficha se puede cambiar al otro), sin duplicados y lo más rápido posible. El servidor lo construye solo: la primera vez con todos los títulos disponibles y luego cada pocas horas busca capítulos y obras nuevas. Es lo que hace a Yomukai un producto profesional. Después, el resto de fallos.
+**ESTADO 2026-11-08 (noche) — fallos de la 2.1.0 y prioridad nº 1**
+- [x] PRIORIDAD Nº 1, catálogo por OBRAS: `WorkIndex.kt` (migración 18, rastreo de 4 fuentes a la vez, novedades cada 2 h, confirmación con AniList), API `/api/obras*`, web (Inicio «Recién actualizado», buscador con «Obras» primero, `/obras/:key?lang=` abre la mejor fuente del idioma con `?obra=`, chips de idioma en la ficha) y app (recomendaciones por `/api/obras/anilist`). Medido en local: abrir una obra en ~0,5 s.
+- [x] 1 Ajustes: las `.card` seguidas ya no se pegan (app.css global). La app usa listas: no le pasaba.
+- [x] 2 Obras lentas: lo resuelve el índice (sin búsqueda en directo entre fuentes).
+- [x] 3 Autoscroll: sin OCR, los bocadillos reducidos parecían paneles lisos (rápidos). `ScrollPlanner.look().textLike` y `ocr.js`; la web suaviza la velocidad y su barra de velocidad vuelve a contar.
+- [x] 4 Portadas: `HighResCovers` en shared (MangaDex, WordPress, AniList, MAL), usado por el proxy y por `CoverImage` de la app, con vuelta a la miniatura si falla.
+- [x] 5 Voz: voces «high» por defecto (es-claude, es-daniela, es-sergio), nunca una voz que no existe (`voiceSettings`), hoja «Voz» con botón en la barra de lectura.
+- [x] 7 Chino: MangaDex 中文 activada por defecto. Quien ya guardó su lista la activa en Ajustes › Fuentes.
+- [x] 9 Foro: al borrar el hilo te saca; un hilo sin mensajes se borra.
+- [x] Nuevo pedido: reloj solo en lectores (quitado del reproductor web y app); anime a pantalla completa en el PC al empezar; episodios con solo el reproductor de la web (Anitaku/upbolt) en `/ver` (servidor, firmado, iframe aislado).
+- Fuentes probadas en local con el script de sondeo (listado → ficha → capítulos → páginas, texto o vídeo):
+  - OK: MangaDex ES/EN/ZH, Olympus, NovelCool x3, MegaBanana, YSK, SkyNovels, AnimeFLV, Marmota y Anitaku (vía /ver).
+  - Flame: caída, su dominio redirige a Discord (el canario la oculta).
+  - Asura, LectorTMO, ZonaTMO y AnimeAV1: certificado no fiable desde esta red, también con curl (bloqueo de la operadora en España, Cloudflare). Comprobar desde el VPS en Administración › Salud de las fuentes. Los errores ya se explican en palabras claras.
+- **SIGUIENTE**: (8) traducción de bocadillos poco fiable, revisar OCR/agrupado de cajas y reintentos (web `MangaReader.svelte` + worker; app `BubbleOverlay`); (6) que crear sala sea evidente; volver a sondear las fuentes desde el VPS; medir rendimiento; release 2.2.0 con instrucciones de actualización (`install.sh` y `docker compose up -d`).
 
 ### PLAN: ÍNDICE DE OBRAS (prioridad nº 1, empezado el 2026-11-08)
 **Por qué ahora va lento**: las filas de Inicio vienen de AniList y al pulsar una el servidor busca en directo en todas las fuentes (locate). Si una fuente tarda, la obra se queda cargando 20 s o más. Hay que cambiarlo por un índice construido por adelantado.
