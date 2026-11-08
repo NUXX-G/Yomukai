@@ -44,9 +44,9 @@ fun RoomLobbyScreen(code: String, onBack: () -> Unit, onEpisode: (sourceId: Stri
     val container = LocalAppContainer.current
     val party = remember(code) { PartyClient(container.serverSync, code) }
     DisposableEffect(party) {
-        container.activeRoom.value = code
         party.open()
-        onDispose { party.close() }
+        // The player opened from here gets the room explicitly; nothing stays joined after leaving the lobby.
+        onDispose { party.close(); if (container.activeRoom.value == code) container.activeRoom.value = null }
     }
     val room by party.room.collectAsState()
     LaunchedEffect(room.state?.chapterId) {
@@ -58,7 +58,7 @@ fun RoomLobbyScreen(code: String, onBack: () -> Unit, onEpisode: (sourceId: Stri
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { container.activeRoom.value = null; onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Volver")) }
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Volver")) }
             Text(room.name.ifBlank { tr("Sala {0}", code) }, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
         room.closed?.let { Text(it, color = MaterialTheme.colorScheme.error) }

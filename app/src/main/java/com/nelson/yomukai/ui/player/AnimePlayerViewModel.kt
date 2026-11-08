@@ -219,6 +219,8 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
     /** The room moved to another episode: this one, or another series (the screen opens it). */
     fun followRoomEpisode(state: com.nelson.yomukai.data.social.PartyState) {
         if (state.chapterId == _state.value.playing.chapterId || _state.value.isResolving) return
+        // Only anime from a source this phone has: the room never makes it fetch from anywhere else.
+        if (container.sourceManager.get(state.sourceId) !is AnimeSource) return
         if (state.sourceId != sourceId || state.mediaId != mediaId) { _openOther.tryEmit(Triple(state.sourceId, state.mediaId, state.chapterId)); return }
         viewModelScope.launch(Dispatchers.IO) {
             val chapter = chapterById(state.chapterId) ?: run {
@@ -231,7 +233,11 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
     }
 
     override fun onCleared() {
-        _party.value?.close()
+        // Closing the player leaves the room: the next player opened does not join it by itself.
+        _party.value?.let { party ->
+            party.close()
+            if (container.activeRoom.value == party.code) container.activeRoom.value = null
+        }
         super.onCleared()
     }
 

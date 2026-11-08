@@ -284,9 +284,16 @@ fun YomukaiApp(
                     }
                 )
             }
+            composable(Routes.COMMUNITY) {
+                com.nelson.yomukai.ui.social.CommunityScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenWork = { s, m -> navController.navigate(Routes.details(s, m)) }
+                )
+            }
             composable(Routes.HOME) {
                 HomeScreen(
                     onJoinRoom = { navController.navigate(Routes.room(it)) },
+                    onCommunity = { navController.navigate(Routes.COMMUNITY) },
                     onMediaClick = ::openMedia,
                     onContinueClick = { openReader(it.sourceId, it.mediaId, it.chapterId) },
                     onBrowseSource = { navController.navigate(Routes.browse(it)) },

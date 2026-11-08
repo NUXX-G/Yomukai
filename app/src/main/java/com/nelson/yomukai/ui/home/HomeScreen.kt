@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
@@ -80,6 +81,7 @@ fun HomeScreen(
     onSearchTitle: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     onJoinRoom: (String) -> Unit = {},
+    onCommunity: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(factory = AppViewModelProvider.Factory),
     discoverViewModel: DiscoverViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
@@ -107,6 +109,7 @@ fun HomeScreen(
                 },
                 actions = {
                     if (com.nelson.yomukai.ui.LocalAppContainer.current.serverSync.serverUrl != null) {
+                        IconButton(onClick = onCommunity) { Icon(androidx.compose.material.icons.Icons.Default.Forum, tr("Comunidad")) }
                         var joining by remember { mutableStateOf(false) }
                         IconButton(onClick = { joining = true }) { Icon(androidx.compose.material.icons.Icons.Default.Group, tr("Unirse a una sala")) }
                         if (joining) com.nelson.yomukai.ui.player.JoinRoomDialog(onDismiss = { joining = false }) { joining = false; onJoinRoom(it) }

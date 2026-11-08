@@ -17,6 +17,7 @@ object Routes {
     const val WEB_CAPTURE = "web_capture?url={url}"
     const val QUICK_READER = "quick_reader"
     const val ROOM = "room/{code}"
+    const val COMMUNITY = "community"
     fun room(code: String) = "room/${enc(code)}"
 
     const val ARG_SOURCE = "sourceId"
