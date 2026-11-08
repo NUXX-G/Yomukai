@@ -109,7 +109,7 @@ private fun NovelFont.family() = when (this) {
     NovelFont.MONO -> FontFamily.Monospace
 }
 
-@OptIn(FlowPreview::class, ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(FlowPreview::class, ExperimentalLayoutApi::class)
 @Composable
 fun NovelReaderScreen(
     onBack: () -> Unit,
@@ -565,16 +565,8 @@ fun NovelReaderScreen(
 
     // Only the voices (narrator, women, men), straight from the reading: a change is heard from the next sentence.
     if (showVoices) {
-        androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showVoices = false }) {
-            androidx.compose.foundation.layout.Column(
-                Modifier
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 32.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
-            ) {
-                SpeechVoicesSection(speech, settings, if (viewModel.language == "EN") "en" else "es", viewModel::updateSettings)
-            }
+        VoicesSheet(onDismiss = { showVoices = false }) {
+            SpeechVoicesSection(speech, settings, if (viewModel.language == "EN") "en" else "es", viewModel::updateSettings)
         }
     }
     if (showSettings) {
@@ -623,6 +615,21 @@ private fun highlightMatches(text: String, query: String, color: Color): Annotat
         if (at < 0) break
         addStyle(SpanStyle(background = color), at, at + q.length)
         from = at + q.length
+    }
+}
+
+/** The voices on their own sheet, reachable while it reads aloud. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun VoicesSheet(onDismiss: () -> Unit, content: @Composable () -> Unit) {
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
+        androidx.compose.foundation.layout.Column(
+            Modifier
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
+        ) { content() }
     }
 }
 
