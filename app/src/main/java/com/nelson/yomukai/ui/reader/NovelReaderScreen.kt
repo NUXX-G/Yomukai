@@ -109,7 +109,7 @@ private fun NovelFont.family() = when (this) {
     NovelFont.MONO -> FontFamily.Monospace
 }
 
-@OptIn(FlowPreview::class, ExperimentalLayoutApi::class)
+@OptIn(FlowPreview::class, ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun NovelReaderScreen(
     onBack: () -> Unit,
@@ -121,6 +121,7 @@ fun NovelReaderScreen(
     val bookmarks by viewModel.bookmarks.collectAsStateWithLifecycle()
     var overlayVisible by rememberSaveable { mutableStateOf(true) }
     var showSettings by remember { mutableStateOf(false) }
+    var showVoices by remember { mutableStateOf(false) }
     var showIndex by remember { mutableStateOf(false) }
     var showBookmarks by remember { mutableStateOf(false) }
     var searchOpen by remember { mutableStateOf(false) }
@@ -398,17 +399,27 @@ fun NovelReaderScreen(
                     )
                 }
 
-                // While it reads aloud, stopping is always one tap away (the bars hide while reading).
+                // While it reads aloud, stopping and changing the voices are always one tap away (the bars hide while reading).
                 if (reading && !overlayVisible) {
-                    androidx.compose.material3.ExtendedFloatingActionButton(
-                        onClick = { speech.stop() },
-                        icon = { Icon(Icons.Default.Stop, contentDescription = null) },
-                        text = { Text(tr("Parar la lectura")) },
-                        modifier = Modifier
+                    androidx.compose.foundation.layout.Row(
+                        Modifier
                             .align(Alignment.BottomCenter)
                             .navigationBarsPadding()
-                            .padding(bottom = 24.dp)
-                    )
+                            .padding(bottom = 24.dp),
+                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
+                    ) {
+                        androidx.compose.material3.ExtendedFloatingActionButton(
+                            onClick = { showVoices = true },
+                            icon = { Icon(Icons.Default.RecordVoiceOver, contentDescription = null) },
+                            text = { Text(tr("Voz")) },
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        )
+                        androidx.compose.material3.ExtendedFloatingActionButton(
+                            onClick = { speech.stop() },
+                            icon = { Icon(Icons.Default.Stop, contentDescription = null) },
+                            text = { Text(tr("Parar la lectura")) }
+                        )
+                    }
                 }
 
                 AnimatedVisibility(
@@ -552,6 +563,20 @@ fun NovelReaderScreen(
         }
     }
 
+    // Only the voices (narrator, women, men), straight from the reading: a change is heard from the next sentence.
+    if (showVoices) {
+        androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showVoices = false }) {
+            androidx.compose.foundation.layout.Column(
+                Modifier
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 32.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
+            ) {
+                SpeechVoicesSection(speech, settings, if (viewModel.language == "EN") "en" else "es", viewModel::updateSettings)
+            }
+        }
+    }
     if (showSettings) {
         NovelSettingsSheet(settings, onUpdate = viewModel::updateSettings, onDismiss = { showSettings = false }) {
             SpeechVoicesSection(speech, settings, if (viewModel.language == "EN") "en" else "es", viewModel::updateSettings)
