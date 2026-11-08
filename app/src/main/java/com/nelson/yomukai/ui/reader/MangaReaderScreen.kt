@@ -173,6 +173,12 @@ fun MangaReaderScreen(
     }
     val onNearEnd: () -> Unit = { if (settings.infiniteScroll) viewModel.loadNext() }
 
+    // Bubbles translated on the device when the source is in another language than the interface.
+    val bubbleSpec = remember(settings.translateBubbles, viewModel.language) {
+        val from = viewModel.language.lowercase()
+        if (settings.translateBubbles && from.length == 2 && from != com.nelson.yomukai.i18n.I18n.lang) com.nelson.yomukai.data.ocr.BubbleTranslation(from, com.nelson.yomukai.i18n.I18n.lang) else null
+    }
+    CompositionLocalProvider(LocalBubbleTranslation provides bubbleSpec) {
     Box(
         Modifier
             .fillMaxSize()
@@ -426,6 +432,7 @@ fun MangaReaderScreen(
             onDelete = { viewModel.deleteBookmark(it.id) },
             onDismiss = { showBookmarks = false }
         )
+    }
     }
 }
 
@@ -718,6 +725,16 @@ internal fun ReaderPageImage(
                 Text("${index + 1}", color = Color.White.copy(alpha = 0.5f))
             }
         }
+        val translation = LocalBubbleTranslation.current
+        val success = imageState as? AsyncImagePainter.State.Success
+        if (translation != null && success != null && !scrollWidthFit) {
+            val mode = when {
+                !fitScreen -> com.nelson.yomukai.data.ocr.FitMode.WIDTH
+                fit == ReaderFit.HEIGHT -> com.nelson.yomukai.data.ocr.FitMode.HEIGHT
+                else -> com.nelson.yomukai.data.ocr.FitMode.INSIDE
+            }
+            BubbleOverlay("${page.model}|$cropBorders", success.result.image, translation, mode, Modifier.matchParentSize())
+        }
     }
 }
 
@@ -793,6 +810,7 @@ private fun MangaReaderSettingsSheet(
             Text(tr("Ajuste de imagen (modo páginas)"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             ReaderFit.entries.forEach { fit -> RadioRow(fit.displayName, settings.fit == fit) { onUpdate { it.copy(fit = fit) } } }
             SettingSwitch(tr("Recortar bordes blancos"), settings.cropBorders) { v -> onUpdate { it.copy(cropBorders = v) } }
+            SettingSwitch(tr("Traducir bocadillos en el móvil"), settings.translateBubbles) { v -> onUpdate { it.copy(translateBubbles = v) } }
 
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
             Text(tr("Filtro de color"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

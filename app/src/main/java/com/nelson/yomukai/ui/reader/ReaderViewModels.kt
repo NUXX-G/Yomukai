@@ -196,6 +196,9 @@ class MangaReaderViewModel(handle: SavedStateHandle, container: AppContainer) :
     BaseReaderViewModel<List<PageData>>(handle, container) {
 
     val settings = container.preferences.manga
+
+    /** Source language ("EN", "ZH"…), for reading and translating bubbles on the device. */
+    val language: String = container.sourceManager.get(sourceId)?.language ?: "MULTI"
     fun updateSettings(transform: (com.nelson.yomukai.data.prefs.MangaReaderSettings) -> com.nelson.yomukai.data.prefs.MangaReaderSettings) =
         container.preferences.updateManga(transform)
 

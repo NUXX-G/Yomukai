@@ -45,6 +45,8 @@ data class MangaReaderSettings(
     val fit: ReaderFit = ReaderFit.SCREEN,
     val colorFilter: ReaderColorFilter = ReaderColorFilter.NONE,
     val cropBorders: Boolean = false,
+    /** Bubbles read and translated on the device (ML Kit) into the interface language; off by default. */
+    val translateBubbles: Boolean = false,
     val orientation: OrientationLock = OrientationLock.AUTO,
     /** Auto-scroll speed, 1..10 (screen heights per minute x ~0.5). */
     val autoScrollSpeed: Float = 3f
@@ -333,6 +335,7 @@ class AppPreferences(context: Context) {
             .putString("manga_fit", value.fit.name)
             .putString("manga_color_filter", value.colorFilter.name)
             .putBoolean("manga_crop", value.cropBorders)
+            .putBoolean("manga_translate", value.translateBubbles)
             .putString("manga_orientation", value.orientation.name)
             .putFloat("manga_autoscroll", value.autoScrollSpeed)
             .apply()
@@ -401,6 +404,7 @@ class AppPreferences(context: Context) {
         fit = enumOr(prefs.getString("manga_fit", null), ReaderFit.SCREEN),
         colorFilter = enumOr(prefs.getString("manga_color_filter", null), ReaderColorFilter.NONE),
         cropBorders = prefs.getBoolean("manga_crop", false),
+        translateBubbles = prefs.getBoolean("manga_translate", false),
         orientation = enumOr(prefs.getString("manga_orientation", null), OrientationLock.AUTO),
         autoScrollSpeed = prefs.getFloat("manga_autoscroll", 3f)
     )
