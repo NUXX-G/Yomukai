@@ -5,7 +5,7 @@
   import { route, back, navigate, media as mediaHref, reader } from '../lib/router.svelte.js';
   import { settings, saveSettings } from '../lib/store.svelte.js';
   import { track, markThrough, flush, progressMap } from '../lib/progress.js';
-  import { clock, time } from '../lib/format.js';
+  import { time } from '../lib/format.js';
   import Icon from '../components/Icon.svelte';
   import Sheet from '../components/Sheet.svelte';
   import RoomChat from '../components/RoomChat.svelte';
@@ -117,7 +117,6 @@
   let current = $state(0);
   let duration = $state(0);
   let ui = $state(false);
-  let now = $state(clock());
   let serversOpen = $state(false);
   let episodesOpen = $state(false);
   let muted = $state(false);
@@ -132,7 +131,6 @@
   let shell;
   let hls = null;
   let hideTimer;
-  let clockTimer;
   let wakeLock = null;
   let resumeAt = 0;
   let watched = false;
@@ -371,7 +369,7 @@
   }
 
   onMount(async () => {
-    clockTimer = setInterval(() => (now = clock()), 15_000);
+
     try {
       const [m, list, progress] = await Promise.all([api.media(sourceId, mediaId), api.chapters(sourceId, mediaId), progressMap(sourceId, mediaId)]);
       item = m;
@@ -389,17 +387,28 @@
       loadFillers();
       stopPresence = startPresence('watching', () => ({ title: item?.title, label: episode?.label, sourceId, mediaId }));
       if (roomCode) startParty(roomCode);
-      if (!direct.length) { loading = false; serversOpen = true; error = t('Este episodio solo se puede ver en la web del servidor.'); return; }
+      if (!direct.length) {
+        // Only the site's own player: shown full screen on the server's embed page (back here when leaving it).
+        const own = servers.find((s) => s.embed);
+        if (own) return openEmbed(own);
+        loading = false; serversOpen = true; error = t('Este episodio solo se puede ver en la web del servidor.'); return;
+      }
       play(0);
+      // On a computer the episode fills the screen from the start (the click that opened it allows it).
+      if (matchMedia('(pointer: fine)').matches && settings.player?.autoFullscreen !== false && !document.fullscreenElement) fullscreen();
     } catch (e) {
       error = e.message;
       loading = false;
     }
   });
 
+  function openEmbed(s) {
+    location.href = s.embed + '&back=' + encodeURIComponent(mediaHref(sourceId, mediaId));
+  }
+
   onDestroy(() => {
     stopPresence?.(); client?.close(); clearInterval(syncTimer); clearTimeout(applyTimer);
-    clearInterval(clockTimer); clearInterval(countdownTimer); clearTimeout(hideTimer); clearTimeout(tapTimer); clearTimeout(flashTimer); hls?.destroy();
+    clearInterval(countdownTimer); clearTimeout(hideTimer); clearTimeout(tapTimer); clearTimeout(flashTimer); hls?.destroy();
     if (document.pictureInPictureElement) document.exitPictureInPicture().catch(() => {}); keepAwake(false); flush();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     screen.orientation?.unlock?.();
@@ -501,8 +510,6 @@
         </div>
       </div>
     </div>
-  {:else}
-    <div class="mini-clock">{now}</div>
   {/if}
 </div>
 
@@ -525,7 +532,11 @@
         <Icon name="play" /> <span class="grow">{s.server} <span class="small muted">{s.quality}</span></span>
       </button>
     {:else}
-      <a class="list-item srv" href={s.url} target="_blank" rel="noopener noreferrer"><Icon name="open" /> <span class="grow">{s.server} <span class="small muted">{t('{0} · abrir en su web', [s.quality])}</span></span></a>
+      {#if s.embed}
+        <button class="list-item srv" onclick={() => openEmbed(s)}><Icon name="play" /> <span class="grow">{s.server} <span class="small muted">{t('{0} · su reproductor', [s.quality])}</span></span></button>
+      {:else}
+        <a class="list-item srv" href={s.url} target="_blank" rel="noopener noreferrer"><Icon name="open" /> <span class="grow">{s.server} <span class="small muted">{t('{0} · abrir en su web', [s.quality])}</span></span></a>
+      {/if}
     {/if}
   {/each}
 </Sheet>
@@ -551,7 +562,6 @@
   input[type='range']::-moz-range-thumb { width: 16px; height: 16px; border: 0; border-radius: 50%; background: var(--primary); }
   .actions { display: flex; align-items: center; gap: 8px; }
   .grow { flex: 1; }
-  .mini-clock { position: absolute; top: calc(var(--safe-top) + 12px); right: 18px; color: #fff9; font-size: 0.8rem; font-weight: 500; text-shadow: 0 0 6px #000; pointer-events: none; }
   .srv { width: 100%; text-align: left; gap: 12px; }
   .chat-panel { position: absolute; z-index: 6; right: 0; top: 0; bottom: 0; width: min(360px, 100%); box-shadow: -10px 0 40px #0008; }
   @media (max-width: 600px) { .chat-panel { top: auto; height: 58%; width: 100%; border-radius: 16px 16px 0 0; overflow: hidden; } }

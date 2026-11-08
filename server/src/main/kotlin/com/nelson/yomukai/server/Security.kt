@@ -37,15 +37,17 @@ fun isSecure(call: ApplicationCall, config: Config): Boolean =
 fun securityHeaders(config: Config) = createApplicationPlugin("SecurityHeaders") {
     onCall { call ->
         val h = call.response
-        h.header("Content-Security-Policy", CONTENT_SECURITY_POLICY)
-        h.header("Permissions-Policy", PERMISSIONS_POLICY)
+        // The embed page frames another site's player, so it has its own policy and no cross-origin isolation.
+        val embed = call.request.local.uri.substringBefore('?') == EMBED_PATH
+        h.header("Content-Security-Policy", if (embed) EMBED_CONTENT_SECURITY_POLICY else CONTENT_SECURITY_POLICY)
+        h.header("Permissions-Policy", if (embed) EMBED_PERMISSIONS_POLICY else PERMISSIONS_POLICY)
         h.header("X-Content-Type-Options", "nosniff")
         h.header("Referrer-Policy", "no-referrer")
         h.header("X-Frame-Options", "DENY")
         h.header("Cross-Origin-Opener-Policy", "same-origin")
         // Cross-origin isolation: lets the browser use several threads for its own voices (WebAssembly). Everything
         // the pages load already comes from this site (see the CSP), so nothing else is affected.
-        h.header("Cross-Origin-Embedder-Policy", "require-corp")
+        if (!embed) h.header("Cross-Origin-Embedder-Policy", "require-corp")
         if (isSecure(call, config)) h.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
     }
 }

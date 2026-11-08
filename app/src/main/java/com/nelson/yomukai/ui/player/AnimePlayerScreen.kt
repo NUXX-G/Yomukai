@@ -94,7 +94,6 @@ import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.LocalAppContainer
 import com.nelson.yomukai.ui.components.AppSpinner
-import com.nelson.yomukai.ui.components.MiniClock
 import com.nelson.yomukai.ui.reader.ChapterIndexSheet
 import kotlinx.coroutines.delay
 import java.util.Locale
@@ -136,7 +135,7 @@ fun AnimePlayerScreen(
     var isLoading by remember { mutableStateOf(true) }
     var currentPosition by remember(playing.videoUrl) { mutableLongStateOf(playing.startPositionMs) }
     var totalDuration by remember(playing.videoUrl) { mutableLongStateOf(0L) }
-    // The video starts clean: only a small clock until the screen is tapped.
+    // The video starts clean: nothing over it until the screen is tapped.
     var showControls by remember { mutableStateOf(false) }
     var sliderPosition by remember(playing.videoUrl) { mutableFloatStateOf(0f) }
     var isUserSeeking by remember { mutableStateOf(false) }
@@ -402,15 +401,7 @@ fun AnimePlayerScreen(
             }
         }
 
-        // With the controls hidden, only a discreet clock remains.
-        AnimatedVisibility(
-            visible = !showControls && !inPip && ui.error == null,
-            enter = fadeIn(tween(400)),
-            exit = fadeOut(tween(200)),
-            modifier = Modifier.align(Alignment.TopEnd)
-        ) {
-            MiniClock(Modifier.padding(horizontal = 20.dp, vertical = 14.dp))
-        }
+        // With the controls hidden nothing stays over the video (the small clock is for the readers only).
 
         AnimatedVisibility(
             visible = showControls && !inPip,

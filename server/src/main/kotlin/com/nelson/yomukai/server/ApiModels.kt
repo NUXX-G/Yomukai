@@ -61,7 +61,8 @@ data class AlternativeDto(
     val chapterCount: Int?, val lastChapter: Float?, val approximate: Boolean
 )
 
-data class VideoDto(val server: String, val quality: String, val url: String, val direct: Boolean, val hls: Boolean)
+/** [embed]: for a site's own player (not direct), the page of this server that shows it full screen. */
+data class VideoDto(val server: String, val quality: String, val url: String, val direct: Boolean, val hls: Boolean, val embed: String? = null)
 
 /** [doubt]: this card may be the same work as a neighbouring one, but it could not be confirmed. */
 data class SearchGroupDto(val primary: MediaDto, val others: List<MediaDto>, val doubt: Boolean = false)

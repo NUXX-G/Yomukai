@@ -80,6 +80,13 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
     }
 
     /** Link to [url] as an image with [headers]; blank stays blank. */
+
+    /** The page that shows a site's own player full screen ([embedPage]); null for anything that is not https. */
+    fun embed(url: String): String? =
+        url.takeIf { it.startsWith("https://") }?.let { "$EMBED_PATH?u=${enc(it)}&k=${sign("embed", it)}" }
+
+    fun embedSigned(url: String, key: String): Boolean = java.security.MessageDigest.isEqual(sign("embed", url).toByteArray(), key.toByteArray())
+
     fun image(url: String, headers: Map<String, String>): String {
         if (url.isBlank() || !url.startsWith("http")) return url
         val h = encodeHeaders(headers)

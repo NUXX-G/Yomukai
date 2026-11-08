@@ -354,6 +354,8 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
     install(StatusPages) {
         exception<NoSuchElementException> { call, e -> call.respond(HttpStatusCode.NotFound, mapOf("error" to (e.message ?: "No encontrado"))) }
         exception<IllegalArgumentException> { call, e -> call.respond(HttpStatusCode.BadRequest, mapOf("error" to (e.message ?: "Petición no válida"))) }
+        // The viewer went away mid-answer (a tab closed, a live stream left): nothing to answer, nothing worth a warning.
+        exception<io.ktor.util.cio.ChannelWriteException> { call, _ -> log.debug("Cliente desconectado en {}", call.request.local.uri) }
         exception<Throwable> { call, e ->
             log.warn("Error en {}", call.request.local.uri, e)
             call.respond(HttpStatusCode.InternalServerError, mapOf("error" to (e.message ?: "Error interno")))
@@ -364,6 +366,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
 
     routing {
         authRoutes(services)
+        embedPage(services.proxy)
         accountPublicRoutes(services, { clientAddress(it, config) }, { isSecure(it, config) })
         route("/api") {
             run {
@@ -452,7 +455,20 @@ fun machineStatus(dataDir: File): Map<String, Any?> {
 }
 
 suspend fun ApplicationCall.fail(e: Throwable) =
-    respond(HttpStatusCode.BadGateway, mapOf("error" to (e.message ?: "La fuente no respondió")))
+    respond(HttpStatusCode.BadGateway, mapOf("error" to sourceErrorText(e)))
+
+/** What a reader can understand of a source's failure (Java's TLS and network messages mean nothing to them). */
+fun sourceErrorText(e: Throwable): String {
+    val chain = generateSequence(e) { it.cause }.take(6).toList()
+    return when {
+        chain.any { it is javax.net.ssl.SSLException || it.message.orEmpty().contains("PKIX") } ->
+            "La web de esta fuente no se puede abrir desde el servidor (su certificado no es válido aquí; a veces son " +
+                "bloqueos de la operadora, como los de los partidos de fútbol). Prueba más tarde u otra fuente."
+        chain.any { it is java.net.UnknownHostException } -> "La web de esta fuente no existe ahora mismo (su dominio no responde)."
+        chain.any { it is java.net.SocketTimeoutException || it is java.net.ConnectException } -> "La web de esta fuente no responde. Prueba más tarde."
+        else -> e.message ?: "La fuente no respondió"
+    }
+}
 
 private suspend inline fun <reified T : Any> ApplicationCall.reply(result: Result<T>) =
     result.fold({ respond(it) }, { fail(it) })
