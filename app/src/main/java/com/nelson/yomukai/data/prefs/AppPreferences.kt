@@ -131,6 +131,8 @@ data class AppSettings(
     val playerAutoNext: Boolean = true,
     /** Skip openings and endings by themselves when their times are known. */
     val playerAutoSkip: Boolean = false,
+    /** Language learning: off by default; with it on, a long press on a word of a novel opens the dictionary. */
+    val learningEnabled: Boolean = false,
     val playerSpeed: Float = 1f,
     /** Downloads wait for an unmetered connection. */
     val downloadsWifiOnly: Boolean = false,
@@ -293,6 +295,7 @@ class AppPreferences(context: Context) {
             .putBoolean("updates_wifi", value.updatesWifiOnly)
             .putBoolean("player_auto_next", value.playerAutoNext)
             .putBoolean("player_auto_skip", value.playerAutoSkip)
+            .putBoolean("learning_enabled", value.learningEnabled)
             .putFloat("player_speed", value.playerSpeed)
             .putBoolean("downloads_wifi", value.downloadsWifiOnly)
             .putInt("downloads_max", value.maxConcurrentDownloads)
@@ -378,6 +381,7 @@ class AppPreferences(context: Context) {
         updatesWifiOnly = prefs.getBoolean("updates_wifi", false),
         playerAutoNext = prefs.getBoolean("player_auto_next", true),
         playerAutoSkip = prefs.getBoolean("player_auto_skip", false),
+        learningEnabled = prefs.getBoolean("learning_enabled", false),
         playerSpeed = prefs.getFloat("player_speed", 1f),
         downloadsWifiOnly = prefs.getBoolean("downloads_wifi", false),
         maxConcurrentDownloads = prefs.getInt("downloads_max", 2),

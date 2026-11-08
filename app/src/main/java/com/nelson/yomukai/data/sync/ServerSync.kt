@@ -484,6 +484,26 @@ class ServerSync(
         }
     }
 
+    /** Saves a file of the connected server's API (e.g. a dictionary) to [target]; false when not connected or refused. */
+    suspend fun download(path: String, target: java.io.File, maxBytes: Long): Boolean = withContext(Dispatchers.IO) {
+        val server = _state.value.server ?: return@withContext false
+        val session = token ?: return@withContext false
+        require(path.startsWith("/api/")) { "Ruta no válida" }
+        val part = java.io.File(target.parentFile, target.name + ".part")
+        val ok = runCatching {
+            client.newBuilder().readTimeout(5, java.util.concurrent.TimeUnit.MINUTES).build()
+                .newCall(authed(Request.Builder().url(server + path), session).build()).execute().use { r ->
+                    val body = r.body
+                    if (!r.isSuccessful || body == null || body.contentLength() > maxBytes) return@use false
+                    part.parentFile?.mkdirs()
+                    part.outputStream().use { out -> body.byteStream().use { it.copyTo(out) } }
+                    part.length() in 1..maxBytes && part.renameTo(target)
+                }
+        }.getOrDefault(false)
+        if (!ok) part.delete()
+        ok
+    }
+
     /** A natural voice of the connected server (see the web's novel reader). */
     data class ServerVoice(val id: String, val label: String, val lang: String, val gender: String, val region: String)
 

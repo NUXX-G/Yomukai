@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -64,6 +65,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -77,6 +79,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -142,6 +145,9 @@ fun NovelReaderScreen(
     val bookmarked = bookmarks.any { it.chapterId == currentChapterId && it.position == currentParagraph }
     var scrollTarget by remember(state.generation) { mutableStateOf<Int?>(null) }
     var autoScroll by remember { mutableStateOf(false) }
+    // Language learning (off by default): long press on a word → dictionary sheet.
+    val learning = com.nelson.yomukai.ui.LocalAppContainer.current.preferences.app.collectAsState().value.learningEnabled
+    var picked by remember { mutableStateOf<com.nelson.yomukai.data.learning.PickedWord?>(null) }
 
     val matches = remember(items, currentChapterId, searchQuery, searchOpen) {
         if (searchOpen) NovelItems.search(items, currentChapterId, searchQuery) else emptyList()
@@ -179,6 +185,7 @@ fun NovelReaderScreen(
     val speechNotice by speech.notice.collectAsStateWithLifecycle()
     val noticeContext = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(speechNotice) { speechNotice?.let { android.widget.Toast.makeText(noticeContext, it, android.widget.Toast.LENGTH_LONG).show() } }
+    picked?.let { p -> com.nelson.yomukai.ui.learning.WordSheet(p.word, p.sentence, viewModel.language, state.mediaTitle) { picked = null } }
     LaunchedEffect(items.size) { speech.onMoreContent() }
     val speechText: (Int) -> String? = { i ->
         when (val item = currentItems.getOrNull(i)) {
@@ -318,13 +325,27 @@ fun NovelReaderScreen(
 
                             is NovelItem.Paragraph -> {
                                 val marked = index == activeMatch || index == spokenIndex
+                                var layout by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
                                 Text(
+                                    onTextLayout = { layout = it },
                                     text = if (searchOpen && item.chapterId == currentChapterId && index in matches) {
                                         highlightMatches(item.text, searchQuery, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f))
                                     } else AnnotatedString(item.text),
                                     style = bodyStyle,
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .then(
+                                            // Learning mode only: a long press opens the word; a tap works as always.
+                                            if (!learning) Modifier else Modifier.pointerInput(item.text) {
+                                                detectTapGestures(
+                                                    onTap = { if (autoScroll) autoScroll = false else overlayVisible = !overlayVisible },
+                                                    onLongPress = { pos ->
+                                                        val offset = layout?.getOffsetForPosition(pos) ?: return@detectTapGestures
+                                                        picked = com.nelson.yomukai.data.learning.WordAt.find(item.text, offset)
+                                                    }
+                                                )
+                                            }
+                                        )
                                         .background(if (marked) highlight else Color.Transparent)
                                         .padding(bottom = (settings.fontSize * 0.9f).dp)
                                 )

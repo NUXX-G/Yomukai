@@ -126,6 +126,21 @@ fun SettingsScreen(
 
             item { GroupTitle(tr("Idioma") + " · Language") }
             item { LanguagePicker() }
+            item { GroupTitle(tr("Aprender idiomas")) }
+            item {
+                SwitchItem(tr("Modo aprendizaje"), tr("Mantén pulsada una palabra de una novela para ver su significado, oírla y guardarla"), app.learningEnabled) { v ->
+                    viewModel.updateApp { it.copy(learningEnabled = v) }
+                }
+            }
+            if (app.learningEnabled) item {
+                var reviewing by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+                androidx.compose.material3.ListItem(
+                    headlineContent = { Text(tr("Repasar palabras")) },
+                    supportingContent = { Text(tr("Repaso espaciado de las palabras guardadas (necesita el servidor)")) },
+                    modifier = Modifier.clickable { reviewing = true }
+                )
+                if (reviewing) com.nelson.yomukai.ui.learning.ReviewDialog { reviewing = false }
+            }
             item { GroupTitle(tr("Apariencia")) }
             item {
                 ChipRow {
