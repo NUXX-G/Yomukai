@@ -171,6 +171,7 @@ class Services(val config: Config) {
         }
     }, landing = { source -> http.getStringWithUrl(source.baseUrl).second })
     val works = Works(db, catalog, aniList, sources).also { w ->
+        w.tmdb = com.nelson.yomukai.data.metadata.TmdbClient(http, config.tmdbApiKey)
         catalog.workKeys = w::knownKeys
         catalog.dtos.betterCover = w::betterCover
     }

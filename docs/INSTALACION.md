@@ -85,6 +85,7 @@ Ejemplo con todo: `curl -fsSL …/install-worker.sh | YOMUKAI_URL=… WORKER_TOK
 | `BACKUP_HOUR`, `BACKUP_KEEP_DAYS`, `BACKUP_COPY_DIR` | Copias nocturnas de la base de datos | 4, 14, — |
 | `COMPOSE_PROFILES`, `LOCAL_WORKER_TOKEN`, `WORKER_MEMORY`, `WORKER_CPUS` | Todo en uno | — |
 | `MAL_CLIENT_ID` | Notas de MyAnimeList | — |
+| `TMDB_API_KEY` | Fondos panorámicos de alta resolución para el anime (themoviedb.org, gratis) | — |
 | `SOURCE_REPOS` | Repositorios extra de fuentes JSON firmadas: `https://…/bundle.json#CLAVE` (ver sources/README.md) | — |
 
 Más detalles del VPS pequeño (swap de colchón, medir memoria, canario de fuentes, yt-dlp) en [VPS.md](VPS.md).

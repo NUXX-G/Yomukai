@@ -64,7 +64,9 @@ data class Config(
     /** Pause between sources in a canary run, to stay gentle with the sites. */
     val canaryPauseMs: Long = 20_000,
     /** Where newer signed source bundles come from. */
-    val sourcesUrl: String = com.nelson.yomukai.data.source.declarative.SourceBundles.REMOTE_URL
+    val sourcesUrl: String = com.nelson.yomukai.data.source.declarative.SourceBundles.REMOTE_URL,
+    /** Optional TMDB key: wide backdrops for anime title pages (never sent to clients). */
+    val tmdbApiKey: String = ""
 ) {
     companion object {
         const val ACCOUNT_RATE = 600
@@ -82,6 +84,7 @@ data class Config(
                 guestDays = env["GUEST_DAYS"]?.toIntOrNull()?.coerceIn(1, 365) ?: 1,
                 flareSolverrUrl = env["FLARESOLVERR_URL"]?.trimEnd('/')?.ifBlank { null },
                 malClientId = env["MAL_CLIENT_ID"].orEmpty().trim(),
+                tmdbApiKey = env["TMDB_API_KEY"].orEmpty().trim(),
                 guestRatePerMinute = env["GUEST_RATE"]?.toIntOrNull() ?: 120,
                 abuseLimit = env["ABUSE_LIMIT"]?.toIntOrNull()?.coerceAtLeast(100) ?: 1500,
                 guestAbuseLimit = env["GUEST_ABUSE_LIMIT"]?.toIntOrNull()?.coerceAtLeast(50) ?: 300,

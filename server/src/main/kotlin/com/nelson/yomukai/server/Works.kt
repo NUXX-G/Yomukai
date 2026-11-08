@@ -56,6 +56,9 @@ class Works(
     /** Work key → AniList's large cover, for works AniList knows: sources often only give 200-300 px thumbnails. */
     private val covers = ConcurrentHashMap<String, String>()
 
+    /** Optional TMDB: a wide 1920 px+ backdrop for anime instead of AniList's narrower banner. */
+    var tmdb: com.nelson.yomukai.data.metadata.TmdbClient? = null
+
     /** The work a source page belongs to, when already known. */
     fun keyOf(sourceId: String, mediaId: String): String? = known[WorkKey.itemKey(sourceId, mediaId)]
 
@@ -97,11 +100,14 @@ class Works(
         val item = catalog.media(sourceId, mediaId).getOrThrow()
         val entry = withTimeoutOrNull(8_000) { runCatching { aniList.lookup(listOf(item.title) + item.altTitles, item.type) }.getOrNull() }
         val key = WorkKey.of(item.type, item.title, entry?.id, entry?.malId)
+        val backdrop = if (item.type == com.nelson.yomukai.domain.model.MediaType.ANIME && tmdb?.enabled == true) {
+            withTimeoutOrNull(TMDB_WAIT_MS) { runCatching { tmdb?.backdrop((entry?.names ?: emptyList()) + item.title) }.getOrNull() }
+        } else null
         val now = clock()
         val row = WorkRow(
             key, entry?.id?.takeIf { it > 0 }, entry?.malId, item.type.name, entry?.names?.firstOrNull() ?: item.title,
             ((entry?.names ?: emptyList()) + item.altTitles + item.title).distinct().take(30),
-            entry?.cover?.ifBlank { null } ?: item.coverUrl, entry?.banner.orEmpty(), entry?.description?.ifBlank { null } ?: item.description,
+            entry?.cover?.ifBlank { null } ?: item.coverUrl, backdrop ?: entry?.banner.orEmpty(), entry?.description?.ifBlank { null } ?: item.description,
             (entry?.genres ?: emptyList()).ifEmpty { item.genres }, entry?.score, entry?.status.orEmpty(),
             entry?.episodes, entry?.chapters, entry?.nextEpisode, entry?.nextAiringAt, now
         )
@@ -372,6 +378,7 @@ class Works(
     }
 
     companion object {
+        private const val TMDB_WAIT_MS = 4_000L
         private const val WANTED_MAX = 300
         private const val WANTED_PER_RUN = 4
         fun numberOf(text: String): String? = text.toFloatOrNull()?.let(::numberKey)
