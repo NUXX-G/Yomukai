@@ -122,6 +122,7 @@
           </div>
         {/if}
       {:else}
+        <p class="small muted">{t('Los logros se desbloquean solos al leer, ver anime, repasar palabras y participar. Puedes lucir uno como título bajo tu nombre desde «Editar perfil».')}</p>
         <div class="achievements">
           {#each sortedAchievements as a (a.id)}
             <div class="ach {a.rarity}" class:locked={!a.unlockedAt}>

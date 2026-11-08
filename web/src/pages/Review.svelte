@@ -62,6 +62,7 @@
     <h1>{t('Repaso')}</h1>
     <a class="btn text" href="/api/words/anki" download>{t('Exportar a Anki')}</a>
   </header>
+  <p class="muted intro">{t('Las palabras que guardas mientras lees vuelven aquí cuando toca repasarlas. Mira la palabra, intenta recordarla, dale la vuelta y di si te la sabías: las que sabes vuelven más tarde; las que no, pronto.')}</p>
   {#if due === null}
     <div class="spinner"></div>
   {:else if !card}
@@ -98,6 +99,7 @@
     {:else}<p class="muted">{t('Nadie ha repasado esta semana todavía.')}</p>{/if}
 
     <h2>{t('Mazos compartidos')}</h2>
+    <p class="small muted">{t('Un mazo es una lista de palabras. Comparte las tuyas con un nombre y tus amigos podrán copiarlas a su repaso con un toque (y tú las suyas).')}</p>
     <form class="publish" onsubmit={(e) => { e.preventDefault(); publish(); }}>
       <input class="input" bind:value={deckName} maxlength="80" placeholder={t('Nombre del mazo')} required />
       <select class="input" bind:value={deckLang} aria-label={t('Idioma')}>
@@ -119,6 +121,7 @@
 <style>
   .review { max-width: 640px; }
   .head { display: flex; align-items: center; justify-content: space-between; }
+  .intro { margin: 0 0 16px; }
   h1 { margin: 12px 0; font-size: var(--fs-title); font-weight: 800; }
   .card { padding: 28px 22px; border-radius: var(--r-xl); background: var(--c-surface); border: 1px solid var(--c-border); text-align: center; margin: 12px 0 16px; }
   .word { font-size: 2.2rem; font-weight: 800; }
