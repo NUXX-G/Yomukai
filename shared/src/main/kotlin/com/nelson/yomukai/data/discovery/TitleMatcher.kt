@@ -30,8 +30,13 @@ object TitleMatcher {
     fun familyKey(type: MediaType, title: String): String =
         (if (type.isReadableAsImages) "images" else type.name) + "|" + SmartSearch.duplicateKey(title)
 
+    /**
+     * Names compared: case, accents, punctuation and the way a season is written ignored, and the spaces too («Ao
+     * Ashi» and «Aoashi» are one name), so long as what is left is not too short to be a coincidence.
+     */
     private fun keys(names: Collection<String>): Set<String> =
-        names.map(SmartSearch::duplicateKey).filter { it.length >= MIN_KEY_LENGTH }.toSet()
+        names.map { SmartSearch.duplicateKey(Seasons.canonical(it)) }.filter { it.length >= MIN_KEY_LENGTH }
+            .flatMap { k -> listOf(k, k.replace(" ", "")) }.filter { it.length >= MIN_KEY_LENGTH }.toSet()
 
     /** True when some name of [a] equals some name of [b] once case, accents and punctuation are ignored. */
     fun shareName(a: Collection<String>, b: Collection<String>): Boolean = keys(a).any { it in keys(b) }

@@ -450,10 +450,11 @@ class Catalog(
         }
     }
 
-    suspend fun metadata(sourceId: String, mediaId: String): Result<MetadataDto> = runCatching {
+    /** [anilistId]: when the works index already knows which AniList work this page is. */
+    suspend fun metadata(sourceId: String, mediaId: String, anilistId: Int? = null): Result<MetadataDto> = runCatching {
         val item = media(sourceId, mediaId).getOrNull() ?: seen.get(key(sourceId, mediaId))
             ?: throw NoSuchElementException("Título no encontrado")
-        dtos.metadata(metadata.load(item))
+        dtos.metadata(metadata.load(item, anilistId))
     }
 
     private suspend fun discovery(user: User, prefs: UserPrefs): DiscoveryRepository = discoveryLock.withLock {

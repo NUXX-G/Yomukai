@@ -101,25 +101,32 @@ class MetadataRepository(
 
     fun cached(media: MediaItem): TitleMetadata? = cache[SmartSearch.keyOf(media)]
 
-    /** Memory first, then the copy on disk, then AniList and MAL at the same time (Kitsu only when both fail). */
-    suspend fun load(media: MediaItem): TitleMetadata = coroutineScope {
+    /**
+     * Memory first, then the copy on disk, then AniList and MAL at the same time (Kitsu only when both fail).
+     * [anilistId]: the work is already known for sure (the works index): AniList is asked for it by id, not by name, so
+     * a sequel whose name each site writes its own way still gets its relations; a copy saved for another work is
+     * not used.
+     */
+    suspend fun load(media: MediaItem, anilistId: Int? = null): TitleMetadata = coroutineScope {
         val key = SmartSearch.keyOf(media)
-        cache[key]?.let { return@coroutineScope it }
-        // Copies saved before covers were kept are asked again once (every AniList answer has a cover).
-        store?.get(key)?.takeUnless { it.siteUrl.isNotBlank() && it.cover.isBlank() }?.let { saved ->
-            // Guessed genres are worked out again: the rules may have changed since they were saved.
-            val fresh = if (saved.inferredGenres) withLocalGenres(saved, media) else saved
-            cache[key] = fresh
-            return@coroutineScope fresh
-        }
-        misses[key]?.takeIf { System.currentTimeMillis() - it.first < MISS_TTL_MS }?.let { return@coroutineScope it.second }
+        saved(key, media, anilistId)?.let { return@coroutineScope it }
         val names = (listOf(media.title) + media.altTitles).filter { it.isNotBlank() }.distinct()
         // Every database is asked at once; the slowest one decides how long this takes, not the sum.
         val malUsable = mal != null && System.currentTimeMillis() > malDownUntil
         val malScore = async { if (malUsable) malLookup(names, media.type) else null }
         val mangaUpdatesEarly = async { safely { withTimeoutOrNull(EXTRA_TIMEOUT_MS) { mangaUpdates?.score(names, media.type) } } }
         val kitsuEarly = async { safely { withTimeoutOrNull(KITSU_TIMEOUT_MS) { kitsu.score(names, media.type) } } }
-        val entry = safely { withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { aniList.lookup(names, media.type) } }
+        // AniList failing (asking to wait, unreachable) is not "AniList does not know it": that is not kept as a miss.
+        var aniListFailed = false
+        val entry = try {
+            withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { anilistId?.let { aniList.byId(it, media.type) } ?: aniList.lookup(names, media.type) }
+                .also { if (it == null && aniList.resting) aniListFailed = true }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            aniListFailed = true
+            null
+        }
         // With AniList's answer in hand, MAL gets only a short extra wait: its score is a bonus.
         val first = if (entry != null) withTimeoutOrNull(MAL_GRACE_MS) { malScore.await() }.also { if (it == null) malScore.cancel() } else malScore.await()
         // MAL may only know the title by the English or romaji name AniList gives.
@@ -141,11 +148,25 @@ class MetadataRepository(
             store?.put(key, result)
         } else {
             // Nothing anywhere: not asked again for a while, so the title page does not wait each visit.
-            misses[key] = System.currentTimeMillis() to result
+            if (!aniListFailed) misses[key] = System.currentTimeMillis() to result
         }
         mangaUpdatesEarly.cancel()
         kitsuEarly.cancel()
         result
+    }
+
+    /** What is already known for [media] (memory, disk, a recent miss), if it is for the right work. */
+    private suspend fun saved(key: String, media: MediaItem, anilistId: Int?): TitleMetadata? {
+        fun right(m: TitleMetadata) = anilistId == null || m.siteUrl.contains("/$anilistId/") || m.siteUrl.endsWith("/$anilistId")
+        cache[key]?.takeIf(::right)?.let { return it }
+        // Copies saved before covers were kept are asked again once (every AniList answer has a cover).
+        store?.get(key)?.takeUnless { it.siteUrl.isNotBlank() && it.cover.isBlank() }?.takeIf(::right)?.let { saved ->
+            // Guessed genres are worked out again: the rules may have changed since they were saved.
+            val fresh = if (saved.inferredGenres) withLocalGenres(saved, media) else saved
+            cache[key] = fresh
+            return fresh
+        }
+        return misses[key]?.takeIf { anilistId == null && System.currentTimeMillis() - it.first < MISS_TTL_MS }?.second
     }
 
     /** When MAL (or Jikan, without a Client ID) stopped answering: it is left alone for a while. */

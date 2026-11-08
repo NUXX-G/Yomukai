@@ -88,6 +88,9 @@ class AniListClient(private val network: HttpFetcher) {
     @Volatile
     private var quietUntil = 0L
 
+    /** AniList asked to wait (too many requests): background work should leave its turn to people. */
+    val resting: Boolean get() = System.currentTimeMillis() < quietUntil
+
     /** Random picks waiting to be shown, and how many pages each kind of list has. */
     private val pools = HashMap<String, ArrayDeque<RelatedTitle>>()
     private val shown = HashMap<String, MutableList<RelatedTitle>>()
@@ -187,6 +190,19 @@ class AniListClient(private val network: HttpFetcher) {
             .filterNot { TitleMatcher.shareName(it.names, entry.names) }
     }
 
+    /**
+     * The entry of AniList's work [id] (with its relations and recommendations), when the work is already known for
+     * sure: no guessing by name, so sequels whose names each site writes differently still get their universe.
+     */
+    suspend fun byId(id: Int, type: MediaType): AniListEntry? {
+        val key = "id|$id"
+        lock.withLock { cache[key] }?.let { return it }
+        val found = parseEntries(post(BY_ID, JsonObject().apply { add("i", JsonPrimitive(id)) })).firstOrNull() ?: return null
+        val entry = if (found.related.size >= ENOUGH) found else found.copy(related = (found.related + byTags(found, type)).distinctBy { it.title })
+        lock.withLock { cache[key] = entry }
+        return entry
+    }
+
     private suspend fun query(document: String, search: String, type: MediaType): String {
         val variables = JsonObject().apply {
             add("s", JsonPrimitive(search))
@@ -228,6 +244,10 @@ class AniListClient(private val network: HttpFetcher) {
             relations{edges{relationType node{$FIELDS}}}
             recommendations(sort:RATING_DESC,perPage:24){nodes{rating mediaRecommendation{$FIELDS}}}}}}
         """.trimIndent()
+        private val BY_ID = LOOKUP.replace(
+            "query(${'$'}s:String,${'$'}t:MediaType,${'$'}f:MediaFormat,${'$'}n:MediaFormat){Page(perPage:5){media(search:${'$'}s,type:${'$'}t,format:${'$'}f,format_not:${'$'}n,sort:SEARCH_MATCH){",
+            "query(${'$'}i:Int){Page(perPage:1){media(id:${'$'}i){"
+        )
         private const val RANDOM_PAGE_SIZE = 25
         private const val MAX_RANDOM_PAGE = 100
         private const val QUIET_MS = 60_000L

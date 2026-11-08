@@ -38,7 +38,7 @@
     <ID>CyclomaticComplexMethod:MangaReaderScreen.kt$@Composable internal fun ReaderPageImage( page: PageData, index: Int, fit: ReaderFit, fitScreen: Boolean, colorFilter: ColorFilter?, cropBorders: Boolean )</ID>
     <ID>CyclomaticComplexMethod:MangaReaderScreen.kt$@Composable private fun ContinuousPaged( pages: List&lt;ReaderItem.Page&gt;, rtl: Boolean, settings: MangaReaderSettings, startChapterId: String, startPage: Int, jumpTo: Int?, onJumpHandled: () -&gt; Unit, onLocation: (String, Int) -&gt; Unit, onNearEnd: () -&gt; Unit, onToggleOverlay: () -&gt; Unit, footer: @Composable () -&gt; Unit )</ID>
     <ID>CyclomaticComplexMethod:MediaProxy.kt$MediaProxy$suspend fun serveStream(call: ApplicationCall, user: User)</ID>
-    <ID>CyclomaticComplexMethod:MetadataRepository.kt$MetadataRepository$suspend fun load(media: MediaItem): TitleMetadata</ID>
+    <ID>CyclomaticComplexMethod:MetadataRepository.kt$MetadataRepository$suspend fun load(media: MediaItem, anilistId: Int? = null): TitleMetadata</ID>
     <ID>CyclomaticComplexMethod:NetworkHelper.kt$NetworkHelper$private suspend fun fetchString(url: String, headers: Map&lt;String, String&gt;, cloudflareFallback: Boolean): String</ID>
     <ID>CyclomaticComplexMethod:NovelReaderScreen.kt$@OptIn(FlowPreview::class, ExperimentalLayoutApi::class) @Composable fun NovelReaderScreen( onBack: () -&gt; Unit, viewModel: NovelReaderViewModel = viewModel(factory = AppViewModelProvider.Factory) )</ID>
     <ID>CyclomaticComplexMethod:ServerSync.kt$ServerSync$private suspend fun apply(answer: JsonObject)</ID>

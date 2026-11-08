@@ -189,7 +189,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         }
         groupPending()
         var confirmed = 0
-        while (confirmed < CONFIRMS_PER_TICK && confirmNext()) {
+        while (confirmed < CONFIRMS_PER_TICK && !s.aniList.resting && confirmNext()) {
             confirmed++
             delay(ANILIST_PAUSE_MS)
         }
@@ -351,6 +351,11 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
             "AND NOT (${likes.replace("{col}", "COALESCE(w.genres, '')")})"
     }
 
+    /** The AniList id of the work a source's page belongs to, when the index has confirmed it. */
+    suspend fun aniListOf(sourceId: String, mediaId: String): Int? = s.db.tx {
+        queryOne("SELECT work_key FROM index_items WHERE source_id = ? AND media_id = ?", sourceId, mediaId) { getString(1) }
+    }?.takeIf { it.startsWith("al:") }?.removePrefix("al:")?.toIntOrNull()
+
     /** The work behind an AniList id, if the index has it. */
     suspend fun byAniList(id: Int): String? = s.db.tx {
         // Only a work some source has (works known only from metadata or a library have nowhere to open).
@@ -392,8 +397,10 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         private const val MAX_FULL_PAGES = 300
         private const val LATEST_PAGES = 8
         private const val GROUP_BATCH = 500
-        private const val CONFIRMS_PER_TICK = 25
-        private const val ANILIST_PAUSE_MS = 1_500L
+
+        // AniList allows about 30 requests a minute: the index takes a third, people opening works the rest.
+        private const val CONFIRMS_PER_TICK = 10
+        private const val ANILIST_PAUSE_MS = 3_000L
         private const val LOOKUP_TIMEOUT_MS = 10_000L
         private const val MAX_LOOKUP_NAMES = 5
         private const val SEARCH_LIMIT = 40

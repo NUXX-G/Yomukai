@@ -655,7 +655,11 @@ private fun Route.catalogRoutes(s: Services) {
     kokoroRoutes(s)
     workIndexRoutes(s)
     get("/videos") { call.reply(s.catalog.videos(call.q("s"), call.q("c"))) }
-    get("/metadata") { call.reply(s.catalog.metadata(call.q("s"), call.q("id"))) }
+    get("/metadata") {
+        val sourceId = call.q("s")
+        val mediaId = call.q("id")
+        call.reply(s.catalog.metadata(sourceId, mediaId, s.workIndex.aniListOf(sourceId, mediaId)))
+    }
     get("/similar") { call.reply(s.catalog.similar(call.user, s.prefs(call.user), call.q("s"), call.q("id"))) }
     get("/alternatives") { call.reply(s.catalog.alternatives(call.user, s.prefs(call.user), call.q("s"), call.q("id"))) }
     post("/locate") {
