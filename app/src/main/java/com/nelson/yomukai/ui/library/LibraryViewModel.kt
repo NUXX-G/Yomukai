@@ -8,10 +8,12 @@ import com.nelson.yomukai.data.local.CategoryEntity
 import com.nelson.yomukai.data.local.DownloadEntity
 import com.nelson.yomukai.data.local.HistoryWithMedia
 import com.nelson.yomukai.data.local.MediaEntity
+import com.nelson.yomukai.data.repository.toDomain
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -43,16 +45,25 @@ class LibraryViewModel(private val container: AppContainer) : ViewModel() {
         repo.observeHistory(),
         downloads.observeAll()
     ) { library, categories, links, history, dl ->
+        // One entry per work: the same title kept from two sources (or read in both) shows once.
+        val keepLibrary = com.nelson.yomukai.data.work.WorkGrouper.firstOfEachWork(library.map { it.toDomain() })
+        val keepHistory = com.nelson.yomukai.data.work.WorkGrouper.firstOfEachWork(history.map { it.asItem() })
         LibraryUiState(
-            library = library,
+            library = library.filter { com.nelson.yomukai.data.work.WorkKey.itemKey(it.sourceId, it.mediaId) in keepLibrary },
             categories = categories,
             assignments = links.groupBy({ LibraryUiState.key(it.sourceId, it.mediaId) }, { it.categoryId })
                 .mapValues { it.value.toSet() },
-            history = history,
+            history = history.filter { com.nelson.yomukai.data.work.WorkKey.itemKey(it.sourceId, it.mediaId) in keepHistory },
             downloads = dl,
             isLoaded = true
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryUiState())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryUiState())
+
+    private fun HistoryWithMedia.asItem() = com.nelson.yomukai.domain.model.MediaItem(
+        id = mediaId, title = title, coverUrl = coverUrl,
+        type = runCatching { com.nelson.yomukai.domain.model.MediaType.valueOf(type) }.getOrDefault(com.nelson.yomukai.domain.model.MediaType.MANGA),
+        status = "", description = "", sourceId = sourceId
+    )
 
     fun createCategory(name: String) {
         if (name.isBlank()) return

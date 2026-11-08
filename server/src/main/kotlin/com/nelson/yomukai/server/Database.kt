@@ -38,7 +38,9 @@ data class LibraryRow(
     val status: String, val author: String, val genres: String, val addedAt: Long, val readingStatus: String,
     /** Names of the user's categories this title belongs to. */
     val categories: List<String>? = emptyList(),
-    val updatedAt: Long = 0, val deleted: Boolean = false
+    val updatedAt: Long = 0, val deleted: Boolean = false,
+    /** Set only in what the library page reads: the same work is already listed from another source. */
+    val sameWorkShown: Boolean = false
 ) {
     fun normalized() = copy(
         sourceId = clip(sourceId, ID_MAX), mediaId = clip(mediaId, ID_MAX), title = clip(title, TEXT_MAX),

@@ -54,10 +54,12 @@
   const keyOf = (r) => r.sourceId + '|' + r.mediaId;
   const unread = (r) => updates.byKey[keyOf(r)]?.unread || 0;
   const typeFilter = $derived(TYPE_FILTERS.find((f) => f.key === typeKey));
-  const counts = $derived(Object.fromEntries(READING_STATUSES.map(([k]) => [k, library.items.filter((r) => statusOf(r) === k).length])));
+  // One card per work: the server marks the same work saved from another source (it stays saved, just not shown twice).
+  const works = $derived(library.items.filter((r) => !r.sameWorkShown));
+  const counts = $derived(Object.fromEntries(READING_STATUSES.map(([k]) => [k, works.filter((r) => statusOf(r) === k).length])));
 
   const items = $derived.by(() => {
-    const list = library.items
+    const list = works
       .filter((r) => status === 'ALL' || statusOf(r) === status)
       .filter((r) => !category || (r.categories || []).includes(category))
       .filter((r) => !typeFilter.types || typeFilter.types.includes(r.type))
@@ -70,7 +72,7 @@
     return list;
   });
 
-  const withNews = $derived(library.items.filter((r) => unread(r) > 0)
+  const withNews = $derived(works.filter((r) => unread(r) > 0)
     .sort((a, b) => (updates.byKey[keyOf(b)]?.lastUpdate || 0) - (updates.byKey[keyOf(a)]?.lastUpdate || 0)));
 
   onMount(() => {

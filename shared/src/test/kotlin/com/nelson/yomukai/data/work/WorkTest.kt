@@ -44,6 +44,19 @@ class WorkTest {
     }
 
     @Test
+    fun aListKeepsOneEntryPerWorkTheFirstOne() {
+        val latest = item("olympus", "Solo Leveling", author = "Chugong", cover = "")
+        val list = listOf(
+            latest,
+            item("flame", "The Greatest Estate Developer"),
+            item("asura", "Solo Leveling", author = "Chugong"),
+            item("skynovels", "Solo Leveling", type = MediaType.NOVEL, author = "Chugong")
+        )
+        val keep = WorkGrouper.firstOfEachWork(list)
+        assertEquals(list.filter { WorkKey.itemKey(it) in keep }.map { it.sourceId }, listOf("olympus", "flame", "skynovels"))
+    }
+
+    @Test
     fun doubtfulMatchesAreNotMergedButFlagged() {
         val cards = WorkGrouper.group(
             listOf(

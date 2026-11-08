@@ -695,7 +695,15 @@ private fun typeOf(name: String) = runCatching { MediaType.valueOf(name) }.getOr
 private fun Route.userRoutes(s: Services) {
     // Covers are swapped for AniList's large one when the title is joined to a work (sources often give thumbnails).
     get("/library") {
-        call.respond(s.db.library(call.user.id).map { r -> s.works.betterCover(r.sourceId, r.mediaId)?.let { r.copy(cover = s.proxy.cover(it, emptyMap())) } ?: r })
+        val rows = s.db.library(call.user.id)
+        // One card per work on the page; the rows stay (the web checks "is it saved?" against every source).
+        val shown = com.nelson.yomukai.data.work.WorkGrouper.firstOfEachWork(rows.map { it.asItem() })
+        call.respond(
+            rows.map { r ->
+                val row = s.works.betterCover(r.sourceId, r.mediaId)?.let { r.copy(cover = s.proxy.cover(it, emptyMap())) } ?: r
+                if (com.nelson.yomukai.data.work.WorkKey.itemKey(r.sourceId, r.mediaId) in shown) row else row.copy(sameWorkShown = true)
+            }
+        )
     }
     put("/library") {
         val text = call.receiveText()
@@ -781,7 +789,12 @@ private fun Route.userRoutes(s: Services) {
         history?.let { s.db.putHistory(call.user.id, it) }
         call.respond(mapOf("ok" to true))
     }
-    get("/history") { call.respond(s.db.history(call.user.id)) }
+    get("/history") {
+        // One entry per work, the latest read: the same title read in two sources is one line.
+        val rows = s.db.history(call.user.id)
+        val shown = com.nelson.yomukai.data.work.WorkGrouper.firstOfEachWork(rows.map { it.asItem() })
+        call.respond(rows.filter { com.nelson.yomukai.data.work.WorkKey.itemKey(it.sourceId, it.mediaId) in shown })
+    }
     delete("/history") {
         s.db.removeHistory(call.user.id, call.q("s"), call.q("id"))
         call.respond(mapOf("ok" to true))
@@ -889,3 +902,11 @@ private const val MAX_SYNC_ROWS = 20_000
 private const val MIN_PASSWORD = 8
 private const val MAX_SETTINGS_CHARS = 256 * 1024
 private const val MAX_IMPORT_CHARS = 32 * 1024 * 1024
+
+private fun itemOf(sourceId: String, mediaId: String, title: String, type: String) = com.nelson.yomukai.domain.model.MediaItem(
+    id = mediaId, title = title, coverUrl = "", sourceId = sourceId, status = "", description = "",
+    type = runCatching { com.nelson.yomukai.domain.model.MediaType.valueOf(type) }.getOrDefault(com.nelson.yomukai.domain.model.MediaType.MANGA)
+)
+
+private fun LibraryRow.asItem() = itemOf(sourceId, mediaId, title, type)
+private fun HistoryRow.asItem() = itemOf(sourceId, mediaId, title, type)

@@ -77,6 +77,16 @@ object WorkGrouper {
         }
     }
 
+    /**
+     * Keys ("source|id") of the entries to show when a list must have one entry per work (library, history): for each
+     * work, the one that comes first in [items] (so the most recent, when the list is by recency). Doubtful matches
+     * stay as separate entries, and a novel never hides a manhwa of the same name.
+     */
+    fun firstOfEachWork(items: List<MediaItem>): Set<String> {
+        val order = items.withIndex().associate { (i, it) -> WorkKey.itemKey(it) to i }
+        return group(items).mapTo(LinkedHashSet()) { card -> WorkKey.itemKey(card.items.minBy { order[WorkKey.itemKey(it)] ?: Int.MAX_VALUE }) }
+    }
+
     private fun names(item: MediaItem) =
         (listOf(item.title) + item.altTitles).map { WorkKey.family(item.type) + "|" + SmartSearch.duplicateKey(it) }.filter { it.length > 10 }
 
