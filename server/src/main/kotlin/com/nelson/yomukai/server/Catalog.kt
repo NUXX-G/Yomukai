@@ -265,21 +265,22 @@ class Catalog(
      * source answers, so the fast ones show at once.
      */
 
-    /** When each source last failed a search (see [search]). */
-    private val searchFailedAt = ConcurrentHashMap<String, Long>()
+    /** Per source, the searches it failed recently (normalised query → when). See [search]. */
+    private val searchFailures = ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>()
 
     suspend fun search(
         query: String, types: Set<MediaType>?, language: String?, prefs: UserPrefs,
         onUpdate: suspend (SearchUpdateDto) -> Unit
     ) = coroutineScope {
         val now = System.currentTimeMillis()
-        val targets = enabled(prefs)
+        val wanted = enabled(prefs)
             .filter { language == null || it.language == "MULTI" || it.language == language }
             .filter { s -> types == null || s.supportedTypes.any { it in types } }
-            // A site that just failed (down, blocked, too slow) is skipped for a while instead of making everyone wait.
-            .filter { (searchFailedAt[it.id] ?: 0L) < now - SEARCH_SKIP_MS }
+        // A site that is down (it failed several different searches in the last minutes, so not because of one odd
+        // query) is skipped for a while instead of making everyone wait; it is listed as not answering.
+        val (targets, skipped) = wanted.partition { s -> searchFailures[s.id].orEmpty().count { it.value > now - SEARCH_SKIP_MS } < SEARCH_SKIP_AFTER }
         val found = ConcurrentHashMap<String, List<MediaItem>>()
-        val errors = ConcurrentHashMap<String, String>()
+        val errors = ConcurrentHashMap<String, String>().apply { skipped.forEach { put(it.id, "${it.name} no responde ahora mismo") } }
         val trusted = ConcurrentHashMap.newKeySet<String>()
         val pending = ConcurrentHashMap.newKeySet<String>().apply { addAll(targets.map { it.name }) }
         val lock = Mutex()
@@ -288,6 +289,8 @@ class Catalog(
                 .filter { name -> name.none { it.code > 0x24F } && !name.equals(query, ignoreCase = true) }
         }
         val filter = filterFor(prefs)
+        // Nothing to ask (no source for that kind, or all down): the search ends at once instead of waiting forever.
+        if (targets.isEmpty()) onUpdate(SearchUpdateDto(emptyList(), emptyList(), errors.toMap(), true))
         targets.map { source ->
             launch {
                 val k = key("search", source.id, SmartSearch.normalize(query))
@@ -298,8 +301,13 @@ class Catalog(
                     }
                 }?.also { if (it.error == null) searches.put(k, it) }
                 if (result == null) errors[source.id] = "${source.name} tardó demasiado"
-                if (result == null || (result.error != null && result.items.isEmpty())) searchFailedAt[source.id] = System.currentTimeMillis()
-                else searchFailedAt.remove(source.id)
+                val failed = searchFailures.getOrPut(source.id) { ConcurrentHashMap() }
+                if (result == null || (result.error != null && result.items.isEmpty())) {
+                    failed[SmartSearch.normalize(query).take(MAX_FAILED_QUERY)] = System.currentTimeMillis()
+                    if (failed.size > SEARCH_SKIP_AFTER * 4) failed.entries.minByOrNull { it.value }?.let { failed.remove(it.key) }
+                } else {
+                    failed.clear()
+                }
                 result?.let { r ->
                     remember(r.items)
                     trusted += r.trusted
@@ -526,6 +534,8 @@ class Catalog(
         /** A source slower than this is left out of the search (marked as such): the rest are not held up. */
         const val SOURCE_TIMEOUT_MS = 10_000L
         private const val SEARCH_SKIP_MS = 10 * 60_000L
+        private const val SEARCH_SKIP_AFTER = 3
+        private const val MAX_FAILED_QUERY = 100
         const val ALTERNATIVES_TIMEOUT_MS = 18_000L
         const val MAX_GROUPS = 80
 
