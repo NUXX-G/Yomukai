@@ -25,7 +25,14 @@ val fetchSherpa by tasks.registering {
         if (target.isFile && sha(target) == expected) return@doLast
         target.parentFile.mkdirs()
         val part = File(target.path + ".part")
-        URI(url).toURL().openStream().use { input -> part.outputStream().use { input.copyTo(it) } }
+        // GitHub's downloads sometimes answer 5xx for a moment: a few spaced retries before giving up.
+        var attempt = 0
+        while (true) {
+            val ok = runCatching { URI(url).toURL().openStream().use { input -> part.outputStream().use { input.copyTo(it) } } }
+            if (ok.isSuccess) break
+            if (++attempt >= 3) throw ok.exceptionOrNull()!!
+            Thread.sleep(attempt * 15_000L)
+        }
         check(sha(part) == expected) { "sherpa-onnx: SHA-256 incorrecto" }
         part.renameTo(target)
     }
