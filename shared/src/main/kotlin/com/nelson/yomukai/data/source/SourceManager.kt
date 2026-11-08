@@ -37,6 +37,7 @@ class SourceManager(
         FlameComicsSource(network),
         LectorTmoSource(network),
         ZonaTmoSource(network),
+        com.nelson.yomukai.data.source.manga.ZonaTmoToSource(network),
         NovelCoolSource(network, "es"),
         NovelCoolSource(network, "en"),
         MegaBananaSource(network),
