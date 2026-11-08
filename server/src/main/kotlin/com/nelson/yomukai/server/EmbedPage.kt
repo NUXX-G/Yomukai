@@ -19,10 +19,16 @@ fun Route.embedPage(proxy: MediaProxy) {
         if (!url.startsWith("https://") || !proxy.embedSigned(url, key)) {
             return@get call.respondText("Enlace no válido", status = HttpStatusCode.Forbidden)
         }
-        val back = call.request.queryParameters["back"]?.takeIf { it.startsWith("/") && !it.startsWith("//") && !it.contains('\\') } ?: "/"
+        val back = safeBack(call.request.queryParameters["back"])
         call.respondText(embedHtml(url, back), ContentType.Text.Html)
     }
 }
+
+/** A path of this site to go back to; anything else (other sites, "//x", tabs or spaces browsers would drop) is "/". */
+fun safeBack(raw: String?): String = raw?.takeIf { it.length <= MAX_BACK && BACK_PATH.matches(it) && !it.startsWith("//") } ?: "/"
+
+private val BACK_PATH = Regex("""^/[A-Za-z0-9/_\-.%?=&]*$""")
+private const val MAX_BACK = 500
 
 private fun attr(s: String) = s.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;").replace(">", "&gt;")
 

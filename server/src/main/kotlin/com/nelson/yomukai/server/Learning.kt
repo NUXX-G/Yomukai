@@ -328,13 +328,21 @@ class WorkerLanguage(private val s: Services) {
     }
 
     /** Translations of [texts] (in order), waiting up to [waitMs] for the worker; null when it cannot. */
+
+    /** Translations of [texts] in the same places (blank texts stay blank); [TranslationPending] while the worker works. */
     suspend fun translate(user: User, texts: List<String>, from: String, to: String, waitMs: Long = 20_000): List<String>? {
         require(!user.isGuest) { "Los invitados no pueden traducir" }
         if (!s.features.isOn("worker_jobs") || JobTypes.TRANSLATE !in s.workers.availability().engines) return null
-        val clean = texts.map { it.replace(Regex("\\s+"), " ").trim().take(2_000) }.filter { it.isNotEmpty() }.take(200)
-        if (clean.isEmpty()) return emptyList()
+        val all = texts.take(MAX_TEXTS).map { it.replace(Regex("\\s+"), " ").trim().take(2_000) }
+        val clean = all.filter { it.isNotEmpty() }
+        if (clean.isEmpty()) return all
+        // The worker translates the non-blank ones; each answer goes back to the place its text had.
+        fun placed(done: List<String>): List<String> {
+            var next = 0
+            return all.map { if (it.isEmpty()) "" else done.getOrNull(next++).orEmpty() }
+        }
         val key = "tr:" + hash("$from|$to|" + clean.joinToString("\u0000"))
-        s.jobs.results.get(key)?.let { (file, _) -> return parse(file.readText()) }
+        s.jobs.results.get(key)?.let { (file, _) -> return placed(parse(file.readText())) }
         val payload = JsonObject().apply {
             add("texts", JsonArray().also { a -> clean.forEach(a::add) }); addProperty("from", from.take(5)); addProperty("to", to.take(5))
         }
@@ -346,12 +354,17 @@ class WorkerLanguage(private val s: Services) {
                 kotlinx.coroutines.delay(300)
             }
         }
-        return s.jobs.results.get(key)?.first?.readText()?.let(::parse)
+        return s.jobs.results.get(key)?.first?.readText()?.let { placed(parse(it)) } ?: throw TranslationPending()
     }
 
     private fun parse(json: String): List<String> =
         runCatching { JsonParser.parseString(json).asJsonObject.getAsJsonArray("translations").map { it.asString } }.getOrDefault(emptyList())
 }
+
+/** The translation was queued but is not ready yet (the worker is slow); it keeps going and is asked for again. */
+class TranslationPending : RuntimeException("Traduciendo en el servidor de casa")
+
+private const val MAX_TEXTS = 200
 
 fun Route.workerLanguageRoutes(s: Services) {
     get("/subtitles") {
@@ -366,8 +379,12 @@ fun Route.workerLanguageRoutes(s: Services) {
     post("/translate") {
         val b = call.jsonBody(64_000)
         val texts = b.getAsJsonArray("texts")?.mapNotNull { e -> e.takeIf { it.isJsonPrimitive }?.asString }.orEmpty()
-        val result = s.language.translate(call.user, texts, b.text("from", 5).ifBlank { "auto" }, b.text("to", 5).ifBlank { "es" })
-            ?: return@post call.respond(HttpStatusCode.ServiceUnavailable, mapOf("error" to "La traducción necesita el servidor de casa encendido"))
+        val result = try {
+            s.language.translate(call.user, texts, b.text("from", 5).ifBlank { "auto" }, b.text("to", 5).ifBlank { "es" })
+        } catch (_: TranslationPending) {
+            // The home worker is on it (a slow computer): the reader asks again in a moment.
+            return@post call.respond(HttpStatusCode.Accepted, mapOf("pending" to true))
+        } ?: return@post call.respond(HttpStatusCode.ServiceUnavailable, mapOf("error" to "La traducción necesita el servidor de casa encendido"))
         call.respond(mapOf("translations" to result))
     }
 }

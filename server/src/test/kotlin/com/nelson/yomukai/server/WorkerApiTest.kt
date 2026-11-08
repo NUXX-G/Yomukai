@@ -169,6 +169,11 @@ class WorkerApiTest {
         }
         // The same texts again come from the cache, without the worker.
         assertEquals("""{"translations":["hola","mundo"]}""", admin.post("/api/translate") { setBody("""{"texts":["hello","world"],"from":"en","to":"es"}""") }.bodyAsText())
+        // A blank bubble in between keeps its place: every translation stays on its own bubble.
+        assertEquals(
+            """{"translations":["hola","","mundo"]}""",
+            admin.post("/api/translate") { setBody("""{"texts":["hello","  ","world"],"from":"en","to":"es"}""") }.bodyAsText()
+        )
     }
 
     @Test

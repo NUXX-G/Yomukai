@@ -124,25 +124,47 @@
     if (!data || data.tr) return;
     const bubbles = data.boxes.filter((b) => b.kind !== 'SFX');
     if (!bubbles.length) { data.tr = []; return; }
+    const key = pageKey(chapter.url, i);
+    if (translatingNow.has(key)) return;
+    translatingNow.add(key);
     try {
       const r = await api.translate(bubbles.map((b) => b.text), textLang, settings.learning?.target || 'es');
-      ocr[pageKey(chapter.url, i)] = { ...data, tr: r.translations };
+      // Still being translated at home (a slow computer): asked again by the retry below.
+      if (r?.pending) return;
+      ocr[key] = { ...data, tr: r.translations };
     } catch (e) {
-      translating = false;
-      notify(e.status === 503 ? t('Traducir necesita el servidor de casa encendido') : e.message);
+      if (e.status === 503) {
+        translating = false;
+        notify(t('Traducir necesita el servidor de casa encendido'));
+      } else if (!translateWarned) {
+        // One page failing must not switch translation off for the rest: it is tried again.
+        translateWarned = true;
+        notify(e.message);
+      }
+    } finally {
+      translatingNow.delete(key);
     }
   }
+  const translatingNow = new Set();
+  let translateWarned = false;
 
   // While translating, the pages around the one being read are done (and again as the reader moves on).
   $effect(() => {
     if (!translating || !current) return;
     for (let i = Math.max(0, page - 1); i <= page + 4; i++) translatePage(current, i);
   });
-  // Pages nobody had read yet are asked again every 20 s while translating (the worker may have finished).
+  // While translating, pages still without text or translation are tried again every few seconds, even if the reader
+  // stays on the same page (the worker may have finished reading or translating them).
   $effect(() => {
     if (!translating) return;
-    const t = setInterval(() => { for (const k of Object.keys(ocr)) if (ocr[k] === null) delete ocr[k]; }, 20_000);
-    return () => clearInterval(t);
+    let ticks = 0;
+    const timer = setInterval(() => {
+      ticks++;
+      if (ticks % 4 === 0) for (const k of Object.keys(ocr)) if (ocr[k] === null) delete ocr[k];
+      if (!current) return;
+      for (let i = Math.max(0, page - 1); i <= page + 4; i++) translatePage(current, i);
+    }, 5_000);
+    return () => clearInterval(timer);
   });
 
   /** Reads the bubbles aloud in reading order from the current page, highlighting and centring the one that sounds. */

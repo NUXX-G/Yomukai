@@ -1,5 +1,6 @@
 package com.nelson.yomukai.server
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -18,5 +19,9 @@ class EmbedPageTest {
         assertFalse(html.contains("<script>"))
         assertTrue(html.contains("sandbox=\"allow-scripts allow-same-origin allow-presentation\""))
         assertFalse("never pop-ups nor moving the tab", html.contains("allow-popups") || html.contains("allow-top-navigation"))
+        // Going back only ever stays on this site.
+        assertEquals("/obra/a/b?x=1", safeBack("/obra/a/b?x=1"))
+        listOf("//evil.example", "/\t/evil.example", "/ /evil.example", "https://evil.example", "/\\evil", "javascript:alert(1)", null)
+            .forEach { assertEquals("/", safeBack(it)) }
     }
 }
