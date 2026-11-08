@@ -51,6 +51,8 @@ data class MangaReaderSettings(
     val speakBubbles: Boolean = false,
     /** Autoscroll slows down over text and speeds through plain panels and gutters. */
     val smartAutoScroll: Boolean = true,
+    /** The reader's speed over text for smart autoscroll, learnt from how they correct it. */
+    val readingWpm: Float = com.nelson.yomukai.data.ocr.ScrollPlanner.DEFAULT_WPM.toFloat(),
     val orientation: OrientationLock = OrientationLock.AUTO,
     /** Auto-scroll speed, 1..10 (screen heights per minute x ~0.5). */
     val autoScrollSpeed: Float = 3f
@@ -342,6 +344,7 @@ class AppPreferences(context: Context) {
             .putBoolean("manga_translate", value.translateBubbles)
             .putBoolean("manga_speak", value.speakBubbles)
             .putBoolean("manga_smart_scroll", value.smartAutoScroll)
+            .putFloat("manga_wpm", value.readingWpm)
             .putString("manga_orientation", value.orientation.name)
             .putFloat("manga_autoscroll", value.autoScrollSpeed)
             .apply()
@@ -413,6 +416,7 @@ class AppPreferences(context: Context) {
         translateBubbles = prefs.getBoolean("manga_translate", false),
         speakBubbles = prefs.getBoolean("manga_speak", false),
         smartAutoScroll = prefs.getBoolean("manga_smart_scroll", true),
+        readingWpm = prefs.getFloat("manga_wpm", com.nelson.yomukai.data.ocr.ScrollPlanner.DEFAULT_WPM.toFloat()),
         orientation = enumOr(prefs.getString("manga_orientation", null), OrientationLock.AUTO),
         autoScrollSpeed = prefs.getFloat("manga_autoscroll", 3f)
     )

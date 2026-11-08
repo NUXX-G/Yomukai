@@ -7,6 +7,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -520,27 +521,7 @@ private fun ContinuousWebtoon(
                     ?.let { currentOnLocation(it.chapterId, it.index) }
             }
     }
-    // Auto-scroll: the user's pixel rate, and with smart autoscroll slower over text and quicker over plain panels and
-    // gutters (eased so it never jerks). User dragging takes over and it resumes afterwards.
-    val profiles = com.nelson.yomukai.ui.LocalAppContainer.current.scrollProfiles
-    LaunchedEffect(autoScroll, settings.autoScrollSpeed, settings.smartAutoScroll) {
-        if (!autoScroll) return@LaunchedEffect
-        var last = withFrameNanos { it }
-        var factor = 1.0
-        while (true) {
-            val now = withFrameNanos { it }
-            val dt = (now - last) / 1_000_000_000f
-            last = now
-            if (settings.smartAutoScroll) {
-                val info = listState.layoutInfo
-                val center = (info.viewportStartOffset + info.viewportEndOffset) / 2
-                val item = info.visibleItemsInfo.firstOrNull { it.offset <= center && it.offset + it.size > center }
-                val target = item?.let { profiles.factorAt(it.key, (center - it.offset).toFloat() / it.size.coerceAtLeast(1)) } ?: 1.0
-                factor += (target - factor) * minOf(1.0, dt * SMART_EASE)
-            }
-            listState.scrollBy((settings.autoScrollSpeed * AUTO_SCROLL_PX_PER_SECOND * dt * factor).toFloat())
-        }
-    }
+    AutoScroller(listState, autoScroll, settings)
 
     LazyColumn(
         state = listState,
@@ -559,6 +540,52 @@ private fun ContinuousWebtoon(
             }
         }
         item(key = "footer") { footer() }
+    }
+}
+
+/**
+ * Auto-scroll: the user's pixel rate, and with smart autoscroll slower over text and quicker over plain panels and
+ * gutters (eased, never jerky). The reader's speed over text is learnt from how they correct it.
+ */
+@Composable
+private fun AutoScroller(listState: LazyListState, autoScroll: Boolean, settings: MangaReaderSettings) {
+    val container = com.nelson.yomukai.ui.LocalAppContainer.current
+    val profiles = container.scrollProfiles
+    val prefs = container.preferences
+    // Auto-scroll: the user's pixel rate, and with smart autoscroll slower over text and quicker over plain panels and
+    // gutters (eased so it never jerks). User dragging takes over and it resumes afterwards.
+    // The reader's own speed is learnt: pulling back while it scrolls means it went too fast over the text,
+    // pushing on means too slow. A moving average, so one distraction does not change much.
+    val dragged by listState.interactionSource.collectIsDraggedAsState()
+    var dragFrom by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    LaunchedEffect(dragged) {
+        if (!autoScroll || !settings.smartAutoScroll) return@LaunchedEffect
+        if (dragged) { dragFrom = listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset; return@LaunchedEffect }
+        val (index, offset) = dragFrom ?: return@LaunchedEffect
+        dragFrom = null
+        val back = listState.firstVisibleItemIndex < index || (listState.firstVisibleItemIndex == index && listState.firstVisibleItemScrollOffset < offset)
+        prefs.updateManga {
+            val wpm = com.nelson.yomukai.data.ocr.ScrollPlanner.learn(it.readingWpm.toDouble(), LEARN_EXPECTED_MS, if (back) LEARN_SLOWER_MS else LEARN_FASTER_MS)
+            it.copy(readingWpm = wpm.toFloat())
+        }
+    }
+    LaunchedEffect(autoScroll, settings.autoScrollSpeed, settings.smartAutoScroll, settings.readingWpm) {
+        if (!autoScroll) return@LaunchedEffect
+        var last = withFrameNanos { it }
+        var factor = 1.0
+        while (true) {
+            val now = withFrameNanos { it }
+            val dt = (now - last) / 1_000_000_000f
+            last = now
+            if (settings.smartAutoScroll) {
+                val info = listState.layoutInfo
+                val center = (info.viewportStartOffset + info.viewportEndOffset) / 2
+                val item = info.visibleItemsInfo.firstOrNull { it.offset <= center && it.offset + it.size > center }
+                val target = item?.let { profiles.factorAt(it.key, (center - it.offset).toFloat() / it.size.coerceAtLeast(1), settings.readingWpm.toDouble()) } ?: 1.0
+                factor += (target - factor) * minOf(1.0, dt * SMART_EASE)
+            }
+            listState.scrollBy((settings.autoScrollSpeed * AUTO_SCROLL_PX_PER_SECOND * dt * factor).toFloat())
+        }
     }
 }
 
@@ -938,3 +965,6 @@ internal fun SettingSwitch(label: String, checked: Boolean, onChange: (Boolean) 
 private const val PREFETCH_AHEAD = 8
 private const val AUTO_SCROLL_PX_PER_SECOND = 40f
 private const val SMART_EASE = 3.0
+private const val LEARN_EXPECTED_MS = 1_000L
+private const val LEARN_SLOWER_MS = 1_300L
+private const val LEARN_FASTER_MS = 770L

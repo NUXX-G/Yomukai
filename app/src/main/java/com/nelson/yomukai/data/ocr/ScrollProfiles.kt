@@ -20,12 +20,15 @@ import java.util.concurrent.ConcurrentHashMap
  * 48-pixel-wide copy of the page so a long manhwa strip costs almost no memory.
  */
 class ScrollProfiles(private val context: Context, private val ocr: DeviceOcr) {
-    private val profiles = ConcurrentHashMap<String, DoubleArray>()
+    private val profiles = ConcurrentHashMap<String, List<ScrollPlanner.Strip>>()
 
-    /** Factor at [fraction] (0..1) of the page shown by list item [itemKey]; 1 when it has not been worked out. */
-    fun factorAt(itemKey: Any?, fraction: Float): Double {
+    /**
+     * Factor at [fraction] (0..1) of the page shown by list item [itemKey], for a reader at [wpm] words per minute;
+     * 1 when it has not been worked out.
+     */
+    fun factorAt(itemKey: Any?, fraction: Float, wpm: Double = ScrollPlanner.DEFAULT_WPM): Double {
         val p = profiles[itemKey as? String ?: return 1.0] ?: return 1.0
-        return p[(fraction * p.size).toInt().coerceIn(0, p.size - 1)]
+        return ScrollPlanner.factor(p[(fraction * p.size).toInt().coerceIn(0, p.size - 1)], wpm)
     }
 
     suspend fun compute(itemKey: String, model: Any?, headers: Map<String, String>, ocrKey: String) {
@@ -40,20 +43,20 @@ class ScrollProfiles(private val context: Context, private val ocr: DeviceOcr) {
         if (profiles.size > MAX_PAGES) profiles.keys.take(profiles.size - MAX_PAGES).forEach(profiles::remove)
     }
 
-    private fun profile(bitmap: Bitmap, boxes: List<TextBox>?): DoubleArray {
+    private fun profile(bitmap: Bitmap, boxes: List<TextBox>?): List<ScrollPlanner.Strip> {
         val w = bitmap.width
         val h = bitmap.height
         // Bands about as tall as they are wide on screen; at least one.
         val count = (h / w).coerceIn(1, MAX_BANDS)
         val words = boxes?.let { ScrollPlanner.wordsPerStrip(it, count) }
-        return DoubleArray(count) { i ->
+        return List(count) { i ->
             val top = h * i / count
             val bottom = h * (i + 1) / count
             val pixels = IntArray(w * (bottom - top))
             bitmap.getPixels(pixels, 0, w, 0, top, w, bottom - top)
             val grey = IntArray(pixels.size) { p -> val c = pixels[p]; ((c shr 16 and 0xff) * 3 + (c shr 8 and 0xff) * 6 + (c and 0xff)) / 10 }
             val (empty, detail) = ScrollPlanner.analyze(grey, w)
-            ScrollPlanner.factor(ScrollPlanner.Strip(bottom - top, words?.get(i) ?: 0, detail, empty && (words?.get(i) ?: 0) == 0))
+            ScrollPlanner.Strip(bottom - top, words?.get(i) ?: 0, detail, empty && (words?.get(i) ?: 0) == 0)
         }
     }
 
