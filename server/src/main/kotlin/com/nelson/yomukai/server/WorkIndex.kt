@@ -6,6 +6,10 @@ import com.nelson.yomukai.data.source.CatalogueSource
 import com.nelson.yomukai.data.work.WorkKey
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
+import io.ktor.server.response.respond
+import io.ktor.server.routing.Route
+import io.ktor.server.routing.get
+import io.ktor.server.routing.post
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
@@ -28,7 +32,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
 
     data class Card(
         val key: String, val title: String, val cover: String, val type: String, val langs: List<String>,
-        val sources: Int, val updatedAt: Long, val status: String
+        val sources: Int, val updatedAt: Long, val status: String, val coverSource: String = ""
     )
 
     data class SourceState(val sourceId: String, val items: Int, val fullDone: Boolean, val nextPage: Int, val latestAt: Long, val error: String?)
@@ -65,13 +69,16 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         }
         for (p in pending) {
             val type = runCatching { MediaType.valueOf(p.type) }.getOrDefault(MediaType.MANGA)
-            val names = (listOf(p.title) + runCatching { gson.fromJson<List<String>>(p.altTitles, listType) }.getOrDefault(emptyList()))
-                .filter { it.isNotBlank() }.distinct()
-            val nameKeys = names.map { WorkKey.of(type, it) }.distinct()
+            // What a site says are other names is only a hint (scraped data can lie): they may lead a title to a work
+            // that already exists, but only its own title claims a name. AniList confirms afterwards.
+            val primary = WorkKey.of(type, p.title)
+            val alternatives = runCatching { gson.fromJson<List<String>>(p.altTitles, listType) }.getOrDefault(emptyList())
+                .filter { it.isNotBlank() && it.length <= MAX_ALT_LENGTH }.take(MAX_ALT_NAMES).map { WorkKey.of(type, it) }
             s.db.tx {
-                val existing = nameKeys.firstNotNullOfOrNull { k -> queryOne("SELECT work_key FROM index_names WHERE name_key = ?", k) { getString(1) } }
-                val key = existing ?: nameKeys.first()
-                nameKeys.forEach { k -> update("INSERT OR IGNORE INTO index_names(name_key, work_key) VALUES(?,?)", k, key) }
+                val existing = (listOf(primary) + alternatives).distinct()
+                    .firstNotNullOfOrNull { k -> queryOne("SELECT work_key FROM index_names WHERE name_key = ?", k) { getString(1) } }
+                val key = existing ?: primary
+                update("INSERT OR IGNORE INTO index_names(name_key, work_key) VALUES(?,?)", primary, key)
                 update("UPDATE index_items SET work_key = ? WHERE source_id = ? AND media_id = ?", key, p.sourceId, p.mediaId)
                 update(
                     "INSERT OR IGNORE INTO works(key, type, title, cover, updated_at) VALUES(?,?,?,?,?)",
@@ -244,6 +251,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
             """SELECT w.key, w.title, w.cover, w.type, w.score, w.status, MAX(i.updated_at) AS updated, COUNT(DISTINCT i.source_id) AS sources,
                  (SELECT i2.title FROM index_items i2 WHERE i2.work_key = w.key AND i2.lang = ? LIMIT 1) AS local_title,
                  (SELECT i3.cover FROM index_items i3 WHERE i3.work_key = w.key AND i3.cover <> '' LIMIT 1) AS item_cover,
+                 (SELECT i5.source_id FROM index_items i5 WHERE i5.work_key = w.key AND i5.cover <> '' LIMIT 1) AS cover_source,
                  (SELECT GROUP_CONCAT(DISTINCT i4.lang) FROM index_items i4 WHERE i4.work_key = w.key) AS langs
                FROM works w JOIN index_items i ON i.work_key = w.key AND i.lang = ?
                ${if (typeFilter != null) "WHERE i.type IN ($typeFilter)" else ""}
@@ -257,7 +265,8 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         title = getString("local_title")?.takeIf { it.isNotBlank() } ?: getString("title"),
         cover = getString("cover")?.takeIf { it.isNotBlank() } ?: getString("item_cover").orEmpty(),
         type = getString("type"), langs = getString("langs").orEmpty().split(',').filter { it.isNotBlank() },
-        sources = getInt("sources"), updatedAt = getLong("updated"), status = getString("status").orEmpty()
+        sources = getInt("sources"), updatedAt = getLong("updated"), status = getString("status").orEmpty(),
+        coverSource = if (getString("cover").isNullOrBlank()) getString("cover_source").orEmpty() else ""
     )
 
     /** Works whose names match [query] (any word start, accents ignored), those with a source in [lang] first. */
@@ -276,6 +285,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
                 """SELECT w.key, w.title, w.cover, w.type, w.score, w.status, MAX(i.updated_at) AS updated, COUNT(DISTINCT i.source_id) AS sources,
                      (SELECT i2.title FROM index_items i2 WHERE i2.work_key = w.key AND i2.lang = ? LIMIT 1) AS local_title,
                      (SELECT i3.cover FROM index_items i3 WHERE i3.work_key = w.key AND i3.cover <> '' LIMIT 1) AS item_cover,
+                 (SELECT i5.source_id FROM index_items i5 WHERE i5.work_key = w.key AND i5.cover <> '' LIMIT 1) AS cover_source,
                      (SELECT GROUP_CONCAT(DISTINCT i4.lang) FROM index_items i4 WHERE i4.work_key = w.key) AS langs
                    FROM works w JOIN index_items i ON i.work_key = w.key
                    WHERE w.key IN (${keys.joinToString(",") { "?" }}) GROUP BY w.key""",
@@ -322,5 +332,85 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         private const val MAX_NAMES = 30
         private const val MAX_SYNOPSIS = 5_000
         private const val MAX_SEARCH_TEXT = 4_000
+        private const val MAX_ALT_NAMES = 10
+        private const val MAX_ALT_LENGTH = 120
+    }
+}
+
+/** The catalogue by works: lists, search and a work in one language, all from the index (no live search). */
+fun Route.workIndexRoutes(s: Services) {
+    suspend fun io.ktor.server.application.ApplicationCall.indexOn(): Boolean {
+        if (s.features.isOn("work_index")) return true
+        respond(io.ktor.http.HttpStatusCode.NotFound, mapOf("error" to "Desactivado por el administrador"))
+        return false
+    }
+    fun io.ktor.server.application.ApplicationCall.lang() =
+        request.queryParameters["lang"]?.lowercase()?.takeIf { it.matches(Regex("[a-z]{2}")) } ?: "es"
+    fun io.ktor.server.application.ApplicationCall.types() =
+        request.queryParameters["type"]?.split(',')?.map { it.trim().uppercase() }?.filter { t -> MediaType.entries.any { it.name == t } }?.toSet()
+    fun WorkIndex.Card.shown() = copy(
+        cover = if (cover.startsWith("http")) s.proxy.cover(cover, s.sources.get(coverSource)?.imageHeaders.orEmpty()) else cover
+    )
+
+    get("/obras") {
+        if (!call.indexOn()) return@get
+        val page = call.request.queryParameters["page"]?.toIntOrNull()?.coerceIn(1, MAX_PAGE) ?: 1
+        val sort = call.request.queryParameters["sort"]?.takeIf { it in setOf("updated", "popular", "az") } ?: "updated"
+        call.respond(mapOf("works" to s.workIndex.list(call.lang(), call.types(), sort, page).map { it.shown() }, "page" to page))
+    }
+    get("/obras/buscar") {
+        if (!call.indexOn()) return@get
+        val q = call.request.queryParameters["q"]?.trim()?.take(MAX_QUERY).orEmpty()
+        call.respond(mapOf("works" to s.workIndex.search(q, call.lang(), call.types()).map { it.shown() }))
+    }
+    get("/obras/anilist/{id}") {
+        if (!call.indexOn()) return@get
+        val key = call.parameters["id"]?.toIntOrNull()?.let { s.workIndex.byAniList(it) }
+            ?: return@get call.respond(io.ktor.http.HttpStatusCode.NotFound, mapOf("error" to "Esa obra aún no está en el índice"))
+        call.respond(mapOf("key" to key))
+    }
+    workFichaRoute(s)
+}
+
+private fun io.ktor.server.application.ApplicationCall.indexLang() =
+    request.queryParameters["lang"]?.lowercase()?.takeIf { it.matches(Regex("[a-z]{2}")) } ?: "es"
+
+private fun Route.workFichaRoute(s: Services) {
+    // A work in one language: its sources there, the languages it has, and its chapters joined (a slow source does
+    // not hold the page: it waits for each one only a little).
+    get("/obras/ficha/{key...}") {
+        if (!s.features.isOn("work_index")) return@get call.respond(io.ktor.http.HttpStatusCode.NotFound, mapOf("error" to "Desactivado por el administrador"))
+        val key = call.parameters.getAll("key").orEmpty().joinToString("/").take(MAX_KEY)
+        val work = s.works.get(key) ?: return@get call.respond(io.ktor.http.HttpStatusCode.NotFound, mapOf("error" to "Esa obra no existe"))
+        val langs = s.workIndex.langsOf(key)
+        val lang = call.indexLang().takeIf { it in langs } ?: langs.firstOrNull() ?: call.indexLang()
+        val places = s.workIndex.sourcesOf(key, lang).filter { s.sources.get(it.first) != null }
+        val only = places.map { it.first }.toSet()
+        val chapters = s.works.chapters(call.user, key, listOf(lang.uppercase()), places.map { it.first }, only = only, waitMs = FICHA_WAIT_MS)
+        call.respond(
+            mapOf(
+                "work" to s.works.dto(work, s.works.sourcesOf(key)) { s.proxy.cover(it, emptyMap()) }, "lang" to lang, "langs" to langs,
+                "sources" to places.map { (sid, mid) -> mapOf("sourceId" to sid, "mediaId" to mid, "name" to (s.sources.get(sid)?.name ?: sid)) },
+                "chapters" to chapters
+            )
+        )
+    }
+}
+
+private const val MAX_PAGE = 500
+private const val MAX_QUERY = 100
+private const val MAX_KEY = 300
+private const val FICHA_WAIT_MS = 8_000L
+
+/** Admin: how far the index has gone in each source, and starting it over. */
+fun Route.workIndexAdminRoutes(s: Services) {
+    get("/obras/estado") {
+        val works = s.db.tx { queryOne("SELECT COUNT(*) FROM works WHERE EXISTS(SELECT 1 FROM index_items i WHERE i.work_key = works.key)") { getInt(1) } } ?: 0
+        val confirmed = s.db.tx { queryOne("SELECT COUNT(DISTINCT work_key) FROM index_items WHERE work_key LIKE 'al:%'") { getInt(1) } } ?: 0
+        call.respond(mapOf("works" to works, "confirmed" to confirmed, "sources" to s.workIndex.states()))
+    }
+    post("/obras/reiniciar") {
+        s.workIndex.restart()
+        call.respond(mapOf("ok" to true))
     }
 }

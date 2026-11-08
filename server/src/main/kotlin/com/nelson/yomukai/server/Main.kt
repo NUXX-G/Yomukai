@@ -419,6 +419,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 jellyfinLinkAdminRoutes(services)
                 sourceCatalogAdminRoutes(services)
                 voiceSampleAdminRoutes(services)
+                workIndexAdminRoutes(services)
                 get("/status") {
                     call.respond(mapOf<String, Any?>("bandwidth" to services.bandwidth.summary(), "memory" to memoryStatus(), "machine" to machineStatus(config.dataDir)))
                 }
@@ -630,6 +631,7 @@ private fun Route.catalogRoutes(s: Services) {
     get("/text") { call.reply(s.catalog.text(call.q("s"), call.q("c")).map { mapOf("text" to it) }) }
     voiceRoutes(s)
     kokoroRoutes(s)
+    workIndexRoutes(s)
     get("/videos") { call.reply(s.catalog.videos(call.q("s"), call.q("c"))) }
     get("/metadata") { call.reply(s.catalog.metadata(call.q("s"), call.q("id"))) }
     get("/similar") { call.reply(s.catalog.similar(call.user, s.prefs(call.user), call.q("s"), call.q("id"))) }

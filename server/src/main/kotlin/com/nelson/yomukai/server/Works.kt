@@ -213,12 +213,21 @@ class Works(
     data class WorkChaptersDto(val chapters: List<MergedChapterDto>, val gaps: List<List<Int>>, val next: String?, val sourcesFailed: List<String>)
 
     /** Every source's list of the work, merged with the user's choices and read state. Slow sources do not block (15 s). */
-    suspend fun chapters(user: User, key: String, languages: List<String>, sourceOrder: List<String>): WorkChaptersDto = coroutineScope {
-        val links = sourcesOf(key).filter { sources.get(it.sourceId) != null && !(user.isGuest && it.sourceId == JellyfinSource.ID) }
+    suspend fun chapters(
+        user: User,
+        key: String,
+        languages: List<String>,
+        sourceOrder: List<String>,
+        only: Set<String>? = null,
+        waitMs: Long = 15_000
+    ): WorkChaptersDto = coroutineScope {
+        val links = sourcesOf(key).filter {
+            sources.get(it.sourceId) != null && !(user.isGuest && it.sourceId == JellyfinSource.ID) && (only == null || it.sourceId in only)
+        }
         val failed = mutableListOf<String>()
         val lists = links.map { link ->
             async {
-                val r = withTimeoutOrNull(15_000) { catalog.chapterList(link.sourceId, link.mediaId) }
+                val r = withTimeoutOrNull(waitMs) { catalog.chapterList(link.sourceId, link.mediaId) }
                 r?.getOrNull()?.let { SourceChapters(link.sourceId, sources.get(link.sourceId)?.language ?: "", it) } ?: run {
                     synchronized(failed) { failed += link.sourceId }
                     null
