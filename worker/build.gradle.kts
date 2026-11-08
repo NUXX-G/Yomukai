@@ -17,9 +17,9 @@ application {
 dependencies {
     implementation(project(":shared"))
     implementation(libs.okhttp)
-    implementation("org.xerial:sqlite-jdbc:3.50.3.0")
-    implementation("ch.qos.logback:logback-classic:1.5.18")
+    implementation("org.xerial:sqlite-jdbc:3.54.1.0")
+    implementation("ch.qos.logback:logback-classic:1.6.6")
     testImplementation(libs.junit)
     testImplementation(project(":server"))
-    testImplementation("io.ktor:ktor-server-netty:3.2.3")
+    testImplementation("io.ktor:ktor-server-netty:3.6.1")
 }
