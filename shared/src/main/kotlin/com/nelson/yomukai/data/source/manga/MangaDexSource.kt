@@ -27,7 +27,7 @@ import com.nelson.yomukai.domain.model.MediaType
  * Which chapters and titles a MangaDex source shows. One source per language, so a work's Spanish and English
  * chapters never mix in one list: the work model (ChapterMerge) picks the user's language when several have it.
  * [DEFAULT] (Spanish) keeps the old "mangadex" id so libraries and progress survive; [CHINESE] (zh, zh-hk), e.g.
- * to learn the language, is off until the user turns it on.
+ * to learn the language, is on too: the works catalogue keeps each language apart, so it never crowds the others.
  */
 enum class MangaDexProfile(
     val sourceId: String,
@@ -40,7 +40,7 @@ enum class MangaDexProfile(
 ) {
     DEFAULT("mangadex", "MangaDex ES", "ES", listOf("es", "es-la"), listOf("es", "es-la", "en", "ja-ro"), true),
     ENGLISH("mangadex_en", "MangaDex EN", "EN", listOf("en"), listOf("en", "ja-ro"), true),
-    CHINESE("mangadex_zh", "MangaDex 中文", "ZH", listOf("zh", "zh-hk"), listOf("zh", "zh-hk", "zh-ro", "en", "ja-ro"), false)
+    CHINESE("mangadex_zh", "MangaDex 中文", "ZH", listOf("zh", "zh-hk"), listOf("zh", "zh-hk", "zh-ro", "en", "ja-ro"), true)
 }
 
 /** MangaDex public JSON API (https://api.mangadex.org/docs). */

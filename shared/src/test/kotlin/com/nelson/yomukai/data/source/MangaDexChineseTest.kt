@@ -46,10 +46,10 @@ class MangaDexChineseTest {
     }
 
     @Test
-    fun chineseSourceIsOffUntilTurnedOn() {
+    fun chineseSourceIsOnLikeTheOthers() {
         val manager = SourceManager(FakeHttp("{}"))
         assertTrue(manager.get("mangadex_zh") != null)
-        assertFalse("mangadex_zh" in manager.defaultEnabledIds)
+        assertTrue("mangadex_zh" in manager.defaultEnabledIds)
         assertTrue("mangadex" in manager.defaultEnabledIds)
         assertFalse("no language filter: it is always Chinese", manager.require("mangadex_zh").filters.any { it.key == FilterKeys.LANGUAGE })
     }
