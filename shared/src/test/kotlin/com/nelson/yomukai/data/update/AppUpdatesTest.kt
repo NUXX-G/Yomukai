@@ -27,4 +27,15 @@ class AppUpdatesTest {
         assertNull("already up to date", AppUpdates.parse(json, "2.0.0"))
         assertNull("links elsewhere are refused", AppUpdates.parse(json.replace("https://github.com/NUXX-G/Yomukai/releases/tag", "https://evil.example"), "1.0"))
     }
+
+    @Test
+    fun eachPhoneGetsItsOwnApk() {
+        val json = """{"tag_name":"v2.1.0","html_url":"https://github.com/NUXX-G/Yomukai/releases/tag/v2.1.0","draft":false,"prerelease":false,
+            "assets":[{"name":"Yomukai-v2.1.0-armeabi-v7a.apk","browser_download_url":"https://github.com/a/v7.apk"},
+            {"name":"Yomukai-v2.1.0.apk","browser_download_url":"https://github.com/a/universal.apk"},
+            {"name":"Yomukai-v2.1.0-arm64-v8a.apk","browser_download_url":"https://github.com/a/arm64.apk"}]}"""
+        assertEquals("https://github.com/a/arm64.apk", AppUpdates.parse(json, "2.0.0", listOf("arm64-v8a", "armeabi-v7a"))!!.apkUrl)
+        assertEquals("https://github.com/a/universal.apk", AppUpdates.parse(json, "2.0.0", listOf("riscv64"))!!.apkUrl)
+        assertEquals("https://github.com/a/universal.apk", AppUpdates.parse(json, "2.0.0")!!.apkUrl)
+    }
 }

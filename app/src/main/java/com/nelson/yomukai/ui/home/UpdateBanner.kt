@@ -44,7 +44,7 @@ fun UpdateBanner() {
     var update by remember { mutableStateOf<AvailableUpdate?>(saved(prefs)) }
     LaunchedEffect(Unit) {
         if (System.currentTimeMillis() - prefs.getLong("update_checked", 0) < DAY_MS) return@LaunchedEffect
-        val found = withContext(Dispatchers.IO) { runCatching { AppUpdates.check(container.network, BuildConfig.VERSION_NAME) }.getOrNull() }
+        val found = withContext(Dispatchers.IO) { runCatching { AppUpdates.check(container.network, BuildConfig.VERSION_NAME, android.os.Build.SUPPORTED_ABIS.toList()) }.getOrNull() }
         prefs.edit().putLong("update_checked", System.currentTimeMillis())
             .putString("update_version", found?.version).putString("update_url", found?.apkUrl ?: found?.pageUrl).apply()
         update = found

@@ -26,18 +26,28 @@ object AppUpdates {
         return false
     }
 
-    /** Reads GitHub's answer: the update when newer than [current], else null. Only github.com links are kept. */
-    fun parse(json: String, current: String): AvailableUpdate? = runCatching {
+    /**
+     * Reads GitHub's answer: the update when newer than [current], else null. Only github.com links are kept. Releases
+     * carry one APK per processor ("…-arm64-v8a.apk", smaller) and a universal one: the phone's own ([abis], best
+     * first) is chosen, else the universal one.
+     */
+    fun parse(json: String, current: String, abis: List<String> = emptyList()): AvailableUpdate? = runCatching {
         val o = JsonParser.parseString(json).asJsonObject
         if (o.get("draft")?.asBoolean == true || o.get("prerelease")?.asBoolean == true) return null
         val tag = o.get("tag_name")?.asString ?: return null
         val page = o.get("html_url")?.asString?.takeIf { it.startsWith("https://github.com/") } ?: return null
-        val apk = o.getAsJsonArray("assets")?.map { it.asJsonObject }
-            ?.firstOrNull { it.get("name")?.asString?.endsWith(".apk") == true }
-            ?.get("browser_download_url")?.asString?.takeIf { it.startsWith("https://github.com/") }
+        val apks = o.getAsJsonArray("assets")?.map { it.asJsonObject }.orEmpty()
+            .filter { it.get("name")?.asString?.endsWith(".apk") == true }
+        fun named(test: (String) -> Boolean) = apks.firstOrNull { test(it.get("name").asString) }
+        val chosen = abis.firstNotNullOfOrNull { abi -> named { it.endsWith("-$abi.apk") } }
+            ?: named { name -> ABIS.none { name.endsWith("-$it.apk") } }
+            ?: apks.firstOrNull()
+        val apk = chosen?.get("browser_download_url")?.asString?.takeIf { it.startsWith("https://github.com/") }
         if (isNewer(tag, current)) AvailableUpdate(tag.removePrefix("v"), page, apk) else null
     }.getOrNull()
 
-    suspend fun check(network: HttpFetcher, current: String): AvailableUpdate? =
-        parse(network.getString(LATEST, mapOf("Accept" to "application/vnd.github+json"), cloudflareFallback = false), current)
+    suspend fun check(network: HttpFetcher, current: String, abis: List<String> = emptyList()): AvailableUpdate? =
+        parse(network.getString(LATEST, mapOf("Accept" to "application/vnd.github+json"), cloudflareFallback = false), current, abis)
+
+    private val ABIS = listOf("arm64-v8a", "armeabi-v7a", "x86_64")
 }

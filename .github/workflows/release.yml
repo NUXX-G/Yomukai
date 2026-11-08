@@ -45,11 +45,15 @@ jobs:
       - name: Firmar
         run: |
           BT="$ANDROID_HOME/build-tools/36.0.0"
-          APK="Yomukai-${GITHUB_REF_NAME}.apk"
-          "$BT/zipalign" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk aligned.apk
-          "$BT/apksigner" sign --ks "$RUNNER_TEMP/firma.keystore" --ks-pass pass:android --key-pass pass:android --out "$APK" aligned.apk
-          "$BT/apksigner" verify "$APK"
-          sha256sum "$APK" > "$APK.sha256"
+          # One APK per processor (arm64-v8a fits almost every phone and is the smallest) and a universal one, which
+          # keeps the old name so earlier versions still find their update.
+          for ABI in universal arm64-v8a armeabi-v7a x86_64; do
+            if [ "$ABI" = universal ]; then APK="Yomukai-${GITHUB_REF_NAME}.apk"; else APK="Yomukai-${GITHUB_REF_NAME}-$ABI.apk"; fi
+            "$BT/zipalign" -f -p 4 "app/build/outputs/apk/release/app-$ABI-release-unsigned.apk" aligned.apk
+            "$BT/apksigner" sign --ks "$RUNNER_TEMP/firma.keystore" --ks-pass pass:android --key-pass pass:android --out "$APK" aligned.apk
+            "$BT/apksigner" verify "$APK"
+            sha256sum "$APK" > "$APK.sha256"
+          done
       - name: Changelog
         run: |
           PREV=$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)
@@ -62,8 +66,10 @@ jobs:
             git log --format='%s' $RANGE | grep -E '^fix(\(|:)' | sed -E 's/^fix(\([^)]*\))?: /- /' || true
             echo
             echo "Se instala encima de la versión anterior sin perder datos. Comprueba el archivo con su .sha256."
+            echo
+            echo "**¿Cuál descargo?** \`-arm64-v8a\` vale para casi todos los móviles y es el más pequeño; si no sabes, el que no lleva sufijo (universal) funciona en todos."
           } > NOTAS.md
       - name: Publicar
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" "Yomukai-${GITHUB_REF_NAME}.apk" "Yomukai-${GITHUB_REF_NAME}.apk.sha256" --title "Yomukai ${GITHUB_REF_NAME#v}" --notes-file NOTAS.md
+        run: gh release create "$GITHUB_REF_NAME" Yomukai-"${GITHUB_REF_NAME}"*.apk Yomukai-"${GITHUB_REF_NAME}"*.apk.sha256 --title "Yomukai ${GITHUB_REF_NAME#v}" --notes-file NOTAS.md

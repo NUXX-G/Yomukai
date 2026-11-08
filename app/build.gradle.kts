@@ -48,13 +48,8 @@ android {
         applicationId = "com.nelson.yomukai"
         minSdk = 26
         targetSdk = 37
-        versionCode = 26
-        versionName = "2.0.0"
-
-        ndk {
-            // tor ships ~7 MB per ABI; 32-bit x86 devices are not supported.
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
-        }
+        versionCode = 27
+        versionName = "2.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -65,10 +60,28 @@ android {
 
     buildTypes {
         release {
+            // ndk.abiFilters cannot be set together with ABI splits: the processors are listed in splits below.
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
             }
+        }
+    }
+    // One APK per processor for releases (much smaller to download) plus a universal one; debug builds stay one APK.
+    splits {
+        abi {
+            isEnable = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = true
+        }
+    }
+    packaging {
+        jniLibs {
+            // Native libraries compressed inside the APK (a much smaller download; Android unpacks them at install).
+            useLegacyPackaging = true
+            // 32-bit x86 phones are not supported (Tor has no build for them).
+            excludes += "lib/x86/**"
         }
     }
     compileOptions {
