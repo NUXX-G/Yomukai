@@ -209,7 +209,9 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
                 (failures[it.id]?.second ?: 0L) <= now
         }
         val states = s.db.tx { query("SELECT source_id, full_done, latest_at FROM index_state") { getString(1) to (getInt(2) to getLong(3)) } }.toMap()
-        val unfinished = candidates.filter { states[it.id]?.first != 1 }
+        // The least indexed first: every source (anime too) starts soon, and the big catalogues go on afterwards.
+        val counts = s.db.tx { query("SELECT source_id, items FROM index_state") { getString(1) to getInt(2) } }.toMap()
+        val unfinished = candidates.filter { states[it.id]?.first != 1 }.sortedBy { counts[it.id] ?: 0 }
         val due = candidates.filter { states[it.id]?.first == 1 && clock() - (states[it.id]?.second ?: 0L) >= LATEST_EVERY_MS }
             .sortedBy { states[it.id]?.second ?: 0L }
         return unfinished + due
