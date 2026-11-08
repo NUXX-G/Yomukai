@@ -136,7 +136,26 @@ class AppContainer(context: Context) {
         sourceManager, { preferences.app.value.enabledSources }, aniList,
         savedTitles = { homeCache.load().values.flatten() },
         filter = { contentFilter }
-    )
+    ).also { repo ->
+        // Where each title was found, kept on disk: opening it again is instant, even after restarting the app.
+        val file = java.io.File(context.filesDir, "located.json")
+        val gson = com.google.gson.Gson()
+        val type = object : com.google.gson.reflect.TypeToken<Map<String, List<com.nelson.yomukai.data.discovery.Alternative>>>() {}.type
+        applicationScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { repo.preloadLocated(gson.fromJson<Map<String, List<com.nelson.yomukai.data.discovery.Alternative>>>(file.readText(), type)) }
+        }
+        val saved = java.util.concurrent.ConcurrentHashMap<String, List<com.nelson.yomukai.data.discovery.Alternative>>()
+        repo.onLocated = { key, places ->
+            saved[key] = places
+            applicationScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    val all = runCatching { gson.fromJson<Map<String, List<com.nelson.yomukai.data.discovery.Alternative>>>(file.readText(), type) }.getOrNull().orEmpty() + saved
+                    // At most the last 800 titles: the file stays small.
+                    file.writeText(gson.toJson(all.entries.toList().takeLast(800).associate { it.key to it.value }))
+                }
+            }
+        }
+    }
 }
 
 private const val IMAGE_CACHE = "images"

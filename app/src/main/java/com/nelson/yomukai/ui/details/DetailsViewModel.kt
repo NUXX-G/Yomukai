@@ -88,7 +88,33 @@ data class AlternativesState(
 )
 
 @Immutable
-data class LocateState(val title: String, val searching: Boolean, val options: List<Alternative> = emptyList())
+data class LocateState(
+    val title: String,
+    val searching: Boolean,
+    val options: List<Alternative> = emptyList(),
+    /** The first place confirmed to be the same work: it opens at once, nothing to choose. */
+    val openNow: com.nelson.yomukai.domain.model.MediaItem? = null
+)
+
+/**
+ * Finds where [related] can be read and opens the first confirmed place as soon as it appears (the title's page
+ * then gathers the other sources by itself). Only when nothing is confirmed are the possible matches offered.
+ */
+internal suspend fun locateAndOpen(container: com.nelson.yomukai.AppContainer, related: RelatedTitle, state: MutableStateFlow<LocateState?>) {
+    val opened = java.util.concurrent.atomic.AtomicBoolean(false)
+    val options = runCatching {
+        container.discovery.locate(related) { hit ->
+            if (hit.confidence == com.nelson.yomukai.data.discovery.MatchConfidence.SAME_WORK && opened.compareAndSet(false, true)) {
+                kotlinx.coroutines.runBlocking { container.libraryRepository.cacheMedia(hit.item) }
+                state.value = LocateState(related.title, searching = true, options = listOf(hit), openNow = hit.item)
+            }
+        }
+    }.getOrElse { e ->
+        if (e is CancellationException) throw e
+        emptyList()
+    }
+    if (!opened.get()) state.value = LocateState(related.title, searching = false, options = options)
+}
 
 private const val METADATA_ATTEMPTS = 2
 private const val METADATA_RETRY_MS = 6_000L
@@ -175,6 +201,51 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
     init {
         refresh()
         loadMetadata()
+        loadWork()
+    }
+
+    private val _extras = MutableStateFlow<List<ChapterEntity>>(emptyList())
+
+    /**
+     * The same work in the user's other sources: chapters or episodes this source lacks, so the page is one list
+     * for the work (one One Piece, not several) and nothing is lost if this source fails or stops.
+     */
+    val extraChapters: StateFlow<List<ChapterEntity>> = _extras
+
+    /** Names of the sources those extra chapters come from, by source id. */
+    val sourceNames: Map<String, String> get() = container.sourceManager.all.associate { it.id to it.name }
+
+    private fun loadWork() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val media = mediaItem() ?: repo.refreshDetails(sourceId, mediaId).let { mediaItem() } ?: return@launch
+            val sisters = java.util.concurrent.CopyOnWriteArrayList<Alternative>()
+            runCatching {
+                container.discovery.alternativesCached(media) { found ->
+                    // The "Otras fuentes" sheet opens with what is already known.
+                    _alternatives.update { st -> st.copy(items = (st.items + found).distinctBy { it.item.sourceId }.sortedWith(compareBy({ it.confidence.ordinal }, { -(it.chapterCount ?: -1) }))) }
+                    if (found.confidence == com.nelson.yomukai.data.discovery.MatchConfidence.SAME_WORK) {
+                        sisters += found
+                        viewModelScope.launch(Dispatchers.IO) {
+                            repo.cacheMedia(found.item)
+                            if (repo.getChapters(found.item.sourceId, found.item.id).isEmpty()) repo.refreshChapters(found.item.sourceId, found.item.id)
+                            mergeSisters(sisters)
+                        }
+                    }
+                }
+            }.onFailure { if (it is CancellationException) throw it }
+            _alternatives.update { it.copy(done = true, searching = false) }
+        }
+    }
+
+    private suspend fun mergeSisters(sisters: List<Alternative>) {
+        fun key(n: Float) = com.nelson.yomukai.data.work.numberKey(n)
+        val own = repo.getChapters(sourceId, mediaId).filter { it.number > 0f }.map { key(it.number) }.toSet()
+        // Sources in the language of this one first: a missing chapter comes in the language the user reads.
+        val language = source?.language
+        val ordered = sisters.sortedBy { if (it.language == language) 0 else 1 }
+        _extras.value = ordered.flatMap { repo.getChapters(it.item.sourceId, it.item.id) }
+            .filter { it.number > 0f && key(it.number) !in own }
+            .distinctBy { key(it.number) }
     }
 
     private fun loadMetadata() {
@@ -338,13 +409,7 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
     fun locate(related: RelatedTitle) {
         locateJob?.cancel()
         _locate.value = LocateState(related.title, searching = true)
-        locateJob = viewModelScope.launch(Dispatchers.IO) {
-            val options = runCatching { container.discovery.locate(related) }.getOrElse { e ->
-                if (e is CancellationException) throw e
-                emptyList()
-            }
-            _locate.value = LocateState(related.title, searching = false, options = options)
-        }
+        locateJob = viewModelScope.launch(Dispatchers.IO) { locateAndOpen(container, related, _locate) }
     }
 
     fun closeLocate() {

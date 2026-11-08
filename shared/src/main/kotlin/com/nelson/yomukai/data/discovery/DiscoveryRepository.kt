@@ -177,8 +177,33 @@ class DiscoveryRepository(
         }
     }
 
-    /** Places already found for recommended titles in this session, so opening one again is instant. */
+    /**
+     * The other sources of [media]'s work, remembered like [locate]'s answers: the second time a title's page opens,
+     * its sister sources are known at once (and the search is not repeated).
+     */
+    suspend fun alternativesCached(media: MediaItem, onFound: (Alternative) -> Unit) {
+        val key = "alt|" + media.sourceId + "|" + media.id
+        located[key]?.let { known -> known.forEach(onFound); return }
+        val all = java.util.Collections.synchronizedList(mutableListOf<Alternative>())
+        alternatives(media) { found -> all += found; onFound(found) }
+        val result = synchronized(all) { all.toList() }
+        if (result.isNotEmpty()) {
+            located[key] = result
+            runCatching { onLocated(key, result) }
+        }
+    }
+
+    /** Places already found for recommended titles, so opening one again is instant (the app keeps them on disk). */
     private val located = java.util.concurrent.ConcurrentHashMap<String, List<Alternative>>()
+
+    /** Told each time a title's places are found, to keep them between runs. */
+    @Volatile
+    var onLocated: (key: String, places: List<Alternative>) -> Unit = { _, _ -> }
+
+    /** Places remembered from earlier runs. */
+    fun preloadLocated(saved: Map<String, List<Alternative>>) {
+        saved.forEach { (k, v) -> if (v.isNotEmpty()) located.putIfAbsent(k, v) }
+    }
 
     /** Recommended titles none of the user's sources has, already checked this session. */
     private val nowhere = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
@@ -191,12 +216,12 @@ class DiscoveryRepository(
      * carries exactly one of them, the closest one that is clearly the same name (another spelling,
      * a subtitle cut off) is offered too, marked as unconfirmed. Titles of excluded genres are left out.
      */
-    suspend fun locate(related: RelatedTitle, deadlineMs: Long? = null): List<Alternative> {
+    suspend fun locate(related: RelatedTitle, deadlineMs: Long? = null, onFound: (Alternative) -> Unit = {}): List<Alternative> {
         related.item?.let { item ->
             val source = sources.get(item.sourceId)
-            if (source != null) return listOf(Alternative(item, source.name, source.language, MatchConfidence.SAME_WORK))
+            if (source != null) return listOf(Alternative(item, source.name, source.language, MatchConfidence.SAME_WORK)).onEach(onFound)
         }
-        located[locateKey(related)]?.let { return it }
+        located[locateKey(related)]?.let { known -> return known.onEach(onFound) }
         val names = (related.names + related.title).filter { it.isNotBlank() }.distinct()
         // Sites search literally: "Sousou no Frieren" finds what "Sousou no Frieren: ..." does not.
         val queries = (searchable(names, MAX_LOCATE_QUERIES) + shortNames(names)).distinctBy(SmartSearch::duplicateKey)
@@ -204,13 +229,20 @@ class DiscoveryRepository(
         val search: suspend () -> Unit = {
             forEachSource(related.type, null) { source ->
                 val hit = match(source, names, "", related.type, queryList = queries) ?: closest(source, names, related.type)
-                if (hit != null && filter().known(source, listOf(hit.item)).isNotEmpty()) found += hit
+                if (hit != null && filter().known(source, listOf(hit.item)).isNotEmpty()) {
+                    found += hit
+                    // The first confirmed place can open at once: the others keep coming in behind it.
+                    runCatching { onFound(hit) }
+                }
             }
         }
         // With a deadline, whatever was found by then is the answer: slow sites do not hold it back.
         if (deadlineMs != null) withTimeoutOrNull(deadlineMs) { search() } else search()
         val result = synchronized(found) { found.toList() }.sortedWith(compareBy({ it.confidence.ordinal }, { it.sourceName }))
-        if (result.isNotEmpty()) located[locateKey(related)] = result
+        if (result.isNotEmpty()) {
+            located[locateKey(related)] = result
+            runCatching { onLocated(locateKey(related), result) }
+        }
         return result
     }
 

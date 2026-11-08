@@ -133,13 +133,7 @@ class DiscoverViewModel(private val container: AppContainer) : ViewModel() {
     fun open(related: RelatedTitle) {
         locateJob?.cancel()
         _locate.value = LocateState(related.title, searching = true)
-        locateJob = viewModelScope.launch(Dispatchers.IO) {
-            val options = runCatching { container.discovery.locate(related) }.getOrElse { e ->
-                if (e is CancellationException) throw e
-                emptyList()
-            }
-            _locate.value = LocateState(related.title, searching = false, options = options)
-        }
+        locateJob = viewModelScope.launch(Dispatchers.IO) { com.nelson.yomukai.ui.details.locateAndOpen(container, related, _locate) }
     }
 
     fun closeLocate() {

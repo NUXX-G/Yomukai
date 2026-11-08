@@ -195,6 +195,7 @@ private fun DetailsContent(
     var shield by remember { mutableStateOf(spoilerPrefs.getBoolean("spoilerShield", true)) }
     val metadataLoading by viewModel.metadataLoading.collectAsStateWithLifecycle()
     val insights by viewModel.insights.collectAsStateWithLifecycle()
+    val extraChapters by viewModel.extraChapters.collectAsStateWithLifecycle()
 
     if (alternatives.open) {
         AlternativesSheet(
@@ -208,9 +209,9 @@ private fun DetailsContent(
     }
     locate?.let { found ->
         // A single place to read it needs no question.
-        val only = found.options.singleOrNull()?.takeIf { !it.approximate }
-        if (!found.searching && only != null) {
-            LaunchedEffect(only) { viewModel.closeLocate(); onOpenMedia(only.item) }
+        val only = found.openNow ?: found.options.singleOrNull()?.takeIf { !it.approximate && !found.searching }?.item
+        if (only != null) {
+            LaunchedEffect(only) { viewModel.closeLocate(); onOpenMedia(only) }
         } else {
             LocateSheet(
                 state = found,
@@ -372,12 +373,16 @@ private fun DetailsContent(
                             )
                         }
                     }
-                    val furthestRead = state.chapters.filter { it.read }.maxOfOrNull { it.number }
-                    state.displayedChapters.forEach { chapter ->
-                        val gap = insights.gapAfter[chapter.chapterId]
+                    // One list for the work: this source's chapters plus those only its sister sources have.
+                    val merged = (state.chapters + extraChapters).sortedWith(compareBy({ it.number }, { it.sortIndex }))
+                        .let { if (state.sortDescending) it.asReversed() else it }
+                    val furthestRead = merged.filter { it.read }.maxOfOrNull { it.number }
+                    merged.forEach { chapter ->
+                        val foreign = chapter.sourceId != viewModel.sourceId || chapter.mediaId != viewModel.mediaId
+                        val gap = if (foreign || extraChapters.isNotEmpty()) null else insights.gapAfter[chapter.chapterId]
                         // The gap sits between this chapter and the next one in reading order.
                         if (gap != null && state.sortDescending) item(key = "gap_" + chapter.chapterId) { GapMarker(gap, state.isAnime) }
-                        item(key = chapter.chapterId) {
+                        item(key = chapter.sourceId + "|" + chapter.chapterId) {
                             ChapterRow(
                                 chapter = chapter,
                                 mediaTitle = media.title,
@@ -386,6 +391,7 @@ private fun DetailsContent(
                                 isAnime = state.isAnime,
                                 hideName = com.nelson.yomukai.data.work.SpoilerShield.hideChapter(shield && !chapter.read, chapter.number, furthestRead),
                                 kind = if (state.isAnime) fillers[chapter.number.toInt()] else null,
+                                fromSource = if (foreign) viewModel.sourceNames[chapter.sourceId] ?: chapter.sourceId else null,
                                 onClick = { onOpenChapter(chapter) },
                                 onToggleRead = { viewModel.setRead(chapter, !chapter.read) },
                                 onMarkPrevious = { viewModel.markPreviousRead(chapter) },
@@ -817,6 +823,8 @@ private fun ChapterRow(
     isAnime: Boolean,
     hideName: Boolean,
     kind: com.nelson.yomukai.data.work.EpisodeKind?,
+    /** Name of the other source this chapter comes from (this one lacks it), or null. */
+    fromSource: String? = null,
     onClick: () -> Unit,
     onToggleRead: () -> Unit,
     onMarkPrevious: () -> Unit,
@@ -846,6 +854,9 @@ private fun ChapterRow(
                         maxLines = 1
                     )
                     ChapterNameAndKind(label.name, hideName, kind, contentAlpha)
+                }
+                fromSource?.let {
+                    Text(tr("De {0}", it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary.copy(alpha = contentAlpha))
                 }
                 val progressText = when {
                     chapter.read -> null

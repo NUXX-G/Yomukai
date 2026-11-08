@@ -75,9 +75,9 @@ fun RelatedCard(related: RelatedTitle, onOpen: (RelatedTitle) -> Unit, modifier:
 fun LocateHandler(viewModel: DiscoverViewModel, onOpenMedia: (MediaItem) -> Unit, onSearch: (String) -> Unit) {
     val locate by viewModel.locate.collectAsStateWithLifecycle()
     locate?.let { found ->
-        val only = found.options.singleOrNull()?.takeIf { !it.approximate }
-        if (!found.searching && only != null) {
-            LaunchedEffect(only) { viewModel.closeLocate(); onOpenMedia(only.item) }
+        val only = found.openNow ?: found.options.singleOrNull()?.takeIf { !it.approximate && !found.searching }?.item
+        if (only != null) {
+            LaunchedEffect(only) { viewModel.closeLocate(); onOpenMedia(only) }
         } else {
             LocateSheet(
                 found,
