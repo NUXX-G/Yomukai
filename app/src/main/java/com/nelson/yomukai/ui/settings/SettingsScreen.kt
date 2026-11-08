@@ -121,6 +121,15 @@ fun SettingsScreen(
                 .padding(padding),
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
+            item {
+                var guide by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+                androidx.compose.material3.ListItem(
+                    headlineContent = { Text(tr("¿Qué puedo hacer en Yomukai? Guía rápida")) },
+                    leadingContent = { Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                    modifier = Modifier.clickable { guide = true }
+                )
+                if (guide) GuideDialog { guide = false }
+            }
             item { GroupTitle(tr("Sincronizar con servidor")) }
             item { ServerSyncItem(sync, viewModel::connectServer, viewModel::syncNow, viewModel::disconnectServer, serverFeatures) }
 
