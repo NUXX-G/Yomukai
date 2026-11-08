@@ -17,7 +17,8 @@ WORKDIR /src
 ENV YOMUKAI_SERVER_ONLY=true GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.configuration-cache=false"
 COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
 COPY gradle/ gradle/
-RUN ./gradlew --version --console=plain -q
+# GitHub (where Gradle downloads from) sometimes answers 5xx for a moment: a few spaced retries.
+RUN for i in 1 2 3 4 5; do ./gradlew --version --console=plain -q && exit 0; sleep $((i * 20)); done; exit 1
 COPY shared/ shared/
 COPY server/ server/
 RUN ./gradlew :server:installDist --console=plain -q
