@@ -469,9 +469,14 @@ class Catalog(
                     remember(listOf(hit.item))
                     first.complete(dtos.alternative(hit))
                 }
-            }.onEach { remember(listOf(it.item)) }.map(dtos::alternative).also { first.complete(null) }
+            }.onEach { remember(listOf(it.item)) }.map(dtos::alternative)
         }
-        first.await()?.let { LocateFirst(open = it, options = listOf(it)) } ?: LocateFirst(open = null, options = all.await())
+        // Whatever happens to the search (done, failed, cancelled), the request does not wait forever.
+        all.invokeOnCompletion { first.complete(null) }
+        kotlinx.coroutines.withTimeoutOrNull(LOCATE_FIRST_MS) { first.await() }?.let { LocateFirst(open = it, options = listOf(it)) } ?: LocateFirst(
+            open = null,
+            options = if (all.isCompleted) runCatching { all.await() }.getOrDefault(emptyList()) else emptyList()
+        )
     }
 
     data class LocateFirst(val open: AlternativeDto?, val options: List<AlternativeDto>)
@@ -491,13 +496,14 @@ class Catalog(
     fun relatedFrom(dto: RelatedDto): RelatedTitle = RelatedTitle(
         dto.title, dto.names, "", runCatching { MediaType.valueOf(dto.type) }.getOrDefault(MediaType.MANGA), dto.genres,
         item = dto.item?.let { m -> seen.get(key(m.sourceId, m.id)) },
-        relation = dto.relation, format = dto.format, tags = dto.tags
+        relation = dto.relation, format = dto.format, tags = dto.tags, anilistId = dto.anilistId
     )
 
     fun seenItem(sourceId: String, mediaId: String): MediaItem? = seen.get(key(sourceId, mediaId)) ?: details.get(key(sourceId, mediaId))
 
     private companion object {
         const val MINUTE = 60_000L
+        const val LOCATE_FIRST_MS = 45_000L
         const val HOUR = 60 * MINUTE
 
         /** A source slower than this is left out of the search (marked as such): the rest are not held up. */

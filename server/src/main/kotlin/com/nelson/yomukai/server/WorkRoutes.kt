@@ -48,8 +48,8 @@ fun Route.workRoutes(s: Services) {
         val mediaId = call.param("id", 2_000)
         val work = s.works.resolve(sourceId, mediaId)
         s.catalog.alternatives(call.user, s.prefs(call.user), sourceId, mediaId).getOrDefault(emptyList())
-            .filter { it.confidence == com.nelson.yomukai.data.discovery.MatchConfidence.SAME_WORK.name }
-            .forEach { runCatching { s.works.link(work.key, it.item.sourceId, it.item.id, it.confidence) } }
+            .filter { it.confidence == com.nelson.yomukai.data.discovery.MatchConfidence.SAME_WORK.name && !call.user.isGuest }
+            .forEach { runCatching { s.works.linkIfNew(work.key, it.item.sourceId, it.item.id, it.confidence) } }
         val (languages, order) = s.mergePrefsOf(call.user)
         val first = order.takeWhile { it == JellyfinSource.ID } + sourceId
         call.respond(mapOf("key" to work.key, "chapters" to s.works.chapters(call.user, work.key, languages, (first + order).distinct())))

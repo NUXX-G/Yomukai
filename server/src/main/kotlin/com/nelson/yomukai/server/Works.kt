@@ -141,6 +141,26 @@ class Works(
         known[WorkKey.itemKey(sourceId, mediaId)] = key
     }
 
+    /**
+     * Links [sourceId]/[mediaId] to [key] only if it belongs to no work yet: an automatic match never moves a place
+     * someone already linked (by hand or otherwise), nor anyone's library or history rows that already have a work.
+     */
+    suspend fun linkIfNew(key: String, sourceId: String, mediaId: String, confidence: String) {
+        val added = db.tx {
+            update(
+                """INSERT INTO work_sources(source_id, media_id, work_key, confidence, added_at) VALUES(?,?,?,?,?)
+                   ON CONFLICT(source_id, media_id) DO NOTHING""",
+                sourceId, mediaId.take(2_000), key, confidence, clock()
+            ).also { n ->
+                if (n > 0) {
+                    update("UPDATE library SET work_key = ? WHERE source_id = ? AND media_id = ? AND work_key IS NULL", key, sourceId, mediaId)
+                    update("UPDATE history SET work_key = ? WHERE source_id = ? AND media_id = ? AND work_key IS NULL", key, sourceId, mediaId)
+                }
+            }
+        }
+        if (added > 0) known[WorkKey.itemKey(sourceId, mediaId)] = key
+    }
+
     suspend fun get(key: String): WorkRow? = db.tx { queryOne("SELECT * FROM works WHERE key = ?", key) { work() } }
 
     suspend fun sourcesOf(key: String): List<WorkSourceRow> = db.tx {

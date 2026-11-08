@@ -20,6 +20,7 @@ import com.nelson.yomukai.data.metadata.TitleMetadata
 import com.nelson.yomukai.data.repository.toDomain
 import com.nelson.yomukai.data.source.AnimeSource
 import com.nelson.yomukai.data.source.NovelSource
+import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.PublicationStatus
 import com.nelson.yomukai.domain.model.VideoSource
 import com.nelson.yomukai.i18n.tr
@@ -100,8 +101,19 @@ data class LocateState(
  * Finds where [related] can be read and opens the first confirmed place as soon as it appears (the title's page
  * then gathers the other sources by itself). Only when nothing is confirmed are the possible matches offered.
  */
-internal suspend fun locateAndOpen(container: com.nelson.yomukai.AppContainer, related: RelatedTitle, state: MutableStateFlow<LocateState?>) {
+internal suspend fun locateAndOpen(
+    container: com.nelson.yomukai.AppContainer, related: RelatedTitle, state: MutableStateFlow<LocateState?>
+) = kotlinx.coroutines.coroutineScope {
     val opened = java.util.concurrent.atomic.AtomicBoolean(false)
+    // With a server connected, it searches too (its caches are shared by everyone, so it usually knows already):
+    // whichever finds the work first opens it.
+    val remote = if (container.serverSync.serverUrl != null) launch {
+        val item = runCatching { serverLocateFirst(container, related) }.getOrNull() ?: return@launch
+        if (opened.compareAndSet(false, true)) {
+            container.libraryRepository.cacheMedia(item)
+            state.value = LocateState(related.title, searching = true, openNow = item)
+        }
+    } else null
     val options = runCatching {
         container.discovery.locate(related) { hit ->
             if (hit.confidence == com.nelson.yomukai.data.discovery.MatchConfidence.SAME_WORK && opened.compareAndSet(false, true)) {
@@ -113,10 +125,39 @@ internal suspend fun locateAndOpen(container: com.nelson.yomukai.AppContainer, r
         if (e is CancellationException) throw e
         emptyList()
     }
+    if (opened.get()) remote?.cancel() else remote?.join()
     if (!opened.get()) state.value = LocateState(related.title, searching = false, options = options)
 }
 
+/** The first place the connected server finds [related] as the same work, if this app has that source too. */
+private suspend fun serverLocateFirst(container: com.nelson.yomukai.AppContainer, related: RelatedTitle): MediaItem? {
+    val body = com.google.gson.JsonObject().apply {
+        addProperty("title", related.title)
+        add("names", com.google.gson.JsonArray().apply { related.names.forEach(::add) })
+        addProperty("cover", related.coverUrl)
+        addProperty("type", related.type.name)
+        add("genres", com.google.gson.JsonArray().apply { related.genres.forEach(::add) })
+        addProperty("format", related.format)
+        add("tags", com.google.gson.JsonArray())
+        related.anilistId?.let { addProperty("anilistId", it) }
+    }
+    val open = container.serverSync.api("POST", "/api/locate/first", body)?.asJsonObject?.get("open")
+        ?.takeIf { it.isJsonObject }?.asJsonObject ?: return null
+    val m = open.get("item")?.takeIf { it.isJsonObject }?.asJsonObject ?: return null
+    fun str(k: String) = m.get(k)?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+    fun list(k: String) = m.get(k)?.takeIf { it.isJsonArray }?.asJsonArray?.mapNotNull { it.takeIf { e -> e.isJsonPrimitive }?.asString }.orEmpty()
+    val sourceId = str("sourceId")
+    if (container.sourceManager.get(sourceId) == null || str("id").isBlank()) return null
+    return MediaItem(
+        id = str("id"), title = str("title"), coverUrl = str("cover"),
+        type = runCatching { com.nelson.yomukai.domain.model.MediaType.valueOf(str("type")) }.getOrDefault(related.type),
+        status = str("status"), description = str("description"), sourceId = sourceId,
+        author = str("author"), genres = list("genres"), altTitles = list("altTitles")
+    )
+}
+
 private const val METADATA_ATTEMPTS = 2
+private const val MAX_SERVER_SISTERS = 6
 private const val METADATA_RETRY_MS = 6_000L
 
 class DetailsViewModel(handle: SavedStateHandle, private val container: AppContainer) : ViewModel() {
@@ -218,17 +259,18 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
     private fun loadWork() {
         viewModelScope.launch(Dispatchers.IO) {
             val media = mediaItem() ?: repo.refreshDetails(sourceId, mediaId).let { mediaItem() } ?: return@launch
-            val sisters = java.util.concurrent.CopyOnWriteArrayList<Alternative>()
+            val sisters = java.util.concurrent.CopyOnWriteArraySet<Pair<String, String>>()
+            if (container.serverSync.serverUrl != null) launch { serverSisters(sisters) }
             runCatching {
                 container.discovery.alternativesCached(media) { found ->
                     // The "Otras fuentes" sheet opens with what is already known.
                     _alternatives.update { st -> st.copy(items = (st.items + found).distinctBy { it.item.sourceId }.sortedWith(compareBy({ it.confidence.ordinal }, { -(it.chapterCount ?: -1) }))) }
                     if (found.confidence == com.nelson.yomukai.data.discovery.MatchConfidence.SAME_WORK) {
-                        sisters += found
                         viewModelScope.launch(Dispatchers.IO) {
                             repo.cacheMedia(found.item)
                             if (repo.getChapters(found.item.sourceId, found.item.id).isEmpty()) repo.refreshChapters(found.item.sourceId, found.item.id)
-                            mergeSisters(sisters)
+                            sisters += found.item.sourceId to found.item.id
+                            mergeSisters(sisters.toList())
                         }
                     }
                 }
@@ -237,13 +279,38 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
         }
     }
 
-    private suspend fun mergeSisters(sisters: List<Alternative>) {
+    /**
+     * With a server connected: it already knows which of its sources are this same work (shared by everyone, so the
+     * slow search across every source is usually done), and only their chapter lists are loaded here.
+     */
+    private suspend fun serverSisters(sisters: MutableSet<Pair<String, String>>) {
+        fun enc(s: String) = java.net.URLEncoder.encode(s, Charsets.UTF_8)
+        val whole = runCatching { container.serverSync.api("GET", "/api/works/whole?s=${enc(sourceId)}&id=${enc(mediaId)}") }
+            .onFailure { if (it is CancellationException) throw it }.getOrNull()?.asJsonObject ?: return
+        val chapters = whole.getAsJsonObject("chapters")?.getAsJsonArray("chapters") ?: return
+        val places = chapters.mapNotNull { e ->
+            val o = e.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
+            val s = o.get("sourceId")?.asString ?: return@mapNotNull null
+            val m = o.get("mediaId")?.takeIf { it.isJsonPrimitive }?.asString?.ifBlank { null } ?: return@mapNotNull null
+            (s to m).takeIf { s != sourceId && container.sourceManager.get(s) != null }
+        }.distinct().take(MAX_SERVER_SISTERS)
+        for ((s, m) in places) {
+            if ((s to m) in sisters) continue
+            runCatching {
+                if (repo.getMedia(s, m) == null) repo.refreshDetails(s, m)
+                if (repo.getChapters(s, m).isEmpty()) repo.refreshChapters(s, m)
+            }.onFailure { if (it is CancellationException) throw it }
+            if (repo.getChapters(s, m).isNotEmpty()) { sisters += s to m; mergeSisters(sisters.toList()) }
+        }
+    }
+
+    private suspend fun mergeSisters(sisters: List<Pair<String, String>>) {
         fun key(n: Float) = com.nelson.yomukai.data.work.numberKey(n)
         val own = repo.getChapters(sourceId, mediaId).filter { it.number > 0f }.map { key(it.number) }.toSet()
         // Sources in the language of this one first: a missing chapter comes in the language the user reads.
         val language = source?.language
-        val ordered = sisters.sortedBy { if (it.language == language) 0 else 1 }
-        _extras.value = ordered.flatMap { repo.getChapters(it.item.sourceId, it.item.id) }
+        val ordered = sisters.sortedBy { if (container.sourceManager.get(it.first)?.language == language) 0 else 1 }
+        _extras.value = ordered.flatMap { (s, m) -> repo.getChapters(s, m) }
             .filter { it.number > 0f && key(it.number) !in own }
             .distinctBy { key(it.number) }
     }

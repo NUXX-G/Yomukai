@@ -39,6 +39,18 @@ class WorksTest {
     }
 
     @Test
+    fun anAutomaticMatchNeverMovesAnExistingLink() = runBlocking {
+        seedWork("al:1", MediaType.MANHWA)
+        seedWork("al:2", MediaType.MANHWA)
+        works.link("al:1", "asura", "m1", "manual")
+        works.linkIfNew("al:2", "asura", "m1", "SAME_WORK")
+        assertEquals(listOf("asura"), works.sourcesOf("al:1").map { it.sourceId })
+        assertTrue(works.sourcesOf("al:2").isEmpty())
+        works.linkIfNew("al:2", "olympus", "x9", "SAME_WORK")
+        assertEquals(listOf("olympus"), works.sourcesOf("al:2").map { it.sourceId })
+    }
+
+    @Test
     fun correctionsKeepTheirHistory() = runBlocking {
         val user = User(ana.id, "ana", false, false, 0, null)
         works.setPoint(user, AdaptationPoint("al:anime", 12, "al:manga", 50f, null))
