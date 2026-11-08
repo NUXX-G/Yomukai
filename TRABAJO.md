@@ -5,6 +5,14 @@ Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este ficher
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
 Última actualización: 2026-11-08 (tarde). Versión de la app: **2.1.0** (versionCode 27): un APK por procesador (arm64 29 MB) + universal; la release se publica sola al subir la etiqueta v2.1.0.
 
+**FALLOS QUE ENCUENTRA EL USUARIO PROBANDO LA 2.1.0 (2026-11-08; NO TOCAR hasta que diga: él busca, yo apunto)**
+1. Ajustes / panel de configuración: las tarjetas de las distintas secciones se ven colapsadas o pegadas unas a otras (falta espacio entre ellas); se ve mal. Pendiente: confirmar si es la web, la app o ambas.
+2. Abrir obras: algunas abren rápido, otras se quedan 20 s o más cargando una y otra vez sin terminar.
+3. Desplazamiento automático: da saltos raros y va al revés de lo esperado (muy rápido sobre el texto, lento donde no hay texto). Revisar AutoScroller, ScrollProfiles y ScrollPlanner.factor.
+4. Portadas: algunas grandes se ven bien, pero la mayoría salen en baja resolución. Buscar portadas de calidad con APIs (AniList extraLarge, MangaDex original, TMDB…) y usarlas siempre.
+5. Voz: suena horrible y no sabe cómo cambiarla, porque no es intuitivo. Hacer evidente dónde se elige la voz y que la calidad por defecto sea buena.
+6. Pide saber cómo crear una sala para ver anime (se le explicó; revisar si es fácil de encontrar).
+
 **PEDIDO DEL USUARIO EL 2026-11-08** (lo probó y se quejó): (1) al pulsar una obra seguía saliendo «elige fuente»: debe abrir UNA obra con todas sus fuentes, en app Y web; (2) lentísima: portadas ~20 s, abrir obra ~15 s; (3) no había botón de saltar opening/ending (solo +85 s). Con servidor sincronizado la app puede usarlo para ir más rápida, pero sin servidor también tiene que ir más rápida. NO quiere probar nada hasta que esté TODO; al final darle los comandos exactos de instalación para su VPS (Ubuntu, sin Tailscale), el portátil worker y el NAS con Jellyfin (que ahora no se puede tocar). Los datos de sus máquinas están en la conversación, NO en el repo, que es público.
 - [x] Obras sin elegir fuente. App: `locateAndOpen` abre con la primera fuente que es la misma obra, y la ficha junta los capítulos de las fuentes hermanas («De …», caché `located.json`). Web: `/api/locate/first` y `/api/works/whole`, `open.svelte.js` y `Details.svelte`. App con servidor: pregunta a la vez a sus fuentes y al servidor, y carga las hermanas que el servidor ya conoce.
 - [x] Saltar opening/ending con tiempos reales de AniSkip (`shared/…/work/AniSkip.kt`, con el MAL id de los metadatos), botón flotante y «Saltar solo» en app y web; el servidor usa las huellas del worker y, si no, AniSkip.
