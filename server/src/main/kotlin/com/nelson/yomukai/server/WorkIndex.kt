@@ -45,6 +45,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
 
     /** Keeps [items] of a source (in [lang]); [fresh]: they come from its latest updates (new chapters). New ones count. */
     suspend fun record(sourceId: String, lang: String, items: List<MediaItem>, fresh: Boolean): Int = s.db.tx {
+        CoverHosts.learn(items)
         val now = clock()
         var added = 0
         for (it in items) {

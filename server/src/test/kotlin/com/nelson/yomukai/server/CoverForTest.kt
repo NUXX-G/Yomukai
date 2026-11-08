@@ -17,5 +17,10 @@ class CoverForTest {
         assertEquals("", s.coverFor("https://evil.example.com/x.jpg", "animeflv"))
         assertEquals("", s.coverFor("http://169.254.169.254/latest/meta-data", "animeflv"))
         assertEquals("/api/jellyfin/image/1", s.coverFor("/api/jellyfin/image/1", "jellyfin"))
+        // A CDN the source itself answered with (covers on another domain, common for manhwa sites) is signed too,
+        // but only for that source.
+        CoverHosts.learn("olympus", "https://cdn.olympus-covers.example/a.webp")
+        assertTrue(s.coverFor("https://cdn.olympus-covers.example/b.webp", "olympus").startsWith("/api/img?"))
+        assertEquals("", s.coverFor("https://cdn.olympus-covers.example/b.webp", "animeflv"))
     }
 }

@@ -47,11 +47,18 @@ class DiscoveryRepository(
     /** Whether random picks are looked for ahead of time; off for guests on the server. */
     private val prefetch: Boolean = true
 ) {
+    /**
+     * Only sources that publish that kind of work are asked: anime in anime sites, novels in novel sites, comics in
+     * comic sites. Manga, manhwa and manhua count as one family (sites label them loosely).
+     */
     private fun readableIn(source: CatalogueSource, type: MediaType): Boolean = when (type) {
         MediaType.ANIME -> source is AnimeSource
         MediaType.NOVEL -> source is NovelSource
-        else -> source is MangaSource
+        MediaType.COMIC -> source is MangaSource && MediaType.COMIC in source.supportedTypes
+        else -> source is MangaSource && source.supportedTypes.any { it in ASIAN_COMICS }
     }
+
+    private val ASIAN_COMICS = setOf(MediaType.MANGA, MediaType.MANHWA, MediaType.MANHUA)
 
     private fun candidates(type: MediaType, excludeSourceId: String?): List<CatalogueSource> =
         sources.enabled(enabledIds())

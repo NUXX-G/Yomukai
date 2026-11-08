@@ -365,6 +365,8 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
 
     // Sites that moved: their new domains are in use before any source is asked for anything.
     kotlinx.coroutines.runBlocking { runCatching { services.domainAliases.load() } }
+    // The CDNs sources keep their covers on (for the library's and the feed's covers), from the index.
+    kotlinx.coroutines.runBlocking { runCatching { CoverHosts.loadFrom(services.db) } }
     startBackgroundJobs(config, services)
 
     routing {
@@ -979,7 +981,7 @@ fun Services.coverFor(cover: String, sourceId: String): String {
     if (!cover.startsWith("http://") && !cover.startsWith("https://")) return cover
     val host = runCatching { java.net.URI(cover).host?.lowercase() }.getOrNull() ?: return ""
     val allowed = sources.domainsOf(setOf(sourceId)) + COVER_DATABASES
-    if (allowed.none { host == it || host.endsWith(".$it") }) return ""
+    if (allowed.none { host == it || host.endsWith(".$it") } && !CoverHosts.knows(sourceId, host)) return ""
     return proxy.cover(cover, sources.get(sourceId)?.imageHeaders.orEmpty())
 }
 

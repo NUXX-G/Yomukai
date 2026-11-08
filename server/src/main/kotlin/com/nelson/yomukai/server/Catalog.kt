@@ -168,6 +168,7 @@ class Catalog(
 
     private fun remember(items: List<MediaItem>): List<MediaItem> {
         items.forEach { seen.put(key(it.sourceId, it.id), it) }
+        CoverHosts.learn(items)
         return items
     }
 
@@ -263,13 +264,20 @@ class Catalog(
      * Searches every enabled source in parallel and reports the ranked, grouped results each time a
      * source answers, so the fast ones show at once.
      */
+
+    /** When each source last failed a search (see [search]). */
+    private val searchFailedAt = ConcurrentHashMap<String, Long>()
+
     suspend fun search(
         query: String, types: Set<MediaType>?, language: String?, prefs: UserPrefs,
         onUpdate: suspend (SearchUpdateDto) -> Unit
     ) = coroutineScope {
+        val now = System.currentTimeMillis()
         val targets = enabled(prefs)
             .filter { language == null || it.language == "MULTI" || it.language == language }
             .filter { s -> types == null || s.supportedTypes.any { it in types } }
+            // A site that just failed (down, blocked, too slow) is skipped for a while instead of making everyone wait.
+            .filter { (searchFailedAt[it.id] ?: 0L) < now - SEARCH_SKIP_MS }
         val found = ConcurrentHashMap<String, List<MediaItem>>()
         val errors = ConcurrentHashMap<String, String>()
         val trusted = ConcurrentHashMap.newKeySet<String>()
@@ -290,6 +298,8 @@ class Catalog(
                     }
                 }?.also { if (it.error == null) searches.put(k, it) }
                 if (result == null) errors[source.id] = "${source.name} tardó demasiado"
+                if (result == null || (result.error != null && result.items.isEmpty())) searchFailedAt[source.id] = System.currentTimeMillis()
+                else searchFailedAt.remove(source.id)
                 result?.let { r ->
                     remember(r.items)
                     trusted += r.trusted
@@ -515,6 +525,7 @@ class Catalog(
 
         /** A source slower than this is left out of the search (marked as such): the rest are not held up. */
         const val SOURCE_TIMEOUT_MS = 10_000L
+        private const val SEARCH_SKIP_MS = 10 * 60_000L
         const val ALTERNATIVES_TIMEOUT_MS = 18_000L
         const val MAX_GROUPS = 80
 

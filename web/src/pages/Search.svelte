@@ -36,14 +36,35 @@
     stop = searchStream(q, { types, lang }, (update) => {
       groups = update.groups; pending = update.pending; errors = update.errors;
       rememberItems(update.groups.flatMap((g) => [g.primary, ...g.others]));
-      if (update.done) searching = false;
+      if (update.done) {
+        searching = false;
+        // A search of everything: switching to one kind afterwards just filters it, no new search.
+        if (!types) everything = { q, lang, groups: update.groups, errors: update.errors };
+      }
     }, () => (searching = false));
   }
 
   $effect(() => { if (route.query.get('q') && !searched) run(false); });
   onDestroy(() => stop?.());
 
-  function setType(k) { typeKey = k; if (searched) run(false); }
+  /** The last finished search of every kind (query, language and its results). */
+  let everything = null;
+  function setType(k) {
+    typeKey = k;
+    if (!searched) return;
+    const q = query.trim();
+    if (everything && everything.q === q && everything.lang === lang) {
+      const types = TYPE_FILTERS.find((f) => f.key === k).types;
+      stop?.();
+      searching = false;
+      groups = types ? everything.groups.filter((g) => types.includes(g.primary.type)) : everything.groups;
+      errors = everything.errors;
+      const wanted = (lang || i18n.lang).toLowerCase();
+      api.obrasBuscar(q, wanted, types?.join(',')).then((r) => { if (query.trim() === q) works = (r.works || []).map((w) => ({ ...w, lang: wanted })); }, () => {});
+      return;
+    }
+    run(false);
+  }
   function setLang(k) { lang = k; if (searched) run(false); }
   function clear() { query = ''; groups = []; works = []; searched = false; stop?.(); searching = false; }
   const sections = $derived(SECTIONS.map(([title, types]) => [title, groups.filter((g) => types.includes(g.primary.type))]).filter(([, list]) => list.length));
