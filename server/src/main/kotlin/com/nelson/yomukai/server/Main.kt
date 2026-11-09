@@ -171,7 +171,12 @@ class Services(val config: Config) {
             val day = System.currentTimeMillis() / Auth.DAY_MS
             jobs.enqueue(JobQueue.Request(JobTypes.SOURCE_REPAIR, payload, JobPriority.BACKGROUND, dedupKey = "repair:${source.id}:$day", ttlMs = Auth.DAY_MS, maxAttempts = 1))
         }
-    }, landing = { source -> http.getStringWithUrl(source.baseUrl).second })
+    }, landing = { source -> http.getStringWithUrl(source.baseUrl).second }, domains = object : Canary.DomainMover {
+        override suspend fun isMoved(host: String) = host in http.hostAliases
+        override suspend fun move(from: String, to: String) = domainAliases.set(from, to)
+        override suspend fun undo(from: String) = domainAliases.remove(from)
+        override suspend fun visit(url: String) = runCatching { http.getStringWithUrl(url).second }.getOrNull()
+    })
     val works = Works(db, catalog, aniList, sources).also { w ->
         w.tmdb = com.nelson.yomukai.data.metadata.TmdbClient(http, config.tmdbApiKey)
         w.kitsu = kitsu
