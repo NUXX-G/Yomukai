@@ -123,22 +123,30 @@ class Canary(
      */
     private suspend fun newDomain(source: CatalogueSource, redirected: String?): List<DiagnosticStep>? {
         val mover = domains ?: return null
-        if (source is com.nelson.yomukai.data.source.declarative.DeclarativeSource) return null
-        val base = source.baseUrl.toHttpUrlOrNull()?.host?.lowercase() ?: return null
-        if (mover.isMoved(base)) return null
-        if (redirected != null) {
-            val host = runCatching { DomainAliases.host(redirected) }.getOrNull()
-            val steps = host?.let { works(mover, source, base, it, keep = true) }
-            if (host != null && steps != null) {
-                notifier.admin("domain-${source.id}-$host", "${source.name} se ha mudado a $host",
-                    "Su web redirige a $host y la fuente funciona ahí (listas, ficha, capítulos y páginas): ya se usa ese dominio.")
-                return steps
-            }
+        val base = source.baseUrl.toHttpUrlOrNull()?.host?.lowercase()
+        if (base == null || source is com.nelson.yomukai.data.source.declarative.DeclarativeSource || mover.isMoved(base)) return null
+        if (redirected != null) return followRedirect(mover, source, base, redirected)
+        suggestGuess(mover, source, base)
+        return null
+    }
+
+    /** The site's own redirect: used if the source works there (its passing steps), else the admin is told. */
+    private suspend fun followRedirect(mover: DomainMover, source: CatalogueSource, base: String, redirected: String): List<DiagnosticStep>? {
+        val host = runCatching { DomainAliases.host(redirected) }.getOrNull()
+        val steps = host?.let { works(mover, source, base, it, keep = true) }
+        if (host != null && steps != null) {
+            notifier.admin("domain-${source.id}-$host", "${source.name} se ha mudado a $host",
+                "Su web redirige a $host y la fuente funciona ahí (listas, ficha, capítulos y páginas): ya se usa ese dominio.")
+        } else {
             notifier.admin("domain-${source.id}-$redirected", "${source.name} redirige a $redirected",
                 "Su web redirige a $redirected, pero la fuente no funciona ahí. Si su web se mudó, pon el dominio nuevo en Administración.")
-            return null
         }
-        if (System.currentTimeMillis() - (guessedAt[source.id] ?: 0L) < GUESS_EVERY_MS || mover.visit(source.baseUrl) != null) return null
+        return steps
+    }
+
+    /** The domain answers nothing: the same name with other endings, the first that works suggested (once a day). */
+    private suspend fun suggestGuess(mover: DomainMover, source: CatalogueSource, base: String) {
+        if (System.currentTimeMillis() - (guessedAt[source.id] ?: 0L) < GUESS_EVERY_MS || mover.visit(source.baseUrl) != null) return
         guessedAt[source.id] = System.currentTimeMillis()
         val answering = DomainGuesses.of(base).filter { candidate ->
             mover.visit("https://$candidate/")?.toHttpUrlOrNull()?.host?.lowercase()?.removePrefix("www.") == candidate.removePrefix("www.")
@@ -148,7 +156,6 @@ class Canary(
             notifier.admin("domain-guess-${source.id}-$host", "¿${source.name} está ahora en $host?",
                 "Su dominio ya no responde y la fuente funciona en $host. Confírmalo en Administración › Webs que se han mudado de dominio.")
         }
-        return null
     }
 
     /**
