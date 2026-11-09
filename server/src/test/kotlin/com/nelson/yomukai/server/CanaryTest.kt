@@ -34,25 +34,37 @@ class CanaryTest {
     /** A fake of the server's aliases: which host a source's requests go to now. */
     private class FakeMover(private val answers: (String) -> String?) : Canary.DomainMover {
         val aliases = mutableMapOf<String, String>()
+        val suggested = mutableMapOf<String, String>()
         override suspend fun isMoved(host: String) = host in aliases
         override suspend fun move(from: String, to: String) { aliases[from] = to }
         override suspend fun undo(from: String) { aliases.remove(from) }
+        override suspend fun suggest(from: String, to: String) { suggested[from] = to }
         override suspend fun visit(url: String) = answers(url)
     }
 
     @Test
-    fun aSourceWhoseDomainDiedIsFoundAtItsNewOneOnlyIfItWorksThere() = runBlocking {
+    fun aSourceThatMovedIsFollowedOnlyWhereItWorksAndGuessesAreOnlySuggested() = runBlocking {
         val zona = sources.require("zonatmo")
         val ok = listOf(DiagnosticStep("Novedades", true, "20"), DiagnosticStep("Capítulos", true, "10"))
         val bad = listOf(DiagnosticStep("Novedades", false, "Sin respuesta"))
         // zonatmo.org answers nothing; zonatmo.to answers and the source works there; zonatmo.com is a parked page.
+        // A guessed name may belong to anyone: it is suggested to the admin, never applied, and the trial is undone.
         val mover = FakeMover { url -> if ("zonatmo.to" in url) "https://zonatmo.to/" else if ("zonatmo.com" in url) "https://zonatmo.com/" else null }
         val canary = Canary(store, Notifier(null, null), pauseMs = 0, landing = { null }, domains = mover, diagnose = {
             if (mover.aliases["zonatmo.org"] == "zonatmo.to") ok else bad
         })
-        val outcome = canary.check(zona)
-        assertEquals(SourceHealth.OK, outcome.status)
-        assertEquals(mapOf("zonatmo.org" to "zonatmo.to"), mover.aliases)
+        assertEquals(SourceHealth.DEGRADED, canary.check(zona).status)
+        assertTrue(mover.aliases.isEmpty())
+        assertEquals(mapOf("zonatmo.org" to "zonatmo.to"), mover.suggested)
+
+        // Where the site's own domain redirects is the site's word: used at once if the source works there.
+        val lector = sources.require("lectortmo")
+        val follows = FakeMover { "https://lectortmo.net/" }
+        val redirected = Canary(store, Notifier(null, null), pauseMs = 0, landing = { "https://lectortmo.net/home" }, domains = follows, diagnose = {
+            if (follows.aliases.isNotEmpty()) ok else bad
+        })
+        assertEquals(SourceHealth.OK, redirected.check(lector).status)
+        assertEquals("lectortmo.net", follows.aliases.values.single())
 
         // A site that redirects somewhere it does not work (a forum, a chat) is not moved.
         val asura = sources.require("asura")

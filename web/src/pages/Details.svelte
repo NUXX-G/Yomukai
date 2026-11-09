@@ -687,6 +687,11 @@
   .obra-langs .chip { padding: 6px 12px; border-radius: 999px; background: var(--surface-2, rgba(127,127,127,.15)); color: inherit; text-decoration: none; font-size: .9rem; }
   .obra-langs .chip.on { background: var(--accent); color: var(--on-accent, #fff); }
   .details { position: relative; background: var(--bg); min-height: 100vh; transition: background 0.45s; overflow-x: clip; }
+  /* The space the layout keeps under the page (for the bottom bar) belongs to the work page, so its colour reaches
+     the very bottom instead of a black band. */
+  :global(.shell:not(.immersive) main:has(.details)) { padding-bottom: 0 !important; }
+  .details { padding-bottom: calc(var(--layout-bottom-bar) + var(--safe-bottom)); }
+  @media (min-width: 1024px) { .details { padding-bottom: 48px; } }
   .wrap { position: relative; max-width: 1200px; margin: 0 auto; }
   /* The bar's colour follows the scroll (--fill from 0 to 1) instead of switching on and off. */
   .bar { --fill: 0; position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 4px; padding: calc(var(--safe-top) + 4px) 4px 4px; background: color-mix(in srgb, var(--bg) calc(var(--fill) * 100%), transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--outline-variant) calc(var(--fill) * 100%), transparent); -webkit-backdrop-filter: blur(calc(var(--fill) * 18px)); backdrop-filter: blur(calc(var(--fill) * 18px)); }

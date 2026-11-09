@@ -296,6 +296,9 @@ object Migrations {
         },
         Migration(20, "Contenido sexual marcado por título o por las listas de adultos de la fuente (oculto salvo que el usuario lo active)") {
             addColumn("index_items", "adult", "INTEGER NOT NULL DEFAULT 0")
+        },
+        Migration(21, "Dominios que el canario sospecha que son los nuevos de una web: el admin los confirma") {
+            exec("CREATE TABLE IF NOT EXISTS domain_suggestions(old_host TEXT PRIMARY KEY, new_host TEXT NOT NULL, found_at INTEGER NOT NULL)")
         }
     )
 

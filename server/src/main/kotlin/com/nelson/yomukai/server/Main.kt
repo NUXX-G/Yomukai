@@ -175,6 +175,7 @@ class Services(val config: Config) {
         override suspend fun isMoved(host: String) = host in http.hostAliases
         override suspend fun move(from: String, to: String) = domainAliases.set(from, to)
         override suspend fun undo(from: String) = domainAliases.remove(from)
+        override suspend fun suggest(from: String, to: String) = domainAliases.suggest(from, to)
         override suspend fun visit(url: String) = runCatching { http.getStringWithUrl(url).second }.getOrNull()
     })
     val works = Works(db, catalog, aniList, sources).also { w ->

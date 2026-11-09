@@ -565,18 +565,20 @@
         <span class="small count">{current ? `${page + 1} / ${currentPages || '…'}` : ''}</span>
       </div>
       <div class="actions">
-        <button class="btn text" disabled={!current || !prevOf(current)} onclick={() => open(prevOf(current))}>{t('Anterior')}</button>
+        <button class="btn text nav-btn" disabled={!current || !prevOf(current)} onclick={() => open(prevOf(current))} aria-label={t('Anterior')}><Icon name="chevronLeft" size={20} /><span class="lbl">{t('Anterior')}</span></button>
         {#if ocrOn}
-          <button class="btn text" aria-pressed={translating} onclick={() => (translating = !translating)} title={t('Traducir los bocadillos')}>{translating ? t('Ver original') : t('Traducir')}</button>
-          <!-- Into which language: changing it translates the pages again. -->
-          <select class="tr-lang" value={settings.learning?.target || 'es'} aria-label={t('Traducir al')} title={t('Traducir al')}
-            onchange={(e) => { settings.learning = { ...settings.learning, target: e.target.value }; saveSettings(); for (const k of Object.keys(ocr)) if (ocr[k]) ocr[k] = { ...ocr[k], tr: null }; translating = true; }}>
-            {#each TARGETS as [code, name] (code)}<option value={code}>{name}</option>{/each}
-          </select>
+          <!-- Translate, and into which language (changing it translates the pages again): one compact control. -->
+          <span class="tr-group">
+            <button class="btn text" aria-pressed={translating} onclick={() => (translating = !translating)} title={t('Traducir los bocadillos')}>{translating ? t('Original') : t('Traducir')}</button>
+            <select class="tr-lang" value={settings.learning?.target || 'es'} aria-label={t('Traducir al')} title={t('Traducir al')}
+              onchange={(e) => { settings.learning = { ...settings.learning, target: e.target.value }; saveSettings(); for (const k of Object.keys(ocr)) if (ocr[k]) ocr[k] = { ...ocr[k], tr: null }; translating = true; }}>
+              {#each TARGETS as [code, name] (code)}<option value={code} title={name}>{code.toUpperCase()}</option>{/each}
+            </select>
+          </span>
           {#if mode === 'vertical'}<button class="icon-btn" class:active={readingBubbles} onclick={toggleBubbles} aria-label={readingBubbles ? t('Parar la lectura') : t('Leer los bocadillos en voz alta')} title={t('Leer los bocadillos')}><Icon name="speech" /></button>{/if}
         {/if}
         {#if mode === 'vertical'}<button class="icon-btn" onclick={toggleScroll} aria-label={scrolling ? 'Parar desplazamiento' : t('Desplazamiento automático')} title={t('Desplazamiento automático')}><Icon name={scrolling ? 'pause' : 'play'} /></button>{/if}
-        <button class="btn text" disabled={!current || !nextOf(current)} onclick={() => open(nextOf(current))}>{t('Siguiente')}</button>
+        <button class="btn text nav-btn" disabled={!current || !nextOf(current)} onclick={() => open(nextOf(current))} aria-label={t('Siguiente')}><span class="lbl">{t('Siguiente')}</span><Icon name="chevronRight" size={20} /></button>
       </div>
     </footer>
   {:else}
@@ -707,7 +709,13 @@
   .top { top: 0; padding: calc(var(--safe-top) + 4px) 8px 6px; }
   .bottom { bottom: 0; flex-direction: column; align-items: stretch; gap: 2px; padding: 6px 8px calc(var(--safe-bottom) + 6px); }
   .track { display: flex; align-items: center; gap: 10px; padding: 0 8px; min-height: 28px; }
-  .actions { display: flex; align-items: center; justify-content: space-between; }
+  .actions { display: flex; align-items: center; justify-content: space-between; gap: 2px; min-width: 0; }
+  .nav-btn { display: inline-flex; align-items: center; gap: 2px; padding-inline: 8px; }
+  .tr-group { display: inline-flex; align-items: center; gap: 0; border: 1px solid #ffffff2b; border-radius: 999px; padding-right: 4px; }
+  .tr-group .btn { padding-inline: 10px; }
+  .tr-group .tr-lang { border: 0; padding: 4px 2px; max-width: none; }
+  /* Narrow screens: the arrows alone, so every control fits on one line. */
+  @media (max-width: 600px) { .nav-btn .lbl { display: none; } }
   .slider { flex: 1; min-width: 0; accent-color: var(--primary); }
   .count { min-width: 64px; text-align: center; color: var(--text-dim); }
   .titles { flex: 1; min-width: 0; }

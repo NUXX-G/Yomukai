@@ -22,6 +22,25 @@ class DomainAliases(private val db: Database, private val http: ServerHttp) {
     suspend fun list(): List<Alias> =
         db.tx { query("SELECT old_host, new_host, updated_at FROM domain_aliases ORDER BY old_host") { Alias(getString(1), getString(2), getLong(3)) } }
 
+    /** Domains the canary guessed and where the source worked: for the admin to apply or dismiss, never applied alone. */
+    suspend fun suggestions(): List<Alias> =
+        db.tx { query("SELECT old_host, new_host, found_at FROM domain_suggestions ORDER BY found_at DESC") { Alias(getString(1), getString(2), getLong(3)) } }
+
+    suspend fun suggest(from: String, to: String) {
+        val old = host(from)
+        val new = host(to)
+        db.tx {
+            update(
+                "INSERT INTO domain_suggestions(old_host, new_host, found_at) VALUES(?,?,?) ON CONFLICT(old_host) DO UPDATE SET new_host = excluded.new_host, found_at = excluded.found_at",
+                old, new, System.currentTimeMillis()
+            )
+        }
+    }
+
+    suspend fun dismiss(from: String) {
+        db.tx { update("DELETE FROM domain_suggestions WHERE old_host = ?", host(from)) }
+    }
+
     suspend fun set(from: String, to: String) {
         val old = host(from)
         val new = host(to)
@@ -31,6 +50,7 @@ class DomainAliases(private val db: Database, private val http: ServerHttp) {
                 "INSERT INTO domain_aliases(old_host, new_host, updated_at) VALUES(?,?,?) ON CONFLICT(old_host) DO UPDATE SET new_host = excluded.new_host, updated_at = excluded.updated_at",
                 old, new, System.currentTimeMillis()
             )
+            update("DELETE FROM domain_suggestions WHERE old_host = ?", old)
         }
         load()
     }
@@ -54,6 +74,11 @@ class DomainAliases(private val db: Database, private val http: ServerHttp) {
 
 fun Route.domainAliasRoutes(s: Services) {
     get("/domains") { call.respond(s.domainAliases.list()) }
+    get("/domains/suggestions") { call.respond(s.domainAliases.suggestions()) }
+    delete("/domains/suggestions/{from}") {
+        s.domainAliases.dismiss(call.parameters["from"].orEmpty())
+        call.respond(s.domainAliases.suggestions())
+    }
     put("/domains") {
         val body = com.google.gson.JsonParser.parseString(call.receiveText().take(2_000)).asJsonObject
         s.domainAliases.set(body.get("from")?.asString.orEmpty(), body.get("to")?.asString.orEmpty())

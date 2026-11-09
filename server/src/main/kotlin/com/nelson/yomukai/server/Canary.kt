@@ -75,6 +75,9 @@ class Canary(
         suspend fun move(from: String, to: String)
         suspend fun undo(from: String)
 
+        /** A guessed domain where the source works: kept for the admin to confirm, never applied by itself. */
+        suspend fun suggest(from: String, to: String)
+
         /** The address a visit to [url] ends at, or null when nothing answers there. */
         suspend fun visit(url: String): String?
     }
@@ -88,21 +91,10 @@ class Canary(
     suspend fun check(source: CatalogueSource): Outcome {
         val moved = movedTo(source)
         var steps = runCatching { diagnose(source) }.getOrElse { listOf(DiagnosticStep("Prueba", false, it.message ?: "Error")) }
-        // A site that moved (it redirects elsewhere, or its domain is gone): its new domain is tried by itself, and kept
-        // only if the whole source works there (a redirect to a forum or a parked domain is never kept).
         if (SourceVerdict.of(steps) == SourceHealth.DEGRADED || moved != null) {
-            tryNewDomain(source, moved)?.let { (host, working) ->
-                steps = working
-                notifier.admin(
-                    "domain-${source.id}-$host", "${source.name} se ha mudado a $host",
-                    "Su web está ahora en $host y Yomukai ya la usa ahí (comprobado: listas, ficha, capítulos y páginas)."
-                )
-            } ?: moved?.let { host ->
-                notifier.admin(
-                    "domain-${source.id}-$host", "${source.name} redirige a $host",
-                    "Su web redirige a $host, pero la fuente no funciona ahí. Si su web se mudó, pon el dominio nuevo en Administración."
-                )
-            }
+            // Nothing found here may stop the check of this source or the next ones.
+            runCatching { newDomain(source, moved) }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }.getOrNull()
+                ?.let { steps = it }
         }
         val status = SourceVerdict.of(steps)
         val summary = SourceVerdict.summary(steps)
@@ -124,33 +116,56 @@ class Canary(
     }
 
     /**
-     * Tries [redirected] (where the site now sends visitors) or, if its domain answers nothing at all, the same name
-     * with other usual endings (.com, .net, .to...). A domain is kept only when the source passes every step there;
-     * the found host and the passing steps, or null (and nothing changed).
+     * The site moved. Where its own domain now sends visitors ([redirected]) is trusted as the site's word: if the whole
+     * source works there it is used at once (and the passing steps returned). If its domain answers nothing, the same
+     * name with other usual endings is tried, but a guess is only suggested to the admin, never applied (anyone may
+     * own that name). A redirect to a forum or a parked page never passes.
      */
-    private suspend fun tryNewDomain(source: CatalogueSource, redirected: String?): Pair<String, List<DiagnosticStep>>? {
+    private suspend fun newDomain(source: CatalogueSource, redirected: String?): List<DiagnosticStep>? {
         val mover = domains ?: return null
         if (source is com.nelson.yomukai.data.source.declarative.DeclarativeSource) return null
         val base = source.baseUrl.toHttpUrlOrNull()?.host?.lowercase() ?: return null
         if (mover.isMoved(base)) return null
-        val candidates = when {
-            redirected != null -> listOf(redirected)
-            System.currentTimeMillis() - (guessedAt[source.id] ?: 0L) < GUESS_EVERY_MS -> emptyList()
-            mover.visit(source.baseUrl) != null -> emptyList()
-            else -> {
-                guessedAt[source.id] = System.currentTimeMillis()
-                DomainGuesses.of(base).filter { candidate ->
-                    mover.visit("https://$candidate/")?.toHttpUrlOrNull()?.host?.lowercase()?.removePrefix("www.") == candidate.removePrefix("www.")
-                }
+        if (redirected != null) {
+            val host = runCatching { DomainAliases.host(redirected) }.getOrNull()
+            val steps = host?.let { works(mover, source, base, it, keep = true) }
+            if (host != null && steps != null) {
+                notifier.admin("domain-${source.id}-$host", "${source.name} se ha mudado a $host",
+                    "Su web redirige a $host y la fuente funciona ahí (listas, ficha, capítulos y páginas): ya se usa ese dominio.")
+                return steps
             }
+            notifier.admin("domain-${source.id}-$redirected", "${source.name} redirige a $redirected",
+                "Su web redirige a $redirected, pero la fuente no funciona ahí. Si su web se mudó, pon el dominio nuevo en Administración.")
+            return null
         }
-        for (host in candidates.take(MAX_CANDIDATES)) {
-            mover.move(base, host)
-            val steps = runCatching { diagnose(source) }.getOrNull()
-            if (steps != null && SourceVerdict.of(steps) != SourceHealth.DEGRADED) return host to steps
-            mover.undo(base)
+        if (System.currentTimeMillis() - (guessedAt[source.id] ?: 0L) < GUESS_EVERY_MS || mover.visit(source.baseUrl) != null) return null
+        guessedAt[source.id] = System.currentTimeMillis()
+        val answering = DomainGuesses.of(base).filter { candidate ->
+            mover.visit("https://$candidate/")?.toHttpUrlOrNull()?.host?.lowercase()?.removePrefix("www.") == candidate.removePrefix("www.")
+        }
+        answering.take(MAX_CANDIDATES).firstOrNull { works(mover, source, base, it, keep = false) != null }?.let { host ->
+            mover.suggest(base, host)
+            notifier.admin("domain-guess-${source.id}-$host", "¿${source.name} está ahora en $host?",
+                "Su dominio ya no responde y la fuente funciona en $host. Confírmalo en Administración › Webs que se han mudado de dominio.")
         }
         return null
+    }
+
+    /**
+     * The source's steps with its requests sent to [host] for a moment; the move is undone afterwards whatever happens
+     * (also when the check is cancelled) unless [keep] and every step that matters passed. Null when it does not work.
+     */
+    private suspend fun works(mover: DomainMover, source: CatalogueSource, base: String, host: String, keep: Boolean): List<DiagnosticStep>? {
+        mover.move(base, host)
+        var kept = false
+        try {
+            val steps = runCatching { diagnose(source) }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }.getOrNull()
+            val ok = steps != null && SourceVerdict.of(steps) != SourceHealth.DEGRADED
+            kept = ok && keep
+            return steps.takeIf { ok }
+        } finally {
+            if (!kept) kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { mover.undo(base) }
+        }
     }
 
     /** The new host when the source's site now sends visitors to another domain (www. and paths aside). */
