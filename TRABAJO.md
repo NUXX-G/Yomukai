@@ -6,14 +6,14 @@ Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este ficher
 Última actualización: 2026-11-08 (noche). Versión de la app: **2.2.0** (versionCode 28): un APK por procesador (arm64 29 MB) + universal; la release se publica sola al subir la etiqueta v2.1.0.
 
 **PEDIDO 2026-11-08 (noche, tras probar la web) — PRIORIDAD MÁXIMA, dejarlo «de putísima madre». Autonomía total, subir a GitHub, NO release (se prueba en web y luego se migra a la app).**
-1. [ ] Relacionados mal (algunos bien, otros nada; p. ej. GATE parte 2 / «temporada 2» no muestra nada).
-2. [ ] Portadas: pequeña, mediana, grande y horizontal (banner) para el máximo de obras (AniList, TMDB, MangaDex, Kitsu…; ideas del usuario: SteamGridDB, TheTVDB, Zerochan, Wallhaven).
-3. [ ] Portadas que no cargan en las tarjetas de fuera pero sí dentro de la obra.
-4. [ ] Quitar los títulos de capítulo censurados (difuminados) junto a «Cap. 194»: ruido.
-5. [ ] Pulir la web: zona negra en el pie al bajar mucho dentro de una obra; HUD de herramientas saturado.
-6. [ ] Fuentes nuevas. Anime: veranimeonline.co, animedlatino.com, jkanime.net (AnimeAV1 caído). Manga/manhwa: zonatmo.to, manhwaweb.com, tmomanhwa.com. Arreglar las que fallen por culpa nuestra (muchas caídas por bloqueos de LaLiga).
-7. [ ] Contenido sexual oculto por defecto; solo si el usuario lo activa.
-8. [ ] Detectar solo el dominio nuevo de una fuente que se muda (reutilizar DomainAliases).
+1. [x] Relacionados mal (TitleMatcher entiende temporadas escritas de cualquier forma y nombres con o sin espacios; metadatos por id de AniList cuando el índice lo sabe; el índice deja cupo de AniList a las fichas). Muestra de 25 animes: de 0 a 18 con relacionadas (algunos bien, otros nada; p. ej. GATE parte 2 / «temporada 2» no muestra nada).
+2. [x] Portadas (tamaños 240/360/480/720+ en el proxy; banner y póster grande de Kitsu —ahora kitsu.app— cuando AniList no tiene; al confirmar en el índice y al abrir la ficha). Pendiente si hace falta: SteamGridDB/TheTVDB (piden clave). Portadas: pequeña, mediana, grande y horizontal (banner) para el máximo de obras (AniList, TMDB, MangaDex, Kitsu…; ideas del usuario: SteamGridDB, TheTVDB, Zerochan, Wallhaven).
+3. [x] Portadas que no cargan (la tarjeta cogía la portada de una fuente caída; ahora una sana y la misma fuente para portada y cabeceras). Portadas que no cargan en las tarjetas de fuera pero sí dentro de la obra.
+4. [x] Quitar los títulos de capítulo censurados (difuminados) junto a «Cap. 194»: ruido.
+5. [x] Pulir la web (ficha sin franja negra; barra del lector que cabe en el móvil): zona negra en el pie al bajar mucho dentro de una obra; HUD de herramientas saturado.
+6. [x] Fuentes nuevas, todas con tests de páginas reales y probadas de punta a punta: ZonaTMO (zonatmo.to, API JSON), TmoManhwa (declarativa firmada), ManhwaWeb (API), JKAnime (HLS propio + servidores), AnimeDLatino, VerAnimeOnline (Blogger). AnimeAV1 caída. Anime: veranimeonline.co, animedlatino.com, jkanime.net (AnimeAV1 caído). Manga/manhwa: zonatmo.to, manhwaweb.com, tmomanhwa.com. Arreglar las que fallen por culpa nuestra (muchas caídas por bloqueos de LaLiga).
+7. [x] Contenido sexual oculto (solo lo sexual, no ecchi; por usuario; también sin etiquetar: AdultHints por título y listas de adultos de cada web, migración 20) por defecto; solo si el usuario lo activa.
+8. [x] Dominio nuevo: el canario sigue la redirección de la propia web si la fuente funciona allí; los dominios adivinados quedan como sugerencia para el admin (migraciones 19 y 21) de una fuente que se muda (reutilizar DomainAliases).
 9. «Buscar en tus fuentes» solo le salió con JoJo Steel Ball Run: lo de obras ha mejorado mucho.
 
 **ESTADO 2026-11-08 (noche) — fallos de la 2.1.0 y prioridad nº 1**
