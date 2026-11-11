@@ -82,6 +82,11 @@
   $effect(() => { if (tab === 'history' && !history) api.history().then((h) => (history = h)).catch(() => (history = [])); });
 
   const kind = (id) => sources.list.find((s) => s.id === id)?.kind;
+  // O4: a work kept in a source that is down says so here (it no longer shows on Home or in the sections).
+  const downBadge = (id) => {
+    const why = sources.list.find((s) => s.id === id)?.degraded;
+    return why ? [{ text: t('Caída'), tone: 'accent', title: t('Su fuente no funciona ahora: {0}', [why]) }] : [];
+  };
   async function forget(h) {
     history = history.filter((x) => x !== h);
     await api.removeHistory(h.sourceId, h.mediaId).catch(() => {});
@@ -155,7 +160,7 @@
       <div class="grid" style="margin-top:16px">
         {#each items as r (keyOf(r))}
           <div class="slot">
-            <MediaCard title={r.title} cover={r.cover} type={r.type} showType href={media(r.sourceId, r.mediaId)} />
+            <MediaCard title={r.title} cover={r.cover} type={r.type} showType href={media(r.sourceId, r.mediaId)} badges={downBadge(r.sourceId)} />
             {#if unread(r)}<span class="badge" title={newsLabel(unread(r), r)}>{unread(r) > 99 ? '99+' : unread(r)}</span>{/if}
           </div>
         {/each}

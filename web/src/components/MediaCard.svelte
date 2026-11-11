@@ -49,7 +49,7 @@
       <span class="fallback halftone" aria-hidden="true"><span>{title}</span></span>
     {/if}
     {#if badges.length}
-      <div class="badges">{#each badges as b, i (i)}<span class="badge {b.tone || 'dark'}">{b.text}</span>{/each}</div>
+      <div class="badges">{#each badges as b, i (i)}<span class="badge {b.tone || 'dark'}" title={b.title}>{b.text}</span>{/each}</div>
     {/if}
     {#if score}<span class="score">★ {score}</span>{/if}
     {#if kind === 'anime'}<span class="play" aria-hidden="true"></span>{/if}
