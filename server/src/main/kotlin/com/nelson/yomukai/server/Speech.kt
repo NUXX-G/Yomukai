@@ -52,7 +52,8 @@ class Speech(private val http: ServerHttp, dataDir: File, private val piper: Fil
     /** WAV audio of [text] read by [voiceId] at [rate] (1 = normal). */
     suspend fun synthesize(text: String, voiceId: String, rate: Float): ByteArray {
         val voice = VOICES.firstOrNull { it.id == voiceId } ?: throw IllegalArgumentException("Voz desconocida")
-        val clean = text.replace(Regex("\\s+"), " ").trim().take(MAX_CHARS)
+        // Numbers, abbreviations and pauses as a voice should say them (F6.1).
+        val clean = com.nelson.yomukai.data.speech.SpeechText.normalize(text.replace(Regex("\\s+"), " ").trim(), voice.lang).take(MAX_CHARS)
         require(clean.isNotEmpty()) { "Texto vacío" }
         val speed = (if (rate.isFinite()) rate else 1f).coerceIn(0.5f, 2.5f)
         val key = sha("${voice.id}|$speed|$clean")

@@ -218,6 +218,12 @@ class NovelSpeech(
             val wanted = if (role == "female") "female" else "male"
             (local.firstOrNull { it.gender == wanted } ?: local.firstOrNull())?.let { return it.id }
         }
+        // The home worker's voices in this language first (Pocket TTS speaks Spanish), Piper's otherwise.
+        val worker = _naturalVoices.value.filter { it.lang == lang && it.id.startsWith("w:") && !it.id.contains("clone:") }
+        if (worker.isNotEmpty()) {
+            val gender = when (role) { "female" -> "f"; "male" -> "m"; else -> null }
+            return (gender?.let { g -> worker.firstOrNull { it.gender == g } } ?: worker.first()).id
+        }
         return serverDefault(role)
     }
 
@@ -241,7 +247,8 @@ class NovelSpeech(
                 else -> "narrator"
             }
             val voice = pick(role) ?: pick("narrator")
-            Dialogue.chunks(part.text, if (natural) 400 else 3500).map { Piece(it, voice) }
+            // Numbers, abbreviations and pauses as a voice says them (F6.1), after the dialogue was split by its dashes.
+            Dialogue.chunks(part.text, if (natural) 400 else 3500).map { Piece(com.nelson.yomukai.data.speech.SpeechText.normalize(it, lang), voice) }
         }
     }
 

@@ -65,6 +65,15 @@ object Capabilities {
         }
 
     /** True when [command] can be started (it is on the PATH or is an existing file). */
+
+    /** Whether "command probeArgs" prints [word] (an option of the installed version), without running anything else. */
+    fun helpMentions(command: String, word: String, vararg probeArgs: String): Boolean = runCatching {
+        val p = ProcessBuilder(command, *probeArgs).redirectErrorStream(true).start()
+        val text = p.inputStream.bufferedReader().use { it.readText().take(200_000) }
+        if (!p.waitFor(20, TimeUnit.SECONDS)) p.destroyForcibly()
+        word in text
+    }.getOrDefault(false)
+
     fun installed(command: String, vararg probeArgs: String = arrayOf("--version")): Boolean = runCatching {
         val p = ProcessBuilder(command, *probeArgs).redirectErrorStream(true).start()
         p.inputStream.close()

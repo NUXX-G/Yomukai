@@ -1,0 +1,18 @@
+[
+  { "lang": "es", "in": "Capítulo 12: la batalla de 1990.", "out": "Capítulo doce: la batalla de mil novecientos noventa." },
+  { "lang": "es", "in": "Cap. 3 y pág. 21", "out": "capítulo tres y página veintiuno" },
+  { "lang": "es", "in": "El Sr. Tanaka y la Dra. Ruiz llegaron.", "out": "El señor Tanaka y la doctora Ruiz llegaron." },
+  { "lang": "es", "in": "Tenía 1.234 monedas y 3,5 kilos.", "out": "Tenía mil doscientos treinta y cuatro monedas y tres coma cinco kilos." },
+  { "lang": "es", "in": "Un 50 % de los 21 soldados.", "out": "Un cincuenta por ciento de los veintiuno soldados." },
+  { "lang": "es", "in": "Quedó 1.º y ella 2.ª en el año 2026.", "out": "Quedó primero y ella segunda en el año dos mil veintiséis." },
+  { "lang": "es", "in": "Eran 21000 y luego 1000000.", "out": "Eran veintiún mil y luego un millón." },
+  { "lang": "es", "in": "Medía 3.5 metros.", "out": "Medía tres coma cinco metros." },
+  { "lang": "es", "in": "—¡¡¡Corre!!! —gritó él—. Ya vienen...", "out": "¡Corre!, gritó él. Ya vienen…" },
+  { "lang": "es", "in": "Libros, armas, etc. Todo listo.", "out": "Libros, armas, etcétera. Todo listo." },
+  { "lang": "es", "in": "Libros, armas, etc., y comida.", "out": "Libros, armas, etcétera, y comida." },
+  { "lang": "es", "in": "Viajaron a EE. UU. con el nº 7.", "out": "Viajaron a Estados Unidos con el número siete." },
+  { "lang": "es", "in": "S4 y la temporada 2x", "out": "S4 y la temporada 2x" },
+  { "lang": "en", "in": "Mr. Smith had 21 cats in 1990.", "out": "mister Smith had twenty-one cats in nineteen ninety." },
+  { "lang": "en", "in": "It cost 3.5 dollars, about 1,250 coins or 50%.", "out": "It cost three point five dollars, about one thousand two hundred fifty coins or fifty percent." },
+  { "lang": "en", "in": "Ch. 4 — the end!!!", "out": "chapter four, the end!" }
+]

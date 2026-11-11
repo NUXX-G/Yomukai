@@ -9,6 +9,7 @@
 import { settings } from './store.svelte.js';
 import { t } from './i18n.svelte.js';
 import { kokoroVoices, kokoroSpeak, KOKORO_PREFIX } from './kokoro.svelte.js';
+import { normalizeSpeech } from './speech-text.js';
 
 export const speechVoices = $state({ loaded: false, natural: false, server: [], browser: [] });
 
@@ -71,7 +72,10 @@ export function voiceSettings(lang) {
   const mine = speechVoices.server.filter((v) => v.lang === lang && !v.id.startsWith(KOKORO_PREFIX));
   const out = {};
   for (const [role, id] of Object.entries(wanted)) {
-    if (!mine.length || mine.some((v) => v.id === id) || String(id).startsWith(KOKORO_PREFIX)) { out[role] = id; continue; }
+    // Not chosen by the reader and the home worker has voices in this language: those (Pocket TTS in Spanish), not Piper.
+    const workerHere = mine.some((v) => v.tier === 'worker' && !v.id.includes('clone:'));
+    const keep = !mine.length || String(id).startsWith(KOKORO_PREFIX) || (mine.some((v) => v.id === id) && (role in saved || !workerHere));
+    if (keep) { out[role] = id; continue; }
     const gender = role === 'female' ? 'f' : role === 'male' ? 'm' : null;
     const rank = (v) => (v.tier === 'worker' && !v.id.includes('clone:') ? 4 : 0) + (/high|alta/i.test(v.label) ? 2 : 0) + (gender && v.gender === gender ? 3 : 0);
     out[role] = [...mine].sort((x, y) => rank(y) - rank(x))[0].id;
@@ -143,7 +147,9 @@ export class SpeechReader {
   plan(paragraph, lang) {
     const characters = settings.novel.ttsCharacters !== false;
     const v = voiceSettings(lang);
-    return planRoles(paragraph, characters).map(({ text, role, dialogue }) => {
+    // Numbers, abbreviations and pauses as a voice says them (F6.1), after the dialogue was split by its dashes.
+    return planRoles(paragraph, characters).map(({ text: raw, role, dialogue }) => {
+      const text = normalizeSpeech(raw, lang);
       if (this.engine() === 'natural') return { text, voice: v[role] };
       const b = settings.novel.browserVoices?.[lang] || {};
       return { text, browser: (dialogue && b.dialogue) || b.narrator || '' };

@@ -60,16 +60,17 @@ class VoiceRouter(private val s: Services) {
     /** WAV of [text]: from the worker (waiting up to [waitMs]) for "w:" voices, from Piper otherwise. */
     suspend fun speak(user: User, text: String, voice: String, rate: Float, waitMs: Long = 30_000): ByteArray {
         if (!voice.startsWith("w:")) return s.speech.synthesize(text, voice, rate)
-        val clean = text.replace(Regex("\\s+"), " ").trim().take(MAX_CHARS)
-        require(clean.isNotEmpty()) { "Texto vacío" }
         val id = voice.removePrefix("w:")
+        val lang = langOf(id)
+        val clean = speakable(text, lang)
+        require(clean.isNotEmpty()) { "Texto vacío" }
         require(!user.isGuest) { "Las voces del servidor de casa no están disponibles para invitados" }
         require(usable(id)) { "Esa voz no está disponible ahora (¿el servidor de casa está apagado?)" }
         val r = normalRate(rate)
         val key = key(id, r, clean)
         s.jobs.results.get(key)?.let { (file, _) -> return file.readBytes() }
         require(pending(user) < MAX_PENDING_PER_USER) { "Demasiadas lecturas en cola; espera un poco" }
-        val job = s.jobs.enqueue(JobQueue.Request(JobTypes.TTS, payload(clean, id, r), JobPriority.INTERACTIVE, dedupKey = key, requestedBy = user.id, ttlMs = 10 * 60_000L))
+        val job = s.jobs.enqueue(JobQueue.Request(JobTypes.TTS, payload(clean, id, r, lang), JobPriority.INTERACTIVE, dedupKey = key, requestedBy = user.id, ttlMs = 10 * 60_000L))
         val done = withTimeoutOrNull(waitMs) {
             while (true) {
                 val j = s.jobs.get(job.id) ?: break
@@ -97,19 +98,34 @@ class VoiceRouter(private val s: Services) {
         var room = maxPending - pending(user)
         if (!usable(id)) return 0
         var queued = 0
+        val lang = langOf(id)
         for (t in texts.map { it.replace(Regex("\\s+"), " ").trim() }.distinct().take(limit)) {
-            val clean = t.replace(Regex("\\s+"), " ").trim().take(MAX_CHARS).takeIf { it.isNotEmpty() } ?: continue
+            val clean = speakable(t, lang).takeIf { it.isNotEmpty() } ?: continue
             val key = key(id, r, clean)
             if (s.jobs.results.has(key)) continue
             if (room-- <= 0) break
-            s.jobs.enqueue(JobQueue.Request(JobTypes.TTS, payload(clean, id, r), priority, dedupKey = key, requestedBy = user.id, ttlMs = ttlMs))
+            s.jobs.enqueue(JobQueue.Request(JobTypes.TTS, payload(clean, id, r, lang), priority, dedupKey = key, requestedBy = user.id, ttlMs = ttlMs))
             queued++
         }
         return queued
     }
 
-    private fun payload(text: String, voice: String, rate: Float) = JsonObject().apply {
-        addProperty("text", text); addProperty("voice", voice); addProperty("rate", rate)
+    private fun payload(text: String, voice: String, rate: Float, lang: String) = JsonObject().apply {
+        addProperty("text", text); addProperty("voice", voice); addProperty("rate", rate); addProperty("lang", lang)
+    }
+
+    /** The text as the voice should say it (numbers, abbreviations, pauses), the same for the cache and the worker. */
+    private fun speakable(text: String, lang: String): String =
+        com.nelson.yomukai.data.speech.SpeechText.normalize(text.replace(Regex("\\s+"), " ").trim(), lang).take(MAX_CHARS)
+
+    /** The language a worker voice speaks (its sample's for a cloned one); Spanish when it does not say. */
+    private suspend fun langOf(id: String): String {
+        val lang = if (id.startsWith(CLONE)) {
+            id.removePrefix(CLONE).toLongOrNull()?.let { n -> s.voiceSamples.list().firstOrNull { it.id == n }?.lang }
+        } else {
+            workerVoices().firstOrNull { it.get("id")?.asString == id }?.get("lang")?.asString
+        }
+        return lang?.takeIf { Regex("[a-z]{2}").matches(it) } ?: "es"
     }
 
     /** One value per real speed (0.5..2 in steps of 0.05): the same audio is never queued twice for 1.0 and 1.0001. */

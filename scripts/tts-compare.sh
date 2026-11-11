@@ -61,11 +61,19 @@ run_template() {
 }
 
 if command -v pocket-tts >/dev/null; then
-  # Pocket TTS speaks English; the Spanish paragraph shows how it copes (useful to decide).
-  for lang in es en; do
-    text=$([ "$lang" = es ] && echo "$ES" || echo "$EN")
-    measure pocket "$lang" "$OUT/pocket-$lang.wav" pocket-tts generate --voice "${POCKET_VOICE:-alba}" --text "$text" --output-path "$OUT/pocket-$lang.wav"
-  done
+  if pocket-tts generate --help 2>&1 | grep -q -- '--language'; then
+    # Pocket TTS multilingüe (abril de 2026): cada voz leyendo en español, para escuchar y elegir. «lola» es la nativa.
+    for v in ${POCKET_VOICES_ES:-lola alba marius jean fantine george vera}; do
+      measure "pocket-$v" es "$OUT/pocket-$v-es.wav" pocket-tts generate --language spanish --voice "$v" --text "$ES" --output-path "$OUT/pocket-$v-es.wav"
+    done
+    measure pocket-alba en "$OUT/pocket-alba-en.wav" pocket-tts generate --language english --voice alba --text "$EN" --output-path "$OUT/pocket-alba-en.wav"
+  else
+    echo "Tu pocket-tts no tiene --language: actualízalo para las voces en español (pip install -U pocket-tts)"
+    for lang in es en; do
+      text=$([ "$lang" = es ] && echo "$ES" || echo "$EN")
+      measure pocket "$lang" "$OUT/pocket-$lang.wav" pocket-tts generate --voice "${POCKET_VOICE:-alba}" --text "$text" --output-path "$OUT/pocket-$lang.wav"
+    done
+  fi
 else echo "pocket-tts no instalado: se salta (pip install pocket-tts)"; fi
 
 if [ -n "${PIPER_BIN:-}" ] && [ -x "$PIPER_BIN" ]; then
