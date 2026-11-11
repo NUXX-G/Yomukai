@@ -52,7 +52,8 @@ class SourceManager(
         AnitakuSource(network),
         com.nelson.yomukai.data.source.anime.JkAnimeSource(network),
         com.nelson.yomukai.data.source.anime.AnimeDLatinoSource(network),
-        com.nelson.yomukai.data.source.anime.VerAnimeOnlineSource(network)
+        com.nelson.yomukai.data.source.anime.VerAnimeOnlineSource(network),
+        com.nelson.yomukai.data.source.anime.AnimeOnlineNinjaSource(network)
     )
 
     @Volatile
