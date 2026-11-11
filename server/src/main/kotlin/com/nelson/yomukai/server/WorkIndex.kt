@@ -38,7 +38,9 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
 
     data class Card(
         val key: String, val title: String, val cover: String, val type: String, val langs: List<String>,
-        val sources: Int, val updatedAt: Long, val status: String, val coverSource: String = ""
+        val sources: Int, val updatedAt: Long, val status: String, val coverSource: String = "",
+        /** What its anime sources are heard in (AudioTrack names), F3.1. */
+        val audios: List<String> = emptyList()
     )
 
     data class SourceState(val sourceId: String, val items: Int, val fullDone: Boolean, val nextPage: Int, val latestAt: Long, val error: String?)
@@ -329,7 +331,9 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
     // ---------- Reading --------------------------------------------------------------------------------------------
 
     /** Works with a source in [lang] (multi-language sources count for every language), of [types] when given. */
-    suspend fun list(lang: String, types: Set<String>?, sort: String, page: Int, hideAdult: Boolean = true): List<Card> = s.db.tx {
+    suspend fun list(lang: String, types: Set<String>?, sort: String, page: Int, hideAdult: Boolean = true, audio: String? = null): List<Card> = s.db.tx {
+        // Only a known audio name ever reaches the query (F3.1: castellano, latino, inglés, subtitulado sections).
+        val audioFilter = audio?.takeIf { a -> com.nelson.yomukai.domain.model.AudioTrack.entries.any { it.name == a } }
         val typeFilter = types?.takeIf { it.isNotEmpty() }?.joinToString(",") { "'" + it.filter(Char::isLetter) + "'" }
         val order = when (sort) {
             "az" -> "COALESCE(local_title, w.title) COLLATE NOCASE ASC"
@@ -340,9 +344,11 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
             """SELECT w.key, w.title, w.cover, w.type, w.score, w.status, MAX(i.updated_at) AS updated, COUNT(DISTINCT i.source_id) AS sources,
                  (SELECT i2.title FROM index_items i2 WHERE i2.work_key = w.key AND i2.lang = ? LIMIT 1) AS local_title,
                  (SELECT i3.source_id || char(31) || i3.cover FROM index_items i3 WHERE i3.work_key = w.key AND i3.cover <> '' ORDER BY (i3.source_id IN (${unhealthySql()})) ASC, i3.updated_at DESC LIMIT 1) AS item_cover,
-                 (SELECT GROUP_CONCAT(DISTINCT i4.lang) FROM index_items i4 WHERE i4.work_key = w.key) AS langs
+                 (SELECT GROUP_CONCAT(DISTINCT i4.lang) FROM index_items i4 WHERE i4.work_key = w.key) AS langs,
+                 (SELECT GROUP_CONCAT(DISTINCT i5.audio) FROM index_items i5 WHERE i5.work_key = w.key) AS audios
                FROM works w JOIN index_items i ON i.work_key = w.key AND i.lang = ?
                WHERE 1 = 1 ${if (typeFilter != null) "AND w.type IN ($typeFilter)" else ""} ${if (hideAdult) "AND $notAdult" else ""}
+                 ${if (audioFilter != null) "AND i.audio = '$audioFilter'" else ""}
                GROUP BY w.key ORDER BY $order LIMIT ? OFFSET ?""",
             lang, lang, PAGE_SIZE, (page - 1).coerceAtLeast(0) * PAGE_SIZE
         ) { card() }
@@ -354,7 +360,8 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         cover = getString("cover")?.takeIf { it.isNotBlank() } ?: getString("item_cover").orEmpty().substringAfter('\u001F'),
         type = getString("type"), langs = getString("langs").orEmpty().split(',').filter { it.isNotBlank() },
         sources = getInt("sources"), updatedAt = getLong("updated"), status = getString("status").orEmpty(),
-        coverSource = if (getString("cover").isNullOrBlank()) getString("item_cover").orEmpty().substringBefore('\u001F', "") else ""
+        coverSource = if (getString("cover").isNullOrBlank()) getString("item_cover").orEmpty().substringBefore('\u001F', "") else "",
+        audios = getString("audios").orEmpty().split(',').filter { it.isNotBlank() }.distinct()
     )
 
     /** Works whose names match [query] (any word start, accents ignored), those with a source in [lang] first. */
@@ -384,7 +391,8 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
                 """SELECT w.key, w.title, w.cover, w.type, w.score, w.status, MAX(i.updated_at) AS updated, COUNT(DISTINCT i.source_id) AS sources,
                      (SELECT i2.title FROM index_items i2 WHERE i2.work_key = w.key AND i2.lang = ? LIMIT 1) AS local_title,
                      (SELECT i3.source_id || char(31) || i3.cover FROM index_items i3 WHERE i3.work_key = w.key AND i3.cover <> '' ORDER BY (i3.source_id IN (${unhealthySql()})) ASC, i3.updated_at DESC LIMIT 1) AS item_cover,
-                     (SELECT GROUP_CONCAT(DISTINCT i4.lang) FROM index_items i4 WHERE i4.work_key = w.key) AS langs
+                     (SELECT GROUP_CONCAT(DISTINCT i4.lang) FROM index_items i4 WHERE i4.work_key = w.key) AS langs,
+                     (SELECT GROUP_CONCAT(DISTINCT i5.audio) FROM index_items i5 WHERE i5.work_key = w.key) AS audios
                    FROM works w JOIN index_items i ON i.work_key = w.key
                    WHERE w.key IN (${keys.joinToString(",") { "?" }}) ${if (hideAdult) "AND $notAdult" else ""} GROUP BY w.key""",
                 lang, *keys.toTypedArray()
@@ -564,7 +572,10 @@ fun Route.workIndexRoutes(s: Services) {
         if (!call.indexOn()) return@get
         val page = call.request.queryParameters["page"]?.toIntOrNull()?.coerceIn(1, MAX_PAGE) ?: 1
         val sort = call.request.queryParameters["sort"]?.takeIf { it in setOf("updated", "popular", "az") } ?: "updated"
-        call.respond(mapOf("works" to s.workIndex.list(call.lang(), call.types(), sort, page, hideAdult = !s.prefs(call.user).showAdult).map { it.shown() }, "page" to page))
+        call.respond(mapOf("works" to s.workIndex.list(
+                call.lang(), call.types(), sort, page, hideAdult = !s.prefs(call.user).showAdult,
+                audio = call.request.queryParameters["audio"]?.uppercase()
+            ).map { it.shown() }, "page" to page))
     }
     get("/obras/buscar") {
         if (!call.indexOn()) return@get
@@ -633,7 +644,12 @@ private fun Route.workFichaRoute(s: Services) {
                     ) { true } == true
                 }
             }
-            mine + (all - mine.toSet())
+            // From a dub's section (?audio=CASTELLANO…), the sources with that audio go first, then the user's own.
+            val audio = call.request.queryParameters["audio"]?.uppercase()?.takeIf { a -> com.nelson.yomukai.domain.model.AudioTrack.entries.any { it.name == a } }
+            val dubbed = if (audio == null) emptyList() else s.db.tx {
+                all.filter { (sid, mid) -> queryOne("SELECT 1 FROM index_items WHERE source_id = ? AND media_id = ? AND audio = ?", sid, mid, audio) { true } == true }
+            }
+            (dubbed + mine + all).distinct()
         }
         val only = places.map { it.first }.toSet()
         // ?light=1: only where it is (the clients open the work right away and load its chapters there).

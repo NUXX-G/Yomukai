@@ -1,6 +1,7 @@
 package com.nelson.yomukai.data.discovery
 
 import com.nelson.yomukai.data.search.SmartSearch
+import com.nelson.yomukai.domain.model.AudioTrack
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
 
@@ -28,7 +29,7 @@ object TitleMatcher {
      * novel get different keys, the manhwa and a manga edition of it the same one.
      */
     fun familyKey(type: MediaType, title: String): String =
-        (if (type.isReadableAsImages) "images" else type.name) + "|" + SmartSearch.duplicateKey(Seasons.canonical(title)) +
+        (if (type.isReadableAsImages) "images" else type.name) + "|" + SmartSearch.duplicateKey(Seasons.canonical(AudioTrack.strip(title))) +
             (if (type == MediaType.ANIME) SmartSearch.bracketYear(title)?.let { " $it" }.orEmpty() else "")
 
     /**
@@ -43,7 +44,7 @@ object TitleMatcher {
      * Ashi» and «Aoashi» are one name), so long as what is left is not too short to be a coincidence.
      */
     fun keys(names: Collection<String>): Set<String> =
-        names.map { SmartSearch.duplicateKey(Seasons.canonical(it)) }.filter { it.length >= MIN_KEY_LENGTH }
+        names.map { SmartSearch.duplicateKey(Seasons.canonical(AudioTrack.strip(it))) }.filter { it.length >= MIN_KEY_LENGTH }
             .flatMap { k -> listOf(k, k.replace(" ", "")) }.filter { it.length >= MIN_KEY_LENGTH }.toSet()
 
     /** True when some name of [a] equals some name of [b] once case, accents and punctuation are ignored. */

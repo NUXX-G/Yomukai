@@ -20,4 +20,15 @@ class AudioTrackTest {
         assertEquals(AudioTrack.ORIGINAL, AudioTrack.detect("Dubai Detective", "EN"))
         assertEquals(AudioTrack.ORIGINAL, AudioTrack.detect("Platinum End", "ES"))
     }
+
+    @Test
+    fun aDubIsTheSameWorkSoItsNameLosesTheAudioNote() {
+        assertEquals("Dragon Ball Super", AudioTrack.strip("Dragon Ball Super Latino"))
+        assertEquals("Frieren", AudioTrack.strip("Frieren (Dub)"))
+        assertEquals("One Piece", AudioTrack.strip("One Piece Castellano"))
+        assertEquals("Shingeki no Kyojin", AudioTrack.strip("Shingeki no Kyojin - Audio Latino"))
+        assertEquals("Kimetsu no Yaiba", AudioTrack.strip("Kimetsu no Yaiba [Sub Español]"))
+        assertEquals("a title that is only the word stays", "Latino", AudioTrack.strip("Latino"))
+        assertEquals("Platinum End", AudioTrack.strip("Platinum End"))
+    }
 }

@@ -21,6 +21,18 @@ enum class AudioTrack(val label: String, val short: String) {
         fun of(item: MediaItem, sourceLanguage: String): AudioTrack =
             if (item.type != MediaType.ANIME) ORIGINAL else item.audio ?: detect(item.title + " " + item.id, sourceLanguage)
 
+        /**
+         * The title without what only says how it is heard («Dragon Ball Super Latino», «Frieren (Dub)», «One Piece
+         * Castellano»): a dub is the same work, so its name must give the same work key (F3.1).
+         */
+        fun strip(title: String): String =
+            title.replace(AUDIO_NOTE, " ").replace(Regex("\\(\\s*\\)|\\[\\s*]"), " ").replace(Regex("\\s+"), " ").trim().trimEnd('-', ':', '|').trim()
+                .ifBlank { title }
+
+        private val AUDIO_NOTE = Regex(
+            """(?i)\b(audio\s+)?(latino|castellano|english\s+dub(bed)?|dub(bed)?|doblaje|doblad[oa]|sub\s+espa[nñ]ol|subtitulad[oa])\b"""
+        )
+
         fun fromName(name: String?): AudioTrack = entries.firstOrNull { it.name == name } ?: ORIGINAL
 
         /**

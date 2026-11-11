@@ -32,6 +32,15 @@ class HardWorkCasesTest {
         assertApart("GATE season 2 is not season 1", item("anitaku", gate), item("anitaku", "$gate 2nd Season"))
     }
 
+    /** F3.1: a dub (Latin American, Spain's, English) is the same work as the subtitled one, in any source. */
+    @Test
+    fun dubsAreTheSameWork() {
+        assertSame("latino", item("animeflv", "Dragon Ball Super"), item("animedlatino", "Dragon Ball Super Latino"))
+        assertSame("castellano", item("animeflv", "One Piece"), item("ninja", "One Piece Castellano"))
+        assertSame("english dub", item("anitaku", "Frieren"), item("anitaku", "Frieren (Dub)"))
+        assertEquals(WorkKey.of(MediaType.ANIME, "Dragon Ball Super"), WorkKey.of(MediaType.ANIME, "Dragon Ball Super Latino"))
+    }
+
     @Test
     fun remakesAreNotTheOriginal() {
         assertApart("the 2024 Ranma is a remake", item("anitaku", "Ranma 1/2"), item("anitaku", "Ranma1/2 (2024)"))

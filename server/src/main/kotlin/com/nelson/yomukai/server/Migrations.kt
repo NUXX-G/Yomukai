@@ -356,6 +356,26 @@ object Migrations {
         },
         Migration(32, "Idioma del audio de cada anime de las fuentes (subtitulado, castellano, latino, inglés)") {
             addColumn("index_items", "audio", "TEXT NOT NULL DEFAULT 'ORIGINAL'")
+        },
+        // A dub is the same work: «Dragon Ball Super Latino» now gives the key of «Dragon Ball Super». Only the titles
+        // grouped by name whose key changes are let go, and the index groups them again (users' data untouched).
+        Migration(33, "El doblaje es la misma obra: títulos con «Latino», «Castellano» o «(Dub)» se reagrupan") {
+            val changed = mutableListOf<Pair<String, String>>()
+            prepareStatement("SELECT source_id, media_id, type, title, work_key FROM index_items WHERE work_key LIKE 't:%'").use { st ->
+                st.executeQuery().use { r ->
+                    while (r.next()) {
+                        val type = runCatching { MediaType.valueOf(r.getString(3)) }.getOrDefault(MediaType.MANGA)
+                        val title = r.getString(4)
+                        if (com.nelson.yomukai.domain.model.AudioTrack.strip(title) != title && WorkKey.of(type, title) != r.getString(5)) {
+                            changed += r.getString(1) to r.getString(2)
+                        }
+                    }
+                }
+            }
+            prepareStatement("UPDATE index_items SET work_key = NULL WHERE source_id = ? AND media_id = ?").use { st ->
+                changed.forEach { (s, m) -> st.setString(1, s); st.setString(2, m); st.addBatch() }
+                st.executeBatch()
+            }
         }
     )
 
