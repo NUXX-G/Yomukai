@@ -5,6 +5,18 @@ Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este ficher
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
 **AHORA (2026-11-11, tarde, sesión A): bloques 1-6 CERRADOS. Release v2.5.0 (pre-release) PUBLICADA con los bloques 3-6. Bloque 7 (aspecto) hecho en la web; quedan la app Android y las capturas. Después: PEDIDO 2026-11-11 «solo obras de mis fuentes».**
 
+### ⚠️ PRIORIDADES DEL USUARIO 2026-11-11 (noche) — MANDAN SOBRE TODO LO DEMÁS, EN ESTE ORDEN
+Tras probar la app 5 minutos: «hay muchos más fallos». Trabajar autónomo, commits pequeños y push a menudo.
+1. **TODO POR OBRAS.** Hoy NO va por obras del todo, y sin eso la arquitectura no tiene sentido. Cualquier tarjeta
+   (Inicio, secciones, búsqueda, calendario, relacionadas, «Para ti», explorador, biblioteca, compartidos) es una OBRA
+   del índice que está en sus fuentes; si no está en ninguna fuente, no sale. Al tocarla se abre al instante (nunca
+   «Buscando en tus fuentes…»). Ficha de obra con todas sus fuentes/idiomas. Web, servidor y app, con tests.
+2. **MÁS FUENTES FUNCIONANDO: scrapear mejor.** Muchas fuentes no dan capítulos/páginas/vídeo. Hacer todo lo posible
+   por conseguirlos (es scraping legal): FlareSolverr/Cloudflare, cabeceras, dominios nuevos, APIs internas de cada
+   web, JS ofuscado, servidores de vídeo, reintentos. Medir con `scripts/source-timing.mjs` y sondeos; tests con HTML real.
+3. **Velocidad para el usuario y calidad de imagen** (portadas nítidas, carga rápida).
+- Texto en sucio del usuario con los fallos vistos: PENDIENTE de que lo pegue (no llegó en el chat del 2026-11-11).
+
 ### PEDIDO DEL USUARIO 2026-11-11 (tarde) — NO PERDER
 1. **Paleta**: blanco y negro tipo manga + UN solo color (brasa `#ff5a1f`). Máximo 3 colores en total. HECHO en
    tokens/web (commit 79298d3); los tipos de obra se distinguen por forma, no por color. Ver `docs/referencias/ESTILO.md`.
