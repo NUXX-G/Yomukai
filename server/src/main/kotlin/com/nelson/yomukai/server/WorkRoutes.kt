@@ -47,6 +47,19 @@ fun Route.workRoutes(s: Services) {
         val sourceId = call.param("s", 60)
         val mediaId = call.param("id", 2_000)
         val work = s.works.resolve(sourceId, mediaId)
+        // O1: the works index already knows every page of this work in this language (built ahead): all of them join
+        // at once, so a source that only has the last episodes (One Piece 1167-1180 on one site) never makes the list
+        // short. Only pages of the same AniList-confirmed work, never a guess by name.
+        if (!call.user.isGuest) {
+            s.workIndex.keyOfPage(sourceId, mediaId)?.takeIf { com.nelson.yomukai.data.work.WorkKey.isCertain(it) }?.let { indexKey ->
+                val lang = s.workIndex.langOfPage(sourceId, mediaId) ?: "es"
+                val audio = s.workIndex.audioOfPage(sourceId, mediaId)
+                // Same language AND same audio: a Castilian dub never fills gaps in a subtitled list.
+                s.workIndex.sourcesOf(indexKey, lang).filter { (sid, mid) -> (sid != sourceId || mid != mediaId) && s.workIndex.audioOfPage(sid, mid) == audio }
+                    .take(MAX_INDEX_SISTERS)
+                    .forEach { (sid, mid) -> runCatching { s.works.linkIfNew(work.key, sid, mid, "SAME_WORK") } }
+            }
+        }
         s.catalog.alternatives(call.user, s.prefs(call.user), sourceId, mediaId).getOrDefault(emptyList())
             .filter { it.confidence == com.nelson.yomukai.data.discovery.MatchConfidence.SAME_WORK.name && !call.user.isGuest }
             .forEach { runCatching { s.works.linkIfNew(work.key, it.item.sourceId, it.item.id, it.confidence) } }
@@ -198,3 +211,5 @@ class SkipTimes(private val works: Works, private val http: com.nelson.yomukai.d
         const val MAX_ENTRIES = 20_000
     }
 }
+
+private const val MAX_INDEX_SISTERS = 8
