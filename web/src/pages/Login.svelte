@@ -37,7 +37,7 @@
   async function enter(user) {
     session.user = user;
     session.setupNeeded = false;
-    if (location.pathname !== '/') history.replaceState({}, '', '/');
+    if (location.pathname !== '/') history.replaceState({ idx: 0 }, '', '/');
     await loadUserData();
   }
 

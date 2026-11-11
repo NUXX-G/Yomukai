@@ -505,7 +505,8 @@
     <div class="hud" onpointerup={(e) => { if (e.target === e.currentTarget) press(e); }} ondblclick={(e) => { if (e.target === e.currentTarget) fullscreen(); }} onpointermove={(e) => { if (e.pointerType === 'mouse' && playing) poke(); }} role="presentation">
       <div class="top">
         <button class="icon-btn" onclick={() => back(mediaHref(sourceId, mediaId))} aria-label={t('Volver')}><Icon name="back" /></button>
-        <div class="title">{item?.title ?? ''} · {episode?.label ?? ''}</div>
+        <a class="work-link" href={mediaHref(sourceId, mediaId)} title={t('Ir a la ficha')}><Icon name="info" size={18} /><span>{t('Ficha')}</span></a>
+        <a class="title" href={mediaHref(sourceId, mediaId)}>{item?.title ?? ''} · {episode?.label ?? ''}</a>
         {#if features.flags.rooms !== false}
           {#if client}
             <button class="btn text light chat-btn" onclick={() => { chatOpen = !chatOpen; client.party.unread = 0; }}>
@@ -589,6 +590,13 @@
   .top, .bottom { padding: calc(var(--safe-top) + 8px) 12px 8px; animation: slide-down 0.26s ease-out; }
   .top { display: flex; align-items: center; gap: 4px; }
   .bottom { padding: 8px 16px calc(var(--safe-bottom) + 12px); animation: slide-up 0.26s ease-out; }
+
+  /* Always-visible way to the work's page (F1.3). */
+  .work-link { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; height: 36px; padding: 0 12px; border-radius: 999px; color: inherit; text-decoration: none; font-weight: 600; font-size: 0.9rem; border: 1px solid rgb(255 255 255 / 0.35); }
+  .work-link:hover, .work-link:focus-visible { background: rgb(255 255 255 / 0.15); }
+  @media (max-width: 480px) { .work-link { padding: 0 9px; } .work-link span { display: none; } }
+  a.title { color: inherit; text-decoration: none; }
+  a.title:hover { text-decoration: underline; }
   .title { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .light { color: #fff; }
   .middle { display: flex; justify-content: center; align-items: center; gap: 36px; }

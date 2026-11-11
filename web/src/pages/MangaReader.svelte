@@ -361,7 +361,7 @@
     if (chapter.id === startId) resumePage = 0;
     if (current?.id !== chapter.id) {
       current = chapter;
-      history.replaceState({}, '', reader('manga', sourceId, mediaId, chapter.id));
+      history.replaceState(history.state, '', reader('manga', sourceId, mediaId, chapter.id));
     }
     page = index;
     preloadFrom(chapter.id, index);
@@ -548,10 +548,11 @@
   {#if ui}
     <header class="top">
       <button class="icon-btn" onclick={() => back(mediaHref(sourceId, mediaId))} aria-label={t('Volver')}><Icon name="back" /></button>
-      <div class="titles">
+      <a class="titles" href={mediaHref(sourceId, mediaId)} title={t('Ir a la ficha')}>
         <div class="t1">{item?.title ?? ''}</div>
         <div class="t2">{current?.label ?? ''}{current?.name ? ' · ' + current.name : ''}</div>
-      </div>
+      </a>
+      <a class="work-link" href={mediaHref(sourceId, mediaId)} title={t('Ir a la ficha')}><Icon name="info" size={18} /><span>{t('Ficha')}</span></a>
       <button class="icon-btn" class:on={marked} onclick={toggleBookmark} aria-label={marked ? 'Quitar marcador' : t('Poner marcador en esta página')} title={t('Marcador')}><Icon name="bookmark" /></button>
       <button class="icon-btn" onclick={() => (indexOpen = true)} aria-label={t('Índice de capítulos')} title={t('Índice')}><Icon name="list" /></button>
       {#if canFullscreen}<button class="icon-btn" class:on={screen.full} onclick={toggleFullscreen} aria-label={screen.full ? t('Salir de pantalla completa') : 'Pantalla completa'} title={t('Pantalla completa')}><Icon name="fullscreen" /></button>{/if}
@@ -736,4 +737,11 @@
     .actions .btn { height: 38px; }
     .t1 { font-size: 1.02rem; }
   }
+
+  /* Always-visible way to the work's page (F1.3). */
+  .work-link { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; height: 36px; padding: 0 12px; border-radius: 999px; color: inherit; text-decoration: none; font-weight: 600; font-size: 0.9rem; border: 1px solid rgb(255 255 255 / 0.35); }
+  .work-link:hover, .work-link:focus-visible { background: rgb(255 255 255 / 0.15); }
+  @media (max-width: 480px) { .work-link { padding: 0 9px; } .work-link span { display: none; } }
+  a.titles { color: inherit; text-decoration: none; }
+  a.titles:hover .t1 { text-decoration: underline; }
 </style>
