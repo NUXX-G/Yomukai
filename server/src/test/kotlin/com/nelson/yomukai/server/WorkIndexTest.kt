@@ -66,6 +66,7 @@ class WorkIndexTest {
         assertEquals("a typo in a long name", "Kusuriya no Hitorigoto", titles("kusuriya no hitorigoro").firstOrNull())
         assertTrue("kimetsu does not bring Kimi ni Todoke", "Kimi ni Todoke" !in titles("kimetsu"))
         assertTrue("nonsense finds nothing", titles("xqzv").isEmpty())
+        assertEquals("written without spaces", "One Piece", titles("onepiece").firstOrNull())
         assertTrue("only the kind asked", titles("one piece", setOf("MANGA")).isNotEmpty() && index.search("one piece", "es", setOf("MANGA")).all { it.type == "MANGA" })
     }
 

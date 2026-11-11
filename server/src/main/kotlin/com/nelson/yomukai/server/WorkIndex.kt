@@ -375,7 +375,17 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
             if (loose.isNotBlank()) candidates(loose, FUZZY_CANDIDATES)
         }
         // How well the query names each work: its best name (any source, any language, AniList's), 1.0 = exactly.
-        val score = names.mapValues { (_, text) -> text.split(" | ").maxOfOrNull { SmartSearch.scoreTitle(query, it) } ?: 0.0 }
+        // Written without spaces («onepiece») counts too.
+        val squashed = squash(query)
+        fun nameScore(name: String): Double {
+            val n = squash(name)
+            return when {
+                n == squashed -> 1.0
+                squashed.length >= MIN_SQUASHED && n.startsWith(squashed) -> SQUASHED_PREFIX_SCORE
+                else -> SmartSearch.scoreTitle(query, name)
+            }
+        }
+        val score = names.mapValues { (_, text) -> text.split(" | ").maxOfOrNull(::nameScore) ?: 0.0 }
         val keys = score.filterValues { it >= MIN_SEARCH_SCORE }.keys.toList()
         if (keys.isEmpty()) return emptyList()
         val cards = s.db.tx {
@@ -515,6 +525,8 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         private const val MAX_TERMS = 8
         private const val FUZZY_BELOW = 5
         private const val FUZZY_PREFIX = 2
+        private const val MIN_SQUASHED = 5
+        private const val SQUASHED_PREFIX_SCORE = 0.8
         private const val FUZZY_CANDIDATES = 2_000
 
         /** Below this a work only shares letters with the query: left out rather than shown as nonsense. */
