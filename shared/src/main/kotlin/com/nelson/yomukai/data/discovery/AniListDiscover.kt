@@ -33,7 +33,9 @@ data class DiscoverEntry(
     val episodes: Int?,
     val chapters: Int?,
     val nextEpisode: Int?,
-    val nextAiringAt: Long?
+    val nextAiringAt: Long?,
+    /** How many AniList users have it on a list (a measure of how many people follow it). */
+    val popularity: Int? = null
 )
 
 enum class DiscoverKind(val label: String) { ANIME(tr("Anime")), MANGA(tr("Manga y manhwa")), NOVEL(tr("Novelas")) }
@@ -94,6 +96,39 @@ class AniListDiscover(private val network: HttpFetcher) {
         return parse(parseJson(post(query)).asJsonObject.obj("data")?.obj("list"))
     }
 
+    /**
+     * Every episode that airs between [from] and [to] (epoch seconds), one entry per episode with its own number and
+     * time: up to [AIRING_PAGES] pages of 50 in ONE request (aliases). Adult titles and the ones almost nobody follows
+     * (Chinese shorts, kids' shows with no English name…) are left out so the week stays readable.
+     */
+    suspend fun airing(from: Long, to: Long): List<DiscoverEntry> {
+        require(to > from)
+        val query = "query{" + (1..AIRING_PAGES).joinToString(" ") { page ->
+            "p$page:Page(page:$page,perPage:50){pageInfo{hasNextPage} airingSchedules(airingAt_greater:$from,airingAt_lesser:$to,sort:TIME){episode airingAt media{$FIELDS}}}"
+        } + "}"
+        return parseAiring(parseJson(post(query)).asJsonObject.obj("data"))
+    }
+
+    /**
+     * What people in general think of this season's anime, from AniList's community: the best rated (with enough
+     * people behind the score) and what is trending now. One request with two aliases.
+     */
+    suspend fun seasonCommunity(today: LocalDate = LocalDate.now()): Map<String, List<DiscoverEntry>> {
+        val (season, year) = seasonOf(today)
+        val base = "type:ANIME,isAdult:false,season:$season,seasonYear:$year"
+        val parts = listOf("top" to "$base,sort:SCORE_DESC,popularity_greater:$MIN_RATED_POPULARITY", "trending" to "$base,sort:TRENDING_DESC")
+        val query = "query{" + parts.joinToString(" ") { (alias, args) -> "$alias:Page(perPage:$COMMUNITY_SIZE){media($args){$FIELDS}}" } + "}"
+        val data = parseJson(post(query)).asJsonObject.obj("data") ?: return emptyMap()
+        return parts.associate { (alias, _) -> alias to parse(data.obj(alias)) }
+    }
+
+    /** Titles by AniList id (at most 50), in one request; for the group's picks. */
+    suspend fun byIds(ids: Collection<Int>): List<DiscoverEntry> {
+        val list = ids.filter { it > 0 }.distinct().take(50)
+        if (list.isEmpty()) return emptyList()
+        return parse(parseJson(post("query{list:Page(perPage:50){media(id_in:[${list.joinToString(",")}]){$FIELDS}}}")).asJsonObject.obj("data")?.obj("list"))
+    }
+
     private fun typeFilter(kind: DiscoverKind): Pair<String, String> = when (kind) {
         DiscoverKind.ANIME -> "ANIME" to ""
         DiscoverKind.MANGA -> "MANGA" to ",format_not:NOVEL"
@@ -108,6 +143,14 @@ class AniListDiscover(private val network: HttpFetcher) {
     companion object {
         const val PER_ROW = 18
         const val PER_PAGE = 30
+        const val AIRING_PAGES = 4
+        const val COMMUNITY_SIZE = 12
+
+        /** Below this many followers an airing title is noise in a weekly calendar. */
+        const val MIN_AIRING_POPULARITY = 800
+
+        /** A season's best score only counts with this many people on AniList behind it. */
+        const val MIN_RATED_POPULARITY = 3_000
         private val SAFE = Regex("[A-Za-z' -]{2,30}")
         private val STATUSES = setOf("RELEASING", "FINISHED", "NOT_YET_RELEASED", "CANCELLED", "HIATUS")
         private val FORMATS = setOf("TV", "TV_SHORT", "MOVIE", "SPECIAL", "OVA", "ONA", "MANGA", "ONE_SHOT", "NOVEL")
@@ -117,7 +160,7 @@ class AniListDiscover(private val network: HttpFetcher) {
         val GENRE_ROWS = listOf("action" to "Action", "romance" to "Romance", "fantasy" to "Fantasy", "comedy" to "Comedy")
 
         private const val FIELDS = "id idMal title{romaji english native} synonyms coverImage{extraLarge color} bannerImage genres averageScore " +
-            "format type status season seasonYear episodes chapters description(asHtml:false) countryOfOrigin nextAiringEpisode{episode airingAt}"
+            "format type status season seasonYear episodes chapters description(asHtml:false) countryOfOrigin nextAiringEpisode{episode airingAt} popularity isAdult"
 
         fun seasonOf(day: LocalDate): Pair<String, Int> = when (day.monthValue) {
             12 -> "WINTER" to day.year + 1
@@ -127,8 +170,23 @@ class AniListDiscover(private val network: HttpFetcher) {
             else -> "FALL" to day.year
         }
 
-        fun parse(page: JsonObject?): List<DiscoverEntry> = page?.arr("media").objects().mapNotNull { m ->
-            val id = m.str("id")?.toIntOrNull() ?: return@mapNotNull null
+        /** The airing pages of [airing]: one entry per episode, its number and time instead of the "next" one. */
+        fun parseAiring(data: JsonObject?, minPopularity: Int = MIN_AIRING_POPULARITY): List<DiscoverEntry> =
+            (1..AIRING_PAGES).flatMap { page ->
+                data?.obj("p$page")?.arr("airingSchedules").objects().mapNotNull { s ->
+                    val media = s.obj("media") ?: return@mapNotNull null
+                    val entry = entry(media) ?: return@mapNotNull null
+                    if ((entry.popularity ?: 0) < minPopularity) return@mapNotNull null
+                    entry.copy(nextEpisode = s.str("episode")?.toIntOrNull(), nextAiringAt = s.str("airingAt")?.toLongOrNull() ?: return@mapNotNull null)
+                }
+            }.distinctBy { it.anilistId to it.nextEpisode }
+
+        fun parse(page: JsonObject?): List<DiscoverEntry> = page?.arr("media").objects().mapNotNull(::entry).orEmpty()
+
+        /** One AniList media object; null for adult titles (never shown) or broken ones. */
+        private fun entry(m: JsonObject): DiscoverEntry? {
+            if (m.str("isAdult") == "true") return null
+            val id = m.str("id")?.toIntOrNull() ?: return null
             val t = m.obj("title")
             val names = (listOfNotNull(t?.str("english"), t?.str("romaji"), t?.str("native")) + m.arr("synonyms").strings()).filter { it.isNotBlank() }.distinct()
             val type = when {
@@ -138,17 +196,18 @@ class AniListDiscover(private val network: HttpFetcher) {
                 m.str("countryOfOrigin") == "CN" -> MediaType.MANHUA
                 else -> MediaType.MANGA
             }
-            DiscoverEntry(
+            return DiscoverEntry(
                 anilistId = id, malId = m.str("idMal")?.toIntOrNull(),
-                title = t?.str("english")?.ifBlank { null } ?: t?.str("romaji") ?: names.firstOrNull() ?: return@mapNotNull null,
+                title = t?.str("english")?.ifBlank { null } ?: t?.str("romaji") ?: names.firstOrNull() ?: return null,
                 names = names, cover = m.obj("coverImage")?.str("extraLarge").orEmpty(), banner = m.str("bannerImage").orEmpty(),
                 color = m.obj("coverImage")?.str("color").orEmpty(), genres = m.arr("genres").strings(),
                 score = m.str("averageScore")?.toIntOrNull(), format = m.str("format").orEmpty(), type = type,
                 synopsis = AniListClient.cleanDescription(m.str("description")), status = m.str("status").orEmpty(),
                 season = m.str("season").orEmpty(), year = m.str("seasonYear")?.toIntOrNull(),
                 episodes = m.str("episodes")?.toIntOrNull(), chapters = m.str("chapters")?.toIntOrNull(),
-                nextEpisode = m.obj("nextAiringEpisode")?.str("episode")?.toIntOrNull(), nextAiringAt = m.obj("nextAiringEpisode")?.str("airingAt")?.toLongOrNull()
+                nextEpisode = m.obj("nextAiringEpisode")?.str("episode")?.toIntOrNull(), nextAiringAt = m.obj("nextAiringEpisode")?.str("airingAt")?.toLongOrNull(),
+                popularity = m.str("popularity")?.toIntOrNull()
             )
-        }.orEmpty()
+        }
     }
 }

@@ -354,6 +354,16 @@ object Migrations {
             addColumn("room_messages", "card", "TEXT")
             addColumn("forum_posts", "card", "TEXT")
         },
+        // F5.2 (sesión C): the group recommends and comments this season's anime from the calendar.
+        Migration(28, "Recomendaciones y comentarios del grupo sobre los animes de la temporada") {
+            exec(
+                """CREATE TABLE IF NOT EXISTS season_picks(user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                   anilist_id INTEGER NOT NULL, season TEXT NOT NULL, title TEXT NOT NULL, cover TEXT NOT NULL DEFAULT '',
+                   recommend INTEGER NOT NULL DEFAULT 1, comment TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL,
+                   updated_at INTEGER NOT NULL, PRIMARY KEY(user_id, anilist_id, season))"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS season_picks_season ON season_picks(season, updated_at)")
+        },
         Migration(32, "Idioma del audio de cada anime de las fuentes (subtitulado, castellano, latino, inglés)") {
             addColumn("index_items", "audio", "TEXT NOT NULL DEFAULT 'ORIGINAL'")
         },

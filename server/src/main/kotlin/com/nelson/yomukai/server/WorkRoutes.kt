@@ -96,7 +96,8 @@ fun Route.workRoutes(s: Services) {
     }
     get("/calendar") {
         val days = (call.request.queryParameters["days"]?.toIntOrNull() ?: 7).coerceIn(1, 31)
-        call.respond(s.works.calendar(call.user, days))
+        // Covers through the proxy: the page only loads images from its own site (they came out blank before, F5.1).
+        call.respond(s.works.calendar(call.user, days).map { e -> e.copy(cover = s.coverFor(e.cover, e.sourceId)) })
     }
     get("/fillers") {
         call.respond(s.works.fillers(s.http, call.param("title", 200)))

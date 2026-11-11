@@ -354,7 +354,12 @@ class Works(
 
     // ---------- Calendar ----------
 
-    data class CalendarEntry(val workKey: String, val title: String, val cover: String, val type: String, val date: String, val label: String, val estimated: Boolean)
+    /** One expected episode or chapter; [airingAt] (epoch seconds) only when the time is known (AniList). */
+    data class CalendarEntry(
+        val workKey: String, val title: String, val cover: String, val type: String, val date: String, val label: String, val estimated: Boolean,
+        val sourceId: String = "", val mediaId: String = "", val anilistId: Int? = null, val synopsis: String = "",
+        val genres: List<String> = emptyList(), val score: Int? = null, val episode: Int? = null, val airingAt: Long? = null
+    )
 
     /**
      * What is expected in the next [days] for the user's library: anime from AniList's airing schedule, manga and novels
@@ -380,7 +385,10 @@ class Works(
         val at = work.nextAiringAt ?: return null
         val day = java.time.Instant.ofEpochSecond(at).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
         if (day.isBefore(today) || day.isAfter(until)) return null
-        return CalendarEntry(work.key, work.title, work.cover, r.type, day.toString(), "Episodio ${work.nextEpisode ?: "?"}", false)
+        return CalendarEntry(
+            work.key, work.title, work.cover, r.type, day.toString(), "Episodio ${work.nextEpisode ?: "?"}", false,
+            r.sourceId, r.mediaId, work.anilistId, work.synopsis.take(MAX_CALENDAR_SYNOPSIS), work.genres.take(8), work.score, work.nextEpisode, at
+        )
     }
 
     /** Manga and novels: the rhythm the source has actually published at, only when it is regular. */
@@ -392,7 +400,10 @@ class Works(
         if (next.isAfter(until)) return null
         val work = r.workKey?.let { get(it) }
         val label = "Nuevo capítulo (cada ${Math.round(cadence.everyDays)} días)"
-        return CalendarEntry(r.workKey ?: WorkKey.itemKey(r.sourceId, r.mediaId), work?.title ?: r.title, work?.cover ?: r.cover, r.type, next.toString(), label, true)
+        return CalendarEntry(
+            r.workKey ?: WorkKey.itemKey(r.sourceId, r.mediaId), work?.title ?: r.title, work?.cover?.ifBlank { null } ?: r.cover, r.type, next.toString(), label, true,
+            r.sourceId, r.mediaId, work?.anilistId, work?.synopsis.orEmpty().take(MAX_CALENDAR_SYNOPSIS), work?.genres.orEmpty().take(8), work?.score
+        )
     }
 
     // ---------- Fillers ----------
@@ -428,6 +439,7 @@ class Works(
     }
 
     companion object {
+        private const val MAX_CALENDAR_SYNOPSIS = 900
         private const val READ_LOOKUP_MS = 5_000L
         private const val TMDB_WAIT_MS = 4_000L
         private const val KITSU_WAIT_MS = 4_000L

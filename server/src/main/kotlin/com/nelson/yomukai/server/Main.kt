@@ -211,6 +211,7 @@ class Services(val config: Config) {
     val social by lazy { Social(db, events, config.dataDir, animeCheck, works::keyOf, notifications::send) }
     val achievements = Achievements(db, events, animeCheck, notifications::send).also { a -> events.onEvent = { user, kind -> a.check(user, kind) } }
     val discover = Discover(com.nelson.yomukai.data.discovery.AniListDiscover(http), db, catalog, works) { proxy.cover(it, emptyMap()) }
+    val seasonCalendar = SeasonCalendar(com.nelson.yomukai.data.discovery.AniListDiscover(http), db, discover::decorate, { proxy.cover(it, emptyMap()) })
     val ytdlp = YtDlp(
         File(System.getenv("YTDLP_PATH")?.ifBlank { null } ?: "/opt/yt-dlp"),
         allowedHosts = YtDlp.DEFAULT_HOSTS + System.getenv("YTDLP_HOSTS").orEmpty().split(',').map { it.trim().lowercase() }.filter { it.contains('.') }
@@ -428,6 +429,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 importRoutes(services)
                 accountUserRoutes(services)
                 workRoutes(services)
+                seasonCalendarRoutes(services)
                 discoverRoutes(services)
                 playbackRoutes(services)
                 roomRoutes(services) { clientAddress(it, config) }

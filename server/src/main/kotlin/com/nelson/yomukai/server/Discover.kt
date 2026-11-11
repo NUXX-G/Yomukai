@@ -20,7 +20,7 @@ data class DiscoverItemDto(
     val anilistId: Int, val title: String, val names: List<String>, val cover: String, val banner: String, val color: String,
     val genres: List<String>, val score: Int?, val format: String, val type: String, val synopsis: String, val status: String,
     val season: String, val year: Int?, val episodes: Int?, val chapters: Int?, val nextEpisode: Int?, val nextAiringAt: Long?,
-    val workKey: String?, val sourceId: String?, val mediaId: String?
+    val workKey: String?, val sourceId: String?, val mediaId: String?, val popularity: Int? = null
 ) {
     val available: Boolean get() = sourceId != null
 }
@@ -67,7 +67,7 @@ class Discover(
         decorate(withTimeoutOrNull(12_000) { runCatching { api.browse(kind, filter) }.getOrNull() }.orEmpty(), lang)
 
     /** Adds the source page for titles whose AniList id is already linked to a work with sources. */
-    private suspend fun decorate(entries: List<DiscoverEntry>, lang: String): List<DiscoverItemDto> {
+    suspend fun decorate(entries: List<DiscoverEntry>, lang: String): List<DiscoverItemDto> {
         if (entries.isEmpty()) return emptyList()
         val ids = entries.map { it.anilistId }
         val marks = ids.joinToString(",") { "?" }
@@ -87,7 +87,7 @@ class Discover(
                 e.anilistId, e.title, e.names.take(8),
                 e.cover.takeIf { it.isNotBlank() }?.let(image).orEmpty(),
                 e.banner.takeIf { it.isNotBlank() }?.let(image).orEmpty(), e.color, e.genres, e.score, e.format, e.type.name, synopsis, e.status,
-                e.season, e.year, e.episodes, e.chapters, e.nextEpisode, e.nextAiringAt, k?.first, k?.second, k?.third
+                e.season, e.year, e.episodes, e.chapters, e.nextEpisode, e.nextAiringAt, k?.first, k?.second, k?.third, e.popularity
             )
         }
     }
