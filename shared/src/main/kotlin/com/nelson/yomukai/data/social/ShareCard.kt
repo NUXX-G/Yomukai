@@ -22,7 +22,9 @@ data class ShareCard(
     /** How the source calls the episode or chapter («Ep. 12», «Cap. 104 — El final»). */
     val label: String = "",
     /** The sender asks to hide it until each reader has got that far. */
-    val spoiler: Boolean = false
+    val spoiler: Boolean = false,
+    /** A work of the index (all its sources and languages) instead of one source's page: kind "work" only. */
+    val workKey: String = ""
 ) {
     /** Where the card leads inside the app (the same path in the web and in the app's deep links). */
     fun link(): String {
@@ -31,7 +33,7 @@ data class ShareCard(
         return when (kind) {
             "episode" -> "/ver/$s/$m/${enc(chapterId)}"
             "chapter" -> "/leer/$s/$m/${enc(chapterId)}"
-            else -> "/obra/$s/$m"
+            else -> if (workKey.isNotEmpty()) "/obras/${enc(workKey)}" else "/obra/$s/$m"
         }
     }
 
@@ -46,6 +48,7 @@ data class ShareCard(
         val TYPES = setOf("ANIME", "MANGA", "MANHWA", "MANHUA", "COMIC", "NOVEL")
         private val SOURCE_ID = Regex("^[a-z0-9_.:-]{1,60}$")
         private val LANG = Regex("^[A-Za-z]{2,3}(-[A-Za-z]{2,4})?$")
+        private val WORK_KEY = Regex("^(al|mal|t):[^\\p{Cntrl}]{1,300}$")
         private val SAFE_COVER = Regex("^(https://[^\\s\"'<>]{4,1990}|/api/img\\?[^\\s\"'<>]{1,1990})$")
 
         /**
@@ -55,8 +58,10 @@ data class ShareCard(
          */
         fun sanitize(card: ShareCard): ShareCard? {
             val kind = card.kind.trim().lowercase().takeIf { it in KINDS } ?: return null
-            val sourceId = card.sourceId.trim().takeIf { SOURCE_ID.matches(it) } ?: return null
-            val mediaId = text(card.mediaId, 2_000).takeIf { it.isNotEmpty() } ?: return null
+            val workKey = if (kind == "work") card.workKey.trim().takeIf { WORK_KEY.matches(it) }.orEmpty() else ""
+            // A work of the index needs no source; anything else names the source page it leads to.
+            val sourceId = card.sourceId.trim().takeIf { SOURCE_ID.matches(it) } ?: if (workKey.isNotEmpty()) "" else return null
+            val mediaId = text(card.mediaId, 2_000).takeIf { it.isNotEmpty() } ?: if (workKey.isNotEmpty()) "" else return null
             val chapterId = if (kind == "work") "" else text(card.chapterId, 2_000).takeIf { it.isNotEmpty() } ?: return null
             val title = text(card.title, 200).takeIf { it.isNotEmpty() } ?: return null
             val number = card.number?.takeIf { it.isFinite() && it >= 0 && it < 100_000 }
@@ -67,7 +72,8 @@ data class ShareCard(
                 lang = card.lang.trim().takeIf { LANG.matches(it) }?.uppercase().orEmpty(),
                 number = if (kind == "work") null else number,
                 label = if (kind == "work") "" else text(card.label, 120),
-                spoiler = kind != "work" && card.spoiler && number != null
+                spoiler = kind != "work" && card.spoiler && number != null,
+                workKey = workKey
             )
         }
 

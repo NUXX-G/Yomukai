@@ -23,7 +23,8 @@ internal fun cardFrom(element: JsonElement?): ShareCard? {
             kind = s("kind"), sourceId = s("sourceId"), mediaId = s("mediaId"), chapterId = s("chapterId"), title = s("title"),
             cover = s("cover"), type = s("type"), lang = s("lang"),
             number = o.get("number")?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }?.asDouble,
-            label = s("label"), spoiler = o.get("spoiler")?.takeIf { it.isJsonPrimitive }?.asBoolean == true
+            label = s("label"), spoiler = o.get("spoiler")?.takeIf { it.isJsonPrimitive }?.asBoolean == true,
+            workKey = s("workKey")
         )
     )
 }

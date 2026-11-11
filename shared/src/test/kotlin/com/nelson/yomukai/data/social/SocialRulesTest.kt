@@ -27,6 +27,11 @@ class SocialRulesTest {
         assertEquals("" to null, w.chapterId to w.number)
         assertFalse(w.spoiler)
         assertEquals("/obra/animeflv/one-piece", w.link())
+        // A work of the index, from the work search: no source needed.
+        val k = ShareCard.sanitize(ShareCard("work", "", "", title = "Frieren", workKey = "al:154587"))!!
+        assertEquals("/obras/al%3A154587", k.link())
+        assertNull(ShareCard.sanitize(ShareCard("work", "", "", title = "Frieren", workKey = "javascript:x")))
+        assertNull(ShareCard.sanitize(ShareCard("episode", "", "", "c", title = "Frieren", workKey = "al:1")))
     }
 
     @Test
