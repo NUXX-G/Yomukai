@@ -45,7 +45,11 @@ class Discover(
     private val pending = ConcurrentLinkedDeque<DiscoverEntry>()
     private val checked = ConcurrentHashMap<Int, Long>()
 
-    suspend fun rows(kind: DiscoverKind): List<DiscoverRowDto> {
+    /** AniList id → the synopsis in Spanish, from a Spanish source of the same work (AniList's is in English). */
+    private val spanish = ConcurrentHashMap<Int, String>()
+    private val wantSpanish = ConcurrentLinkedDeque<Int>()
+
+    suspend fun rows(kind: DiscoverKind, lang: String = "es"): List<DiscoverRowDto> {
         val now = System.currentTimeMillis()
         val cached = cache[kind]
         val data = if (cached != null && now - cached.first < TTL_MS) cached.second else {
@@ -56,14 +60,14 @@ class Discover(
                 } ?: cached?.second.orEmpty()
         }
         val order = listOf("trending", "season", "releasing", "popular", "top") + AniListDiscover.GENRE_ROWS.map { it.first }
-        return order.mapNotNull { id -> data[id]?.let { DiscoverRowDto(id, TITLES[id] ?: id, decorate(it)) } }
+        return order.mapNotNull { id -> data[id]?.let { DiscoverRowDto(id, TITLES[id] ?: id, decorate(it, lang)) } }
     }
 
-    suspend fun browse(kind: DiscoverKind, filter: DiscoverFilter): List<DiscoverItemDto> =
-        decorate(withTimeoutOrNull(12_000) { runCatching { api.browse(kind, filter) }.getOrNull() }.orEmpty())
+    suspend fun browse(kind: DiscoverKind, filter: DiscoverFilter, lang: String = "es"): List<DiscoverItemDto> =
+        decorate(withTimeoutOrNull(12_000) { runCatching { api.browse(kind, filter) }.getOrNull() }.orEmpty(), lang)
 
     /** Adds the source page for titles whose AniList id is already linked to a work with sources. */
-    private suspend fun decorate(entries: List<DiscoverEntry>): List<DiscoverItemDto> {
+    private suspend fun decorate(entries: List<DiscoverEntry>, lang: String): List<DiscoverItemDto> {
         if (entries.isEmpty()) return emptyList()
         val ids = entries.map { it.anilistId }
         val marks = ids.joinToString(",") { "?" }
@@ -75,12 +79,35 @@ class Discover(
         }.groupBy({ it.first }, { it.second }).mapValues { it.value.first() }
         return entries.map { e ->
             val k = known[e.anilistId]
+            // In Spanish the synopsis of a Spanish source when there is one (found in the background, F7.4).
+            val synopsis = if (lang == "es" && k != null) {
+                spanish[e.anilistId] ?: e.synopsis.also { if (e.anilistId !in wantSpanish && wantSpanish.size < MAX_WANTED) wantSpanish.add(e.anilistId) }
+            } else e.synopsis
             DiscoverItemDto(
                 e.anilistId, e.title, e.names.take(8),
                 e.cover.takeIf { it.isNotBlank() }?.let(image).orEmpty(),
-                e.banner.takeIf { it.isNotBlank() }?.let(image).orEmpty(), e.color, e.genres, e.score, e.format, e.type.name, e.synopsis, e.status,
+                e.banner.takeIf { it.isNotBlank() }?.let(image).orEmpty(), e.color, e.genres, e.score, e.format, e.type.name, synopsis, e.status,
                 e.season, e.year, e.episodes, e.chapters, e.nextEpisode, e.nextAiringAt, k?.first, k?.second, k?.third
             )
+        }
+    }
+
+    /** A few Spanish synopses at a time, from the details of a Spanish source of the work (kept for the session). */
+    suspend fun localizeSome() {
+        repeat(SYNOPSES_PER_STEP) {
+            val id = wantSpanish.pollFirst() ?: return
+            if (spanish.containsKey(id)) return@repeat
+            val pages = db.tx {
+                query(
+                    """SELECT i.source_id, i.media_id FROM works w JOIN index_items i ON i.work_key = w.key
+                       WHERE w.anilist_id = ? AND i.lang = 'es' ORDER BY i.updated_at DESC LIMIT 3""",
+                    id
+                ) { getString(1) to getString(2) }
+            }
+            for ((s, m) in pages) {
+                val text = withTimeoutOrNull(SYNOPSIS_WAIT_MS) { catalog.media(s, m).getOrNull() }?.description?.let(::plainSynopsis).orEmpty()
+                if (text.length >= MIN_SYNOPSIS) { spanish[id] = text; break }
+            }
         }
     }
 
@@ -101,6 +128,15 @@ class Discover(
 
     companion object {
         private const val TTL_MS = 6 * 3_600_000L
+        private const val MAX_WANTED = 200
+        private const val SYNOPSES_PER_STEP = 4
+        private const val SYNOPSIS_WAIT_MS = 8_000L
+        private const val MIN_SYNOPSIS = 40
+        private const val MAX_SYNOPSIS = 1_200
+
+        /** A site's synopsis as plain text: scraped data, so no tags, no runs of spaces, and not endless. */
+        fun plainSynopsis(raw: String): String =
+            raw.replace(Regex("<[^>]*>"), " ").replace(Regex("\\s+"), " ").trim().take(MAX_SYNOPSIS)
         private const val DAY_MS = 24 * 3_600_000L
         private val SYSTEM = User(0, "sistema", isAdmin = false, isGuest = false, createdAt = 0, expiresAt = null)
         val TITLES = mapOf(
@@ -118,10 +154,12 @@ class Discover(
     }
 }
 
+private fun discoverLang(raw: String?) = raw?.lowercase()?.takeIf { it.matches(Regex("[a-z]{2}")) } ?: "es"
+
 fun Route.discoverRoutes(s: Services) {
     get("/discover/{kind}") {
         val kind = Discover.kindOf(call.parameters["kind"]) ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Sección desconocida"))
-        call.respond(mapOf("rows" to s.discover.rows(kind)))
+        call.respond(mapOf("rows" to s.discover.rows(kind, discoverLang(call.request.queryParameters["lang"]))))
     }
     get("/discover/{kind}/browse") {
         val kind = Discover.kindOf(call.parameters["kind"]) ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Sección desconocida"))
@@ -131,7 +169,7 @@ fun Route.discoverRoutes(s: Services) {
             country = q["country"]?.take(2), minScore = q["minScore"]?.toIntOrNull(), sort = q["sort"]?.take(30) ?: "TRENDING_DESC",
             page = q["page"]?.toIntOrNull() ?: 1
         )
-        val items = s.discover.browse(kind, filter)
+        val items = s.discover.browse(kind, filter, discoverLang(q["lang"]))
         call.respond(mapOf("items" to if (q["available"] == "1") items.filter { it.available } else items))
     }
 }

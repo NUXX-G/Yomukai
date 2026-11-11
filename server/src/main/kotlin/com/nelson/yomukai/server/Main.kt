@@ -257,6 +257,7 @@ private fun Application.startBackgroundJobs(config: Config, services: Services) 
         while (true) {
             delay(20_000L)
             runCatching { services.discover.resolveNext() }.onFailure { log.debug("Descubrir: {}", it.message) }
+            runCatching { services.discover.localizeSome() }.onFailure { log.debug("Sinopsis: {}", it.message) }
         }
     }
     // Library and history rows get their work a few at a time (AniList allows ~30 requests a minute).

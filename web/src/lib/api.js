@@ -1,5 +1,5 @@
 // Talks to the Yomukai server. Every call sends the session cookie; a 401 means "log in again".
-import { t, tk } from './i18n.svelte.js';
+import { t, tk, i18n } from './i18n.svelte.js';
 
 /** Errors the server explains in Spanish come out in the interface language when the dictionary has them. */
 export class ApiError extends Error {
@@ -146,8 +146,8 @@ export const api = {
   adminRunCanary: (id) => request('POST', `/api/admin/canary/${encodeURIComponent(id)}`),
   features: () => request('GET', '/api/features'),
   continueList: () => request('GET', '/api/continue'),
-  discover: (kind) => cached(`/api/discover/${kind}`),
-  discoverBrowse: (kind, filters) => request('GET', `/api/discover/${kind}/browse?${qs(filters)}`),
+  discover: (kind) => cached(`/api/discover/${kind}?lang=${i18n.lang}`),
+  discoverBrowse: (kind, filters) => request('GET', `/api/discover/${kind}/browse?${qs({ ...filters, lang: i18n.lang })}`),
   unified: () => request('GET', '/api/updates/unified'),
   work: (s, id) => request('GET', `/api/work?${qs({ s, id })}`),
   workChapters: (key) => request('GET', `/api/works/${encodeURIComponent(key)}/chapters`),
