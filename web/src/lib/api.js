@@ -163,6 +163,12 @@ export const api = {
   workChoice: (key, number, sourceId) => request('PUT', `/api/works/${encodeURIComponent(key)}/choice`, { number, sourceId }),
   workContinue: (key, episode) => request('GET', `/api/works/${encodeURIComponent(key)}/continue?${qs({ episode })}`),
   calendar: (days = 7) => request('GET', `/api/calendar?${qs({ days })}`),
+  // F5: every anime airing this week (AniList), the group's picks of the season and what AniList's community rates.
+  calendarAiring: () => request('GET', `/api/calendar/airing?${qs({ lang: i18n.lang })}`),
+  seasonCommunity: () => request('GET', `/api/calendar/community?${qs({ lang: i18n.lang })}`),
+  seasonPicks: () => request('GET', '/api/calendar/picks'),
+  seasonPick: (anilistId, { recommend, comment }) => request('PUT', `/api/calendar/picks/${Number(anilistId)}`, { recommend: !!recommend, comment: String(comment || '') }),
+  seasonUnpick: (anilistId) => request('DELETE', `/api/calendar/picks/${Number(anilistId)}`),
   /** Episode number -> 'FILLER' | 'MIXED' (the server answers in lower case). */
   fillers: async (title) => Object.fromEntries(Object.entries((await request('GET', `/api/fillers?${qs({ title })}`)) || {}).map(([n, k]) => [n, String(k).toUpperCase()])),
   setAdaptation: (body) => request('PUT', '/api/adaptations', body),
