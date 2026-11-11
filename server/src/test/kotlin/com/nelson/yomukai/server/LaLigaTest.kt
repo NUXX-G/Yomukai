@@ -35,7 +35,13 @@ class LaLigaTest {
         val s = Services(c)
         application { yomukai(c, s) }
         val admin = session()
-        admin.post("/auth/login") { contentType(ContentType.Application.Json); setBody("""{"name":"admin","password":"admin-password-1"}""") }
+        // The admin account is created in the background at start: wait for it.
+        var tries = 0
+        while (tries++ < 50) {
+            val ok = admin.post("/auth/login") { contentType(ContentType.Application.Json); setBody("""{"name":"admin","password":"admin-password-1"}""") }.status == HttpStatusCode.OK
+            if (ok) break
+            kotlinx.coroutines.delay(100)
+        }
 
         // Not a source: refused before anything is fetched (no open proxy, nothing at home).
         assertEquals(HttpStatusCode.Forbidden, admin.get("/api/relay?u=" + java.net.URLEncoder.encode("http://127.0.0.1:22/", "UTF-8")).status)
