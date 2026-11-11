@@ -3,7 +3,7 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
-**AHORA (2026-11-11, tarde, sesión A): bloques 1-6 CERRADOS. Release v2.5.0 (pre-release) PUBLICADA con los bloques 3-6. Bloque 7 (aspecto) hecho en la web; quedan la app Android y las capturas. Después: PEDIDO 2026-11-11 «solo obras de mis fuentes».**
+**AHORA (2026-11-11, noche): trabajando en las PRIORIDADES DEL USUARIO (abajo). Hecho: F1, parte de F2, O2-O4 en el servidor. SIGUIENTE: O1 (una obra = una tarjeta, fuera lo no identificado), F3 (servidores de vídeo rotos/sandbox: comprobar antes de ofrecer), V1 (portadas lentas), selector de versión (O2). Antes:**  bloques 1-6 CERRADOS. Release v2.5.0 (pre-release) PUBLICADA con los bloques 3-6. Bloque 7 (aspecto) hecho en la web; quedan la app Android y las capturas. Después: PEDIDO 2026-11-11 «solo obras de mis fuentes».**
 
 ### ⚠️ PRIORIDADES DEL USUARIO 2026-11-11 (noche) — MANDAN SOBRE TODO LO DEMÁS, EN ESTE ORDEN
 Tras probar la app 5 minutos: «hay muchos más fallos». Trabajar autónomo, commits pequeños y push a menudo.
@@ -19,23 +19,23 @@ Tras probar la app 5 minutos: «hay muchos más fallos». Trabajar autónomo, co
 P1 — obras
 - [ ] O1 Una obra = UNA tarjeta en todo Yomukai (nada de «varias de la misma»). Si una obra no se puede identificar
       (fanfic/obra desconocida sin AniList/MangaDex), se queda fuera: prefiere catálogo profesional a cantidad de basura.
-- [ ] O2 Anime: pestaña/selector de versión dentro de la obra: JP + subs ES / JP + subs EN / latino / castellano / dub EN.
+- [~] O2 (servidor: `orderWorkPlaces` abre la subtitulada antes que un doblaje y la fuente que sigues primero, test WorkPlacesOrderTest; FALTA el selector de versión visible en la ficha web/app con SUB ES · SUB EN · LAT · CAST · DUB EN) Anime: pestaña/selector de versión dentro de la obra: JP + subs ES / JP + subs EN / latino / castellano / dub EN.
       Por defecto: japonés con subtítulos en el idioma de la interfaz del usuario (con la app en español NO abrir la
       versión con subs en inglés, que es lo que pasa ahora).
-- [ ] O3 Secciones de doblaje (Castellano, Latino, Inglés) muestran SOLO obras con ese audio (hoy «Castellano» enseña
+- [~] O3 (desde una sección de doblaje la ficha solo abre fuentes con ese audio; si no responde, mensaje claro. FALTA comprobar en el VPS qué fuentes marcan CASTELLANO: sobre todo AnimeOnlineNinja, que necesita FlareSolverr) Secciones de doblaje (Castellano, Latino, Inglés) muestran SOLO obras con ese audio (hoy «Castellano» enseña
       subtitulados en español). Aunque sean pocas.
-- [ ] O4 Obra cuyas fuentes con capítulos están todas caídas: no sale en Inicio/secciones; si está en la biblioteca de
+- [~] O4 (listas y búsqueda ya excluyen las obras que solo están en fuentes caídas según el canario, `downSql()`; FALTA el aviso en la biblioteca) Obra cuyas fuentes con capítulos están todas caídas: no sale en Inicio/secciones; si está en la biblioteca de
       alguien, sale ahí con un aviso claro (le pasó con One Piece). Nada de entrar y encontrar un error.
 P2 — fuentes (scrapear mejor: hacer lo que haga falta para conseguir capítulos/vídeo)
-- [ ] F1 Una fuente da `com.google.gson.stream.MalformedJsonException ... line 1 column 12` (la web devuelve HTML /
+- [x] F1 (`parseJson` → `NotJsonException` con mensaje claro; BOM y prefijo )]}' aceptados; test NotJsonTest) Una fuente da `com.google.gson.stream.MalformedJsonException ... line 1 column 12` (la web devuelve HTML /
       Cloudflare en vez de JSON). Detectar respuesta no-JSON → reintentar por FlareSolverr / mensaje claro; nunca enseñar
       la excepción cruda.
-- [ ] F2 Un episodio redirige a una página «Verification · Security check · Checking your browser… Verification
+- [~] F2 (`WebProtection.isGenericBotCheck` reconoce esa página → el servidor reintenta por FlareSolverr; FALTA descartar en el reproductor los servidores de vídeo (embeds) que la muestran) Un episodio redirige a una página «Verification · Security check · Checking your browser… Verification
       failed» (anti-bot de un servidor de vídeo). No mostrar esos servidores; resolver el vídeo real o saltar al siguiente.
 - [ ] F3 Episodios que abren servidores con «WE ARE SORRY We can't find the video» y «This video is not available due to
       sandboxed iframe!». Comprobar el servidor antes de ofrecerlo, quitar sandbox donde sea seguro o extraer el
       m3u8/mp4 directo; ordenar servidores por los que funcionan; probar TODAS las fuentes de anime de punta a punta.
-- [ ] F4 MangaDex sale como caída y NO lo está (https://mangadex.org/). Revisar canario/salud y la API (api.mangadex.org).
+- [~] F4 (en local MangaDex va de punta a punta: listado, ficha, capítulos, imágenes; api.mangadex.org responde 200 con nuestro UA y 302 con UA de navegador. FALTA el texto de Administración › Salud de las fuentes del VPS para ver qué paso falla allí) MangaDex sale como caída y NO lo está (https://mangadex.org/). Revisar canario/salud y la API (api.mangadex.org).
 P3 — velocidad e imagen
 - [ ] V1 Portadas: unas cargan y otras no, o tardan ~1 min; se ve horrible. La animación de entrada debe servir para
       precargar el máximo de portadas. Revisar el proxy /api/img (tiempos, caché, concurrencia, fallback a otra portada).
