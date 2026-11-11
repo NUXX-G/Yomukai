@@ -307,6 +307,36 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
         )
     }
 
+    /** This episode as a card for «Compartir» (F4.3), with its number for the spoiler shield. */
+    fun shareCard(): com.nelson.yomukai.data.social.ShareCard? {
+        val chapter = chapterById(_state.value.playing.chapterId) ?: return null
+        return com.nelson.yomukai.data.social.ShareCard(
+            kind = "episode", sourceId = sourceId, mediaId = mediaId, chapterId = chapter.chapterId,
+            title = _state.value.playing.title.substringBefore(" - "), type = "ANIME",
+            lang = container.sourceManager.get(sourceId)?.language.orEmpty(),
+            number = chapter.number.takeIf { it >= 0f }?.toDouble(), label = chapter.title
+        )
+    }
+
+    /** Puts the next episode in the room's queue (F4.1); false when there is no next one or no room. */
+    fun queueNext(): Boolean {
+        val pick = _next.value ?: return false
+        val party = _party.value ?: return false
+        val n = pick.number
+        val label = if (n >= 0f) tr("Ep. {0}", if (n % 1f == 0f) n.toInt().toString() else n.toString()) else ""
+        party.queueAdd(pick.sourceId, pick.mediaId, pick.chapterId, _state.value.playing.title.substringBefore(" - "), label)
+        return true
+    }
+
+    /** At the end of an episode in a room with something queued, the server moves everyone on (F4.1). */
+    fun endedInRoom(chapterId: String?): Boolean {
+        val party = _party.value ?: return false
+        val room = party.room.value
+        if (room.queue.isEmpty() || chapterId == null) return false
+        if (room.canControl) party.ended(chapterId)
+        return true
+    }
+
     fun playNext() {
         val pick = _next.value ?: return
         announce(pick)

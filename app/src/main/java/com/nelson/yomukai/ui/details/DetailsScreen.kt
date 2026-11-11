@@ -39,6 +39,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Label
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
@@ -265,6 +266,21 @@ private fun DetailsContent(
                 },
                 actions = {
                     var menu by remember { mutableStateOf(false) }
+                    var shareOpen by remember { mutableStateOf(false) }
+                    val container = LocalAppContainer.current
+                    val media = state.media
+                    if (media != null && container.serverSync.serverUrl != null) {
+                        IconButton(onClick = { shareOpen = true }, colors = discs) { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = tr("Compartir")) }
+                    }
+                    if (shareOpen && media != null) {
+                        com.nelson.yomukai.ui.social.ShareSheet(
+                            com.nelson.yomukai.data.social.ShareCard(
+                                kind = "work", sourceId = media.sourceId, mediaId = media.mediaId, title = media.title, type = media.type,
+                                cover = media.coverUrl.takeIf { it.startsWith("https://") }.orEmpty(),
+                                lang = container.sourceManager.get(media.sourceId)?.language.orEmpty()
+                            )
+                        ) { shareOpen = false }
+                    }
                     IconButton(onClick = { menu = true }, colors = discs) { Icon(Icons.Default.MoreVert, contentDescription = tr("Más")) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(

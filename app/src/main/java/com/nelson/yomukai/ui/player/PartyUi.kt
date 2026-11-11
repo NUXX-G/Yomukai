@@ -53,6 +53,7 @@ import kotlinx.coroutines.launch
  * Keeps this player with its room, as the web does: whoever does not drive follows the room's episode, play/pause and
  * position (a jump when far, a slight speed change when close); whoever drives tells the room what they do.
  */
+@Suppress("CyclomaticComplexMethod")
 @Composable
 internal fun RoomSync(party: PartyClient, exo: ExoPlayer, viewModel: AnimePlayerViewModel, chapterId: String?) {
     // A move this player makes to follow the room is not sent back as its own.
@@ -79,7 +80,13 @@ internal fun RoomSync(party: PartyClient, exo: ExoPlayer, viewModel: AnimePlayer
             Correction.None -> exo.setPlaybackSpeed(state.speed.toFloat())
         }
     }
-    LaunchedEffect(party, exo, chapterId) { party.states.collect { follow(it.state, it.byServer) } }
+    LaunchedEffect(party, exo, chapterId) {
+        // The room moved on by itself (queue, votes): everyone goes there, the host too (F4.1).
+        party.states.collect { if (it.advance && it.state.chapterId != chapterId) viewModel.followRoomEpisode(it.state) else follow(it.state, it.byServer) }
+    }
+    LaunchedEffect(party, chapterId) {
+        party.skips.collect { skipped -> if (skipped == chapterId && party.room.value.canControl && viewModel.hasNext()) viewModel.playNext() }
+    }
     LaunchedEffect(party, exo, chapterId) {
         while (true) {
             delay(FOLLOW_EVERY_MS)
@@ -147,6 +154,7 @@ private fun shareRoom(context: android.content.Context, viewModel: AnimePlayerVi
 
 /** The room: who is in, the chat, quick reactions, invite and leave. */
 @OptIn(ExperimentalMaterial3Api::class)
+@Suppress("CyclomaticComplexMethod")
 @Composable
 internal fun RoomSheet(viewModel: AnimePlayerViewModel, onDismiss: () -> Unit) {
     val party = viewModel.party.collectAsState().value ?: return onDismiss()
@@ -170,10 +178,35 @@ internal fun RoomSheet(viewModel: AnimePlayerViewModel, onDismiss: () -> Unit) {
             room.closed?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (!room.connected && room.closed == null) Text(tr("Conectando con la sala…"), color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (room.waiting.isNotEmpty()) Text(tr("Esperando a {0}...", room.waiting.joinToString(", ")))
+            // Queue (F4.1): what plays next, votes to skip, and adding the next episode.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(tr("Cola · {0}", room.queue.size), Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                if (room.state != null) {
+                    TextButton(onClick = { party.skip() }) {
+                        Text((if (room.votedSkip) "✓ " else "") + tr("Saltar") + " ${room.skipVotes.size}/${room.skipNeeded}")
+                    }
+                }
+                TextButton(onClick = {
+                    if (!viewModel.queueNext()) android.widget.Toast.makeText(context, tr("No hay siguiente episodio"), android.widget.Toast.LENGTH_SHORT).show()
+                }) { Text(tr("+ Siguiente")) }
+            }
+            val myName = room.members.firstOrNull { it.id == room.you }?.name
+            room.queue.forEachIndexed { i, q ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("${i + 1}. ${q.title} · ${q.episode}", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                    if (room.canControl) {
+                        TextButton(onClick = { party.queuePlay(q.id) }) { Text(tr("Poner ahora")) }
+                        if (i > 0) TextButton(onClick = { party.queueMove(q.id, i - 1) }) { Text("↑") }
+                    }
+                    if (room.canControl || q.addedBy == myName) TextButton(onClick = { party.queueRemove(q.id) }) { Text("✕") }
+                }
+            }
             LazyColumn(Modifier.fillMaxWidth().heightIn(max = 280.dp), state = list) {
                 items(room.messages) { m ->
                     if (m.user.isEmpty()) Text(m.text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    else Text("${m.user}: " + if (m.spoiler) tr("[spoiler]") + " " + m.text else m.text)
+                    else if (m.text.isNotEmpty()) Text("${m.user}: " + if (m.spoiler) tr("[spoiler]") + " " + m.text else m.text)
+                    else Text(m.user + ":", style = MaterialTheme.typography.bodySmall)
+                    m.card?.let { card -> com.nelson.yomukai.ui.social.ShareCardView(card, mine = false) }
                 }
             }
             if (room.reactions.isNotEmpty()) {

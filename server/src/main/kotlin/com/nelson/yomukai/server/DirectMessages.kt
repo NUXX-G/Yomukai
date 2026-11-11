@@ -164,7 +164,7 @@ class DirectMessages(
         val body = DmRules.clean(text)
         require(body.isNotEmpty() || card != null) { "El mensaje está vacío" }
         val now = clock()
-        if (!guard.allowMessage(me.id, now)) throw IllegalArgumentException("Más despacio: espera unos segundos")
+        require(guard.allowMessage(me.id, now)) { "Más despacio: espera unos segundos" }
         val (message, firstUnread, peerMuted) = db.tx {
             val mutedUntil = queryOne("SELECT muted_until FROM users WHERE id = ?", me.id) { getLong(1) } ?: 0
             val mine = queryOne("SELECT blocked FROM dm_peers WHERE user_id = ? AND peer_id = ?", me.id, peer.id) { getInt(1) == 1 } ?: false
@@ -275,6 +275,7 @@ class DirectMessages(
     }
 }
 
+@Suppress("CyclomaticComplexMethod")
 fun Route.directMessageRoutes(s: Services) {
     suspend fun ApplicationCall.dmsOn(): Boolean {
         if (s.features.isOn("dms")) return true
@@ -330,4 +331,3 @@ fun Route.directMessageRoutes(s: Services) {
         call.respond(mapOf("ok" to true))
     }
 }
-

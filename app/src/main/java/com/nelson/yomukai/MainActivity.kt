@@ -301,7 +301,8 @@ fun YomukaiApp(
             composable(Routes.COMMUNITY) {
                 com.nelson.yomukai.ui.social.CommunityScreen(
                     onBack = { navController.popBackStack() },
-                    onOpenWork = { s, m -> navController.navigate(Routes.details(s, m)) }
+                    onOpenWork = { s, m -> navController.navigate(Routes.details(s, m)) },
+                    onRoom = { code -> navController.navigate(Routes.room(code)) }
                 )
             }
             composable(Routes.HOME) {

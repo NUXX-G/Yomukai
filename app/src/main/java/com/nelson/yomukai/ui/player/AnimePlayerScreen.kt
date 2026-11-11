@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.Forward10
@@ -213,7 +214,8 @@ fun AnimePlayerScreen(
                 if (playbackState == Player.STATE_ENDED) {
                     val duration = exoPlayer.duration.coerceAtLeast(0L)
                     currentViewModel.onPosition(chapterId, duration, duration, force = true)
-                    if (currentAutoNext && currentViewModel.hasNext()) currentViewModel.playNext() else showControls = true
+                    if (currentViewModel.endedInRoom(chapterId)) Unit
+                    else if (currentAutoNext && currentViewModel.hasNext()) currentViewModel.playNext() else showControls = true
                 }
             }
 
@@ -239,6 +241,9 @@ fun AnimePlayerScreen(
         viewModel.openOther.collect { (s, m, c) -> viewModel.party.value?.code?.let { code -> onOpenRoomEpisode(s, m, c, code) } }
     }
     if (roomOpen) RoomSheet(viewModel) { roomOpen = false }
+    var shareOpen by remember { mutableStateOf(false) }
+    val canShare = LocalAppContainer.current.serverSync.serverUrl != null
+    if (shareOpen) viewModel.shareCard()?.let { card -> com.nelson.yomukai.ui.social.ShareSheet(card) { shareOpen = false } } ?: run { shareOpen = false }
 
     // Opening/ending times of this episode (server or AniSkip); unknown keeps the "+85 s" button.
     LaunchedEffect(playing.chapterId) { viewModel.loadMarks(playing.chapterId) }
@@ -462,6 +467,11 @@ fun AnimePlayerScreen(
                     )
 
                     if (viewModel.hasEpisodeContext) RoomButton(viewModel) { roomOpen = true }
+                    if (viewModel.hasEpisodeContext && canShare) {
+                        IconButton(onClick = { exoPlayer.pause(); shareOpen = true }) {
+                            Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.Send, tr("Compartir"), tint = androidx.compose.ui.graphics.Color.White)
+                        }
+                    }
 
                     if (viewModel.hasEpisodeContext) {
                         IconButton(onClick = { showIndex = true }) {

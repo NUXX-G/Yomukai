@@ -123,6 +123,7 @@ class Forum(
         return id
     }
 
+    @Suppress("CyclomaticComplexMethod")
     suspend fun reply(user: User, threadId: Long, body: String, spoilerUntil: Double?, quoteId: Long?, newThread: Boolean = false, card: ShareCard? = null): Long {
         checkCanWrite(user)
         val t = thread(threadId) ?: throw NoSuchElementException("Ese hilo no existe")

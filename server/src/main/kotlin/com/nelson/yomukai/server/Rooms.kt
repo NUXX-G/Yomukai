@@ -620,6 +620,7 @@ fun sameOrigin(call: ApplicationCall): Boolean {
     return runCatching { URI(origin).authority.equals(host, ignoreCase = true) }.getOrDefault(false)
 }
 
+@Suppress("CyclomaticComplexMethod")
 fun Route.roomRoutes(s: Services, addressOf: (ApplicationCall) -> String) {
     suspend fun ApplicationCall.roomsOn(): Boolean {
         if (s.features.isOn("rooms")) return true

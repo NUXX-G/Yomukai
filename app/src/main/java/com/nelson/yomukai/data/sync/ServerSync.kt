@@ -25,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -514,6 +515,36 @@ class ServerSync(
     }.getOrDefault(emptyList())
 
     /** A WebSocket to the connected server's API with the session (watch-party rooms); null when not connected. */
+
+    /**
+     * The server's live stream for this user (SSE: notifications and direct messages), as (event, data) pairs while
+     * the collector runs; it reconnects after a drop. Used by the open conversation for «escribiendo» and «visto».
+     */
+    fun liveEvents(): kotlinx.coroutines.flow.Flow<Pair<String, String>> = kotlinx.coroutines.flow.flow {
+        val streamClient = client.newBuilder().readTimeout(60, TimeUnit.SECONDS).callTimeout(0, TimeUnit.SECONDS).build()
+        while (true) {
+            val server = _state.value.server ?: return@flow
+            val session = token ?: return@flow
+            runCatching {
+                val call = streamClient.newCall(authed(Request.Builder().url("$server/api/notifications/stream"), session).build())
+                call.execute().use { r ->
+                    if (!r.isSuccessful) return@use
+                    val source = r.body?.source() ?: return@use
+                    var event = "message"
+                    while (true) {
+                        val line = source.readUtf8Line() ?: break
+                        when {
+                            line.startsWith("event:") -> event = line.removePrefix("event:").trim()
+                            line.startsWith("data:") -> emit(event to line.removePrefix("data:").trim())
+                            line.isEmpty() -> event = "message"
+                        }
+                    }
+                }
+            }
+            kotlinx.coroutines.delay(3_000)
+        }
+    }.flowOn(Dispatchers.IO)
+
     fun webSocket(path: String, listener: okhttp3.WebSocketListener): okhttp3.WebSocket? {
         val server = _state.value.server ?: return null
         val session = token ?: return null

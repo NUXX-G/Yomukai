@@ -29,8 +29,8 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -67,16 +67,23 @@ import kotlinx.coroutines.launch
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CommunityScreen(onBack: () -> Unit, onOpenWork: (sourceId: String, mediaId: String) -> Unit) {
+fun CommunityScreen(
+    onBack: () -> Unit,
+    onOpenWork: (sourceId: String, mediaId: String) -> Unit,
+    onRoom: (code: String) -> Unit = {},
+    onOpenCard: (com.nelson.yomukai.data.social.ShareCard) -> Unit = { if (it.sourceId.isNotEmpty()) onOpenWork(it.sourceId, it.mediaId) },
+    startTab: Int = 0
+) {
     val sync = LocalAppContainer.current.serverSync
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var tab by rememberSaveable { mutableIntStateOf(startTab) }
+    var chat by rememberSaveable { mutableStateOf<String?>(null) }
     var person by rememberSaveable { mutableStateOf<String?>(null) }
     var thread by rememberSaveable { mutableStateOf<Long?>(null) }
     Scaffold(topBar = {
         TopAppBar(
             title = { Text(tr("Comunidad")) },
             navigationIcon = {
-                IconButton(onClick = { if (person != null) person = null else if (thread != null) thread = null else onBack() }) {
+                IconButton(onClick = { if (chat != null) chat = null else if (person != null) person = null else if (thread != null) thread = null else onBack() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Volver"))
                 }
             }
@@ -88,18 +95,24 @@ fun CommunityScreen(onBack: () -> Unit, onOpenWork: (sourceId: String, mediaId: 
                 return@Column
             }
             when {
-                person != null -> ProfileView(sync, person!!, onOpenWork)
+                chat != null -> ConversationView(sync, chat!!, onOpenCard)
+                person != null -> Column {
+                    TextButton(onClick = { chat = person }, Modifier.padding(horizontal = 8.dp)) { Text(tr("Mensaje")) }
+                    ProfileView(sync, person!!, onOpenWork)
+                }
                 thread != null -> ThreadView(sync, thread!!)
                 else -> {
-                    TabRow(selectedTabIndex = tab) {
-                        listOf(tr("Actividad"), tr("Amigos"), tr("Foro"), tr("Mi perfil")).forEachIndexed { i, label ->
+                    ScrollableTabRow(selectedTabIndex = tab, edgePadding = 8.dp) {
+                        listOf(tr("Actividad"), tr("Amigos"), tr("Mensajes"), tr("Salas"), tr("Foro"), tr("Mi perfil")).forEachIndexed { i, label ->
                             Tab(selected = tab == i, onClick = { tab = i }, text = { Text(label, maxLines = 1) })
                         }
                     }
                     when (tab) {
                         0 -> FeedView(sync, onOpenWork, onPerson = { person = it })
                         1 -> PeopleView(sync) { person = it }
-                        2 -> ForumView(sync) { thread = it }
+                        2 -> MessagesView(sync) { chat = it }
+                        3 -> OpenRoomsView(sync, onRoom)
+                        4 -> ForumView(sync) { thread = it }
                         else -> MyProfileView(sync) { person = it }
                     }
                 }

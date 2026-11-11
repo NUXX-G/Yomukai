@@ -29,7 +29,10 @@ import okhttp3.WebSocketListener
  * and computers share one room. The server's clock is the reference; [serverNow] follows it through the pings.
  */
 class PartyClient(private val sync: ServerSync, val code: String) {
-    data class ChatLine(val id: Long, val user: String, val text: String, val spoiler: Boolean)
+    data class ChatLine(val id: Long, val user: String, val text: String, val spoiler: Boolean, val card: ShareCard? = null)
+
+    /** One episode waiting in the room's queue (F4.1). */
+    data class QueueItem(val id: Long, val sourceId: String, val mediaId: String, val chapterId: String, val title: String, val episode: String, val addedBy: String)
     data class Member(val id: Long, val name: String)
 
     data class Room(
@@ -44,15 +47,22 @@ class PartyClient(private val sync: ServerSync, val code: String) {
         val messages: List<ChatLine> = emptyList(),
         val reactions: List<String> = emptyList(),
         val unread: Int = 0,
+        val queue: List<QueueItem> = emptyList(),
+        val skipVotes: List<Long> = emptyList(),
+        val skipNeeded: Int = 1,
         /** Why the server refused the room; nothing more is tried then. */
         val closed: String? = null
     ) {
         val isHost get() = you != null && you == host
         val canControl get() = everyoneControls || isHost
+        val votedSkip get() = you != null && you in skipVotes
     }
 
-    /** A change of what plays; [byServer] when the server itself paused or resumed it (someone loading). */
-    data class StateEvent(val state: PartyState, val byServer: Boolean)
+    /**
+     * A change of what plays; [byServer] when the server itself paused or resumed it (someone loading). [advance]: the
+     * room moved on by itself (its queue or a vote): everyone goes, the host too, without sending it back.
+     */
+    data class StateEvent(val state: PartyState, val byServer: Boolean, val advance: Boolean = false)
 
     private val gson = Gson()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -62,6 +72,10 @@ class PartyClient(private val sync: ServerSync, val code: String) {
     val states: SharedFlow<StateEvent> = _states.asSharedFlow()
     private val _reactions = MutableSharedFlow<String>(extraBufferCapacity = 16)
     val reactions: SharedFlow<String> = _reactions.asSharedFlow()
+    private val _skips = MutableSharedFlow<String>(extraBufferCapacity = 4)
+
+    /** Votes skipped with nothing queued: whoever drives goes on to the next episode (the chapter id that was skipped). */
+    val skips: SharedFlow<String> = _skips.asSharedFlow()
 
     @Volatile private var socket: WebSocket? = null
 
@@ -128,7 +142,7 @@ class PartyClient(private val sync: ServerSync, val code: String) {
                         name = m.getAsJsonObject("room")?.get("name")?.asString.orEmpty(), you = m.get("you")?.asLong,
                         state = state, waiting = m.waiting(), messages = m.getAsJsonArray("history")?.mapNotNull { e -> chat(e.asJsonObject) }.orEmpty(),
                         reactions = m.getAsJsonArray("reactions")?.map { e -> e.asString }.orEmpty()
-                    ).withMembers(m)
+                    ).withMembers(m).withQueue(m.getAsJsonArray("queue"), m.getAsJsonObject("skip"))
                 }
                 state?.let { _states.tryEmit(StateEvent(it, byServer = false)) }
             }
@@ -137,8 +151,10 @@ class PartyClient(private val sync: ServerSync, val code: String) {
             "state" -> {
                 val state = m.state()
                 _room.update { it.copy(state = state, waiting = m.waiting()) }
-                state?.let { _states.tryEmit(StateEvent(it, byServer = m.get("by")?.isJsonNull != false)) }
+                state?.let { _states.tryEmit(StateEvent(it, byServer = m.get("by")?.isJsonNull != false, advance = m.get("advance")?.asBoolean == true)) }
             }
+            "queue" -> _room.update { it.withQueue(m.getAsJsonArray("items"), m.getAsJsonObject("skip")) }
+            "skip" -> m.get("chapterId")?.asString?.let { _skips.tryEmit(it) }
             "chat" -> chat(m.getAsJsonObject("msg"))?.let { line ->
                 _room.update { it.copy(messages = (it.messages + line).takeLast(MAX_MESSAGES), unread = it.unread + 1) }
             }
@@ -163,8 +179,19 @@ class PartyClient(private val sync: ServerSync, val code: String) {
         everyoneControls = m.get("everyoneControls")?.asBoolean ?: everyoneControls
     )
 
+    private fun Room.withQueue(items: com.google.gson.JsonArray?, skip: JsonObject?) = copy(
+        queue = items?.mapNotNull { e ->
+            val o = e.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
+            fun s(k: String) = o.get(k)?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+            QueueItem(o.get("id")?.asLong ?: return@mapNotNull null, s("sourceId"), s("mediaId"), s("chapterId"), s("title"), s("episode"), s("addedByName"))
+        } ?: queue,
+        skipVotes = skip?.getAsJsonArray("votes")?.mapNotNull { runCatching { it.asLong }.getOrNull() } ?: skipVotes,
+        skipNeeded = skip?.get("needed")?.asInt ?: skipNeeded
+    )
+
     private fun chat(o: JsonObject?): ChatLine? = o?.let {
-        ChatLine(it.get("id")?.asLong ?: 0, it.get("from")?.asString.orEmpty(), it.get("text")?.asString.orEmpty(), it.get("spoiler")?.asBoolean == true)
+        val card = it.get("card")?.takeIf { c -> c.isJsonObject }?.let { c -> runCatching { gson.fromJson(c, ShareCard::class.java) }.getOrNull() }
+        ChatLine(it.get("id")?.asLong ?: 0, it.get("from")?.asString.orEmpty(), it.get("text")?.asString.orEmpty(), it.get("spoiler")?.asBoolean == true, card)
     }
 
     private fun send(payload: Any) { socket?.send(gson.toJson(payload)) }
@@ -174,6 +201,13 @@ class PartyClient(private val sync: ServerSync, val code: String) {
     fun ready() = send(mapOf("t" to "ready"))
     fun chat(text: String, spoiler: Boolean = false) = send(mapOf("t" to "chat", "text" to text.take(MAX_CHAT), "spoiler" to spoiler))
     fun react(emoji: String) = send(mapOf("t" to "react", "emoji" to emoji))
+    fun queueAdd(sourceId: String, mediaId: String, chapterId: String, title: String, episode: String, cover: String = "") =
+        send(mapOf("t" to "queue_add", "item" to mapOf("sourceId" to sourceId, "mediaId" to mediaId, "chapterId" to chapterId, "title" to title, "episode" to episode, "cover" to cover)))
+    fun queueRemove(id: Long) = send(mapOf("t" to "queue_remove", "id" to id))
+    fun queueMove(id: Long, to: Int) = send(mapOf("t" to "queue_move", "id" to id, "to" to to))
+    fun queuePlay(id: Long) = send(mapOf("t" to "queue_play", "id" to id))
+    fun skip() = send(mapOf("t" to "skip"))
+    fun ended(chapterId: String) = send(mapOf("t" to "ended", "chapterId" to chapterId))
     fun seen() = _room.update { it.copy(unread = 0) }
 
     fun close() {

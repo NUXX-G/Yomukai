@@ -129,6 +129,7 @@ fun Route.notificationRoutes(s: Services) {
             }
         } finally {
             job.cancel()
+            other.cancel()
         }
     }
     get("/notifications/push") {

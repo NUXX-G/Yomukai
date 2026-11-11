@@ -1776,5 +1776,8 @@
  "{0} dentro: {1}": "{0} inside: {1}",
  "{0} sin leer": "{0} unread",
  "¿Seguro? Pulsa otra vez": "Sure? Tap again",
- "AniList va saturado; lo intento otra vez en unos segundos…": "AniList is busy; trying again in a few seconds…"
+ "AniList va saturado; lo intento otra vez en unos segundos…": "AniList is busy; trying again in a few seconds…",
+ "+ Siguiente": "+ Next",
+ "Cola · {0}": "Queue · {0}",
+ "No hay siguiente episodio": "There is no next episode"
 }

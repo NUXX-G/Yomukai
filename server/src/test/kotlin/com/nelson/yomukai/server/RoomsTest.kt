@@ -259,6 +259,17 @@ class RoomsTest {
         assertEquals(0, again["queued"].asInt)
         assertEquals(HttpStatusCode.OK, ana.post("/api/rooms/$code/open") { contentType(ContentType.Application.Json); setBody("""{"open":false}""") }.status)
         assertTrue(com.google.gson.JsonParser.parseString(beto.get("/api/rooms/open").bodyAsText()).asJsonArray.none { it.asJsonObject["code"].asString == code })
+        // Share sheet: something into a room's chat without being inside; it stays in the room's history.
+        val shared = beto.post("/api/rooms/$code/chat") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"text":"para luego","card":{"kind":"work","sourceId":"mangadex","mediaId":"x","title":"Dandadan"}}""")
+        }
+        assertEquals(HttpStatusCode.OK, shared.status)
+        assertEquals(HttpStatusCode.BadRequest, beto.post("/api/rooms/$code/chat") { contentType(ContentType.Application.Json); setBody("""{"text":"  "}""") }.status)
+        assertEquals(HttpStatusCode.NotFound, beto.post("/api/rooms/ZZZZZZ/chat") { contentType(ContentType.Application.Json); setBody("""{"text":"hola"}""") }.status)
+        ana.webSocket("/api/rooms/$code/ws") {
+            assertEquals("para luego", next("welcome")["history"].asJsonArray.last().asJsonObject["text"].asString)
+        }
         s.features.set("open_rooms", false)
         assertEquals("[]", beto.get("/api/rooms/open").bodyAsText())
     }
