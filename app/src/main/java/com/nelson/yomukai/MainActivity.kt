@@ -229,7 +229,7 @@ fun YomukaiApp(
                 return@launch
             }
             val loading = launch { snackbar.showSnackbar(tr("Buscando servidores de {0}...", chapter.title)) }
-            val result = source.fetchVideoSources(chapter.url)
+            val result = com.nelson.yomukai.data.sync.ServerVideos.fetch(container.serverSync, source, chapter.url)
             loading.cancel()
             result
                 .onSuccess { servers ->

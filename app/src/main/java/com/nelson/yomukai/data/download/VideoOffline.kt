@@ -71,7 +71,22 @@ class VideoOffline(context: Context, private val network: NetworkHelper) {
         OkHttpDataSource.Factory(
             okhttp3.Call.Factory { request ->
                 val cookie = sessionFor(request.url)
-                network.videoCallFactory.newCall(if (cookie != null) request.newBuilder().header("Cookie", cookie).build() else request)
+                val call = network.videoCallFactory.newCall(if (cookie != null) request.newBuilder().header("Cookie", cookie).build() else request)
+                // What the player really got (code, final address, whether the server relayed it): the one place
+                // a stream that plays in the browser but not here can be understood.
+                object : okhttp3.Call by call {
+                    private fun log(r: okhttp3.Response) {
+                        val relay = r.header("X-Relay-Status")?.let { " (relé $it)" }.orEmpty()
+                        android.util.Log.i("YomukaiVideo", "${r.code} ${r.request.url.toString().take(120)}$relay")
+                    }
+                    private fun log(e: java.io.IOException) =
+                        android.util.Log.i("YomukaiVideo", "ERROR ${request.url.toString().take(120)}: ${e.javaClass.simpleName} ${e.message?.take(120)}")
+                    override fun execute(): okhttp3.Response = try { call.execute().also(::log) } catch (e: java.io.IOException) { log(e); throw e }
+                    override fun enqueue(responseCallback: okhttp3.Callback) = call.enqueue(object : okhttp3.Callback {
+                        override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) { log(response); responseCallback.onResponse(call, response) }
+                        override fun onFailure(call: okhttp3.Call, e: java.io.IOException) { log(e); responseCallback.onFailure(call, e) }
+                    })
+                }
             }
         )
             .setUserAgent(NetworkHelper.USER_AGENT)

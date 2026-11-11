@@ -591,7 +591,7 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
     fun loadRetryServers(chapter: ChapterEntity) {
         val anime = source as? AnimeSource ?: return
         _retryServers.value = null
-        viewModelScope.launch(Dispatchers.IO) { _retryServers.value = anime.fetchVideoSources(chapter.url) }
+        viewModelScope.launch(Dispatchers.IO) { _retryServers.value = com.nelson.yomukai.data.sync.ServerVideos.fetch(container.serverSync, anime, chapter.url) }
     }
 
     /** Retries a failed download; for an episode, [server] is tried first (null = every server in order). */

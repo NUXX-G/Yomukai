@@ -165,6 +165,7 @@ fun AnimePlayerScreen(
             "file" -> DefaultDataSource.Factory(context)
             else -> offline.playbackFactory(playing.referer)
         }
+        android.util.Log.i("YomukaiPlayer", "Abriendo ${playing.local.ifBlank { "red" }}: ${playing.videoUrl.take(200)} (referer ${playing.referer})")
         val mediaItem = MediaItem.fromUri(Uri.parse(playing.videoUrl))
         // HLS playlists are not always served with a .m3u8 extension (e.g. /m3u8/{id}).
         val mediaSource = if (playing.local == "hls" || (playing.local != "file" && playing.videoUrl.contains("m3u8"))) {

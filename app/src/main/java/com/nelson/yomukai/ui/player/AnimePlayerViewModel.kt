@@ -372,7 +372,7 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
                 updateNext()
                 return@launch
             }
-            source.fetchVideoSources(fresh.url)
+            com.nelson.yomukai.data.sync.ServerVideos.fetch(container.serverSync, source, fresh.url)
                 .onSuccess { found ->
                     // No direct stream: let the hidden WebView catch one from a player page before giving up.
                     val servers = if (found.none { it.isDirect }) found + sniffEmbeds(found) else found
@@ -425,7 +425,7 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
         val position = lastSavedMs.coerceAtLeast(0L)
         _state.update { it.copy(isResolving = true, error = null) }
         viewModelScope.launch(Dispatchers.IO) {
-            source.fetchVideoSources(chapter.url)
+            com.nelson.yomukai.data.sync.ServerVideos.fetch(container.serverSync, source, chapter.url)
                 .onSuccess { found ->
                     val next = nextServer(found, failedServers) ?: nextServer(sniffEmbeds(found), failedServers)
                     val servers = found

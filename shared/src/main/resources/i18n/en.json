@@ -1822,5 +1822,6 @@
  "Caída": "Down",
  "Su fuente no funciona ahora: {0}": "Its source is not working right now: {0}",
  "Versión": "Version",
- "Ahora mismo no se puede ver con este doblaje (su fuente no responde). Prueba más tarde o ábrela subtitulada.": "This dub cannot be watched right now (its source is not answering). Try later or open it subtitled."
+ "Ahora mismo no se puede ver con este doblaje (su fuente no responde). Prueba más tarde o ábrela subtitulada.": "This dub cannot be watched right now (its source is not answering). Try later or open it subtitled.",
+ "vía servidor": "via server"
 }
