@@ -13,6 +13,8 @@
   import { clock } from '../lib/format.js';
   import { detectCrop, cropStyles } from '../lib/crop.js';
   import Icon from '../components/Icon.svelte';
+  import ShareSheet from '../components/ShareSheet.svelte';
+  import { session } from '../lib/store.svelte.js';
   import Sheet from '../components/Sheet.svelte';
   import WordSheet from '../components/WordSheet.svelte';
   import SpeedControl from '../components/SpeedControl.svelte';
@@ -50,6 +52,12 @@
   /** Chapters on screen, in order: { chapter, pages: [], error } */
   let loaded = $state([]);
   let current = $state(null);
+  // Compartir (F4.3): this chapter, with the spoiler shield on by default.
+  let shareOpen = $state(false);
+  const shareCard = $derived(item && current ? {
+    kind: 'chapter', sourceId, mediaId, chapterId: current.id, title: item.title, cover: item.cover || '', type: item.type || '',
+    lang: sourceById(sourceId)?.language || '', number: Number.isFinite(current.number) && current.number >= 0 ? current.number : null, label: current.label || ''
+  } : null);
   let page = $state(0);
   let ui = $state(true);
   let now = $state(clock());
@@ -601,6 +609,7 @@
         <div class="t2">{current?.label ?? ''}{current?.name ? ' · ' + current.name : ''}</div>
       </a>
       <a class="work-link" href={mediaHref(sourceId, mediaId)} title={t('Ir a la ficha')}><Icon name="info" size={18} /><span>{t('Ficha')}</span></a>
+      {#if features.flags.sharing !== false && session.user && !session.user.guest && shareCard}<button class="icon-btn" onclick={() => (shareOpen = true)} aria-label={t('Compartir')} title={t('Compartir')}><Icon name="send" /></button>{/if}
       <button class="icon-btn" class:on={marked} onclick={toggleBookmark} aria-label={marked ? 'Quitar marcador' : t('Poner marcador en esta página')} title={t('Marcador')}><Icon name="bookmark" /></button>
       <button class="icon-btn" onclick={() => (indexOpen = true)} aria-label={t('Índice de capítulos')} title={t('Índice')}><Icon name="list" /></button>
       {#if canFullscreen}<button class="icon-btn" class:on={screen.full} onclick={toggleFullscreen} aria-label={screen.full ? t('Salir de pantalla completa') : 'Pantalla completa'} title={t('Pantalla completa')}><Icon name="fullscreen" /></button>{/if}
@@ -715,6 +724,8 @@
 </Sheet>
 
 <WordSheet bind:pick={wordPick} />
+
+{#if shareCard}<ShareSheet bind:open={shareOpen} card={shareCard} />{/if}
 
 <style>
   .reader { background: #000; min-height: 100vh; color: #fff; }

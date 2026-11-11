@@ -10,6 +10,8 @@
   import { track, markThrough, flush, progressMap } from '../lib/progress.js';
   import { clock } from '../lib/format.js';
   import Icon from '../components/Icon.svelte';
+  import ShareSheet from '../components/ShareSheet.svelte';
+  import { session, features } from '../lib/store.svelte.js';
   import WordSheet from '../components/WordSheet.svelte';
   import SelectionTranslate from '../components/SelectionTranslate.svelte';
   import Sheet from '../components/Sheet.svelte';
@@ -30,6 +32,12 @@
   /** Chapters on screen, in order: { chapter, paragraphs, error } */
   let loaded = $state([]);
   let current = $state(null);
+  // Compartir (F4.3): this chapter, with the spoiler shield on by default.
+  let shareOpen = $state(false);
+  const shareCard = $derived(item && current ? {
+    kind: 'chapter', sourceId, mediaId, chapterId: current.id, title: item.title, cover: item.cover || '', type: item.type || '',
+    lang: sourceById(sourceId)?.language || '', number: Number.isFinite(current.number) && current.number >= 0 ? current.number : null, label: current.label || ''
+  } : null);
   let error = $state('');
   let ui = $state(true);
   let now = $state(clock());
@@ -433,6 +441,7 @@
     <button class="icon-btn" onclick={() => back(mediaHref(sourceId, mediaId))} aria-label={t('Volver')}><Icon name="back" /></button>
     <a class="titles" href={mediaHref(sourceId, mediaId)} title={t('Ir a la ficha')}><div class="t1">{item?.title ?? ''}</div><div class="t2">{current?.label ?? ''}{#if settings.learning?.enabled && learningHere} {t('· {0} {1} que estás aprendiendo', [learningHere, learningHere === 1 ? 'palabra' : 'palabras'])}{/if}</div></a>
     <a class="work-link" href={mediaHref(sourceId, mediaId)} title={t('Ir a la ficha')}><Icon name="info" size={18} /><span>{t('Ficha')}</span></a>
+      {#if features.flags.sharing !== false && session.user && !session.user.guest && shareCard}<button class="icon-btn" onclick={() => (shareOpen = true)} aria-label={t('Compartir')} title={t('Compartir')}><Icon name="send" /></button>{/if}
     <button class="icon-btn" onclick={() => (findOpen = !findOpen)} aria-label={t('Buscar en el capítulo')} title={t('Buscar (Ctrl+F)')}><Icon name="search" /></button>
     <button class="icon-btn" onclick={toggleBookmark} aria-label={t('Marcador')} title={t('Marcador en este párrafo')}><Icon name="bookmark" /></button>
     {#if canSpeak}<button class="icon-btn" class:active={speaking} onclick={toggleSpeech} aria-label={t('Leer en voz alta')} title={t('Leer en voz alta')}><Icon name="speech" /></button>{/if}
@@ -581,6 +590,8 @@
 {#if kokoroState.progress != null}
   <div class="voice-download" role="status">{t('Preparando la voz del navegador (solo la primera vez): {0} %', [Math.round(kokoroState.progress * 100)])}</div>
 {/if}
+
+{#if shareCard}<ShareSheet bind:open={shareOpen} card={shareCard} />{/if}
 
 <style>
   .voice-download { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 60;
