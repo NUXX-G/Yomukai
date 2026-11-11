@@ -46,7 +46,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -96,6 +95,7 @@ import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.LocalAppContainer
 import com.nelson.yomukai.ui.components.AppSpinner
+import com.nelson.yomukai.ui.components.InkButton
 import com.nelson.yomukai.ui.reader.ChapterIndexSheet
 import kotlinx.coroutines.delay
 import java.util.Locale
@@ -399,7 +399,7 @@ fun AnimePlayerScreen(
             exit = fadeOut(tween(250)),
             modifier = Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = 110.dp)
         ) {
-            Button(
+            InkButton(
                 onClick = { if (inEnding) skipEnding() else skipOpening() },
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.92f), contentColor = Color.Black)
             ) {
@@ -641,7 +641,7 @@ fun AnimePlayerScreen(
                             Text(tr("Auto"), color = Color.White, fontSize = 12.sp)
                             Switch(checked = settings.playerAutoNext, onCheckedChange = viewModel::setAutoNext)
                             if (nextUp != null) {
-                                Button(onClick = { viewModel.playNext() }) {
+                                InkButton(onClick = { viewModel.playNext() }) {
                                     Icon(Icons.Default.SkipNext, null, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(4.dp))
                                     Text(tr("Siguiente"))

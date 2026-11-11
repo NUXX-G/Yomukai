@@ -69,7 +69,6 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -79,7 +78,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -123,6 +121,8 @@ import com.nelson.yomukai.data.repository.PageData
 import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.LocalAppContainer
 import com.nelson.yomukai.ui.components.AppSpinner
+import com.nelson.yomukai.ui.components.InkButton
+import com.nelson.yomukai.ui.components.InkOutlinedButton
 import com.nelson.yomukai.ui.reader.ReaderWindowEffects
 import kotlinx.coroutines.delay
 import org.json.JSONArray
@@ -553,18 +553,18 @@ fun WebCaptureScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        OutlinedButton(onClick = { showVideos = true }, enabled = videos.isNotEmpty()) {
+                        InkOutlinedButton(onClick = { showVideos = true }, enabled = videos.isNotEmpty()) {
                             Icon(Icons.Default.Movie, null)
                             Spacer(Modifier.width(6.dp))
                             Text(tr("Vídeos ({0})", videos.size))
                         }
-                        OutlinedButton(onClick = ::scanPage) {
+                        InkOutlinedButton(onClick = ::scanPage) {
                             Icon(Icons.Default.Image, null)
                             Spacer(Modifier.width(6.dp))
                             Text("${images.size}")
                         }
                         Spacer(Modifier.weight(1f))
-                        Button(
+                        InkButton(
                             onClick = {
                                 store.chapter = CapturedChapter(
                                     title = pageTitle.ifBlank { currentUrl },
@@ -709,7 +709,7 @@ fun WebCaptureScreen(
                 ) {
                     Text(message, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
                     Spacer(Modifier.height(16.dp))
-                    Button(onClick = { pageError = null; if (netState.ready) webView?.reload() }) { Text(tr("Reintentar")) }
+                    InkButton(onClick = { pageError = null; if (netState.ready) webView?.reload() }) { Text(tr("Reintentar")) }
                 }
             }
             if (!netState.ready) {

@@ -49,7 +49,6 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -57,7 +56,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -112,6 +110,8 @@ import com.nelson.yomukai.data.repository.PageData
 import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.components.AppSpinner
+import com.nelson.yomukai.ui.components.InkButton
+import com.nelson.yomukai.ui.components.InkOutlinedButton
 import com.nelson.yomukai.ui.components.rememberImageRequest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -234,8 +234,8 @@ fun MangaReaderScreen(
                 Text(state.error ?: tr("El capítulo no tiene páginas"), color = Color.White, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(onClick = onBack) { Text(tr("Volver")) }
-                    Button(onClick = viewModel::retry) { Text(tr("Reintentar")) }
+                    InkOutlinedButton(onClick = onBack) { Text(tr("Volver")) }
+                    InkButton(onClick = viewModel::retry) { Text(tr("Reintentar")) }
                 }
             }
 
@@ -886,7 +886,7 @@ private fun ChapterEndFooter(
             nextError != null -> {
                 Text(nextError, color = Color.White.copy(alpha = 0.8f), textAlign = TextAlign.Center)
                 Spacer(Modifier.height(12.dp))
-                Button(onClick = onRetryNext) { Text(tr("Reintentar")) }
+                InkButton(onClick = onRetryNext) { Text(tr("Reintentar")) }
             }
             else -> {
                 Text(tr("Fin del capítulo"), color = Color.White, style = MaterialTheme.typography.titleMedium)
@@ -898,8 +898,8 @@ private fun ChapterEndFooter(
                 )
                 Spacer(Modifier.height(20.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (previous != null) OutlinedButton(onClick = onPrevious) { Text(tr("Anterior")) }
-                    if (next != null) Button(onClick = onNext) { Text(tr("Siguiente capítulo")) }
+                    if (previous != null) InkOutlinedButton(onClick = onPrevious) { Text(tr("Anterior")) }
+                    if (next != null) InkButton(onClick = onNext) { Text(tr("Siguiente capítulo")) }
                 }
             }
         }

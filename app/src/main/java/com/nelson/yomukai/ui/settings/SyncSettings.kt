@@ -7,10 +7,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -28,6 +26,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.nelson.yomukai.data.sync.SyncState
 import com.nelson.yomukai.i18n.tr
+import com.nelson.yomukai.ui.components.InkButton
+import com.nelson.yomukai.ui.components.InkOutlinedButton
 import kotlinx.coroutines.launch
 
 /**
@@ -52,7 +52,7 @@ fun ServerSyncItem(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Button(onClick = { connecting = true }) { Text(tr("Conectar con mi servidor")) }
+            InkButton(onClick = { connecting = true }) { Text(tr("Conectar con mi servidor")) }
         } else {
             Text(tr("Conectado como {0}", state.user), style = MaterialTheme.typography.titleSmall)
             Text(state.server.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -68,7 +68,7 @@ fun ServerSyncItem(
                 Text(home, style = MaterialTheme.typography.bodySmall, color = if (features.workerOnline) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(onClick = onSyncNow, enabled = !state.running) { Text(if (state.running) "Sincronizando..." else tr("Sincronizar ahora")) }
+                InkOutlinedButton(onClick = onSyncNow, enabled = !state.running) { Text(if (state.running) "Sincronizando..." else tr("Sincronizar ahora")) }
                 TextButton(onClick = { confirmDisconnect = true }) { Text(tr("Desconectar")) }
                 if (state.running) CircularProgressIndicator(Modifier.padding(start = 4.dp), strokeWidth = 2.dp)
             }

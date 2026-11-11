@@ -8,9 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +33,8 @@ import com.google.gson.JsonObject
 import com.nelson.yomukai.data.learning.Grade
 import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.LocalAppContainer
+import com.nelson.yomukai.ui.components.InkButton
+import com.nelson.yomukai.ui.components.InkOutlinedButton
 import kotlinx.coroutines.launch
 
 private data class SharedDeck(val id: Long, val name: String, val owner: String, val lang: String, val size: Int, val mine: Boolean)
@@ -72,7 +72,7 @@ private fun SharedLearning(onCopied: (Int) -> Unit) {
         others.take(MAX_DECKS_SHOWN).forEach { d ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("${d.name} · ${d.owner} · ${d.lang.uppercase()} · " + tr("{0} palabras", d.size), modifier = Modifier.weight(1f))
-                FilledTonalButton(onClick = {
+                InkOutlinedButton(onClick = {
                     scope.launch {
                         val added = runCatching { sync.api("POST", "/api/words/decks/${d.id}/import", JsonObject())?.asJsonObject?.get("added")?.asInt ?: 0 }
                         message = added.fold({ tr("{0} palabras nuevas para repasar", it) }, { it.message })
@@ -129,14 +129,14 @@ fun ReviewDialog(onDismiss: () -> Unit) {
                             Text("${index + 1} / ${list.size}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(card.word, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                             if (!shown) {
-                                Button(onClick = { shown = true }) { Text(tr("Mostrar respuesta")) }
+                                InkButton(onClick = { shown = true }) { Text(tr("Mostrar respuesta")) }
                             } else {
                                 Text(card.meaning, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
                                 if (card.context.isNotBlank()) Text("«${card.context}»", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                                 if (card.source.isNotBlank()) Text(card.source, style = MaterialTheme.typography.labelMedium)
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     listOf(Grade.AGAIN to tr("Otra vez"), Grade.HARD to tr("Difícil"), Grade.GOOD to tr("Bien"), Grade.EASY to tr("Fácil")).forEach { (g, label) ->
-                                        FilledTonalButton(modifier = Modifier.weight(1f), onClick = {
+                                        InkOutlinedButton(modifier = Modifier.weight(1f), onClick = {
                                             scope.launch {
                                                 runCatching { sync.api("POST", "/api/words/${card.id}/review", JsonObject().apply { addProperty("grade", g.name) }) }
                                                 shown = false

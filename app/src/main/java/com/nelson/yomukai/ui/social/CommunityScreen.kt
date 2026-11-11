@@ -17,7 +17,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -59,6 +58,7 @@ import com.google.gson.JsonObject
 import com.nelson.yomukai.data.sync.ServerSync
 import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.LocalAppContainer
+import com.nelson.yomukai.ui.components.InkButton
 import kotlinx.coroutines.launch
 
 /**
@@ -265,7 +265,7 @@ private fun MyProfileView(sync: ServerSync, onPerson: (String) -> Unit) {
         Text(me.s("name"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         OutlinedTextField(bio, { bio = it.take(MAX_BIO) }, Modifier.fillMaxWidth(), label = { Text(tr("Sobre mí")) }, minLines = 2)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = {
+            InkButton(onClick = {
                 scope.launch {
                     saved = runCatching { sync.api("PUT", "/api/profile", JsonObject().apply { addProperty("bio", bio) }); tr("Guardado") }.getOrElse { it.message }
                 }

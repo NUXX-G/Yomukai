@@ -19,10 +19,10 @@ Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este ficher
 5. Apuntar aquí todo lo que quede pendiente para que otra sesión de Claude pueda seguir.
 
 ### PENDIENTE (orden)
-- [ ] Bloque 7 en la app Android: tokens ya regenerados (`DesignTokens.kt`), falta `MediaCard`/`TypeBadge` de
+- [x] Bloque 7 en la app Android (InkButton/InkOutlinedButton en `ui/components/InkButtons.kt`, `Modifier.inkPanel`, tipo por forma; probado en el emulador): tokens ya regenerados (`DesignTokens.kt`), falta `MediaCard`/`TypeBadge` de
       `ui/components/Components.kt` con borde de tinta, sombra dura, tipo por forma (sin colores por tipo:
       `badgeColor()` aún usa 6 colores) y botones con el mismo estilo.
-- [ ] 7.6 capturas «después» en `docs/capturas/despues/` (escritorio y móvil) con Playwright.
+- [x] 7.6 capturas «después» en `docs/capturas/despues/` (escritorio y móvil) con Playwright.
 - [ ] Release v2.6.0 (estilo) + instrucciones de actualización al usuario.
 - [ ] Punto 3 del pedido (solo obras de sus fuentes, sin «buscando»): web, servidor y app, con tests.
 - [ ] Release v2.7.0 con el punto 3.
@@ -96,13 +96,13 @@ autoscroll y voces estaban marcados y no iban). Al cerrar cada bloque: qué hice
 
 **Bloque 7 — aspecto (neobrutalismo moderado + guiños al manga, estructura Netflix/Seanime)**
 - [x] 7.0 Capturas de referencias en `docs/referencias/neobrutalismo/` + `docs/referencias/ESTILO.md`.
-- [ ] 7.1 Tema por defecto nuevo sobre tokens (+ variante clara y suave), contraste AA, display + texto legible.
-- [ ] 7.2 Tarjetas sin difuminado; vertical = póster, ancha = imagen horizontal o composición; mismo recorte en tamaños;
+- [x] 7.1 Tema por defecto nuevo sobre tokens (+ variante clara y suave), contraste AA, display + texto legible.
+- [x] 7.2 Tarjetas sin difuminado; vertical = póster, ancha = imagen horizontal o composición; mismo recorte en tamaños;
       placeholder de la casa.
-- [ ] 7.3 Identidad por tipo (color, insignia, detalle) en todas partes.
-- [ ] 7.4 Pantalla de carga animada con tiempo máximo; esqueletos en navegaciones internas.
-- [ ] 7.5 Animaciones (transform/opacity, prefers-reduced-motion).
-- [ ] 7.6 Capturas antes/después en `docs/capturas/` (móvil y escritorio) y app Android con los mismos tokens.
+- [x] 7.3 Identidad por tipo (por forma: el usuario pidió blanco y negro + 1 color) (color, insignia, detalle) en todas partes.
+- [x] 7.4 Pantalla de carga animada con tiempo máximo; esqueletos en navegaciones internas.
+- [x] 7.5 Animaciones (transform/opacity, prefers-reduced-motion).
+- [x] 7.6 Capturas antes/después (`docs/capturas/despues/tinta-*.png`) en `docs/capturas/` (móvil y escritorio) y app Android con los mismos tokens.
 
 **Bitácora del pedido** (qué hice, qué publiqué, qué probar):
 - 2026-11-11 · **Bloque 6 (sesión C)**, sin release (la publica A). Sin migraciones nuevas; interruptor nuevo `online_translate`. Qué probar: (1) traducción: en una novela selecciona una palabra o una frase → «Traducir»; en el móvil sin servidor de casa debe traducir igual (MyMemory); en manga, mantener pulsado un bocadillo (necesita OCR); en la app, mantener pulsada una palabra o un bocadillo, también sin modo aprendizaje. (2) autoscroll: en manga y novela, ▶ y probar ×0,5 a ×5 en «Normal» e «Inteligente» (botón en la barra de velocidad), dejarlo llegar al final del capítulo (debe seguir con el siguiente), tocar/arrastrar (se pausa y sigue). (3) voces: con el worker actualizado, Ajustes de voz en una novela en español → voces «Lola», «Alba»… del servidor de casa; un texto con «Cap. 12», «1990», «Sr.» debe leerse bien.

@@ -26,13 +26,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,6 +48,8 @@ import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.components.AppSpinner
 import com.nelson.yomukai.ui.components.CoverImage
+import com.nelson.yomukai.ui.components.InkButton
+import com.nelson.yomukai.ui.components.InkOutlinedButton
 import com.nelson.yomukai.ui.components.LanguageTag
 import com.nelson.yomukai.ui.components.MediaCard
 import com.nelson.yomukai.ui.components.SectionHeader
@@ -175,12 +175,12 @@ fun ShuffleSheet(viewModel: DiscoverViewModel, onOpenMedia: (MediaItem) -> Unit,
                 }
             }
             Row(Modifier.padding(horizontal = 24.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = viewModel::rollRandom, enabled = !state.rolling) {
+                InkButton(onClick = viewModel::rollRandom, enabled = !state.rolling) {
                     Icon(Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
                     Text(tr("Otro"), modifier = Modifier.padding(start = 8.dp))
                 }
                 state.randomPlaces.firstOrNull()?.takeIf { state.random != null }?.let { place ->
-                    OutlinedButton(onClick = { onOpenMedia(place.item); onDismiss() }, enabled = !state.rolling) {
+                    InkOutlinedButton(onClick = { onOpenMedia(place.item); onDismiss() }, enabled = !state.rolling) {
                         Text(tr("Abrir en {0}", place.sourceName), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }

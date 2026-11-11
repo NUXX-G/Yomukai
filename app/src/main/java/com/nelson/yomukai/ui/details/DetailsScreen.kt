@@ -68,7 +68,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -131,6 +130,7 @@ import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.LocalAppContainer
 import com.nelson.yomukai.ui.components.AppSpinner
 import com.nelson.yomukai.ui.components.CoverImage
+import com.nelson.yomukai.ui.components.InkOutlinedButton
 import com.nelson.yomukai.ui.components.LoadingState
 import com.nelson.yomukai.ui.components.MessageState
 import com.nelson.yomukai.ui.components.RefreshSpinner
@@ -599,7 +599,7 @@ private fun Header(state: DetailsUiState, metadata: TitleMetadata?, insights: Ch
             }
 
             Spacer(Modifier.height(14.dp))
-            FilledTonalButton(onClick = onToggleLibrary, modifier = Modifier.fillMaxWidth()) {
+            InkOutlinedButton(onClick = onToggleLibrary, modifier = Modifier.fillMaxWidth()) {
                 Icon(
                     if (media.inLibrary) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                     contentDescription = null,

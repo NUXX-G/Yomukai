@@ -24,11 +24,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -70,6 +68,8 @@ import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.LocalAppContainer
 import com.nelson.yomukai.ui.components.CoverImage
+import com.nelson.yomukai.ui.components.InkButton
+import com.nelson.yomukai.ui.components.InkOutlinedButton
 import com.nelson.yomukai.ui.discover.DiscoverViewModel
 import com.nelson.yomukai.ui.discover.LocateHandler
 import com.nelson.yomukai.ui.theme.DesignTokens
@@ -316,9 +316,9 @@ private fun PeekSheet(s: CalendarSlot, model: CalendarViewModel, onOpen: () -> U
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onOpen) { Text(tr("Abrir ficha")) }
+                InkButton(onClick = onOpen) { Text(tr("Abrir ficha")) }
                 if (state.picksOn && signedIn && s.anilistId != null) {
-                    FilledTonalButton(onClick = { editing = true }) { Text(if (pick?.mine != null) tr("Cambiar mi recomendación") else tr("Recomendar o comentar")) }
+                    InkOutlinedButton(onClick = { editing = true }) { Text(if (pick?.mine != null) tr("Cambiar mi recomendación") else tr("Recomendar o comentar")) }
                 }
             }
         }

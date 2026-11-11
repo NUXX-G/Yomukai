@@ -11,10 +11,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -38,6 +36,8 @@ import com.nelson.yomukai.data.learning.Dictionary
 import com.nelson.yomukai.data.learning.TranslationChain
 import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.LocalAppContainer
+import com.nelson.yomukai.ui.components.InkButton
+import com.nelson.yomukai.ui.components.InkOutlinedButton
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -116,13 +116,13 @@ fun WordSheet(word: String, sentence: String, lang: String, source: String, onDi
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(onClick = { tts?.speak(current, TextToSpeech.QUEUE_FLUSH, null, "word") }, enabled = tts != null) {
+                InkOutlinedButton(onClick = { tts?.speak(current, TextToSpeech.QUEUE_FLUSH, null, "word") }, enabled = tts != null) {
                     Icon(Icons.AutoMirrored.Filled.VolumeUp, null)
                     Text(" " + tr("Escuchar"))
                 }
                 Spacer(Modifier.weight(1f))
                 if (connected && learning) {
-                    Button(onClick = {
+                    InkButton(onClick = {
                         scope.launch {
                             val meaning = entries.firstOrNull()?.let { e -> e.es.joinToString(", ").ifEmpty { e.glosses.firstOrNull().orEmpty() } }.orEmpty()
                             val body = com.google.gson.JsonObject().apply {

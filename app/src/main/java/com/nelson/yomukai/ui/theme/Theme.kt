@@ -21,15 +21,16 @@ private val DarkColorScheme = darkColorScheme(
     onPrimary = DesignTokens.onAccent,
     primaryContainer = DesignTokens.accentSoft,
     onPrimaryContainer = DesignTokens.onAccentSoft,
-    inversePrimary = EmberDeep,
-    secondary = Slate,
-    onSecondary = Color(0xFF0E1620),
-    secondaryContainer = Color(0xFF1D242E),
-    onSecondaryContainer = Color(0xFFD5E1EE),
-    tertiary = DesignTokens.warning,
-    onTertiary = Color(0xFF241A00),
-    tertiaryContainer = Color(0xFF332910),
-    onTertiaryContainer = Color(0xFFF6E3B0),
+    // Black and white with one accent (ESTILO.md): «secondary» is the ink itself, «tertiary» the same ember.
+    inversePrimary = DesignTokens.accent,
+    secondary = DesignTokens.ink,
+    onSecondary = DesignTokens.canvas,
+    secondaryContainer = DesignTokens.surfaceHigh,
+    onSecondaryContainer = DesignTokens.text,
+    tertiary = DesignTokens.accent,
+    onTertiary = DesignTokens.onAccent,
+    tertiaryContainer = DesignTokens.accentSoft,
+    onTertiaryContainer = DesignTokens.onAccentSoft,
     error = DesignTokens.danger,
     onError = Color(0xFF2A0000),
     background = DesignTokens.canvas,
@@ -44,7 +45,7 @@ private val DarkColorScheme = darkColorScheme(
     surfaceContainer = DesignTokens.surfaceRaised,
     surfaceContainerHigh = DesignTokens.surfaceHigh,
     surfaceContainerHighest = DesignTokens.surfaceHighest,
-    surfaceBright = Color(0xFF2A2A30),
+    surfaceBright = DesignTokens.surfaceHighest,
     surfaceDim = DesignTokens.canvas,
     outline = DesignTokens.borderStrong,
     outlineVariant = DesignTokens.border,
@@ -105,10 +106,12 @@ fun YomukaiTheme(
         colorScheme = colorScheme,
         typography = custom?.let { CustomTheme.typography(Typography, it) } ?: Typography,
         shapes = Shapes(
-            small = RoundedCornerShape(DesignTokens.radiusMd * (custom?.let(CustomTheme::radiusFactor) ?: 1f)),
-            medium = RoundedCornerShape(DesignTokens.radiusLg * (custom?.let(CustomTheme::radiusFactor) ?: 1f)),
-            large = RoundedCornerShape(DesignTokens.radiusXl * (custom?.let(CustomTheme::radiusFactor) ?: 1f)),
-            extraLarge = RoundedCornerShape(28.dp)
+            // Nearly square corners, as panels of a manga page.
+            extraSmall = RoundedCornerShape(2.dp * (custom?.let(CustomTheme::radiusFactor) ?: 1f)),
+            small = RoundedCornerShape(4.dp * (custom?.let(CustomTheme::radiusFactor) ?: 1f)),
+            medium = RoundedCornerShape(DesignTokens.radiusSm * (custom?.let(CustomTheme::radiusFactor) ?: 1f)),
+            large = RoundedCornerShape(DesignTokens.radiusMd * (custom?.let(CustomTheme::radiusFactor) ?: 1f)),
+            extraLarge = RoundedCornerShape(DesignTokens.radiusLg * (custom?.let(CustomTheme::radiusFactor) ?: 1f))
         ),
         content = content
     )

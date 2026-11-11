@@ -10,12 +10,10 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,6 +27,8 @@ import com.nelson.yomukai.data.source.MultiSelectFilter
 import com.nelson.yomukai.data.source.SelectFilter
 import com.nelson.yomukai.data.source.SourceFilter
 import com.nelson.yomukai.i18n.tr
+import com.nelson.yomukai.ui.components.InkButton
+import com.nelson.yomukai.ui.components.InkOutlinedButton
 
 /** Generic filter sheet: renders whatever filters the source declares. Applies on "Aplicar". */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -74,8 +74,8 @@ fun FilterSheet(
                 }
             }
             Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = { draft = emptyMap() }) { Text(tr("Restablecer")) }
-                Button(onClick = { onApply(draft); onDismiss() }) { Text(tr("Aplicar")) }
+                InkOutlinedButton(onClick = { draft = emptyMap() }) { Text(tr("Restablecer")) }
+                InkButton(onClick = { onApply(draft); onDismiss() }) { Text(tr("Aplicar")) }
             }
         }
     }

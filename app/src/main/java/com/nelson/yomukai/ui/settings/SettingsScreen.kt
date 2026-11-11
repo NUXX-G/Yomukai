@@ -36,7 +36,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -72,6 +71,7 @@ import com.nelson.yomukai.data.prefs.TorMode
 import com.nelson.yomukai.data.updates.LibraryUpdateWorker
 import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.AppViewModelProvider
+import com.nelson.yomukai.ui.components.InkOutlinedButton
 import com.nelson.yomukai.ui.components.LanguageTag
 import kotlinx.coroutines.launch
 
@@ -613,7 +613,7 @@ private fun ProxyFields(settings: NetworkSettings, onSave: (String, Int) -> Unit
             modifier = Modifier.width(100.dp)
         )
         Spacer(Modifier.width(8.dp))
-        OutlinedButton(
+        InkOutlinedButton(
             onClick = { portValue?.let { onSave(host, it) } },
             enabled = host.isNotBlank() && portValue != null && (host != settings.proxyHost || portValue != settings.proxyPort)
         ) { Text(tr("Guardar")) }

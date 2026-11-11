@@ -52,7 +52,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -62,7 +61,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -101,6 +99,8 @@ import com.nelson.yomukai.data.prefs.NovelTheme
 import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.AppViewModelProvider
 import com.nelson.yomukai.ui.components.AppSpinner
+import com.nelson.yomukai.ui.components.InkButton
+import com.nelson.yomukai.ui.components.InkOutlinedButton
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -233,8 +233,8 @@ fun NovelReaderScreen(
                 Text(state.error ?: tr("El capítulo está vacío"), color = textColor, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(onClick = onBack) { Text(tr("Volver")) }
-                    Button(onClick = viewModel::retry) { Text(tr("Reintentar")) }
+                    InkOutlinedButton(onClick = onBack) { Text(tr("Volver")) }
+                    InkButton(onClick = viewModel::retry) { Text(tr("Reintentar")) }
                 }
             }
 
@@ -380,7 +380,7 @@ fun NovelReaderScreen(
                                 state.nextError != null -> {
                                     Text(state.nextError.orEmpty(), color = textColor.copy(alpha = 0.8f), textAlign = TextAlign.Center)
                                     Spacer(Modifier.height(12.dp))
-                                    Button(onClick = viewModel::loadNext) { Text(tr("Reintentar")) }
+                                    InkButton(onClick = viewModel::loadNext) { Text(tr("Reintentar")) }
                                 }
                                 else -> {
                                     Text(
@@ -389,8 +389,8 @@ fun NovelReaderScreen(
                                     )
                                     Spacer(Modifier.height(16.dp))
                                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                        if (state.previous != null) OutlinedButton(onClick = viewModel::goToPrevious) { Text(tr("Anterior")) }
-                                        if (state.next != null) Button(onClick = viewModel::goToNext) { Text(tr("Siguiente capítulo")) }
+                                        if (state.previous != null) InkOutlinedButton(onClick = viewModel::goToPrevious) { Text(tr("Anterior")) }
+                                        if (state.next != null) InkButton(onClick = viewModel::goToNext) { Text(tr("Siguiente capítulo")) }
                                     }
                                 }
                             }

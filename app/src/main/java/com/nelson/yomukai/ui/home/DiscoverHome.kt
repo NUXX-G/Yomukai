@@ -24,7 +24,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -46,6 +45,7 @@ import com.nelson.yomukai.data.discovery.DiscoverLabels
 import com.nelson.yomukai.domain.model.MediaType
 import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.components.CoverImage
+import com.nelson.yomukai.ui.components.InkButton
 import com.nelson.yomukai.ui.components.SectionHeader
 import com.nelson.yomukai.ui.discover.DiscoverShelf
 import com.nelson.yomukai.ui.theme.DesignTokens
@@ -96,7 +96,7 @@ fun HomeHero(entries: List<DiscoverEntry>, onOpen: (DiscoverEntry) -> Unit, modi
                     if (meta.isNotEmpty()) {
                         Text(meta.joinToString("  ·  "), color = DesignTokens.textDim, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
                     }
-                    Button(onClick = { onOpen(e) }, modifier = Modifier.padding(top = 14.dp)) {
+                    InkButton(onClick = { onOpen(e) }, modifier = Modifier.padding(top = 14.dp)) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
                         Text(if (e.type == MediaType.ANIME) tr("Ver") else tr("Leer"))

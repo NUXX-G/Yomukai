@@ -2,6 +2,7 @@ package com.nelson.yomukai.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,12 +19,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,11 +43,14 @@ import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -123,13 +129,43 @@ fun BoxScope.RefreshSpinner(state: PullToRefreshState, isRefreshing: Boolean) {
 private const val SPINNER_DEGREES_PER_MS = 0.36f
 private const val SPINNER_SWEEP = 270f
 
-fun MediaType.badgeColor(): Color = when (this) {
-    MediaType.ANIME -> Color(0xFFE53935)
-    MediaType.MANGA -> Color(0xFF1E88E5)
-    MediaType.MANHWA -> Color(0xFF43A047)
-    MediaType.MANHUA -> Color(0xFFFB8C00)
-    MediaType.COMIC -> Color(0xFF00897B)
-    MediaType.NOVEL -> Color(0xFF8E24AA)
+/**
+ * «Tinta y viñeta» (docs/referencias/ESTILO.md): black and white like a manga with one accent. A panel has an ink
+ * border and a hard shadow with no blur, offset down and right. The ink is the theme's text colour, so light themes
+ * draw black lines on paper.
+ */
+@Composable
+fun Modifier.inkPanel(
+    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(4.dp),
+    shadow: Dp = 4.dp,
+    border: Dp = 2.dp,
+    shadowColor: Color = MaterialTheme.colorScheme.onBackground
+): Modifier {
+    val ink = MaterialTheme.colorScheme.onBackground
+    return this
+        .drawBehind {
+            if (shadow > 0.dp) {
+                val outline = shape.createOutline(size, layoutDirection, this)
+                translate(shadow.toPx(), shadow.toPx()) { drawOutline(outline, shadowColor) }
+            }
+        }
+        .border(border, ink, shape)
+        .clip(shape)
+}
+
+/** Kinds of work are told apart by shape, not colour (three colours at most): see [TypeMark]. */
+private val MediaType.markShape: androidx.compose.ui.graphics.Shape
+    get() = when (this) {
+        MediaType.ANIME -> CircleShape
+        MediaType.COMIC -> CutCornerShape(3.dp)
+        else -> RoundedCornerShape(1.dp)
+    }
+
+/** The small ink mark of a kind of work: a circle for anime, a cut square for comics, a square for the rest. */
+@Composable
+fun TypeMark(type: MediaType, modifier: Modifier = Modifier) {
+    val ink = MaterialTheme.colorScheme.onBackground
+    Box(modifier.size(8.dp).background(ink, type.markShape))
 }
 
 /** Builds an image request with the Referer/headers the owning source requires. */
@@ -179,11 +215,7 @@ fun CoverImage(url: String, sourceId: String, contentDescription: String?, modif
 @Composable
 fun TypeBadge(type: MediaType, modifier: Modifier = Modifier, label: String = type.displayName) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier
-                .size(6.dp)
-                .background(type.badgeColor().copy(alpha = 0.85f), CircleShape)
-        )
+        TypeMark(type)
         Spacer(Modifier.width(5.dp))
         Text(
             text = label,
@@ -210,16 +242,18 @@ fun MediaCard(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
+            .padding(end = 4.dp, bottom = 4.dp)
     ) {
+        // A manga panel: ink border, hard shadow, the cover cropped 2:3 the same at every size.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(0.7f)
-                .clip(RoundedCornerShape(14.dp))
+                .aspectRatio(2f / 3f)
+                .inkPanel(shadow = 3.dp)
         ) {
             CoverImage(item.coverUrl, item.sourceId, item.title, Modifier.fillMaxSize())
+            TypeDetail(item.type)
         }
         Text(
             text = item.title.trim(),
@@ -241,6 +275,37 @@ fun MediaCard(
                 modifier = Modifier.padding(horizontal = 2.dp)
             )
         }
+    }
+}
+
+/** The detail each kind of work wears on its cover, in ink: a play button, a folded corner, a strip, a spine. */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.TypeDetail(type: MediaType) {
+    val ink = MaterialTheme.colorScheme.onBackground
+    val paper = MaterialTheme.colorScheme.background
+    when (type) {
+        MediaType.ANIME -> Box(
+            Modifier.align(Alignment.TopStart).padding(5.dp).size(20.dp).background(ink, CircleShape),
+            contentAlignment = Alignment.Center
+        ) { Icon(Icons.Filled.PlayArrow, null, tint = paper, modifier = Modifier.size(14.dp)) }
+        MediaType.MANGA -> Box(
+            Modifier.align(Alignment.BottomEnd).size(16.dp)
+                .drawBehind {
+                    val p = androidx.compose.ui.graphics.Path().apply {
+                        moveTo(size.width, 0f); lineTo(0f, size.height); lineTo(size.width, size.height); close()
+                    }
+                    drawPath(p, paper)
+                    val fold = androidx.compose.ui.graphics.Path().apply {
+                        moveTo(0f, 0f); lineTo(size.width, 0f); lineTo(0f, size.height); close()
+                    }
+                    drawPath(fold, ink)
+                }
+        )
+        MediaType.MANHWA, MediaType.MANHUA -> Box(Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(5.dp).background(ink))
+        MediaType.NOVEL -> Box(Modifier.align(Alignment.CenterStart).fillMaxHeight().width(6.dp).background(ink))
+        MediaType.COMIC -> Box(
+            Modifier.align(Alignment.TopStart).padding(5.dp).size(14.dp).background(ink, CutCornerShape(4.dp))
+        )
     }
 }
 
@@ -285,8 +350,8 @@ fun SkeletonRow(modifier: Modifier = Modifier) {
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .aspectRatio(0.7f)
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(14.dp))
+                        .aspectRatio(2f / 3f)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
                 )
                 Box(
                     Modifier
@@ -352,7 +417,7 @@ fun MessageState(
         Text(message, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (actionLabel != null && onAction != null) {
             Spacer(Modifier.height(16.dp))
-            Button(onClick = onAction) {
+            InkButton(onClick = onAction) {
                 Icon(Icons.Default.Refresh, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text(actionLabel)
