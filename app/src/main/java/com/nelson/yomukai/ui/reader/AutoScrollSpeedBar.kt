@@ -41,13 +41,23 @@ object AutoScrollSpeed {
 
 /** Slower / speed / faster / stop, floating over the page while the reader scrolls by itself. */
 @Composable
-fun AutoScrollSpeedBar(speed: Float, onSpeed: (Float) -> Unit, onStop: () -> Unit, modifier: Modifier = Modifier) {
+fun AutoScrollSpeedBar(
+    speed: Float, onSpeed: (Float) -> Unit, onStop: () -> Unit, modifier: Modifier = Modifier,
+    /** Normal (fixed speed) or smart, shown as a switch so the two auto-scrolls stay apart; null hides it. */
+    smart: Boolean? = null,
+    onSmart: (Boolean) -> Unit = {}
+) {
     Row(
         modifier
             .background(Color.Black.copy(alpha = 0.82f), RoundedCornerShape(50))
             .padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (smart != null) {
+            androidx.compose.material3.TextButton(onClick = { onSmart(!smart) }) {
+                Text(if (smart) tr("Inteligente") else tr("Normal"), color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        }
         IconButton(onClick = { onSpeed(AutoScrollSpeed.slower(speed)) }, enabled = speed > AutoScrollSpeed.MIN) {
             Icon(Icons.Default.Remove, contentDescription = tr("Más lento"), tint = Color.White)
         }

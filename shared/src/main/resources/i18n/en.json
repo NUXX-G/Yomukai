@@ -1809,5 +1809,6 @@
  "Palabras por minuto": "Words per minute",
  "Pasar página solo": "Turn pages by themselves",
  "Va más despacio donde hay texto (según tu velocidad de lectura) y más rápido en viñetas sin texto y huecos.": "Slower where there is text (at your reading speed), faster over panels without text and gaps.",
- "palabras por minuto": "words per minute"
+ "palabras por minuto": "words per minute",
+ "Sin servidor de casa ni traductor del navegador, lo seleccionado se traduce con MyMemory (con tope)": "Without the home server or a browser translator, what you select is translated with MyMemory (capped)"
 }

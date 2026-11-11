@@ -28,24 +28,31 @@ class OnlineTranslator(
 
     /** Translations in the same places, or null when it cannot (language unknown, too long, over the budget, failure). */
     suspend fun translate(userId: Long, texts: List<String>, from: String, to: String): List<String>? {
-        // "es", "en-US", "pt_BR": a real language; "auto" is not one (MyMemory needs to be told).
+        val pair = pairOf(from, to) ?: return null
+        val clean = texts.map { it.replace(Regex("\\s+"), " ").trim() }
+        val tooMuch = clean.size > MAX_TEXTS || clean.any { it.length > MAX_CHARS }
+        if (tooMuch || clean.all { it.isEmpty() } || !allowed(userId)) return null
+        val out = ArrayList<String>(clean.size)
+        for (text in clean) out += if (text.isEmpty()) "" else one(text, pair) ?: return null
+        return out
+    }
+
+    /** "en|es" for MyMemory from "en-US" and "es"; null for "auto" or the same language. */
+    private fun pairOf(from: String, to: String): String? {
         if (!LANG.matches(from.lowercase()) || !LANG.matches(to.lowercase())) return null
         val src = from.lowercase().take(2)
         val dst = to.lowercase().take(2)
-        if (src == dst) return null
-        val clean = texts.map { it.replace(Regex("\\s+"), " ").trim() }
-        if (clean.size > MAX_TEXTS || clean.any { it.length > MAX_CHARS } || clean.all { it.isEmpty() }) return null
-        if (!allowed(userId)) return null
-        return clean.map { text ->
-            if (text.isEmpty()) return@map ""
-            val key = "$src|$dst|$text"
-            synchronized(cache) { cache[key] }?.let { return@map it }
-            if (!spend(text.length)) return null
-            val url = "https://api.mymemory.translated.net/get?q=${enc(text)}&langpair=${enc("$src|$dst")}"
-            val answer = runCatching { parse(http.getString(url, emptyMap(), cloudflareFallback = false)) }.getOrNull() ?: return null
-            synchronized(cache) { cache[key] = answer }
-            answer
-        }
+        return if (src == dst) null else "$src|$dst"
+    }
+
+    private suspend fun one(text: String, pair: String): String? {
+        val key = "$pair|$text"
+        synchronized(cache) { cache[key] }?.let { return it }
+        if (!spend(text.length)) return null
+        val url = "https://api.mymemory.translated.net/get?q=${enc(text)}&langpair=${enc(pair)}"
+        val answer = runCatching { parse(http.getString(url, emptyMap(), cloudflareFallback = false)) }.getOrNull() ?: return null
+        synchronized(cache) { cache[key] = answer }
+        return answer
     }
 
     private fun allowed(userId: Long): Boolean {

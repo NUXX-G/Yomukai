@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -281,16 +282,19 @@ fun NovelReaderScreen(
                     activeMatch?.let { listState.scrollToItem(it) }
                 }
                 // Auto-scroll: a steady glide; a tap on the text stops it, the floating bar sets its speed.
-                LaunchedEffect(autoScroll, settings.autoScrollSpeed) {
+                // Auto-scroll (F6.2): a touch pauses it and it goes on; at the end it waits for the next chapter.
+                val novelSettings by androidx.compose.runtime.rememberUpdatedState(settings)
+                val loadingNext by androidx.compose.runtime.rememberUpdatedState(state.isLoadingNext)
+                val draggedNow by listState.interactionSource.collectIsDraggedAsState()
+                LaunchedEffect(autoScroll) {
                     if (!autoScroll) return@LaunchedEffect
-                    var last = androidx.compose.runtime.withFrameNanos { it }
-                    while (true) {
-                        val now = androidx.compose.runtime.withFrameNanos { it }
-                        val dt = (now - last) / 1_000_000_000f
-                        last = now
-                        listState.scrollBy(settings.autoScrollSpeed * NOVEL_AUTO_SCROLL_PX_PER_SECOND * dt)
-                        if (!listState.canScrollForward && !state.isLoadingNext) { autoScroll = false; break }
-                    }
+                    runAutoScroll(
+                        listState,
+                        speed = { novelSettings.autoScrollSpeed * NOVEL_AUTO_SCROLL_PX_PER_SECOND },
+                        dragged = { draggedNow },
+                        waitMore = { loadingNext || novelSettings.infiniteScroll.also { if (it) viewModel.loadNext() } },
+                        onEnd = { autoScroll = false }
+                    )
                 }
 
                 val bodyStyle = TextStyle(

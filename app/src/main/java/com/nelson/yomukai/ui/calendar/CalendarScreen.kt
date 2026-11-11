@@ -158,47 +158,53 @@ fun CalendarScreen(
                     SlotCard(s, state.recommends[s.anilistId] ?: 0, onClick = { open(s) }, onLongClick = { peek = s })
                 }
                 state.error?.let { e -> item(span = { GridItemSpan(maxLineSpan) }) { Text(e, color = MaterialTheme.colorScheme.error) } }
-                if (state.picksOn) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 20.dp)) {
-                            Text(tr("Recomendado por el grupo"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-                            if (state.picks.isEmpty()) {
-                                Text(
-                                    tr("Nadie ha recomendado nada todavía esta temporada. Abre un anime del calendario y pulsa «Recomendar o comentar»."),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            state.picks.forEach { p -> PickRow(p) { peek = model.slotFor(p) } }
-                        }
-                    }
-                }
+                if (state.picksOn) item(span = { GridItemSpan(maxLineSpan) }) { PicksSection(state.picks) { p -> peek = model.slotFor(p) } }
                 if (state.top.isNotEmpty() || state.trending.isNotEmpty()) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 20.dp)) {
-                            Text(tr("Lo que más gusta esta temporada"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-                            Text(
-                                tr("Según la comunidad de AniList: nota media de quienes lo ven (solo con bastantes votos) y lo que más se comenta ahora."),
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            listOf(tr("Mejor valorados") to state.top, tr("Tendencia ahora") to state.trending).forEach { (label, row) ->
-                                if (row.isNotEmpty()) {
-                                    Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                        items(row, key = { it.key }) { s ->
-                                            Box(Modifier.width(118.dp)) { SlotCard(s, state.recommends[s.anilistId] ?: 0, onClick = { open(s) }, onLongClick = { peek = s }) }
-                                        }
-                                    }
-                                }
-                            }
-                            Text(tr("Datos de") + " AniList", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
+                    item(span = { GridItemSpan(maxLineSpan) }) { CommunitySection(state, onOpen = ::open, onPeek = { peek = it }) }
                 }
             }
         }
     }
 
     peek?.let { s -> PeekSheet(s, model, onOpen = { open(s) }, onDismiss = { peek = null }) }
+}
+
+/** «Recomendado por el grupo»: this season's picks, or how to make the first one. */
+@Composable
+private fun PicksSection(picks: List<CalendarViewModel.Pick>, onPick: (CalendarViewModel.Pick) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 20.dp)) {
+        Text(tr("Recomendado por el grupo"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+        if (picks.isEmpty()) {
+            Text(
+                tr("Nadie ha recomendado nada todavía esta temporada. Abre un anime del calendario y pulsa «Recomendar o comentar»."),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        picks.forEach { p -> PickRow(p) { onPick(p) } }
+    }
+}
+
+/** «Lo que más gusta esta temporada»: AniList's best rated and trending, with credit. */
+@Composable
+private fun CommunitySection(state: CalendarViewModel.State, onOpen: (CalendarSlot) -> Unit, onPeek: (CalendarSlot) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 20.dp)) {
+        Text(tr("Lo que más gusta esta temporada"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+        Text(
+            tr("Según la comunidad de AniList: nota media de quienes lo ven (solo con bastantes votos) y lo que más se comenta ahora."),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        listOf(tr("Mejor valorados") to state.top, tr("Tendencia ahora") to state.trending).forEach { (label, row) ->
+            if (row.isNotEmpty()) {
+                Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(row, key = { it.key }) { s ->
+                        Box(Modifier.width(118.dp)) { SlotCard(s, state.recommends[s.anilistId] ?: 0, onClick = { onOpen(s) }, onLongClick = { onPeek(s) }) }
+                    }
+                }
+            }
+        }
+        Text(tr("Datos de") + " AniList", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
 
 private fun dayName(d: LocalDate, i: Int): String = when (i) {
@@ -300,7 +306,9 @@ private fun PeekSheet(s: CalendarSlot, model: CalendarViewModel, onOpen: () -> U
                     }
                 }
             }
-            if (s.synopsis.isNotBlank()) Text(s.synopsis, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 8, overflow = TextOverflow.Ellipsis)
+            if (s.synopsis.isNotBlank()) {
+                Text(s.synopsis, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 8, overflow = TextOverflow.Ellipsis)
+            }
             pick?.comments?.forEach { c ->
                 Column {
                     Text(c.name + if (c.recommend) " · " + tr("lo recomienda") else "", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)

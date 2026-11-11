@@ -107,6 +107,7 @@ import com.nelson.yomukai.data.prefs.MangaReaderSettings
 import com.nelson.yomukai.data.prefs.OrientationLock
 import com.nelson.yomukai.data.prefs.ReaderColorFilter
 import com.nelson.yomukai.data.prefs.ReaderFit
+import com.nelson.yomukai.data.reader.AutoScrollPace
 import com.nelson.yomukai.data.repository.PageData
 import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.AppViewModelProvider
@@ -260,6 +261,7 @@ fun MangaReaderScreen(
                         onJumpHandled = { jumpIndex = null },
                         settings = settings,
                         autoScroll = autoScroll,
+                        onAutoScrollEnd = { autoScroll = false },
                         onLocation = onLocation,
                         onNearEnd = onNearEnd,
                         onTap = toggleOverlay,
@@ -295,10 +297,16 @@ fun MangaReaderScreen(
         }
 
         if (autoScroll && webtoon) {
+            // Smart mode: the bar is the reading pace (words per minute, ×1 = the default); normal: the fixed speed.
+            val wpm0 = com.nelson.yomukai.data.ocr.ScrollPlanner.DEFAULT_WPM.toFloat()
             AutoScrollSpeedBar(
-                speed = settings.autoScrollSpeed,
-                onSpeed = { v -> viewModel.updateSettings { it.copy(autoScrollSpeed = v) } },
+                speed = if (settings.smartAutoScroll) 3f * settings.readingWpm / wpm0 else settings.autoScrollSpeed,
+                onSpeed = { v ->
+                    viewModel.updateSettings { if (it.smartAutoScroll) it.copy(readingWpm = (v / 3f * wpm0).coerceIn(80f, 700f)) else it.copy(autoScrollSpeed = v) }
+                },
                 onStop = { autoScroll = false },
+                smart = settings.smartAutoScroll,
+                onSmart = { v -> viewModel.updateSettings { it.copy(smartAutoScroll = v) } },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
@@ -520,7 +528,8 @@ private fun ContinuousWebtoon(
     onLocation: (String, Int) -> Unit,
     onNearEnd: () -> Unit,
     onTap: () -> Unit,
-    footer: @Composable () -> Unit
+    footer: @Composable () -> Unit,
+    onAutoScrollEnd: () -> Unit = {}
 ) {
     val listState: LazyListState = rememberLazyListState(initialFirstVisibleItemIndex = startIndex)
     val zoom = remember { ZoomState(maxScale = 3f) }
@@ -552,7 +561,8 @@ private fun ContinuousWebtoon(
                     ?.let { currentOnLocation(it.chapterId, it.index) }
             }
     }
-    AutoScroller(listState, autoScroll, settings)
+    // At the end of a chapter the next one joins below (when chosen): it waits for it instead of stopping.
+    AutoScroller(listState, autoScroll, settings, waitMore = { settings.infiniteScroll.also { if (it) onNearEnd() } }, onEnd = onAutoScrollEnd)
 
     LazyColumn(
         state = listState,
@@ -579,7 +589,7 @@ private fun ContinuousWebtoon(
  * gutters (eased, never jerky). The reader's speed over text is learnt from how they correct it.
  */
 @Composable
-private fun AutoScroller(listState: LazyListState, autoScroll: Boolean, settings: MangaReaderSettings) {
+private fun AutoScroller(listState: LazyListState, autoScroll: Boolean, settings: MangaReaderSettings, waitMore: () -> Boolean, onEnd: () -> Unit) {
     val container = com.nelson.yomukai.ui.LocalAppContainer.current
     val profiles = container.scrollProfiles
     val prefs = container.preferences
@@ -600,23 +610,32 @@ private fun AutoScroller(listState: LazyListState, autoScroll: Boolean, settings
             it.copy(readingWpm = wpm.toFloat())
         }
     }
-    LaunchedEffect(autoScroll, settings.autoScrollSpeed, settings.smartAutoScroll, settings.readingWpm) {
+    val current by androidx.compose.runtime.rememberUpdatedState(settings)
+    val more by androidx.compose.runtime.rememberUpdatedState(waitMore)
+    val end by androidx.compose.runtime.rememberUpdatedState(onEnd)
+    // Only starting or stopping restarts the loop: speed changes and the learnt pace are read every frame.
+    LaunchedEffect(autoScroll) {
         if (!autoScroll) return@LaunchedEffect
-        var last = withFrameNanos { it }
         var factor = 1.0
-        while (true) {
-            val now = withFrameNanos { it }
-            val dt = (now - last) / 1_000_000_000f
-            last = now
-            if (settings.smartAutoScroll) {
-                val info = listState.layoutInfo
-                val center = (info.viewportStartOffset + info.viewportEndOffset) / 2
-                val item = info.visibleItemsInfo.firstOrNull { it.offset <= center && it.offset + it.size > center }
-                val target = item?.let { profiles.factorAt(it.key, (center - it.offset).toFloat() / it.size.coerceAtLeast(1), settings.readingWpm.toDouble()) } ?: 1.0
-                factor += (target - factor) * minOf(1.0, dt * SMART_EASE)
-            }
-            listState.scrollBy((settings.autoScrollSpeed * AUTO_SCROLL_PX_PER_SECOND * dt * factor).toFloat())
-        }
+        runAutoScroll(
+            listState,
+            speed = {
+                val s = current
+                if (!s.smartAutoScroll) s.autoScrollSpeed * AUTO_SCROLL_PX_PER_SECOND
+                else {
+                    // Smart: ×1 is the default speed; the strip on screen and the learnt reading pace set the factor.
+                    val info = listState.layoutInfo
+                    val center = (info.viewportStartOffset + info.viewportEndOffset) / 2
+                    val item = info.visibleItemsInfo.firstOrNull { it.offset <= center && it.offset + it.size > center }
+                    val target = item?.let { profiles.factorAt(it.key, (center - it.offset).toFloat() / it.size.coerceAtLeast(1), s.readingWpm.toDouble()) } ?: 1.0
+                    factor = AutoScrollPace.ease(factor, AutoScrollPace.clampFactor(target), 1 / 60f, SMART_EASE)
+                    (SMART_BASE_SPEED * AUTO_SCROLL_PX_PER_SECOND * factor).toFloat()
+                }
+            },
+            dragged = { dragged },
+            waitMore = { more() },
+            onEnd = { end() }
+        )
     }
 }
 
@@ -996,6 +1015,9 @@ internal fun SettingSwitch(label: String, checked: Boolean, onChange: (Boolean) 
 private const val PREFETCH_AHEAD = 8
 private const val AUTO_SCROLL_PX_PER_SECOND = 40f
 private const val SMART_EASE = 3.0
+
+/** The smart mode's ×1: the default speed (3), whatever the normal mode is set to. */
+private const val SMART_BASE_SPEED = 3f
 private const val LEARN_EXPECTED_MS = 1_000L
 private const val LEARN_SLOWER_MS = 1_300L
 private const val LEARN_FASTER_MS = 770L

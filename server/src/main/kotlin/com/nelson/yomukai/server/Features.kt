@@ -22,7 +22,7 @@ object FeatureCatalog {
         Feature("tts_browser", "Voces naturales en el navegador", "Voces inglesas Kokoro que el navegador genera solo (unos 90 MB la primera vez); el servidor solo guarda el modelo"),
         Feature("tts_nightly", "Voces preparadas de madrugada", "De 3 a 6 el servidor de casa prepara el audio del siguiente capítulo de las novelas que cada uno lee, con sus voces"),
         Feature("season_social", "Temporada en el calendario", "Recomendaciones y comentarios del grupo sobre los estrenos y lo que valora la comunidad de AniList"),
-        Feature("online_translate", "Traductor en línea de respaldo", "Si el servidor de casa está apagado y el navegador no traduce, lo seleccionado (frases cortas) se traduce con MyMemory, gratis y con un tope diario"),
+        Feature("online_translate", "Traductor en línea de respaldo", "Sin servidor de casa ni traductor del navegador, lo seleccionado se traduce con MyMemory (con tope)"),
         Feature("rooms", "Salas para ver juntos", "Watch party sincronizada con chat y reacciones; cada cliente reproduce su propio vídeo"),
         Feature("open_rooms", "Salas comunes", "Salas abiertas a todo el grupo con cola de episodios de varios animes, votos para saltar y paso automático"),
         Feature("dms", "Mensajes directos", "Conversaciones 1 a 1 en tiempo real entre miembros (texto y obras compartidas); nunca invitados"),

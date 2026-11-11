@@ -23,6 +23,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,7 +36,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nelson.yomukai.data.learning.Dictionary
 import com.nelson.yomukai.data.learning.TranslationChain
-import androidx.compose.runtime.collectAsState
 import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.LocalAppContainer
 import kotlinx.coroutines.launch
@@ -108,17 +108,7 @@ fun WordSheet(word: String, sentence: String, lang: String, source: String, onDi
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (choices.size > 1) Text(word, style = MaterialTheme.typography.titleMedium)
-            when {
-                phrase == null -> CircularProgressIndicator()
-                phrase?.text != null -> {
-                    Text(phrase!!.text!!, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text(tr("Con: {0}", viaName(phrase!!.via)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                else -> {
-                    Text(tr("Aquí no hay traductor disponible: ni el diccionario, ni el del móvil, ni el servidor."), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    phrase?.webUrl?.let { url -> TextButton(onClick = { runCatching { uri.openUri(url) } }) { Text(tr("Abrir en el traductor de Google")) } }
-                }
-            }
+            TranslationResult(phrase) { url -> runCatching { uri.openUri(url) } }
             Text(current, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             if (choices.size > 1) {
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -146,10 +136,7 @@ fun WordSheet(word: String, sentence: String, lang: String, source: String, onDi
                 }
             }
             DictionaryResult(status, entries)
-            if (sentence.isNotBlank() && sentence != word) {
-                Text("«$sentence»", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                sentenceTr?.text?.let { Text(it) }
-            }
+            SentenceLine(sentence.takeIf { it.isNotBlank() && it != word }, sentenceTr?.text)
             if (connected && status == "ready" && !container.dictionary.isDownloaded(code)) {
                 TextButton(enabled = !downloading, onClick = {
                     downloading = true
@@ -179,4 +166,29 @@ private fun viaName(via: TranslationChain.Via?): String = when (via) {
     TranslationChain.Via.SERVER -> tr("servidor de casa")
     TranslationChain.Via.ONLINE -> tr("traductor en línea (MyMemory)")
     else -> tr("mismo idioma")
+}
+
+/** The translation of the word or bubble, where it came from, or a web translator when nothing here could. */
+@Composable
+private fun TranslationResult(result: TranslationChain.Result?, onOpen: (String) -> Unit) {
+    val text = result?.text
+    when {
+        result == null -> CircularProgressIndicator()
+        text != null -> {
+            Text(text, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(tr("Con: {0}", viaName(result.via)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        else -> {
+            Text(tr("Aquí no hay traductor disponible: ni el diccionario, ni el del móvil, ni el servidor."), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            result.webUrl?.let { url -> TextButton(onClick = { onOpen(url) }) { Text(tr("Abrir en el traductor de Google")) } }
+        }
+    }
+}
+
+/** The sentence the word came from, and its translation once it arrives. */
+@Composable
+private fun SentenceLine(sentence: String?, translated: String?) {
+    if (sentence == null) return
+    Text("«$sentence»", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    translated?.let { Text(it) }
 }
