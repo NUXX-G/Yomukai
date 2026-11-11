@@ -105,7 +105,9 @@ object Contrast {
     private val PAIRS = listOf(
         Triple("text", "canvas", 4.5), Triple("text", "surface", 4.5), Triple("text", "surfaceHigh", 4.5),
         Triple("textDim", "canvas", 4.5), Triple("textDim", "surface", 3.0), Triple("textFaint", "canvas", 3.0),
-        Triple("onAccent", "accent", 4.5), Triple("onAccentSoft", "accentSoft", 4.5), Triple("accent", "canvas", 3.0)
+        Triple("onAccent", "accent", 4.5), Triple("onAccentSoft", "accentSoft", 4.5), Triple("accent", "canvas", 3.0),
+        // Neobrutalism: the ink line (borders, hard shadows) must stand out from the canvas, and text on the yellow read.
+        Triple("ink", "canvas", 3.0), Triple("onAccent2", "accent2", 4.5)
     )
 
     /** Hard-to-read pairs of [theme] over [base] (the default tokens for whatever the theme leaves out). */

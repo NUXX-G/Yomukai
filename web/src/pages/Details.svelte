@@ -748,29 +748,31 @@
   .point .field { height: 44px; }
   .statuses { position: relative; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
   .statuses .chip { height: 30px; padding: 0 12px; font-size: 0.8rem; }
-  .ch-search { display: flex; align-items: center; gap: 8px; margin: 4px 16px 8px; padding: 0 12px; height: 40px; border-radius: 20px; background: var(--surface-high); color: var(--text-dim); }
+  .ch-search { display: flex; align-items: center; gap: 8px; margin: 4px 16px 8px; padding: 0 12px; height: 42px; border-radius: 4px; background: var(--surface); color: var(--text-dim); border: 2px solid var(--nb-soft-line); }
+  .ch-search:focus-within { border-color: var(--nb-line); box-shadow: 3px 3px 0 var(--primary); }
   .ch-search input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--text); font-size: 0.95rem; }
   .hero-inner { position: relative; display: flex; gap: 16px; align-items: flex-end; }
-  .poster { width: 116px; height: 166px; object-fit: cover; border-radius: 14px; box-shadow: 0 10px 30px #000a; background: var(--surface-variant); flex: none; opacity: 0; transition: opacity 0.35s ease; }
+  .poster { width: 116px; height: 166px; object-fit: cover; border-radius: 4px; border: 3px solid var(--nb-line); box-shadow: 5px 5px 0 var(--nb-line); background: var(--surface-variant); flex: none; opacity: 0; transition: opacity 0.35s ease; }
   .poster.shown, .poster.skeleton { opacity: 1; }
   @media (min-width: 760px) { .poster { width: 160px; height: 228px; } }
   .facts { min-width: 0; }
-  h1 { font-size: 1.4rem; margin: 0 0 4px; line-height: 1.2; overflow-wrap: anywhere; text-wrap: balance; }
+  h1 { font-family: var(--font-display); font-weight: 400; font-size: 1.4rem; margin: 0 0 6px; line-height: 1.2; overflow-wrap: anywhere; text-wrap: balance; }
   .author { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .line { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; color: var(--text-dim); margin-top: 6px; }
   .sep { margin: 0 2px; }
   .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 4px; }
   .score { display: inline-flex; align-items: center; gap: 3px; color: var(--text); font-weight: 600; }
   .score :global(svg) { color: var(--primary); }
-  .notice { position: relative; margin-top: 12px; display: flex; gap: 6px; align-items: center; padding: 8px 12px; border-radius: 10px; background: var(--tertiary-container); color: var(--tertiary); font-size: 0.85rem; }
+  .notice { position: relative; margin-top: 12px; display: flex; gap: 6px; align-items: center; padding: 8px 12px; border-radius: 4px; background: var(--surface); color: var(--text); border: 2px dashed var(--primary); font-size: 0.85rem; }
   .lib { position: relative; margin-top: 14px; }
   .synopsis { position: relative; margin: 14px 0 4px; line-height: 1.5; color: color-mix(in srgb, var(--text) 88%, transparent); display: -webkit-box; -webkit-line-clamp: 4; line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; white-space: pre-line; }
   .synopsis.open { -webkit-line-clamp: unset; line-clamp: unset; }
   .more { color: var(--primary); font-size: 0.85rem; font-weight: 600; }
   .genres { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-  .tabs { display: flex; margin-top: 18px; border-bottom: 1px solid var(--outline-variant); position: sticky; top: calc(var(--safe-top) + 52px); background: var(--bg); z-index: 5; transition: background 0.45s; }
-  .tabs button { flex: 1; padding: 14px 0; color: var(--text-dim); font-weight: 600; border-bottom: 3px solid transparent; }
-  .tabs button.on { color: var(--primary); border-bottom-color: var(--primary); }
+  .tabs { display: flex; margin-top: 18px; border-bottom: 3px solid var(--nb-line); position: sticky; top: calc(var(--safe-top) + 52px); background: var(--bg); z-index: 5; transition: background 0.45s; }
+  .tabs button { flex: 1; padding: 14px 0; color: var(--text-dim); font-weight: 750; }
+  /* The open tab is printed in ink, like a page index tab. */
+  .tabs button.on { color: var(--c-canvas); background: var(--c-ink); }
   .bar-actions { display: flex; align-items: center; flex-wrap: nowrap; }
   .bar-actions .btn { white-space: nowrap; }
   /* Phones: the chapter tools keep only their icons (their names stay for screen readers). */
@@ -795,7 +797,8 @@
   .related { padding: 0 16px; }
   .forum-tab { padding: 14px 16px; }
   @media (min-width: 1024px) { .forum-tab { padding: 14px 0; } }
-  .fab { position: fixed; right: max(16px, calc((100vw - 960px) / 2 + 16px)); bottom: calc(16px + var(--layout-bottom-bar) + var(--safe-bottom)); z-index: 30; height: 56px; padding: 0 22px 0 18px; border-radius: 18px; display: flex; align-items: center; gap: 10px; background: var(--primary-container); color: var(--on-primary-container); font-weight: 600; box-shadow: 0 6px 20px #0008; }
+  .fab { position: fixed; right: max(16px, calc((100vw - 960px) / 2 + 16px)); bottom: calc(16px + var(--layout-bottom-bar) + var(--safe-bottom)); z-index: 30; height: 52px; padding: 0 22px 0 18px; border-radius: 4px; display: flex; align-items: center; gap: 10px; background: var(--primary); color: var(--on-primary); font-weight: 800; border: 3px solid var(--nb-line); box-shadow: 4px 4px 0 var(--nb-line); }
+  .fab:active { transform: translate(4px, 4px); box-shadow: none; }
   .opt { width: 100%; text-align: left; gap: 14px; }
   .cats { position: relative; display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 0.82rem; color: var(--text-dim); text-align: left; }
   .chipwrap { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -841,8 +844,8 @@
     .ch-search { margin: 4px 0 10px; max-width: 420px; }
     .integrity { margin: 4px 0; width: 100%; }
     .chapters { padding-top: 4px; }
-    .chapter { border-radius: 12px; transition: background 0.15s; }
-    .chapter:hover { background: var(--surface); }
+    .chapter { border-radius: 4px; border: 2px solid transparent; transition: background 0.1s, border-color 0.1s; }
+    .chapter:hover { background: var(--surface); border-color: var(--nb-soft-line); }
     .ch-main { display: flex; align-items: center; gap: 16px; padding: 12px 8px 12px 14px; }
     .ch-label { flex: 1; min-width: 0; }
     .ch-meta { margin: 0; font-size: 0.82rem; white-space: nowrap; }

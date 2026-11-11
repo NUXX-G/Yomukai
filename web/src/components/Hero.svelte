@@ -61,24 +61,25 @@
   .hero { position: relative; min-height: min(72vh, 620px); display: flex; align-items: flex-end; overflow: hidden; margin: calc(-1 * (var(--layout-top-bar) + var(--safe-top))) calc(-1 * var(--page-pad)) 0; }
   .backdrop { position: absolute; inset: 0; animation: fadein var(--motion-slow) ease-out; }
   .backdrop img { width: 100%; height: 100%; object-fit: cover; object-position: center 25%; }
-  .backdrop img.soft { filter: blur(24px) brightness(0.6); transform: scale(1.2); }
+  /* Without a banner, the cover itself, darkened (no blur), with screentone over it. */
+  .backdrop img.soft { filter: brightness(0.5) saturate(1.1); object-position: center 20%; }
+  .backdrop::after { content: ''; position: absolute; inset: 0; background-image: radial-gradient(color-mix(in srgb, var(--c-ink) 9%, transparent) 1px, transparent 1.5px); background-size: 6px 6px; }
   .fade { position: absolute; inset: 0; background:
     linear-gradient(to top, var(--c-canvas) 4%, color-mix(in srgb, var(--c-canvas) 55%, transparent) 38%, transparent 70%),
     linear-gradient(to right, color-mix(in srgb, var(--c-canvas) 92%, transparent) 0%, color-mix(in srgb, var(--c-canvas) 45%, transparent) 45%, transparent 75%); }
   .content { position: relative; display: flex; align-items: flex-end; gap: 28px; padding: 0 var(--page-pad) 56px; width: 100%; }
-  .poster { display: none; width: 180px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: var(--r-lg); box-shadow: var(--shadow-panel); }
+  .poster { display: none; width: 180px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: var(--r-sm); border: var(--nb-border) solid var(--nb-line); box-shadow: 6px 6px 0 var(--nb-line); transform: rotate(-2deg); }
   .info { max-width: 640px; }
-  .kicker { color: var(--c-text-dim); font-weight: 650; font-size: 1rem; margin-bottom: 4px; }
-  h1 { margin: 0; font-size: clamp(1.8rem, 4.2vw, var(--fs-hero)); font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; text-wrap: balance; }
+  .kicker { display: inline-block; background: var(--c-accent2); color: var(--c-on-accent2); font-weight: 800; font-size: 0.85rem; padding: 2px 8px; border: var(--nb-border) solid var(--nb-line); border-radius: 3px; margin-bottom: 10px; transform: rotate(-1.5deg); }
+  h1 { margin: 0; font-family: var(--font-display); font-size: clamp(1.8rem, 4.2vw, var(--fs-hero)); font-weight: 400; line-height: 1.1; text-wrap: balance; text-shadow: 3px 3px 0 var(--c-canvas); }
   .meta { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 12px; color: var(--c-text-dim); font-size: var(--fs-small); font-weight: 600; }
   .score { color: var(--c-accent); }
   .synopsis { margin: 12px 0 0; color: color-mix(in srgb, var(--c-text) 80%, transparent); font-size: 0.95rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
-  .btn.glass { background: color-mix(in srgb, white 14%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: var(--c-text); }
-  .btn.glass:hover { background: color-mix(in srgb, white 22%, transparent); }
+  .btn.glass { background: var(--c-surface-raised); color: var(--c-text); }
   .dots { position: absolute; right: var(--page-pad); bottom: 22px; display: flex; gap: 6px; }
-  .dot { width: 8px; height: 8px; border-radius: var(--r-pill); background: color-mix(in srgb, white 30%, transparent); transition: width var(--motion-base), background var(--motion-base); }
-  .dot.on { width: 22px; background: var(--c-text); }
+  .dot { width: 10px; height: 10px; border-radius: 2px; border: 1.5px solid var(--nb-line); background: transparent; transition: width var(--motion-base), background var(--motion-base); }
+  .dot.on { width: 26px; background: var(--c-accent); }
   @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
   @media (min-width: 900px) { .poster { display: block; } .content { padding-bottom: 72px; } }
   @media (max-width: 600px) { .hero { min-height: 62vh; } .synopsis { -webkit-line-clamp: 2; line-clamp: 2; } }

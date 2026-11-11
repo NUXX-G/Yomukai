@@ -1,4 +1,4 @@
-/* Yomukai: "sumi y brasa", the same palette as the Android app. Title pages override --primary & co. from their cover. */
+/* Yomukai: «tinta y viñeta» (docs/referencias/ESTILO.md), the same tokens as the Android app. Title pages override --primary & co. from their cover. */
 :root {
   /* Every color comes from the shared design tokens (tokens.css); title pages still override --primary from the cover. */
   --bg: var(--c-canvas);
@@ -13,15 +13,19 @@
   --on-primary: var(--c-on-accent);
   --primary-container: var(--c-accent-soft);
   --on-primary-container: var(--c-on-accent-soft);
-  --secondary: #afc0d3;
-  --secondary-container: #1d242e;
-  --on-secondary-container: #d5e1ee;
+  --secondary: var(--c-accent3);
+  --secondary-container: var(--c-surface-high);
+  --on-secondary-container: var(--c-text);
   --tertiary: #e9c46a;
   --tertiary-container: #332910;
   --error: var(--c-danger);
   --outline: var(--c-border-strong);
   --outline-variant: var(--c-border);
-  --radius: var(--r-lg);
+  --radius: var(--r-sm);
+  /* Neobrutalism: the ink line of every panel and its hard shadow (never blurred). */
+  --nb-line: var(--c-ink);
+  --nb-soft-line: color-mix(in srgb, var(--c-ink) 32%, transparent);
+  --nb-press: cubic-bezier(0.2, 0, 0, 1);
   --nav-h: 64px;
   /* Height of the computer's top bar (none on phones) and the widest a page gets. */
   --top-h: 0px;
@@ -41,78 +45,137 @@ a { color: inherit; text-decoration: none; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
 input, select, textarea { font: inherit; color: var(--text); }
 img { display: block; }
-:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 6px; }
+:focus-visible { outline: 3px solid var(--c-accent); outline-offset: 2px; border-radius: 4px; }
+
+/* Display face: titles, big numbers and sound effects only, never long text. */
+.display, .brand, .topbar h1, .section-title h2 { font-family: var(--font-display); font-weight: 400; letter-spacing: 0.01em; }
+/* Halftone (manga screentone) for heroes, placeholders and empty states: faint dots, never behind text people read. */
+.halftone {
+  background-image: radial-gradient(color-mix(in srgb, var(--c-ink) calc(var(--nb-halftone) * 100%), transparent) 1px, transparent 1.4px);
+  background-size: 6px 6px;
+}
+/* A word highlighted with a marker, as in a manga caption. */
+.marker { background: var(--c-accent2); color: var(--c-on-accent2); padding: 0 0.25em; border-radius: 2px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 
 .page { padding: 8px var(--page-pad, 16px) 32px; max-width: var(--layout-page-max); margin: 0 auto; }
 .page.full { padding-left: 0; padding-right: 0; }
 .topbar { display: flex; align-items: center; gap: 8px; min-height: 56px; }
-.topbar h1 { font-size: 1.35rem; margin: 0; flex: 1; font-weight: 700; }
-.brand { color: var(--primary); font-weight: 900; font-size: 1.6rem; letter-spacing: -0.02em; }
+.topbar h1 { font-size: 1.35rem; margin: 0; flex: 1; }
+.brand { color: var(--primary); font-size: 1.5rem; }
 .section-title { display: flex; align-items: center; justify-content: space-between; margin: 22px 0 8px; }
-.section-title h2 { font-size: var(--fs-section); margin: 0; font-weight: 750; letter-spacing: -0.01em; }
+.section-title h2 { font-size: var(--fs-section); margin: 0; }
 .muted { color: var(--text-dim); }
 .small { font-size: 0.8rem; }
 .error-text { color: var(--error); }
 
 .icon-btn { width: 44px; height: 44px; display: inline-grid; place-items: center; border-radius: 50%; color: var(--text); }
 .icon-btn:hover { background: var(--surface-high); }
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: var(--r-pill); font-weight: 650; transition: background var(--motion-fast), transform var(--motion-fast); }
-.btn:active { transform: scale(0.98); }
-.btn.primary:hover { background: color-mix(in srgb, var(--primary) 88%, white); }
+/*
+ * Buttons (neobrutalist practice): a solid 3 px ink border, nearly square corners and a hard 4 px shadow with no blur.
+ * Hover pushes the button half-way into its shadow, pressing pushes it all the way in (the shadow collapses), with
+ * short, dry transitions. Primary is the one accent; secondary is white «paper» with black ink; tonal is a dark panel;
+ * text buttons carry no border or shadow. Disabled loses its shadow and depth. 48 px tall: a comfortable touch target.
+ */
+.btn {
+  --btn-shadow: var(--c-ink);
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; padding: 0 20px;
+  border-radius: 4px; font-weight: 800; font-size: 0.95rem; letter-spacing: 0.01em; line-height: 1.1; white-space: nowrap;
+  border: 3px solid var(--c-ink); box-shadow: 4px 4px 0 var(--btn-shadow);
+  transition: transform 90ms linear, box-shadow 90ms linear, background 120ms linear;
+  user-select: none; -webkit-user-select: none;
+}
+.btn:active:not(:disabled) { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--btn-shadow); }
+.btn:focus-visible { outline: 3px solid var(--c-accent); outline-offset: 4px; border-radius: 4px; }
 .btn.primary { background: var(--primary); color: var(--on-primary); }
-.btn.tonal { background: var(--primary-container); color: var(--on-primary-container); }
-.btn.outline { border: 1px solid var(--outline); color: var(--primary); }
-.btn.text { color: var(--primary); padding: 0 12px; }
-.btn:disabled { opacity: 0.45; cursor: default; }
+.btn.secondary, .btn.outline { background: var(--c-ink); color: var(--c-canvas); border-color: var(--c-ink); --btn-shadow: var(--primary); }
+.btn.tonal { background: var(--c-surface-high); color: var(--c-text); }
+.btn.text { color: var(--primary); padding: 0 12px; border-color: transparent; box-shadow: none; min-height: 44px; }
+.btn.text:active:not(:disabled) { transform: none; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; border-style: dashed; transform: none; }
 .btn.block { width: 100%; }
+.btn.small { min-height: 36px; padding: 0 14px; font-size: 0.85rem; border-width: 2px; box-shadow: 3px 3px 0 var(--btn-shadow); }
+.btn.small:active:not(:disabled) { transform: translate(3px, 3px); }
 
-.chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px 0; }
+.chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px 4px 6px 0; }
 .chips::-webkit-scrollbar { display: none; }
-.chip { flex: none; height: 34px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--outline); color: var(--text-dim); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 0.9rem; }
-.chip.on { background: var(--secondary-container); border-color: transparent; color: var(--on-secondary-container); }
-.pill { display: inline-block; padding: 4px 10px; border-radius: 8px; background: color-mix(in srgb, var(--secondary-container) 70%, transparent); color: var(--on-secondary-container); font-size: 0.8rem; }
-.tag { display: inline-block; padding: 1px 6px; border-radius: 4px; background: var(--secondary-container); color: var(--on-secondary-container); font-size: 0.7rem; font-weight: 600; }
+.chip {
+  flex: none; height: 34px; padding: 0 14px; border-radius: var(--r-pill); border: var(--nb-border) solid var(--nb-soft-line);
+  color: var(--text-dim); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 0.9rem; font-weight: 600;
+  transition: box-shadow var(--motion-fast) var(--nb-press), border-color var(--motion-fast), color var(--motion-fast);
+}
+.chip.on { background: var(--c-accent2); border-color: var(--nb-line); color: var(--c-on-accent2); box-shadow: 2px 2px 0 var(--nb-line); }
+.pill { display: inline-block; padding: 3px 10px; border-radius: var(--r-sm); border: 1.5px solid var(--nb-soft-line); background: var(--c-surface-high); color: var(--text); font-size: 0.8rem; }
+.tag { display: inline-block; padding: 1px 6px; border-radius: 3px; background: var(--c-surface-highest); color: var(--text); font-size: 0.7rem; font-weight: 700; }
 
-.row { display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; padding-bottom: 4px; }
+.row { display: flex; gap: 14px; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; padding: 2px 8px 10px 2px; }
 .row::-webkit-scrollbar { display: none; }
 .row > * { flex: none; width: 128px; scroll-snap-align: start; }
 @media (min-width: 900px) { .row > * { width: 150px; } }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 14px 12px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 16px 14px; }
 @media (min-width: 900px) { .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } }
 
-.field { width: 100%; height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--outline); background: var(--surface); outline: none; }
-.field:focus { border-color: var(--primary); }
-.card { background: var(--surface); border-radius: var(--radius); padding: 16px; }
+.field {
+  width: 100%; height: 48px; padding: 0 14px; border-radius: var(--r-md); border: var(--nb-border) solid var(--nb-soft-line);
+  background: var(--surface); outline: none; transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
+}
+.field:focus { border-color: var(--nb-line); box-shadow: 3px 3px 0 var(--primary); }
+/* A panel is a manga panel: ink border and nearly square corners; no shadow, so settings stay calm. */
+.card { background: var(--surface); border-radius: var(--radius); padding: 16px; border: var(--nb-border) solid var(--nb-soft-line); }
 /* Cards one after another never touch (panels that bring their own card sat glued to the one before). */
 .card + .card { margin-top: 12px; }
 /* A title inside a card reads as a card title, not as a page heading (components may still style their own). */
 .card > :is(h2, h3):where(:first-child) { font-size: 1.05rem; margin: 0 0 10px; }
 .list-item { display: flex; align-items: center; gap: 12px; padding: 12px 4px; border-bottom: 1px solid var(--outline-variant); }
 
-.skeleton { background: var(--surface-variant); border-radius: var(--radius); }
+/* Skeletons have the shape of a panel, with screentone. */
+.skeleton {
+  background-color: var(--surface-variant); border-radius: var(--radius); border: var(--nb-border) solid var(--nb-soft-line);
+  background-image: radial-gradient(color-mix(in srgb, var(--c-ink) 8%, transparent) 1px, transparent 1.4px); background-size: 6px 6px;
+}
 @keyframes pulse { 50% { opacity: 0.55; } }
 .skeleton { animation: pulse 1.4s ease-in-out infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spinner { width: 28px; height: 28px; border: 3px solid var(--primary); border-right-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
 .center { display: grid; place-items: center; min-height: 40vh; text-align: center; gap: 12px; }
 
-.toast { position: fixed; left: 50%; bottom: calc(var(--nav-h) + var(--safe-bottom) + 16px); transform: translateX(-50%); background: var(--surface-highest); color: var(--text); padding: 12px 18px; border-radius: 12px; z-index: 100; max-width: min(92vw, 520px); box-shadow: 0 8px 24px #0009; }
-input[type='checkbox'] { appearance: none; width: 44px; height: 26px; border-radius: 13px; background: var(--surface-highest); position: relative; transition: background 0.2s; flex: none; }
-input[type='checkbox']::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--text-dim); transition: transform 0.2s, background 0.2s; }
-input[type='checkbox']:checked { background: var(--primary); }
+/* Notices are speech balloons: ink border, hard shadow and a small tail. */
+.toast {
+  position: fixed; left: 50%; bottom: calc(var(--nav-h) + var(--safe-bottom) + 18px); transform: translateX(-50%);
+  background: var(--surface-highest); color: var(--text); padding: 12px 18px; border-radius: var(--r-lg); z-index: 100;
+  max-width: min(92vw, 520px); border: var(--nb-border) solid var(--nb-line); box-shadow: var(--nb-shadow) var(--nb-shadow) 0 var(--nb-line);
+}
+.toast::after {
+  content: ''; position: absolute; left: 28px; bottom: -8px; width: 12px; height: 12px; background: inherit;
+  border-right: var(--nb-border) solid var(--nb-line); border-bottom: var(--nb-border) solid var(--nb-line); transform: rotate(45deg);
+}
+input[type='checkbox'] { appearance: none; width: 44px; height: 26px; border-radius: 13px; background: var(--surface-highest); position: relative; transition: background 0.2s; flex: none; border: 1.5px solid var(--nb-soft-line); }
+input[type='checkbox']::after { content: ''; position: absolute; top: 1.5px; left: 1.5px; width: 20px; height: 20px; border-radius: 50%; background: var(--text-dim); transition: transform 0.2s, background 0.2s; }
+input[type='checkbox']:checked { background: var(--primary); border-color: var(--nb-line); }
 input[type='checkbox']:checked::after { transform: translateX(18px); background: var(--on-primary); }
+
+/* Entrances: shelves and grids come in one card after another, 40 ms apart, when they first appear. */
+@keyframes nb-enter { from { opacity: 0; transform: translateY(8px); } }
+.row > *, .grid > * { animation: nb-enter var(--motion-slow) var(--motion-easing) both; }
+.row > :nth-child(2), .grid > :nth-child(2) { animation-delay: 40ms; }
+.row > :nth-child(3), .grid > :nth-child(3) { animation-delay: 80ms; }
+.row > :nth-child(4), .grid > :nth-child(4) { animation-delay: 120ms; }
+.row > :nth-child(5), .grid > :nth-child(5) { animation-delay: 160ms; }
+.row > :nth-child(6), .grid > :nth-child(6) { animation-delay: 200ms; }
+.row > :nth-child(7), .grid > :nth-child(7) { animation-delay: 240ms; }
+.row > :nth-child(n + 8), .grid > :nth-child(n + 8) { animation-delay: 280ms; }
 
 @media (min-width: 1024px) {
   :root { --top-h: 64px; --nav-h: 0px; }
   .page { padding: 28px 32px 48px; }
   .topbar h1 { font-size: 1.7rem; }
   .section-title { margin: 32px 0 12px; }
-  .section-title h2 { font-size: 1.25rem; }
+  .section-title h2 { font-size: 1.3rem; }
   .toast { bottom: 28px; }
-  .icon-btn, .btn, .chip { transition: background 0.15s, color 0.15s, border-color 0.15s; }
-  .chip:hover:not(.on) { border-color: var(--text-dim); color: var(--text); }
-  .btn.primary:hover, .btn.tonal:hover { filter: brightness(1.08); }
-  .btn.outline:hover, .btn.text:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+  .icon-btn { transition: background 0.15s, color 0.15s; }
+  .chip:hover:not(.on) { border-color: var(--nb-line); color: var(--text); }
+  .btn:hover:not(:disabled):not(.text):not(:active) { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--btn-shadow); }
+  .btn.small:hover:not(:disabled):not(.text):not(:active) { transform: translate(1px, 1px); box-shadow: 2px 2px 0 var(--btn-shadow); }
+  .btn.text:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
   .list-item { transition: background 0.15s; }
 }
 /* Big monitors (27" and up): wider pages and slightly larger text, so nothing looks like a phone layout stretched out. */
@@ -127,6 +190,13 @@ input[type='checkbox']:checked::after { transform: translateX(18px); background:
   :root { --page-max: 2000px; }
   .row > * { width: 200px; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+}
+
+/* Reduced motion: nothing moves, things only fade. */
+@media (prefers-reduced-motion: reduce) {
+  .btn, .chip { transition: none; }
+  .btn:hover:not(:disabled), .btn:active:not(:disabled) { transform: none !important; }
+  @keyframes nb-enter { from { opacity: 0; } }
 }
 
 /* iPhone/iPad. Safari zooms the page into any text field under 16 px, leaving the layout off: none are smaller. */

@@ -39,41 +39,41 @@ neobrutalismo con medida, hecho con el lenguaje del manga, el anime y el cómic.
 4. **Reproductor y lectores limpios**: oscuro, controles sobrios que se ocultan, como mucho un detalle de marca (el
    sello 読 en la esquina, el color de acento en la barra). Ahí manda el contenido.
 
-## Paleta (tema por defecto «Tinta y viñeta», oscuro)
+## Paleta: blanco y negro como un manga, con un solo color (decisión del usuario, 2026-11-11)
+
+> «Que la paleta sea tipo negro y blanco, tipo un manga, y después tenga algún toque de color, sin usar más de tres
+> colores con este estilo neobrutalista.»
+
+Tres colores y nada más: **negro**, **blanco** y **brasa**. Los grises son tonos del negro (papel a la sombra), no
+colores nuevos. Las portadas siguen siendo lo más colorido de la pantalla.
 
 | Token | Color | Uso |
 |---|---|---|
-| `canvas` | `#0e0d0c` | Fondo (tinta cálida, no negro puro) |
-| `surface` / `surfaceRaised` / `surfaceHigh` | `#171513` / `#1e1b18` / `#26221e` | Paneles y tarjetas |
-| `ink` (nuevo) | `#efe7d6` | **Línea de tinta**: bordes de viñeta y sombras duras (color papel sobre fondo tinta, como un manga en negativo) |
-| `text` / `textDim` / `textFaint` | `#f6f1e7` / `#b9b0a1` / `#857c6f` | Texto |
-| `accent` («brasa») | `#ff7a3d` | Acción principal, foco, selección. Texto encima: `#1a0a02` |
-| `accent2` («viñeta amarilla») | `#ffd23f` | Resaltados tipo rotulador, insignias de «nuevo», onomatopeyas. Siempre con texto oscuro |
-| `accent3` («tinta azul») | `#6c8cff` | Enlaces secundarios, información, salas |
+| `canvas` | `#0a0a0a` | Fondo: tinta |
+| `surface` / `surfaceRaised` / `surfaceHigh` / `surfaceHighest` | `#121212` / `#181818` / `#202020` / `#2a2a2a` | Paneles y tarjetas |
+| `ink` | `#f5f5f2` | **Línea de tinta** en negativo: bordes de viñeta y sombras duras |
+| `text` / `textDim` / `textFaint` | `#f5f5f2` / `#b4b4b0` / `#85857f` | Texto |
+| `accent` («brasa») | `#ff5a1f` | El único color: acción principal, selección, foco, progreso, aviso. Texto encima: negro |
+| `accent2`, `accent3`, `type*` | = blanco / brasa | Se conservan como tokens (temas de terceros), pero el tema por defecto no añade colores |
 
-Como mucho tres colores con carácter (brasa, amarillo, azul) más los colores por tipo de obra. Cada combinación de
-texto y fondo cumple **WCAG AA** (≥ 4,5:1 en texto normal, ≥ 3:1 en texto grande y bordes); se comprueba con el
-validador de contraste de `Themes.kt` y el test de `design/themes.json`. El amarillo y los colores claros llevan
-siempre texto oscuro.
+Reglas: el color **solo** marca lo importante (botón principal, pestaña o elemento activo, foco, barra de progreso,
+sombra al pasar el ratón). Lo seleccionado en filtros y pestañas va **impreso en blanco** (fondo blanco, texto negro)
+con sombra brasa. La ficha ya no toma el color de la portada (`coverAccent: false`).
 
 ### Variantes
-- **«Papel»** (claro): fondo `#f6efe1`, tinta `#141210`, sombras duras negras. Neobrutalismo clásico, como una página
-  de manga.
-- **«Suave»**: bordes de 1,5 px, sombras de 2 px, colores menos saturados, para quien prefiera menos golpe.
-Los temas actuales (OLED, Sepia, Neón…) siguen funcionando: todo va sobre los mismos tokens.
+- **«Papel»** (claro): fondo `#fbfbf8`, tinta `#0a0a0a`, acento `#c2410c`. La página de un manga.
+- **«Suave»**: tinta gris (`#6d675e`), colores menos saturados y esquinas más redondas, para quien prefiera menos golpe.
+Los temas de antes (OLED, Sepia, Neón…) siguen funcionando sobre los mismos tokens.
 
-## Identidad por tipo de obra
+## Identidad por tipo de obra: por forma, no por color
 
-Color propio, insignia con forma y un detalle en la tarjeta. El mismo en tarjetas, fichas, filtros, búsqueda y
-calendario.
-
-| Tipo | Color | Insignia | Detalle en la tarjeta |
-|---|---|---|---|
-| Anime | Coral `#ff6b5a` | Etiqueta con triángulo ▶ | Pequeño botón de reproducir en la esquina |
-| Manga | Papel `#efe7d6` (texto tinta) | Página con esquina doblada | Esquina inferior doblada (pliegue) |
-| Manhwa y manhua | Cian `#3ec9e8` | Tira vertical (scroll) | Borde lateral de tira |
-| Cómic | Amarillo `#ffd23f` | Estallido (starburst) | Sombra en el color amarillo |
-| Novela | Violeta `#b39bff` | Lomo de libro | Línea de lomo a la izquierda |
+| Tipo | Detalle en la tarjeta (en tinta) | Marca junto al nombre |
+|---|---|---|
+| Anime | Botón ▶ redondo en la esquina | Círculo |
+| Manga | Esquina inferior doblada (pliegue) | Cuadrado |
+| Manhwa y manhua | Tira vertical en el borde derecho | Cuadrado |
+| Cómic | Sombra dura en reposo | Estallido |
+| Novela | Lomo de libro a la izquierda | Cuadrado |
 
 ## Tipografía
 
@@ -85,17 +85,26 @@ calendario.
 
 ## Forma, bordes y sombras
 
-- Borde: **2 px** `ink` en tarjetas, botones, chips, paneles e inputs.
-- Sombra dura: **4 px 4 px 0** sin difuminar. En reposo, en `ink` al 85 %; en las tarjetas, al pasar el ratón, la
-  sombra toma el **color del tipo** de obra y crece a 6 px.
-- Radio: **6 px** en tarjetas y paneles, **8 px** en botones, píldora solo en chips de filtro.
+- Borde: **2 px** de tinta en tarjetas, paneles, chips e inputs; **3 px** en botones.
+- Sombra dura sin difuminar: **4 px 4 px 0** en tinta. Al pasar el ratón por una tarjeta, la sombra pasa a brasa.
+- Radio: **4 px** (casi recto) en botones, pestañas y tarjetas; píldora solo en chips de filtro.
 - Aire generoso: separaciones de 16/24/32 px constantes; los bordes gruesos necesitan espacio.
+
+### Botones (buenas prácticas neobrutalistas)
+Se repite en las guías de referencia: borde sólido grueso, esquinas rectas, sombra desplazada sin difuminar y un
+«clic» físico. Aquí:
+- **Primario**: brasa con texto negro. **Secundario**: «papel» blanco con texto negro y sombra brasa. **Tonal**: panel
+  oscuro con texto blanco. **Texto**: sin borde ni sombra.
+- **Al pasar el ratón** se hunde hasta la mitad de su sombra (2 px). **Al pulsar** se hunde del todo (4 px) y la sombra
+  desaparece. Transiciones secas de 90 ms, sin rebotes.
+- **Foco** de teclado: contorno de 3 px en brasa separado 4 px. **Desactivado**: sin sombra, borde discontinuo, 50 %.
+- 46-48 px de alto (objetivo táctil cómodo); `.small` de 36 px para barras densas.
 
 ## Interacción y movimiento
 
-- Hover/foco: la tarjeta o el botón **se levanta** (`translate(-2px, -2px)`, la sombra pasa de 4 a 6 px). Al pulsar
-  **se hunde** (`translate(2px, 2px)`, sombra a 0). 120–180 ms, `cubic-bezier(0.2, 0, 0, 1)`.
-- Foco de teclado siempre visible: contorno de 3 px en `accent2` separado 2 px.
+- Botones: al pasar el ratón se hunden hasta la mitad de su sombra; al pulsar, del todo (ver «Botones»). Tarjetas: al
+  pasar el ratón se levantan 2 px y su sombra pasa a brasa. 90–180 ms, sin rebotes.
+- Foco de teclado siempre visible: contorno de 3 px en brasa.
 - Entrada escalonada de las filas (40 ms entre tarjetas, solo la primera vez), transición corta entre páginas, carrusel
   del hero con desplazamiento, mensajes de chat/DM que «aparecen» como bocadillos, logro con golpe de onomatopeya.
 - Solo `transform` y `opacity`. Nada bloquea al usuario. `prefers-reduced-motion`: sin desplazamientos, solo fundidos.
@@ -121,16 +130,8 @@ misma forma de viñeta.
 Con fuerza: navegación, Inicio, tarjetas, botones, chips, fichas, perfiles, foro, salas, DMs, logros, estados vacíos.
 Con mesura: ajustes, administración. Casi nada: reproductor y lectores.
 
-## Contraste comprobado (WCAG, 2026-11-11)
+## Contraste comprobado (WCAG)
 
-| Combinación | Ratio | | Combinación | Ratio |
-|---|---|---|---|---|
-| texto / canvas | 17,3 | | texto oscuro / amarillo | 12,9 |
-| texto / surfaceHigh | 14,0 | | texto oscuro / coral (anime) | 6,7 |
-| textDim / canvas | 9,1 | | texto oscuro / cian (manhwa) | 9,5 |
-| textFaint / canvas | 4,7 | | texto oscuro / violeta (novela) | 8,1 |
-| onAccent / brasa | 7,5 | | texto oscuro / papel (manga) | 15,2 |
-| brasa / canvas | 7,5 | | azul / canvas | 6,3 |
-| tinta (borde) / canvas | 15,8 | | «Papel»: tinta / fondo | 16,3 |
-
-Todas ≥ 4,5:1. En «Papel», el texto de acento usa `#b54a12` (4,6:1), no la brasa clara.
+El test de `design/themes.json` comprueba cada tema: texto sobre fondo y paneles (≥ 4,5:1), texto secundario,
+brasa sobre el fondo (≥ 3:1), texto sobre la brasa (≥ 4,5:1) y la **línea de tinta sobre el fondo (≥ 3:1)**.
+Blanco sobre negro: 18,6:1. Negro sobre brasa: 6,4:1. Brasa sobre negro: 6,4:1.

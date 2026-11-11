@@ -19,6 +19,8 @@
   const TITLE = { anime: t('Anime'), manga: t('Manga'), manhwa: t('Manhwa y manhua'), comics: t('Cómics'), novels: t('Novelas') }[section];
   /** Rows from AniList keep only the section's kind (its kind comes from the country of origin). */
   const inSection = (d) => section === 'manga' ? d.type === 'MANGA' : section === 'manhwa' ? d.type === 'MANHWA' || d.type === 'MANHUA' : true;
+  /** The type every card of this section shows (ESTILO.md: identity per type), when AniList does not say it. */
+  const cardType = (d) => d.type || { anime: 'ANIME', novels: 'NOVEL', comics: 'COMIC', manhwa: 'MANHWA' }[section] || 'MANGA';
   const YEARS = Array.from({ length: 36 }, (_, i) => new Date().getFullYear() + 1 - i);
   const STATUS = [['', 'Cualquier estado'], ['RELEASING', kind === 'anime' ? t('En emisión') : t('En publicación')], ['FINISHED', 'Terminado'], ['NOT_YET_RELEASED', t('Próximamente')], ['HIATUS', t('En pausa')]];
   const FORMATS = kind === 'anime'
@@ -124,7 +126,7 @@
   {#each rows.filter((r) => r.id !== 'trending') as r (r.id)}
     <Shelf title={t(r.title)}>
       {#each r.items as d (d.anilistId)}
-        <MediaCard title={d.title} cover={d.cover} color={d.color} onclick={() => openDiscover(d)} subtitle={line(d)} score={score10(d.score)} badges={badges(d)} detail={detail(d)} />
+        <MediaCard title={d.title} cover={d.cover} color={d.color} type={cardType(d)} onclick={() => openDiscover(d)} subtitle={line(d)} score={score10(d.score)} badges={badges(d)} detail={detail(d)} />
       {/each}
     </Shelf>
   {:else}
@@ -188,7 +190,7 @@
     </form>
     <div class="grid results">
       {#each results as d (d.anilistId)}
-        <MediaCard title={d.title} cover={d.cover} color={d.color} onclick={() => openDiscover(d)} subtitle={line(d)} score={score10(d.score)} badges={badges(d)} detail={detail(d)} />
+        <MediaCard title={d.title} cover={d.cover} color={d.color} type={cardType(d)} onclick={() => openDiscover(d)} subtitle={line(d)} score={score10(d.score)} badges={badges(d)} detail={detail(d)} />
       {/each}
     </div>
     {#if !searching && !results.length}

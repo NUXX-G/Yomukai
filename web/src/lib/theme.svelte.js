@@ -21,7 +21,8 @@ const DENSITY = { compact: 0.75, normal: 1, comfy: 1.25 };
 const kebab = (s) => s.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase());
 
 /** Whether title pages tint themselves with each cover's colour (a theme can turn it off). */
-export const themeState = $state({ coverAccent: true, current: null });
+// Black and white with one accent by default (ESTILO.md): title pages take the cover's color only if a theme asks.
+export const themeState = $state({ coverAccent: false, current: null });
 
 function luminance(hex) {
   const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
@@ -51,7 +52,7 @@ export function applyTheme(theme) {
   root.classList.toggle('has-bg', !!bg);
   if (bg) root.style.setProperty('--bg-image', `url('/api/themes/backgrounds/${bg}')`);
   else root.style.removeProperty('--bg-image');
-  themeState.coverAccent = theme ? theme.coverAccent !== false : true;
+  themeState.coverAccent = theme ? theme.coverAccent === true : false;
   themeState.current = theme || null;
 }
 

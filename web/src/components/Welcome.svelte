@@ -24,7 +24,7 @@
       </ul>
     </div>
     <div class="buttons">
-      <a class="btn tonal" href="/guia" onclick={close}>{t('Ver la guía (1 minuto)')}</a>
+      <a class="btn secondary" href="/guia" onclick={close}>{t('Ver la guía (1 minuto)')}</a>
       <button class="btn primary" onclick={close}>{t('Entendido')}</button>
     </div>
   </section>
@@ -37,7 +37,7 @@
     display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;
   }
   .text { flex: 1; min-width: 240px; }
-  .buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+  .buttons { display: flex; gap: 14px; flex-wrap: wrap; padding: 0 4px 4px 0; }
   h2 { margin: 0 0 8px; font-size: var(--fs-section); }
   ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; color: var(--c-text-dim); font-size: var(--fs-small); }
   li { display: flex; gap: 8px; align-items: flex-start; }

@@ -197,7 +197,7 @@
     {:else if r.id === 'continueReading' && continueReading.length}
       <Shelf title={t('Continuar leyendo')}>
         {#each continueReading as c (c.sourceId + c.chapterId)}
-          <MediaCard href={continueHref(c)} title={c.title} cover={c.cover} subtitle={c.chapterTitle} progress={c.fraction || null} />
+          <MediaCard href={continueHref(c)} title={c.title} cover={c.cover} type={c.type} subtitle={c.chapterTitle} progress={c.fraction || null} />
         {/each}
       </Shelf>
     {:else if r.id === 'newInLibrary' && newInLibrary.length}
@@ -213,7 +213,7 @@
         <Shelf title={TITLES[r.id]} loading={loading(r.id === 'trendingManga' ? 'manga' : 'anime') && !source.length}
           href={r.id === 'trendingManga' ? '/manga' : '/anime'}>
           {#each source as d (d.anilistId)}
-            <MediaCard title={d.title} cover={d.cover} color={d.color} onclick={() => openDiscover(d)} subtitle={discoverLine(d)}
+            <MediaCard title={d.title} cover={d.cover} color={d.color} type={r.id === 'trendingManga' ? d.type || 'MANGA' : 'ANIME'} onclick={() => openDiscover(d)} subtitle={discoverLine(d)}
               score={score10(d.score)} badges={discoverBadges(d)} detail={[d.genres?.slice(0, 3).map(genreName).join(' · '), d.synopsis].filter(Boolean).join('\n\n')} />
           {/each}
         </Shelf>

@@ -1,5 +1,8 @@
 // Inter (OFL-1.1), latin and latin-ext only, served from this site like everything else.
 import '@fontsource-variable/inter/wght.css';
+// Dela Gothic One (OFL-1.1), the display face of «Tinta y viñeta»: titles, big numbers, sound effects. Latin only.
+import '@fontsource/dela-gothic-one/latin-400.css';
+import '@fontsource/dela-gothic-one/latin-ext-400.css';
 import './tokens.css';
 import './app.css';
 import { bootTheme } from './lib/theme.svelte.js';
@@ -13,7 +16,25 @@ import { startI18n } from './lib/i18n.svelte.js';
 adaptToIOS();
 
 // English users get their dictionary before the first text is drawn.
-startI18n().finally(() => mount(App, { target: document.getElementById('app') }));
+startI18n().finally(() => {
+  try {
+    mount(App, { target: document.getElementById('app') });
+  } finally {
+    hideSplash();
+  }
+});
+// Never more than 8 s of loading screen, whatever happens: what is ready shows and the rest fills in afterwards.
+setTimeout(hideSplash, 8000);
+
+/** Fades the loading screen of index.html out once the app has drawn its first frame. */
+function hideSplash() {
+  const splash = document.getElementById('splash');
+  if (!splash || splash.classList.contains('out')) return;
+  requestAnimationFrame(() => {
+    splash.classList.add('out');
+    setTimeout(() => splash.remove(), 300);
+  });
+}
 
 // Installable and quick to reopen; never in development, where it would cache stale code.
 if ('serviceWorker' in navigator && import.meta.env.PROD) {

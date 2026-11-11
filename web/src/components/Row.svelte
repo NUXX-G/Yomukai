@@ -35,9 +35,14 @@
   .shelf { position: relative; }
   .arrow { display: none; }
   @media (hover: hover) and (pointer: fine) {
-    .arrow { display: grid; place-items: center; position: absolute; top: 0; bottom: 48px; width: 44px; z-index: 2; font-size: 2.2rem; line-height: 1; color: var(--text); opacity: 0; transition: opacity 0.2s; }
-    .left { left: -8px; background: linear-gradient(90deg, var(--bg) 30%, transparent); }
-    .right { right: -8px; background: linear-gradient(270deg, var(--bg) 30%, transparent); }
+    .arrow {
+      display: grid; place-items: center; position: absolute; top: 30%; width: 40px; height: 40px; z-index: 5; font-size: 1.8rem; line-height: 1;
+      color: var(--c-on-accent2); background: var(--c-accent2); border: var(--nb-border) solid var(--nb-line); border-radius: var(--r-sm);
+      box-shadow: 3px 3px 0 var(--nb-line); opacity: 0; transition: opacity 0.2s;
+    }
+    .arrow:active { transform: translate(2px, 2px); box-shadow: none; }
+    .left { left: -6px; }
+    .right { right: -2px; }
     .shelf:hover .arrow { opacity: 1; }
   }
 </style>

@@ -2,7 +2,8 @@
 import { t, tk, tMap, tLabels, tPairs, locale } from './i18n.svelte.js';
 
 export const TYPE_NAMES = tMap({ MANGA: tk('Manga'), MANHWA: tk('Manhwa'), MANHUA: tk('Manhua'), COMIC: tk('Cómic'), NOVEL: tk('Novela'), ANIME: tk('Anime') });
-export const TYPE_COLORS = { ANIME: '#E53935', MANGA: '#1E88E5', MANHWA: '#43A047', MANHUA: '#FB8C00', COMIC: '#00897B', NOVEL: '#8E24AA' };
+// Identity per type (ESTILO.md): the same colors as the --c-type-* tokens; manhwa and manhua share theirs.
+export const TYPE_COLORS = { ANIME: 'var(--c-type-anime)', MANGA: 'var(--c-type-manga)', MANHWA: 'var(--c-type-manhwa)', MANHUA: 'var(--c-type-manhwa)', COMIC: 'var(--c-type-comic)', NOVEL: 'var(--c-type-novel)' };
 
 export const TYPE_FILTERS = tLabels([
   { key: 'ALL', label: tk('Todo'), types: null },

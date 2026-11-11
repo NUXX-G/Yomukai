@@ -22,7 +22,9 @@
 <style>
   .section-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 4px 16px 12px; scrollbar-width: none; }
   .section-tabs::-webkit-scrollbar { display: none; }
-  .tab { flex: none; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--c-border); background: var(--c-surface-high); color: inherit; text-decoration: none; font-weight: 600; font-size: 0.92rem; white-space: nowrap; }
-  .tab.on { background: var(--c-accent); color: var(--c-on-accent); border-color: transparent; }
-  .tab:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+  /* Tabs as ink-bordered labels; the open one is printed in white with a hard shadow, like a stamped page tab. */
+  .tab { flex: none; padding: 7px 16px; border-radius: 4px; border: 2px solid color-mix(in srgb, var(--c-ink) 35%, transparent); background: var(--c-surface); color: var(--c-text-dim); text-decoration: none; font-weight: 750; font-size: 0.92rem; white-space: nowrap; transition: border-color 90ms linear, color 90ms linear; }
+  .tab:hover { border-color: var(--c-ink); color: var(--c-text); }
+  .tab.on { background: var(--c-ink); color: var(--c-canvas); border-color: var(--c-ink); box-shadow: 3px 3px 0 var(--c-accent); }
+  .tab:focus-visible { outline: 3px solid var(--c-accent); outline-offset: 3px; }
 </style>
