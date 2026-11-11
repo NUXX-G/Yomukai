@@ -160,18 +160,33 @@
     const text = box.text.replace(/\s+/g, ' ').trim();
     wordPick = { word: text, sentence: text, paragraph: '', lang: textLang, source: item?.title || '', phrase: !/^[\p{L}'’-]{1,40}$/u.test(text) };
   }
-  function bubbleDown(e) {
-    if (e.button > 0) return;
-    const p = pagePoint(e);
+  let lastPick = 0;
+  function pressAt(point) {
+    const p = pagePoint(point);
     if (!p) return;
-    bubblePress = { x: e.clientX, y: e.clientY, timer: setTimeout(() => { bubblePress = null; suppressTap = true; pickBubble(p); }, 550) };
+    bubblePress = { x: point.clientX, y: point.clientY, timer: setTimeout(() => { bubblePress = null; suppressTap = true; lastPick = Date.now(); pickBubble(p); }, 550) };
   }
-  function bubbleMove(e) { if (bubblePress && Math.hypot(e.clientX - bubblePress.x, e.clientY - bubblePress.y) > 10) { clearTimeout(bubblePress.timer); bubblePress = null; } }
+  // A mouse or a pen with pointer events; a finger with touch events (phones cancel pointer events on a long press).
+  function bubbleDown(e) { if (e.button > 0 || e.pointerType === 'touch') return; pressAt(e); }
+  function bubbleTouch(e) {
+    if (e.touches.length !== 1) { bubbleUp(); return; }
+    const t = e.touches[0];
+    pressAt({ target: t.target, clientX: t.clientX, clientY: t.clientY });
+  }
+  function bubbleMove(e) {
+    const point = e.touches?.[0] || e;
+    if (bubblePress && Math.hypot(point.clientX - bubblePress.x, point.clientY - bubblePress.y) > 10) { clearTimeout(bubblePress.timer); bubblePress = null; }
+  }
   function bubbleUp() { if (bubblePress) { clearTimeout(bubblePress.timer); bubblePress = null; } }
+  // The finger lifted after a long press: the click the phone sends next would land on the sheet that just opened.
+  function bubbleTouchEnd(e) { bubbleUp(); if (Date.now() - lastPick < 1500 && e.cancelable) e.preventDefault(); }
   function bubbleMenu(e) {
     const p = pagePoint(e);
     if (!p) return;
     e.preventDefault();
+    // Android also sends a context menu after the long press that already opened it.
+    if (Date.now() - lastPick < 1500) return;
+    lastPick = Date.now();
     pickBubble(p);
   }
   // The tap that ends a long press must not also show or hide the bars.
@@ -584,7 +599,7 @@
   {#if error}
     <div class="center"><p>{error}</p><button class="btn tonal" onclick={() => back(mediaHref(sourceId, mediaId))}>{t('Volver')}</button></div>
   {:else if mode === 'vertical'}
-    <div class="strip w-{width}" style:max-width={width === 'original' && column ? column + 'px' : null} onclick={() => { if (eatTap()) return; if (scrolling) { scrolling = false; return; } ui = !ui; }} onpointerdown={bubbleDown} onpointermove={bubbleMove} onpointerup={bubbleUp} onpointercancel={bubbleUp} oncontextmenu={bubbleMenu} role="presentation">
+    <div class="strip w-{width}" style:max-width={width === 'original' && column ? column + 'px' : null} onclick={() => { if (eatTap()) return; if (scrolling) { scrolling = false; return; } ui = !ui; }} onpointerdown={bubbleDown} onpointermove={bubbleMove} onpointerup={bubbleUp} onpointercancel={bubbleUp} ontouchstart={bubbleTouch} ontouchmove={bubbleMove} ontouchend={bubbleTouchEnd} ontouchcancel={bubbleUp} oncontextmenu={bubbleMenu} role="presentation">
       {#each loaded as l, li (l.chapter.id)}
         {@const usual = usualRatio(l.pages)}
         {#if li > 0}<div class="divider">{l.chapter.label}{l.chapter.name ? ' · ' + l.chapter.name : ''}</div>{/if}
@@ -615,7 +630,7 @@
       {/if}
     </div>
   {:else}
-    <div class="single" onclick={(e) => { if (!eatTap()) tapPaged(e); }} onpointerdown={bubbleDown} onpointermove={bubbleMove} onpointerup={bubbleUp} onpointercancel={bubbleUp} oncontextmenu={bubbleMenu} role="presentation" ontouchstart={(e) => (touchX = e.touches[0].clientX)} ontouchend={swipe}>
+    <div class="single" onclick={(e) => { if (!eatTap()) tapPaged(e); }} onpointerdown={bubbleDown} onpointermove={bubbleMove} onpointerup={bubbleUp} onpointercancel={bubbleUp} oncontextmenu={bubbleMenu} role="presentation" ontouchstart={(e) => { touchX = e.touches[0].clientX; bubbleTouch(e); }} ontouchmove={bubbleMove} ontouchend={(e) => { bubbleTouchEnd(e); swipe(e); }}>
       {#if flat[pagedIndex]}
         {@const p = flat[pagedIndex]}
         <div class="pg one" class:cropped={crops[p.src]} style:aspect-ratio={crops[p.src]?.ratio} style:width={crops[p.src] ? `min(100vw, calc(100dvh * ${crops[p.src].ratio}))` : null}>
@@ -770,7 +785,7 @@
   /* Until a page arrives it holds a tall space: otherwise every unloaded page would be "on screen" at once. */
   .strip .pg { position: relative; min-height: 80vh; background: #0a0a0a; }
   .strip .pg.ready { min-height: 0; background: none; }
-  .pg img { display: block; width: 100%; height: auto; }
+  .pg img { display: block; width: 100%; height: auto; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
   .strip.w-original { max-width: 900px; }
   .strip .pg.guess { min-height: 0; }
   .pg.cropped { overflow: hidden; }
