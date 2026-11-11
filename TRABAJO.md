@@ -5,6 +5,13 @@ Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este ficher
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
 **AHORA (2026-11-11): PEDIDO 2026-11-10 — bloque 1 CERRADO y release v2.3.0 (pre-release). Bloque 2 CERRADO, release v2.4.0. Siguiente: bloque 3 (F3.1 doblajes).**
 
+## TRABAJO EN PARALELO (desde 2026-11-11)
+Varias sesiones de Claude Code con cuentas distintas, cada una en su copia del repo, todas sobre main:
+- **Sesión A** (Desktop/Yomukai): bloque 3, después bloque 7 (aspecto, al final y en solitario) y las releases.
+- **Sesión B** (Desktop/Yomukai-2): bloque 4 — instrucciones en docs/sesiones/B.md. Migraciones 24-27, puerto 8194.
+- **Sesión C** (Desktop/Yomukai-3): bloques 5 y 6 — instrucciones en docs/sesiones/C.md. Migraciones 28-31, puerto 8195.
+- Sesión A: migraciones 32-35, puerto 8193. Solo A publica releases. Emulador: avisar aquí antes de usarlo.
+
 ## PEDIDO 2026-11-10 (feedback `docs/feedback/2026-11-10.pdf`, con capturas)
 Autonomía total (solo preguntar si es irreversible y peligroso: borrar datos de usuarios, reescribir historial). Permiso
 para push a main, ramas, PRs, mergear los míos con CI en verde (los de auto-reparación de fuentes solo si el diff toca
