@@ -222,7 +222,19 @@ class YomukaiApplication : Application(), SingletonImageLoader.Factory {
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =
         ImageLoader.Builder(context)
-            .components { add(OkHttpNetworkFetcherFactory(callFactory = { container.network.imageCallFactory })) }
+            // The connected server's own images (its proxied covers) need the session; any other address goes bare.
+            .components {
+                add(
+                    OkHttpNetworkFetcherFactory(
+                        callFactory = {
+                            okhttp3.Call.Factory { request ->
+                                val cookie = container.serverSync.cookieFor(request.url)
+                                container.network.imageCallFactory.newCall(if (cookie != null) request.newBuilder().header("Cookie", cookie).build() else request)
+                            }
+                        }
+                    )
+                )
+            }
             .memoryCache { MemoryCache.Builder().maxSizePercent(context, 0.25).build() }
             .diskCache {
                 DiskCache.Builder()

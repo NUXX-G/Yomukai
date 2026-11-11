@@ -37,9 +37,19 @@ import kotlinx.coroutines.launch
 @Immutable
 data class SourceProgress(val sourceId: String, val name: String, val isLoading: Boolean = true, val error: String? = null)
 
+/** A work of the connected server's index (O1): one card, opened at once; [sources] says in how many sources it is. */
+@Immutable
+data class WorkHit(
+    val key: String, val title: String, val cover: String, val type: com.nelson.yomukai.domain.model.MediaType,
+    val langs: List<String>, val sources: Int
+)
+
 @Immutable
 data class SearchUiState(
     val query: String = "",
+    /** Works of the server's index that match (first; empty without a server). */
+    val works: List<WorkHit> = emptyList(),
+    val worksLoading: Boolean = false,
     val typeFilter: TypeFilter = TypeFilter.ALL,
     val languageFilter: LanguageFilter = LanguageFilter.ALL,
     val groups: List<SearchGroup> = emptyList(),
@@ -145,8 +155,13 @@ class SearchViewModel(handle: SavedStateHandle, private val container: AppContai
             .filter { s -> s.supportedTypes.any { it in current.typeFilter.types } }
 
         found.clear()
+        val server = container.serverSync.serverUrl != null
         _state.update {
-            it.copy(hasSearched = true, groups = emptyList(), suggestions = emptyList(), sources = sources.map { s -> SourceProgress(s.id, s.name) })
+            it.copy(hasSearched = true, groups = emptyList(), works = emptyList(), worksLoading = server, suggestions = emptyList(), sources = sources.map { s -> SourceProgress(s.id, s.name) })
+        }
+        if (server) viewModelScope.launch(Dispatchers.IO) {
+            val hits = runCatching { searchWorks(query, current.typeFilter) }.getOrDefault(emptyList())
+            _state.update { it.copy(works = hits, worksLoading = false) }
         }
         trusted.clear()
         searchJob = viewModelScope.launch(Dispatchers.IO) {
@@ -183,7 +198,48 @@ class SearchViewModel(handle: SavedStateHandle, private val container: AppContai
         }
     }
 
+    /** The index's works for [query] (O1): by any name, one per work, only what some working source has. */
+    private suspend fun searchWorks(query: String, filter: TypeFilter): List<WorkHit> {
+        val sync = container.serverSync
+        val base = sync.serverUrl?.trimEnd('/') ?: return emptyList()
+        fun enc(s: String) = java.net.URLEncoder.encode(s, Charsets.UTF_8)
+        val type = if (filter == TypeFilter.ALL) "" else "&type=" + filter.types.joinToString(",") { it.name }
+        val answer = sync.api("GET", "/api/obras/buscar?q=${enc(query)}&lang=${enc(com.nelson.yomukai.i18n.I18n.lang)}$type")
+            ?.takeIf { it.isJsonObject }?.asJsonObject?.getAsJsonArray("works") ?: return emptyList()
+        return answer.mapNotNull { e -> e.takeIf { it.isJsonObject }?.asJsonObject }.mapNotNull { w ->
+            fun s(k: String) = w.get(k)?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+            val type = runCatching { com.nelson.yomukai.domain.model.MediaType.valueOf(s("type")) }.getOrNull() ?: return@mapNotNull null
+            val cover = s("cover").let { if (it.startsWith("/")) base + it else it }
+            val langs = w.getAsJsonArray("langs")?.mapNotNull { it.takeIf { x -> x.isJsonPrimitive }?.asString }.orEmpty()
+            WorkHit(s("key"), s("title"), cover, type, langs, w.get("sources")?.takeIf { it.isJsonPrimitive }?.asInt ?: 1)
+        }.take(MAX_WORKS)
+    }
+
+    private val _openWork = MutableStateFlow<MediaItem?>(null)
+
+    /** The page to open for a work the user tapped (consumed by the screen); null while none. */
+    val openWork: StateFlow<MediaItem?> = _openWork.asStateFlow()
+    private val _workError = MutableStateFlow<String?>(null)
+    val workError: StateFlow<String?> = _workError.asStateFlow()
+
+    /** Opens [hit] at once at its best page in the user's language (the server's index says which). */
+    fun openWork(hit: WorkHit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val item = runCatching { com.nelson.yomukai.ui.details.placeOfWork(container, hit.key, hit.type) }.getOrNull()
+            if (item != null) {
+                container.libraryRepository.cacheMedia(item)
+                _openWork.value = item
+            } else {
+                _workError.value = tr("Esta obra aún no tiene fuentes en este idioma.")
+            }
+        }
+    }
+
+    fun workOpened() { _openWork.value = null }
+    fun workErrorShown() { _workError.value = null }
+
     private companion object {
+        const val MAX_WORKS = 30
         const val SOURCE_TIMEOUT_MS = 10_000L
 
         /** Results whose chapter lists are checked in the background once the search ends. */

@@ -48,6 +48,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.nelson.yomukai.data.search.SmartSearch
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.AppViewModelProvider
@@ -67,6 +68,16 @@ fun SearchScreen(
     viewModel: SearchViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // O1: a work of the index tapped opens at once at its page; a work with nothing in this language says so.
+    val openWork by viewModel.openWork.collectAsStateWithLifecycle()
+    LaunchedEffect(openWork) { openWork?.let { onMediaClick(it); viewModel.workOpened() } }
+    val workError by viewModel.workError.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(workError) { workError?.let { android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_SHORT).show(); viewModel.workErrorShown() } }
+    // Source results that are one of the works shown above are not listed again (one work, one card).
+    val shownGroups = state.groups.filter { g ->
+        state.works.none { SmartSearch.normalize(it.title) == SmartSearch.normalize(g.primary.title) }
+    }
     val focusManager = LocalFocusManager.current
     val focusRequester = remember { FocusRequester() }
 
@@ -146,39 +157,13 @@ fun SearchScreen(
 
                 state.sources.isEmpty() -> MessageState(tr("No hay fuentes activas que coincidan con los filtros."))
 
-                state.groups.isEmpty() && !state.isSearching ->
+                state.groups.isEmpty() && state.works.isEmpty() && !state.isSearching && !state.worksLoading ->
                     Column(Modifier.fillMaxSize()) {
                         SourceStatus(state.sources)
                         MessageState(tr("Sin resultados para \"{0}\"", state.query), icon = Icons.Default.Search)
                     }
 
-                else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-                    item(key = "status") { SourceStatus(state.sources) }
-                    items(state.groups, key = { it.primary.sourceId + "|" + it.primary.id }) { group ->
-                        Column {
-                            MediaListRow(group.primary, onClick = { onMediaClick(group.primary) })
-                            if (group.others.isNotEmpty()) {
-                                Text(
-                                    tr("También en:"),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(start = 84.dp)
-                                )
-                                LazyRow(
-                                    contentPadding = PaddingValues(start = 84.dp, end = 16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    items(group.others, key = { it.sourceId + "|" + it.id }) { other ->
-                                        AssistChip(
-                                            onClick = { onMediaClick(other) },
-                                            label = { Text(viewModel.sourceName(other.sourceId)) }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                else -> ResultsList(state, shownGroups, viewModel, onMediaClick)
             }
         }
     }
@@ -242,5 +227,60 @@ private fun SuggestionsAndHistory(
             tr("Busca manga, cómics, novelas y anime en todas las fuentes activas a la vez."),
             icon = Icons.Default.Search
         )
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+}
+
+/** The works of the index first (one card each), then what the sources found that is not one of them. */
+@Composable
+private fun ResultsList(
+    state: SearchUiState,
+    shownGroups: List<com.nelson.yomukai.data.search.SearchGroup>,
+    viewModel: SearchViewModel,
+    onMediaClick: (MediaItem) -> Unit
+) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+        item(key = "status") { SourceStatus(state.sources) }
+        if (state.works.isNotEmpty()) {
+            item(key = "works-hdr") { SectionLabel(tr("Obras")) }
+            items(state.works, key = { "w:" + it.key }) { w ->
+                MediaListRow(
+                    MediaItem(w.key, w.title, w.cover, w.type, "", "", ""),
+                    onClick = { viewModel.openWork(w) },
+                    trailing = {
+                        Text(tr("En {0} fuentes", w.sources), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                )
+            }
+            if (shownGroups.isNotEmpty()) item(key = "src-hdr") { SectionLabel(tr("Por fuente")) }
+        }
+        items(shownGroups, key = { it.primary.sourceId + "|" + it.primary.id }) { group ->
+            Column {
+                MediaListRow(group.primary, onClick = { onMediaClick(group.primary) })
+                if (group.others.isNotEmpty()) {
+                    Text(
+                        tr("También en:"),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 84.dp)
+                    )
+                    LazyRow(
+                        contentPadding = PaddingValues(start = 84.dp, end = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(group.others, key = { it.sourceId + "|" + it.id }) { other ->
+                            AssistChip(
+                                onClick = { onMediaClick(other) },
+                                label = { Text(viewModel.sourceName(other.sourceId)) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
