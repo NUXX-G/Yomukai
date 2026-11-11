@@ -26,8 +26,10 @@ class VideoExtractors(private val network: HttpFetcher) {
         val checked = sources.map { source ->
             async {
                 if (source.isDirect) return@async Checked(listOf(source), usable = true)
+                if (EmbedProbe.isDownloadOnly(source.videoUrl)) return@async Checked(listOf(source), usable = false)
                 val direct = withTimeoutOrNull(20_000) { runCatching { resolve(source) }.getOrNull() }
-                if (direct != null) return@async Checked(listOf(direct, source), usable = true)
+                // Its own page is not offered next to it: those host pages are what sent people to ad sites.
+                if (direct != null) return@async Checked(listOf(direct), usable = true)
                 withTimeoutOrNull(PROBE_TIMEOUT_MS) { runCatching { probe(source) }.getOrNull() } ?: Checked(listOf(source), usable = true)
             }
         }.awaitAll()
@@ -44,7 +46,7 @@ class VideoExtractors(private val network: HttpFetcher) {
      * taken from the page or its packed player script. Dead, sandbox-refusing or still-blocked pages are marked unusable.
      */
     private suspend fun probe(source: VideoSource): Checked {
-        val url = source.videoUrl
+        val url = EmbedProbe.mirrorFor(source.videoUrl)
         if (!url.startsWith("http")) return Checked(listOf(source), usable = true)
         val origin = url.substringBefore("://") + "://" + url.substringAfter("://").substringBefore('/') + "/"
         val html = network.getString(url, mapOf("Referer" to origin))
@@ -56,7 +58,7 @@ class VideoExtractors(private val network: HttpFetcher) {
                 videoUrl = stream, isDirect = true, headers = mapOf("Referer" to origin),
                 quality = source.quality + if ("m3u8" in stream) " • HLS" else " • MP4"
             )
-            return Checked(listOf(direct, source), usable = true)
+            return Checked(listOf(direct), usable = true)
         }
         return Checked(listOf(source), usable = !EmbedProbe.refusesSandbox(html))
     }

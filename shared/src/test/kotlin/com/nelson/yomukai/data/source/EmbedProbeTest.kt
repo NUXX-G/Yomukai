@@ -22,6 +22,31 @@ class EmbedProbeTest {
         assertEquals("https://cdn.example/hls/master.m3u8", EmbedProbe.findStream(packed))
     }
 
+    @Test fun `streamtape link is put together like its page does`() {
+        // As served by streamtape.com/e/… on 2026-11-11.
+        val html = "document.getElementById('robotlink').innerHTML = '//streamtape.c'+ " +
+            "('xcdom/get_video?id=zQxrqv3kXBCYRKa&expires=1794499327&ip=F0uWKRSPKxSHDN&token=PnhT6dlSifCK').substring(2).substring(1);"
+        assertEquals(
+            "https://streamtape.com/get_video?id=zQxrqv3kXBCYRKa&expires=1794499327&ip=F0uWKRSPKxSHDN&token=PnhT6dlSifCK",
+            EmbedProbe.findStream(html)
+        )
+    }
+
+    @Test fun `player pages are not streams, lockers are not players, streamwish goes to its mirror`() {
+        assertNull(EmbedProbe.findStream("<a href='https://streamtape.com/e/zQx/kikkkaaaannns_01.mp4'>x</a>"))
+        assertTrue(EmbedProbe.isDownloadOnly("https://1fichier.com/?h2ngfq8vc7gs0q8dav5v"))
+        assertFalse(EmbedProbe.isDownloadOnly("https://voe.sx/e/abc"))
+        assertEquals("https://swdyu.com/e/d99ip6zwtm5y", EmbedProbe.mirrorFor("https://hgcloud.to/e/d99ip6zwtm5y"))
+        assertEquals("https://voe.sx/e/abc", EmbedProbe.mirrorFor("https://voe.sx/e/abc"))
+    }
+
+    @Test fun `a crafted packed script cannot blow up`() {
+        val huge = "x".repeat(10_000)
+        val words = (0 until 100).joinToString("|") { huge }
+        val payload = (0 until 1_000).joinToString(" ") { (it % 100).toString(36) }
+        assertNull(EmbedProbe.unpack("}('$payload',36,100,'$words'.split('|')"))
+    }
+
     @Test fun `plain players and escaped slashes`() {
         assertEquals("https://v.host/x/index.m3u8?t=1", EmbedProbe.findStream("""sources: [{file:"https:\/\/v.host\/x\/index.m3u8?t=1"}]"""))
         assertNull(EmbedProbe.findStream("<img src='https://v.host/thumb.mp4'>"))
