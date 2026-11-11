@@ -22,6 +22,7 @@ import com.nelson.yomukai.data.source.str
 import com.nelson.yomukai.domain.model.Chapter
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Which chapters and titles a MangaDex source shows. One source per language, so a work's Spanish and English
@@ -66,10 +67,28 @@ class MangaDexSource(private val network: HttpFetcher, private val profile: Mang
         languages.forEach { append("&availableTranslatedLanguage[]=$it") }
     }
 
+    /**
+     * The three MangaDex sources (ES, EN, 中文) share one address and MangaDex allows about 5 requests a second per
+     * IP: over that it answers a short non-JSON «rate limited» text (the canary saw «MalformedJsonException» on two of
+     * them at once). So every request waits its turn ([MangaDexThrottle]) and a refused one is tried again calmly.
+     */
     private suspend fun get(path: String): JsonObject {
-        val root = parseJson(network.getString("$baseUrl$path", headers, cloudflareFallback = false)).asJsonObject
-        if (root.str("result") == "error") error("MangaDex: ${root.arr("errors").objects().firstOrNull()?.str("detail")}")
-        return root
+        var last: Throwable? = null
+        repeat(RETRIES) { attempt ->
+            if (attempt > 0) kotlinx.coroutines.delay(RETRY_WAIT_MS * attempt)
+            MangaDexThrottle.await()
+            val answer = runCatching { parseJson(network.getString("$baseUrl$path", headers, cloudflareFallback = false)).asJsonObject }
+            val root = answer.getOrElse { e ->
+                val limited = e is com.nelson.yomukai.data.source.NotJsonException ||
+                    (e is com.nelson.yomukai.data.network.HttpException && e.code in setOf(429, 502, 503, 504))
+                if (!limited) throw e
+                last = e
+                null
+            } ?: return@repeat
+            if (root.str("result") == "error") error("MangaDex: ${root.arr("errors").objects().firstOrNull()?.str("detail")}")
+            return root
+        }
+        throw last ?: error("MangaDex no responde")
     }
 
     override val filters: List<SourceFilter> = FILTERS
@@ -254,5 +273,25 @@ class MangaDexSource(private val network: HttpFetcher, private val profile: Mang
                 values.selected(FilterKeys.GENRE).forEach { append("&includedTags[]=$it") }
             }
         }
+    }
+}
+
+private const val RETRIES = 4
+private const val RETRY_WAIT_MS = 1_500L
+
+/** One queue for every request to api.mangadex.org from this process: at most ~4 a second (its limit is 5). */
+internal object MangaDexThrottle {
+    private const val GAP_MS = 250L
+    private val lock = kotlinx.coroutines.sync.Mutex()
+    private var next = 0L
+
+    suspend fun await() {
+        val wait = lock.withLock {
+            val now = System.currentTimeMillis()
+            val at = maxOf(now, next)
+            next = at + GAP_MS
+            at - now
+        }
+        if (wait > 0) kotlinx.coroutines.delay(wait)
     }
 }
