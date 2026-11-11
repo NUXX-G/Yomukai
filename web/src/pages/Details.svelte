@@ -8,7 +8,7 @@
   import { coverSeed, themeFor, styleOf } from '../lib/cover.js';
   import { TYPE_NAMES, TYPE_COLORS, parseStatus, statusName, score, monthYear, chapterNoun, AUDIO } from '../lib/format.js';
   import { progressMap, continueTarget, markThrough, markOne } from '../lib/progress.js';
-  import { openRelated } from '../lib/open.svelte.js';
+  import { openRelated, keepInSources } from '../lib/open.svelte.js';
   import { copyRoomLink } from '../lib/party.svelte.js';
   import Icon from '../components/Icon.svelte';
   import MediaCard from '../components/MediaCard.svelte';
@@ -267,7 +267,7 @@
       (e) => { list = { ...list, loading: false, error: e.message }; loadWhole(); }
     );
     progressMap(sourceId, mediaId).then((p) => { progress = p; applyElsewhere(); });
-    api.metadata(sourceId, mediaId).then((m) => (meta = m), () => {}).finally(() => (metaLoading = false));
+    api.metadata(sourceId, mediaId).then(async (m) => { if (m?.relations) m.relations = await keepInSources(m.relations); meta = m; }, () => {}).finally(() => (metaLoading = false));
     api.work(sourceId, mediaId).then((w) => {
       work = w;
       if (anime && w?.title) api.fillers(w.title).then((f) => (fillers = f || {}), () => {});
@@ -289,7 +289,7 @@
     sessionStorage.setItem('details.tab', String(tab));
     if (tab === 1 && !similar) {
       similar = { loading: true, items: [] };
-      api.similar(sourceId, mediaId).then((items) => (similar = { loading: false, items }), () => (similar = { loading: false, items: [] }));
+      api.similar(sourceId, mediaId).then(async (items) => (similar = { loading: false, items: await keepInSources(items) }), () => (similar = { loading: false, items: [] }));
     }
   });
 

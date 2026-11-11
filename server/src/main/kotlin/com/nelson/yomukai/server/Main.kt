@@ -214,7 +214,9 @@ class Services(val config: Config) {
     private val animeCheck: (String) -> Boolean = { id -> sources.get(id) is com.nelson.yomukai.data.source.AnimeSource }
     val social by lazy { Social(db, events, config.dataDir, animeCheck, works::keyOf, notifications::send) }
     val achievements = Achievements(db, events, animeCheck, notifications::send).also { a -> events.onEvent = { user, kind -> a.check(user, kind) } }
-    val discover = Discover(com.nelson.yomukai.data.discovery.AniListDiscover(http), db, catalog, works) { proxy.cover(it, emptyMap()) }
+    val discover = Discover(com.nelson.yomukai.data.discovery.AniListDiscover(http), db, catalog, works) { proxy.cover(it, emptyMap()) }.apply {
+        wanted = { e -> workIndex.want(e.anilistId, e.type, listOf(e.title) + e.names) }
+    }
     val onlineTranslator = OnlineTranslator(http)
     val seasonCalendar = SeasonCalendar(com.nelson.yomukai.data.discovery.AniListDiscover(http), db, discover::decorate, { proxy.cover(it, emptyMap()) })
     val ytdlp = YtDlp(

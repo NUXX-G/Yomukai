@@ -22,7 +22,7 @@ data class DiscoverItemDto(
     val season: String, val year: Int?, val episodes: Int?, val chapters: Int?, val nextEpisode: Int?, val nextAiringAt: Long?,
     val workKey: String?, val sourceId: String?, val mediaId: String?, val popularity: Int? = null
 ) {
-    val available: Boolean get() = sourceId != null
+    val available: Boolean get() = workKey != null || sourceId != null
 }
 
 data class DiscoverRowDto(val id: String, val title: String, val items: List<DiscoverItemDto>)
@@ -41,6 +41,9 @@ class Discover(
     private val image: (String) -> String = { it }
 ) {
     private val log = LoggerFactory.getLogger("Discover")
+
+    /** Told about every AniList title shown that the works index has not confirmed yet (set by the server). */
+    @Volatile var wanted: (DiscoverEntry) -> Unit = {}
     private val cache = ConcurrentHashMap<DiscoverKind, Pair<Long, Map<String, List<DiscoverEntry>>>>()
     private val pending = ConcurrentLinkedDeque<DiscoverEntry>()
     private val checked = ConcurrentHashMap<Int, Long>()
@@ -60,7 +63,7 @@ class Discover(
                 } ?: cached?.second.orEmpty()
         }
         val order = listOf("trending", "season", "releasing", "popular", "top") + AniListDiscover.GENRE_ROWS.map { it.first }
-        return order.mapNotNull { id -> data[id]?.let { DiscoverRowDto(id, TITLES[id] ?: id, decorate(it, lang)) } }
+        return order.mapNotNull { id -> data[id]?.let { DiscoverRowDto(id, TITLES[id] ?: id, decorate(it, lang)) }?.takeIf { it.items.isNotEmpty() } }
     }
 
     suspend fun browse(kind: DiscoverKind, filter: DiscoverFilter, lang: String = "es"): List<DiscoverItemDto> =
@@ -77,17 +80,30 @@ class Discover(
                    WHERE w.anilist_id IN ($marks) ORDER BY s.added_at""", *ids.toTypedArray()
             ) { getInt(1) to Triple(getString(2), getString(3), getString(4)) }
         }.groupBy({ it.first }, { it.second }).mapValues { it.value.first() }
-        return entries.map { e ->
-            val k = known[e.anilistId]
+        // The works index (what the sources really list, without the ones down): the work to open at once.
+        val down = catalog.sources.degraded.keys.filter { id -> id.all { it.isLetterOrDigit() || it == '_' || it == '-' } }
+        val notDown = if (down.isEmpty()) "" else " AND i.source_id NOT IN (" + down.joinToString(",") { "'$it'" } + ")"
+        val indexed = db.tx {
+            query(
+                "SELECT w.anilist_id, w.key FROM works w WHERE w.anilist_id IN ($marks) " +
+                    "AND EXISTS(SELECT 1 FROM index_items i WHERE i.work_key = w.key$notDown)",
+                *ids.toTypedArray()
+            ) { getInt(1) to getString(2) }
+        }.toMap()
+        return entries.mapNotNull { e ->
+            // Pedido 3 / O1: only what is in the sources shows; a title nobody has never makes a card. Not yet confirmed
+            // in the index: asked for, so it shows within minutes if a source has it.
+            val key = indexed[e.anilistId] ?: return@mapNotNull null.also { wanted(e) }
+            val k = known[e.anilistId]?.takeIf { it.first == key } ?: Triple(key, null, null)
             // In Spanish the synopsis of a Spanish source when there is one (found in the background, F7.4).
-            val synopsis = if (lang == "es" && k != null) {
+            val synopsis = if (lang == "es") {
                 spanish[e.anilistId] ?: e.synopsis.also { if (wantSpanish.none { it.first == e.anilistId } && wantSpanish.size < MAX_WANTED) wantSpanish.add(e.anilistId to k.first) }
             } else e.synopsis
             DiscoverItemDto(
                 e.anilistId, e.title, e.names.take(8),
                 e.cover.takeIf { it.isNotBlank() }?.let(image).orEmpty(),
                 e.banner.takeIf { it.isNotBlank() }?.let(image).orEmpty(), e.color, e.genres, e.score, e.format, e.type.name, synopsis, e.status,
-                e.season, e.year, e.episodes, e.chapters, e.nextEpisode, e.nextAiringAt, k?.first, k?.second, k?.third, e.popularity
+                e.season, e.year, e.episodes, e.chapters, e.nextEpisode, e.nextAiringAt, k.first, k.second, k.third, e.popularity
             )
         }
     }

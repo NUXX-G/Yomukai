@@ -13,7 +13,7 @@ import java.nio.file.Files
 
 class WorkIndexTest {
     private val s = Services(Config.fromEnv(mapOf("DATA_DIR" to Files.createTempDirectory("ykindex").toString(), "BACKUPS_ENABLED" to "false")))
-    private val index = WorkIndex(s)
+    private val index = WorkIndex(s).apply { onlyIdentified = false }
 
     private fun item(source: String, id: String, title: String, type: MediaType = MediaType.MANHWA, alt: List<String> = emptyList()) =
         MediaItem(id, title, "https://x/$id.jpg", type, "", "", source, altTitles = alt)

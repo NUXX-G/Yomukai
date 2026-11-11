@@ -141,6 +141,38 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
             }
             return true
         }
+        confirmAs(key, type, names, entry)
+        return true
+    }
+
+    /** A title AniList shows (Home rows, calendar, explorer) that the index has not confirmed yet: confirmed first. */
+    private data class Wanted(val anilistId: Int, val type: MediaType, val names: List<String>)
+
+    private val wanted = java.util.concurrent.ConcurrentLinkedDeque<Wanted>()
+    private val wantedIds = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
+
+    /** O1: queue an AniList title shown somewhere, so its provisional work becomes "al:ID" in minutes, not days. */
+    fun want(anilistId: Int, type: MediaType, names: List<String>) {
+        if (anilistId <= 0 || wanted.size >= MAX_WANTED || !wantedIds.add(anilistId)) return
+        wanted.add(Wanted(anilistId, type, names.filter { it.isNotBlank() }.distinct().take(MAX_LOOKUP_NAMES * 2)))
+    }
+
+    /**
+     * One wanted title: if a provisional work has one of its names, it is confirmed with that AniList id (one AniList
+     * request, by id: no guessing by name). Returns false when there was none waiting.
+     */
+    suspend fun adoptNext(): Boolean {
+        val w = wanted.pollFirst() ?: return false
+        if (byAniList(w.anilistId) != null) return true
+        val key = match(w.type, w.names, null, "es")?.takeIf { it.startsWith("t:") } ?: return true
+        val entry = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { s.aniList.byId(w.anilistId, w.type) }.getOrNull() } ?: return true
+        s.db.tx { update("UPDATE works SET anilist_checked_at = ? WHERE key = ?", clock(), key) }
+        confirmAs(key, w.type, w.names, entry)
+        return true
+    }
+
+    /** Makes the provisional work [key] the AniList work [entry] ("al:ID"), merging it with any work already there. */
+    private suspend fun confirmAs(key: String, type: MediaType, names: List<String>, entry: com.nelson.yomukai.data.discovery.AniListEntry) {
         val newKey = WorkKey.of(type, entry.names.firstOrNull() ?: names.first(), entry.id)
         // The kind comes from AniList's metadata, the site only guessed it: a Korean work a manga site lists is a
         // manhwa (F1.7). Never across families: a novel lookup stays a novel, an anime an anime.
@@ -168,7 +200,6 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         if (entry.banner.isBlank()) kitsuImages(names, type)?.banner?.takeIf { it.isNotBlank() }?.let { banner ->
             s.db.tx { update("UPDATE works SET banner = ? WHERE key = ? AND banner = ''", banner, newKey) }
         }
-        return true
     }
 
     private suspend fun kitsuImages(names: List<String>, type: MediaType) =
@@ -219,13 +250,24 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         groupPending()
         retypeSome()
         var confirmed = 0
+        // What people are shown first (Home rows, calendar, explorer), then the rest by name.
+        while (confirmed < CONFIRMS_PER_TICK && !s.aniList.resting && adoptNext()) {
+            confirmed++
+            delay(ANILIST_PAUSE_MS)
+        }
         while (confirmed < CONFIRMS_PER_TICK && !s.aniList.resting && confirmNext()) {
             confirmed++
             delay(ANILIST_PAUSE_MS)
         }
     }
 
-    /** Sources down now (the canary's, or failing the crawl): their covers are the last choice for a card. */
+    /**
+     * O1: lists and search only show identified works ([IDENTIFIED]). Off only in tests of grouping and search, which
+     * work with names alone.
+     */
+    @Volatile var onlyIdentified = true
+
+    private fun identifiedSql(): String = if (onlyIdentified) IDENTIFIED else "1 = 1"
 
     /**
      * Sources the canary has confirmed down (not a passing failure): a work only there is left out of every list and
@@ -234,6 +276,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
     private fun downSql(): String =
         s.sources.degraded.keys.filter { id -> id.all { it.isLetterOrDigit() || it == '_' || it == '-' } }.joinToString(",") { "'$it'" }.ifEmpty { "''" }
 
+    /** Sources down now (the canary's, or failing the crawl): their covers are the last choice for a card. */
     private fun unhealthySql(): String {
         val now = clock()
         val ids = s.sources.degraded.keys + failures.filterValues { it.second > now }.keys
@@ -355,7 +398,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
                  (SELECT GROUP_CONCAT(DISTINCT i4.lang) FROM index_items i4 WHERE i4.work_key = w.key) AS langs,
                  (SELECT GROUP_CONCAT(DISTINCT i5.audio) FROM index_items i5 WHERE i5.work_key = w.key) AS audios
                FROM works w JOIN index_items i ON i.work_key = w.key AND i.lang = ? AND i.source_id NOT IN (${downSql()})
-               WHERE 1 = 1 ${if (typeFilter != null) "AND w.type IN ($typeFilter)" else ""} ${if (hideAdult) "AND $notAdult" else ""}
+               WHERE ${identifiedSql()} ${if (typeFilter != null) "AND w.type IN ($typeFilter)" else ""} ${if (hideAdult) "AND $notAdult" else ""}
                  ${if (audioFilter != null) "AND i.audio = '$audioFilter'" else ""}
                GROUP BY w.key ORDER BY $order LIMIT ? OFFSET ?""",
             lang, lang, PAGE_SIZE, (page - 1).coerceAtLeast(0) * PAGE_SIZE
@@ -402,7 +445,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
                      (SELECT GROUP_CONCAT(DISTINCT i4.lang) FROM index_items i4 WHERE i4.work_key = w.key) AS langs,
                      (SELECT GROUP_CONCAT(DISTINCT i5.audio) FROM index_items i5 WHERE i5.work_key = w.key) AS audios
                    FROM works w JOIN index_items i ON i.work_key = w.key AND i.source_id NOT IN (${downSql()})
-                   WHERE w.key IN (${keys.joinToString(",") { "?" }}) ${if (hideAdult) "AND $notAdult" else ""} GROUP BY w.key""",
+                   WHERE w.key IN (${keys.joinToString(",") { "?" }}) AND ${identifiedSql()} ${if (hideAdult) "AND $notAdult" else ""} GROUP BY w.key""",
                 lang, *keys.toTypedArray()
             ) { card() }
         }.associateBy { it.key }
@@ -455,6 +498,18 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
     suspend fun byAniList(id: Int): String? = s.db.tx {
         // Only a work some source has (works known only from metadata or a library have nowhere to open).
         queryOne("SELECT w.key FROM works w WHERE w.anilist_id = ? AND EXISTS(SELECT 1 FROM index_items i WHERE i.work_key = w.key) LIMIT 1", id) { getString(1) }
+    }
+
+    /** Of [ids], those a working source has, as AniList id → work key (one query, ids are plain numbers). */
+    suspend fun present(ids: List<Int>): Map<Int, String> {
+        if (ids.isEmpty()) return emptyMap()
+        return s.db.tx {
+            query(
+                """SELECT w.anilist_id, w.key FROM works w WHERE w.anilist_id IN (${ids.joinToString(",") { "?" }})
+                   AND EXISTS(SELECT 1 FROM index_items i WHERE i.work_key = w.key AND i.source_id NOT IN (${downSql()}))""",
+                *ids.toTypedArray()
+            ) { getInt(1) to getString(2) }
+        }.toMap()
     }
 
     /**
@@ -534,8 +589,9 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         private const val GROUP_BATCH = 500
 
         // AniList allows about 30 requests a minute: the index takes a third, people opening works the rest.
-        private const val CONFIRMS_PER_TICK = 10
-        private const val ANILIST_PAUSE_MS = 3_000L
+        private const val CONFIRMS_PER_TICK = 20
+        private const val MAX_WANTED = 500
+        private const val ANILIST_PAUSE_MS = 1_500L
         private const val LOOKUP_TIMEOUT_MS = 10_000L
         private const val MAX_LOOKUP_NAMES = 5
         private const val SEARCH_LIMIT = 40
@@ -610,6 +666,7 @@ fun Route.workIndexRoutes(s: Services) {
     }
     workOfPageRoute(s)
     workFichaRoute(s)
+    presentRoute(s)
 }
 
 private const val MAX_SOURCE_ID = 60
@@ -628,6 +685,18 @@ private fun Route.workOfPageRoute(s: Services) {
         val key = s.workIndex.keyOfPage(sourceId, mediaId)
             ?: return@get call.respond(io.ktor.http.HttpStatusCode.NotFound, mapOf("error" to "Esa obra aún no está en el índice"))
         call.respond(mapOf("key" to key, "lang" to s.workIndex.langOfPage(sourceId, mediaId), "langs" to s.workIndex.langsOf(key)))
+    }
+}
+
+private fun Route.presentRoute(s: Services) {
+    // Pedido 3 / O1: of AniList's ids (Home rows, calendar, related, explorer), which are in the user's sources and as
+    // which work, so a row only shows what can be opened, and opens it at once (never «Buscando en tus fuentes…»).
+    post("/obras/presentes") {
+        if (!s.features.isOn("work_index")) return@post call.respond(io.ktor.http.HttpStatusCode.NotFound, mapOf("error" to "Desactivado por el administrador"))
+        val body = com.google.gson.JsonParser.parseString(call.receiveText().take(MAX_BODY)).asJsonObject
+        val ids = body.getAsJsonArray("ids")?.mapNotNull { e -> e.takeIf { it.isJsonPrimitive }?.asString?.toIntOrNull()?.takeIf { it > 0 } }
+            .orEmpty().distinct().take(MAX_PRESENT_IDS)
+        call.respond(mapOf("present" to s.workIndex.present(ids)))
     }
 }
 
@@ -695,11 +764,19 @@ internal fun orderWorkPlaces(
         .thenBy { wanted == null && (audios[it] ?: "ORIGINAL") != "ORIGINAL" }
 )
 
+/**
+ * O1: one work, one card, and only works that are known. Anime, manga, manhwa and manhua show once AniList has
+ * confirmed them ("al:ID"): until then two names of one work could be two cards, and a title AniList does not know
+ * (a fan work, a mislabeled upload) stays out. Western comics and novels, which AniList barely covers, still show.
+ */
+internal const val IDENTIFIED = "(w.key LIKE 'al:%' OR w.type IN ('COMIC', 'NOVEL'))"
+
 private const val MAX_PAGE = 500
 private const val MAX_BODY = 8_000
 private const val MAX_NAME = 200
 private const val MAX_QUERY = 100
 private const val MAX_KEY = 300
+private const val MAX_PRESENT_IDS = 200
 private const val FICHA_WAIT_MS = 8_000L
 
 /** Admin: how far the index has gone in each source, and starting it over. */
