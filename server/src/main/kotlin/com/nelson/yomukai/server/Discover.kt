@@ -47,7 +47,7 @@ class Discover(
 
     /** AniList id → the synopsis in Spanish, from a Spanish source of the same work (AniList's is in English). */
     private val spanish = ConcurrentHashMap<Int, String>()
-    private val wantSpanish = ConcurrentLinkedDeque<Int>()
+    private val wantSpanish = ConcurrentLinkedDeque<Pair<Int, String>>()
 
     suspend fun rows(kind: DiscoverKind, lang: String = "es"): List<DiscoverRowDto> {
         val now = System.currentTimeMillis()
@@ -81,7 +81,7 @@ class Discover(
             val k = known[e.anilistId]
             // In Spanish the synopsis of a Spanish source when there is one (found in the background, F7.4).
             val synopsis = if (lang == "es" && k != null) {
-                spanish[e.anilistId] ?: e.synopsis.also { if (e.anilistId !in wantSpanish && wantSpanish.size < MAX_WANTED) wantSpanish.add(e.anilistId) }
+                spanish[e.anilistId] ?: e.synopsis.also { if (wantSpanish.none { it.first == e.anilistId } && wantSpanish.size < MAX_WANTED) wantSpanish.add(e.anilistId to k.first) }
             } else e.synopsis
             DiscoverItemDto(
                 e.anilistId, e.title, e.names.take(8),
@@ -95,15 +95,16 @@ class Discover(
     /** A few Spanish synopses at a time, from the details of a Spanish source of the work (kept for the session). */
     suspend fun localizeSome() {
         repeat(SYNOPSES_PER_STEP) {
-            val id = wantSpanish.pollFirst() ?: return
+            val (id, key) = wantSpanish.pollFirst() ?: return
             if (spanish.containsKey(id)) return@repeat
+            // Every page of the work (joined to it, or in the index under it), only those of a Spanish source.
             val pages = db.tx {
                 query(
-                    """SELECT i.source_id, i.media_id FROM works w JOIN index_items i ON i.work_key = w.key
-                       WHERE w.anilist_id = ? AND i.lang = 'es' ORDER BY i.updated_at DESC LIMIT 3""",
-                    id
+                    """SELECT source_id, media_id FROM work_sources WHERE work_key = ?
+                       UNION SELECT source_id, media_id FROM index_items WHERE work_key = ? AND lang = 'es'""",
+                    key, key
                 ) { getString(1) to getString(2) }
-            }
+            }.filter { (s, _) -> catalog.sources.get(s)?.language.equals("ES", ignoreCase = true) }.take(PAGES_PER_WORK)
             for ((s, m) in pages) {
                 val text = withTimeoutOrNull(SYNOPSIS_WAIT_MS) { catalog.media(s, m).getOrNull() }?.description?.let(::plainSynopsis).orEmpty()
                 if (text.length >= MIN_SYNOPSIS) { spanish[id] = text; break }
@@ -129,6 +130,7 @@ class Discover(
     companion object {
         private const val TTL_MS = 6 * 3_600_000L
         private const val MAX_WANTED = 200
+        private const val PAGES_PER_WORK = 3
         private const val SYNOPSES_PER_STEP = 4
         private const val SYNOPSIS_WAIT_MS = 8_000L
         private const val MIN_SYNOPSIS = 40
