@@ -260,7 +260,12 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
 
     private suspend fun download(url: String, headers: Map<String, String>): Pair<ByteArray, String>? = downloadLimit.withPermit {
         val cached = imageCache.get(url)
-        cached ?: withContext(Dispatchers.IO) {
+        // A total deadline: a site that trickles bytes never keeps its turn (and the shared download) forever.
+        cached ?: withTimeoutOrNull(DOWNLOAD_DEADLINE_MS) { fetchFromSite(url, headers) }
+    }
+
+    private suspend fun fetchFromSite(url: String, headers: Map<String, String>): Pair<ByteArray, String>? =
+        withContext(Dispatchers.IO) {
             val request = Request.Builder().url(url)
                 .header("User-Agent", headers["User-Agent"] ?: http.userAgentFor(url.toHttpUrlOrNull()?.host.orEmpty()))
                 .header("Accept", "image/avif,image/webp,image/*,*/*;q=0.8")
@@ -279,8 +284,7 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
                 if (body.size > MAX_IMAGE_BYTES) return@withContext null
                 body to type.ifBlank { "image/jpeg" }
             }
-        }?.also { if (cached == null) imageCache.put(url, it.first, it.second) }
-    }
+        }?.also { imageCache.put(url, it.first, it.second) }
 
     /** Counts a download as one of the user's open videos; false when a guest already has too many. */
     fun openStream(user: User): Boolean {
@@ -420,6 +424,7 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
         private const val SHRINK_PARALLEL = 2
         private const val SHRINK_MAX_QUEUED = 64
         private const val DOWNLOAD_PARALLEL = 24
+        private const val DOWNLOAD_DEADLINE_MS = 45_000L
         private const val IMAGE_WAIT_MS = 10_000L
         private const val WARM_MAX_QUEUED = 240
         private const val RECENT_WIDTH_MS = 30 * 60_000L
