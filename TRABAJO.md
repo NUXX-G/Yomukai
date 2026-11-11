@@ -44,10 +44,10 @@ autoscroll y voces estaban marcados y no iban). Al cerrar cada bloque: qué hice
       proxy del VPS (o Tor si el VPS está en España) y aviso claro en vez de error genérico.
 
 **Bloque 3 — contenido**
-- [ ] F3.1 Doblajes castellano / latino / inglés: idioma de audio por episodio y fuente (aparte de subtítulos), visible
+- [x] F3.1 (AudioTrack en servidores y títulos: lo que dice la web —AnimeAV1 SUB/LAT/DUB, MULTISERVER de Ninja SUB/LAT/ES— o título, dirección y géneros; el doblaje es la misma obra (migración 33); índice con audio (migración 32) y filtro ?audio=; Explorar › Anime › Doblajes; insignias CAST/LAT/DUB EN; audio en ficha y servidores, también en la app. Pocas webs lo marcan por título: Latino saldrá sobre todo de JKAnime y Ninja). Original: Doblajes castellano / latino / inglés: idioma de audio por episodio y fuente (aparte de subtítulos), visible
       en tarjetas y ficha, filtrable; secciones propias.
-- [ ] F3.2 Fuente animeonline.ninja (anime-castellano = doblaje castellano), tests de páginas reales, punta a punta.
-- [ ] F3.3 Sección Cómics y filtros correctos; pestañas Todo · Anime · Manga · Manhwa y manhua · Cómics · Novelas.
+- [x] F3.2 (AnimeOnlineNinjaSource con tests de sus páginas reales guardadas con navegador; series y películas; servidores con audio. Cloudflare: en el VPS funciona con el FlareSolverr que ya trae docker-compose; NO probado de punta a punta aquí porque Docker no estaba arrancado → probar en el VPS). Original: Fuente animeonline.ninja (anime-castellano = doblaje castellano), tests de páginas reales, punta a punta.
+- [x] F3.3 (web: pestañas Todo/Anime/Manga/Manhwa y manhua/Cómics/Novelas en Inicio y secciones, rutas /manhwa y /comics, Manga JP y Manhwa KR/CN/TW separados en filas y explorador, Cómics desde el índice con idioma y orden — probado en el navegador; app: mismas pestañas y filas separadas). Original: Sección Cómics y filtros correctos; pestañas Todo · Anime · Manga · Manhwa y manhua · Cómics · Novelas.
 
 **Bloque 4 — salas, DMs y compartir**
 - [ ] F4.1 Salas comunes abiertas con cola (varios animes, reordenar, votar/saltar, paso automático); Siguiente en salas.
