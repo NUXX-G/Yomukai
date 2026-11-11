@@ -3,7 +3,7 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
-**AHORA (2026-11-12): v2.7.0 (pre-release, migración 34) PUBLICADA en GitHub con las prioridades del usuario: O1-O4, F1-F4, V1, selector de versión (web y app), app con servidores resueltos por el servidor. Después de la etiqueta (irá en la 2.7.1/2.8.0): búsqueda de la app por OBRAS (sección «Obras» primero, portadas del servidor con sesión). Probado: web en navegador; app en el emulador conectada al servidor local (Inicio solo obras, búsqueda «Obras», ficha One Piece con chips, servidores castellano primero, red 200/206). El VÍDEO en el emulador NO se pudo ver: su decodificador está roto (Codec2 error 14, ver memoria), no es de la app. SIGUIENTE: feedback del usuario tras actualizar el VPS; Filemoon/Byse y savefiles siguen en iframe; bajar a debug o quitar las trazas YomukaiVideo/YomukaiPlayer cuando no hagan falta; versión 2.7.1 con la búsqueda por obras de la app.**
+**AHORA (2026-11-12): el usuario probó la v2.7.0 («no está mal, han mejorado cositas, pero sigue algo pocho»). PEDIDO 2026-11-12 (máxima prioridad, en este orden): ver la lista «PEDIDO 2026-11-12» abajo. Trabajando en ello.**
 
 ### ⚠️ PRIORIDADES DEL USUARIO 2026-11-11 (noche) — MANDAN SOBRE TODO LO DEMÁS, EN ESTE ORDEN
 Tras probar la app 5 minutos: «hay muchos más fallos». Trabajar autónomo, commits pequeños y push a menudo.
@@ -39,6 +39,24 @@ P2 — fuentes (scrapear mejor: hacer lo que haga falta para conseguir capítulo
 P3 — velocidad e imagen
 - [x] V1 (pantalla de carga espera a las portadas de Inicio, máx. 4 s; descargas con plazo total de 45 s y 24 a la vez. Causa: la cola de reducir imágenes tenía 1 hueco y lo ocupaba durante la descarga → portadas en fila; ahora descarga en paralelo, 2 huecos de CPU, original al momento si la cola está ocupada, 10 s máximo y luego la miniatura; medido 7,1 s → 0,65 s. FALTA: la pantalla de carga precargando las portadas de Inicio) Portadas: unas cargan y otras no, o tardan ~1 min; se ve horrible. La animación de entrada debe servir para
       precargar el máximo de portadas. Revisar el proxy /api/img (tiempos, caché, concurrencia, fallback a otra portada).
+
+### PEDIDO 2026-11-12 (tras probar la v2.7.0) — MÁXIMA PRIORIDAD
+- [ ] P1 **Doblaje: fuera como categoría.** Entró en un «castellano» y el audio era japonés con subtítulos (el audio de una
+      página NO es fiable: Ninja marca toda la lista «anime-castellano»). Quitar las secciones/pestañas de doblaje
+      (Explorar › Anime › Doblajes) y el selector de versión por doblaje; dejar SOLO una etiqueta (CAST/LAT) en
+      tarjetas/servidores cuando la web lo diga por servidor. Si algún día se puede comprobar de verdad (metadatos del
+      host, huella de audio en el worker), volver a ello; hoy no. Golden Boy (castellano) sí iba.
+- [ ] P2 **Leviathan da error**: «HTTP 404 en https://api.manhwaweb.com/chapters/see/leviatan_1727741041911-9». Revisar
+      ManhwaWeb (ids de capítulo / endpoint cambiado); test con JSON real.
+- [ ] P3 **Manhwa y manhua casi vacío**: «2 en populares, 2 en romance…», queda feo y poco profesional, y un manhwa de
+      romance que SÍ está en el buscador no sale en la portada de manhwas. Las filas de manga/manhwa deben llenarse
+      desde el índice de obras (por tipo, popularidad, género), no solo AniList filtrado; si una fila tiene menos de N,
+      rellenar o no enseñarla.
+- [ ] P4 **Calidad máxima siempre** en manhwas y todo lo que se lee: el lector debe pedir la página a tamaño original
+      (o el mayor disponible), nunca reducida por el proxy; comprobar `w=` del lector web y app.
+- [ ] P5 **Pantalla de carga con curiosidades**: las portadas tardaron ~10 s la primera vez y luego todo «de puta
+      madre». Alargar la carga SOLO la primera vez (10-15 s) mostrando curiosidades aleatorias de anime/manga para leer
+      mientras cargan las portadas; después (caché) entrar rápido.
 
 ### PEDIDO DEL USUARIO 2026-11-11 (tarde) — NO PERDER
 1. **Paleta**: blanco y negro tipo manga + UN solo color (brasa `#ff5a1f`). Máximo 3 colores en total. HECHO en
