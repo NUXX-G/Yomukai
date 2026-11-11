@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Immutable
 data class DetailsUiState(
@@ -59,7 +60,10 @@ data class DetailsUiState(
     /** Chapter the primary button should open, plus whether the user has started reading. */
     val continueTarget: Pair<ChapterEntity, Boolean>? get() {
         if (chapters.isEmpty()) return null
-        val last = chapters.filter { it.lastReadAt > 0 }.maxByOrNull { it.lastReadAt } ?: return chapters.first() to false
+        // Read only in another source or language of the work (no date here): after the furthest one (F1.5).
+        val last = chapters.filter { it.lastReadAt > 0 }.maxByOrNull { it.lastReadAt }
+            ?: chapters.filter { it.read }.maxByOrNull { it.sortIndex }
+            ?: return chapters.first() to false
         if (!last.read) return last to true
         val next = chapters.firstOrNull { it.sortIndex > last.sortIndex && !it.read }
         return (next ?: last) to true
@@ -201,6 +205,9 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
         all to selected.toSet()
     }
 
+    /** Chapter numbers read in another source or language of the same work (shown as read here, F1.5). */
+    private val readElsewhere = MutableStateFlow<Set<String>>(emptySet())
+
     val state: StateFlow<DetailsUiState> = combine(
         repo.observeMedia(sourceId, mediaId),
         repo.observeChapters(sourceId, mediaId),
@@ -221,6 +228,9 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
             categories = categories,
             selectedCategoryIds = selected
         )
+    }.combine(readElsewhere) { st, elsewhere ->
+        if (elsewhere.isEmpty()) st
+        else st.copy(chapters = st.chapters.map { c -> if (!c.read && com.nelson.yomukai.data.work.numberKey(c.number) in elsewhere) c.copy(read = true) else c })
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DetailsUiState(sourceName = source?.name.orEmpty()))
 
     private val _metadata = MutableStateFlow<TitleMetadata?>(null)
@@ -272,6 +282,40 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
         refresh()
         loadMetadata()
         loadWork()
+        loadLanguages()
+    }
+
+    /** The work in the index and its languages (with a server): chips to switch edition, F1.5. */
+    data class WorkLanguages(val key: String, val lang: String, val langs: List<String>)
+
+    private val _languages = MutableStateFlow<WorkLanguages?>(null)
+    val languages: StateFlow<WorkLanguages?> = _languages
+
+    private fun enc(s: String) = java.net.URLEncoder.encode(s, Charsets.UTF_8).replace("+", "%20")
+
+    private fun loadLanguages() {
+        if (container.serverSync.serverUrl == null) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val o = runCatching { container.serverSync.api("GET", "/api/obras/de?s=${enc(sourceId)}&id=${enc(mediaId)}") }
+                .onFailure { if (it is CancellationException) throw it }.getOrNull()?.takeIf { it.isJsonObject }?.asJsonObject ?: return@launch
+            val key = o.get("key")?.takeIf { it.isJsonPrimitive }?.asString ?: return@launch
+            val langs = o.getAsJsonArray("langs")?.mapNotNull { it.takeIf { e -> e.isJsonPrimitive }?.asString }.orEmpty()
+            val lang = o.get("lang")?.takeIf { it.isJsonPrimitive }?.asString ?: source?.language?.lowercase().orEmpty()
+            if (langs.size > 1) _languages.value = WorkLanguages(key, lang, langs)
+        }
+    }
+
+    /** The page of this work to open in [lang] (the one you already follow there first), as the server's index says. */
+    suspend fun pageIn(lang: String): MediaItem? = withContext(Dispatchers.IO) {
+        val key = _languages.value?.key ?: return@withContext null
+        val o = runCatching { container.serverSync.api("GET", "/api/obras/ficha/${enc(key)}?lang=${enc(lang)}&light=1") }
+            .onFailure { if (it is CancellationException) throw it }.getOrNull()?.takeIf { it.isJsonObject }?.asJsonObject ?: return@withContext null
+        val first = o.getAsJsonArray("sources")?.firstOrNull { it.isJsonObject && container.sourceManager.get(it.asJsonObject.get("sourceId")?.asString.orEmpty()) != null }
+            ?.asJsonObject ?: return@withContext null
+        val s = first.get("sourceId").asString
+        val m = first.get("mediaId").asString
+        val type = container.sourceManager.get(s)?.supportedTypes?.firstOrNull() ?: com.nelson.yomukai.domain.model.MediaType.MANGA
+        repo.getMedia(s, m)?.toDomain() ?: MediaItem(m, mediaItem()?.title.orEmpty(), "", type, "", "", s)
     }
 
     private val _extras = MutableStateFlow<List<ChapterEntity>>(emptyList())
@@ -317,6 +361,8 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
         val whole = runCatching { container.serverSync.api("GET", "/api/works/whole?s=${enc(sourceId)}&id=${enc(mediaId)}") }
             .onFailure { if (it is CancellationException) throw it }.getOrNull()?.asJsonObject ?: return
         val chapters = whole.getAsJsonObject("chapters")?.getAsJsonArray("chapters") ?: return
+        // What the server knows was read in any page of the work, in any language.
+        readElsewhere.update { it + chapters.mapNotNull { e -> e.takeIf { it.isJsonObject }?.asJsonObject?.takeIf { o -> o.get("read")?.asBoolean == true }?.get("key")?.asString } }
         val places = chapters.mapNotNull { e ->
             val o = e.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
             val s = o.get("sourceId")?.asString ?: return@mapNotNull null
@@ -334,11 +380,15 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
     }
 
     private suspend fun mergeSisters(sisters: List<Pair<String, String>>) {
+        // Every page of the work knows the others (the player's «Siguiente» continues in a sister source).
+        val pages = (listOf(sourceId to mediaId) + sisters).distinct()
+        pages.forEach { page -> container.workSisters["${page.first}|${page.second}"] = pages - page }
         fun key(n: Float) = com.nelson.yomukai.data.work.numberKey(n)
         val own = repo.getChapters(sourceId, mediaId).filter { it.number > 0f }.map { key(it.number) }.toSet()
         // Sources in the language of this one first: a missing chapter comes in the language the user reads.
         val language = source?.language
         val ordered = sisters.sortedBy { if (container.sourceManager.get(it.first)?.language == language) 0 else 1 }
+        readElsewhere.update { it + ordered.flatMap { (s, m) -> repo.getChapters(s, m) }.filter { it.read && it.number > 0f }.map { key(it.number) } }
         _extras.value = ordered.flatMap { (s, m) -> repo.getChapters(s, m) }
             .filter { it.number > 0f && key(it.number) !in own }
             .distinctBy { key(it.number) }

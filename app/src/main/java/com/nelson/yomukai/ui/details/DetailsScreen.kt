@@ -92,6 +92,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -102,6 +103,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -136,6 +138,7 @@ import com.nelson.yomukai.ui.components.TypeBadge
 import com.nelson.yomukai.ui.components.rememberImageRequest
 import com.nelson.yomukai.ui.discover.RelatedCard
 import com.nelson.yomukai.ui.theme.CoverTheme
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -332,6 +335,7 @@ private fun DetailsContent(
             LazyColumn(Modifier.fillMaxSize(), state = listState) {
                 item(key = "header") {
                     Header(state, metadata, insights, onToggleLibrary = viewModel::toggleLibrary)
+                    WorkLanguageChips(viewModel, onOpenMedia)
                     if (media.inLibrary) {
                         LibraryControls(
                             state = state,
@@ -433,6 +437,32 @@ private fun DetailsContent(
 /** "2023" style date of the newest chapter, for the abandonment note. */
 private fun formatMonthYear(epochMs: Long): String =
     SimpleDateFormat("MMMM 'de' yyyy", Locale.forLanguageTag("es")).format(Date(epochMs))
+
+/** The same work in other languages (Español / English…): one tap opens it there, progress included (F1.5). */
+@Composable
+private fun WorkLanguageChips(viewModel: DetailsViewModel, onOpenMedia: (MediaItem) -> Unit) {
+    val languages by viewModel.languages.collectAsStateWithLifecycle()
+    val work = languages ?: return
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        work.langs.forEach { lang ->
+            FilterChip(
+                selected = lang == work.lang,
+                onClick = {
+                    if (lang != work.lang) scope.launch {
+                        val page = viewModel.pageIn(lang)
+                        if (page != null) onOpenMedia(page)
+                        else android.widget.Toast.makeText(context, tr("Esta obra aún no tiene fuentes en este idioma."), android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                },
+                label = { Text(LANGUAGE_NAMES[lang] ?: lang.uppercase()) }
+            )
+        }
+    }
+}
+
+private val LANGUAGE_NAMES = mapOf("es" to "Español", "en" to "English", "zh" to "中文", "ja" to "日本語", "ko" to "한국어", "fr" to "Français", "pt" to "Português")
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

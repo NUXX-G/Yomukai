@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.FormatSize
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Pause
@@ -113,6 +114,8 @@ private fun NovelFont.family() = when (this) {
 @Composable
 fun NovelReaderScreen(
     onBack: () -> Unit,
+    /** The work's page, always one tap away (F1.3). */
+    onOpenDetails: (() -> Unit)? = null,
     viewModel: NovelReaderViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -509,6 +512,9 @@ fun NovelReaderScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Volver"), tint = textColor) }
+                    if (onOpenDetails != null) {
+                        IconButton(onClick = onOpenDetails) { Icon(Icons.Default.Info, tr("Ir a la ficha"), tint = textColor) }
+                    }
                     Column(Modifier.weight(1f)) {
                         Text(state.mediaTitle, color = textColor, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(

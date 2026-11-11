@@ -38,6 +38,7 @@ import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.PlayArrow
@@ -116,12 +117,20 @@ fun AnimePlayerScreen(
     onBackClick: () -> Unit = {},
     onOpenWeb: (String) -> Unit = {},
     onOpenRoomEpisode: (String, String, String, String) -> Unit = { _, _, _, _ -> },
+    /** «Siguiente» goes on in another source of the same work: (sourceId, mediaId, chapterId, room code or ""). */
+    onOpenEpisode: (String, String, String, String) -> Unit = { _, _, _, _ -> },
+    /** The work's page (F1.3). */
+    onOpenDetails: (() -> Unit)? = null,
     viewModel: AnimePlayerViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val context = LocalContext.current
     val ui by viewModel.state.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val episodes by viewModel.chapterList.collectAsStateWithLifecycle()
+    val nextUp by viewModel.next.collectAsStateWithLifecycle()
+    LaunchedEffect(viewModel) {
+        viewModel.openNext.collect { (s, m, c) -> onOpenEpisode(s, m, c, viewModel.party.value?.code.orEmpty()) }
+    }
     val playing = ui.playing
 
     val resizeModes = listOf(
@@ -393,7 +402,7 @@ fun AnimePlayerScreen(
                 Spacer(Modifier.width(6.dp))
                 Text(
                     when {
-                        inEnding -> if (viewModel.hasNext()) tr("Siguiente episodio") else tr("Saltar ending")
+                        inEnding -> if (nextUp != null) tr("Siguiente episodio") else tr("Saltar ending")
                         inOpening -> tr("Saltar opening")
                         else -> tr("Saltar opening (85 s)")
                     }
@@ -431,6 +440,11 @@ fun AnimePlayerScreen(
                             contentDescription = tr("Volver"),
                             tint = Color.White
                         )
+                    }
+                    if (onOpenDetails != null && viewModel.hasEpisodeContext) {
+                        IconButton(onClick = onOpenDetails) {
+                            Icon(Icons.Default.Info, contentDescription = tr("Ir a la ficha"), tint = Color.White)
+                        }
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
@@ -616,7 +630,7 @@ fun AnimePlayerScreen(
                             Switch(checked = settings.playerAutoSkip, onCheckedChange = viewModel::setAutoSkip)
                             Text(tr("Auto"), color = Color.White, fontSize = 12.sp)
                             Switch(checked = settings.playerAutoNext, onCheckedChange = viewModel::setAutoNext)
-                            if (viewModel.hasNext()) {
+                            if (nextUp != null) {
                                 Button(onClick = { viewModel.playNext() }) {
                                     Icon(Icons.Default.SkipNext, null, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(4.dp))

@@ -59,7 +59,16 @@ internal fun RoomSync(party: PartyClient, exo: ExoPlayer, viewModel: AnimePlayer
     val applyingUntil = remember { longArrayOf(0L) }
     fun follow(state: PartyState, byServer: Boolean) {
         if (party.room.value.isHost && !byServer) return
-        if (state.chapterId != chapterId) { viewModel.followRoomEpisode(state); return }
+        if (state.chapterId != chapterId) {
+            // Whoever drives moved on (Siguiente) and the room still says the old episode: the room catches up with
+            // them, never the other way round (F1.1). The others follow.
+            if (party.room.value.isHost || viewModel.movedHere(chapterId)) {
+                viewModel.partyState(exo.currentPosition / MS, exo.playWhenReady, exo.playbackParameters.speed.toDouble())?.let(party::sendState)
+                return
+            }
+            viewModel.followRoomEpisode(state)
+            return
+        }
         if (exo.playbackState != Player.STATE_READY) return
         val fix = PartySync.correction(exo.currentPosition / MS, PartySync.expectedPosition(state, party.serverNow()), state.speed)
         applyingUntil[0] = System.currentTimeMillis() + APPLY_MS
@@ -78,7 +87,8 @@ internal fun RoomSync(party: PartyClient, exo: ExoPlayer, viewModel: AnimePlayer
             if (!room.isHost) room.state?.let { follow(it, byServer = false) }
         }
     }
-    DisposableEffect(party, exo) {
+    DisposableEffect(party, exo, chapterId) {
+        // Each new episode is announced once it plays (Siguiente keeps the same player and room).
         var announced = false
         fun share() {
             if (!party.room.value.canControl || System.currentTimeMillis() < applyingUntil[0]) return

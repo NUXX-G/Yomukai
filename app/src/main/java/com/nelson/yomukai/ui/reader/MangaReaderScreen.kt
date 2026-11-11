@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.BrokenImage
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
@@ -116,6 +117,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun MangaReaderScreen(
     onBack: () -> Unit,
+    /** The work's page, always one tap away (F1.3). */
+    onOpenDetails: (() -> Unit)? = null,
     viewModel: MangaReaderViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -340,6 +343,11 @@ fun MangaReaderScreen(
             ) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Volver"), tint = Color.White)
+                }
+                if (onOpenDetails != null) {
+                    IconButton(onClick = onOpenDetails) {
+                        Icon(Icons.Default.Info, contentDescription = tr("Ir a la ficha"), tint = Color.White)
+                    }
                 }
                 Column(Modifier.weight(1f)) {
                     Text(

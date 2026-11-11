@@ -118,6 +118,9 @@ class AppContainer(context: Context) {
 
     /** The watch-party room this phone is in: any player opened meanwhile joins it. */
     val activeRoom = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+
+    /** "source|media" → the same work's pages in other sources (known by its page), so «Siguiente» can go on there. */
+    val workSisters = java.util.concurrent.ConcurrentHashMap<String, List<Pair<String, String>>>()
     val deviceVoices by lazy { com.nelson.yomukai.data.speech.DeviceVoices(context) { network.client } }
     val videoOffline = VideoOffline(context, network).also { v -> v.sessionFor = { url -> serverSync.cookieFor(url) } }
     val downloadManager = DownloadManager(context, database, sourceManager, network, applicationScope, preferences, videoOffline)

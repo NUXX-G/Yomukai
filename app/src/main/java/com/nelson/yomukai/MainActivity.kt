@@ -352,7 +352,7 @@ fun YomukaiApp(
                 navArgument(Routes.ARG_CHAPTER) { type = NavType.StringType }
             )
             composable(Routes.MANGA_READER, arguments = readerArgs) {
-                MangaReaderScreen(onBack = { navController.popBackStack() })
+                MangaReaderScreen(onBack = { navController.popBackStack() }, onOpenDetails = { openDetails(navController, it) })
             }
             composable(
                 Routes.WEB_CAPTURE,
@@ -369,7 +369,7 @@ fun YomukaiApp(
                 QuickReaderScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.NOVEL_READER, arguments = readerArgs) {
-                NovelReaderScreen(onBack = { navController.popBackStack() })
+                NovelReaderScreen(onBack = { navController.popBackStack() }, onOpenDetails = { openDetails(navController, it) })
             }
             composable(
                 Routes.ANIME_PLAYER,
@@ -391,6 +391,11 @@ fun YomukaiApp(
                         navController.popBackStack()
                         navController.navigate(Routes.animePlayer("", tr("Anime"), sourceId = s, mediaId = m, chapterId = c, sala = sala))
                     },
+                    onOpenEpisode = { s, m, c, sala ->
+                        navController.popBackStack()
+                        navController.navigate(Routes.animePlayer("", tr("Anime"), sourceId = s, mediaId = m, chapterId = c, sala = sala))
+                    },
+                    onOpenDetails = { openDetails(navController, it) },
                     onOpenWeb = { navController.navigate(Routes.webCapture(it)) }
                 )
             }
@@ -412,6 +417,21 @@ fun YomukaiApp(
             onDismiss = { episodeServers = null }
         )
     }
+}
+
+/**
+ * The work's page from a player or reader (F1.3): back to it when it is right underneath (opened from there),
+ * otherwise opened on top (from «Continuar», a notice, a room).
+ */
+private fun openDetails(nav: NavHostController, entry: androidx.navigation.NavBackStackEntry) =
+    openDetails(nav, entry.arguments?.getString("sourceId").orEmpty(), entry.arguments?.getString("mediaId").orEmpty())
+
+private fun openDetails(nav: NavHostController, sourceId: String, mediaId: String) {
+    if (sourceId.isBlank() || mediaId.isBlank()) return
+    val below = nav.previousBackStackEntry
+    val same = below?.destination?.route == Routes.DETAILS &&
+        below.arguments?.getString("sourceId") == sourceId && below.arguments?.getString("mediaId") == mediaId
+    if (same) nav.popBackStack() else nav.navigate(Routes.details(sourceId, mediaId))
 }
 
 private data class EpisodeServers(

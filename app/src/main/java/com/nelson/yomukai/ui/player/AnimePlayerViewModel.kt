@@ -152,6 +152,8 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
                     chapters = repo.getChapters(sourceId, mediaId)
                 }
                 val chapter = chapterId?.let { repo.getChapter(sourceId, it) }
+                updateNext()
+                launch { loadSisters() }
                 // Without a video yet (a room's episode): resolve it here like any other episode.
                 if (chapter != null && _state.value.playing.videoUrl.isBlank()) { playEpisode(chapter); return@launch }
                 if (chapter != null) {
@@ -245,11 +247,72 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
 
     private fun currentChapter(): ChapterEntity? = chapterById(_state.value.playing.chapterId)
 
-    val nextEpisode: ChapterEntity? get() = currentChapter()?.let { chapters.getOrNull(it.sortIndex + 1) }
+    private val _next = MutableStateFlow<com.nelson.yomukai.data.work.EpisodeRef?>(null)
 
-    fun hasNext(): Boolean = nextEpisode != null
+    /**
+     * What «Siguiente» opens: the next number of the work, from this source or, when it stops, from a sister source
+     * of the same work (F1.1; same rule as the web). Reactive, so the button appears once the lists are loaded.
+     */
+    val next: StateFlow<com.nelson.yomukai.data.work.EpisodeRef?> = _next.asStateFlow()
 
-    fun playNext() = nextEpisode?.let(::playEpisode)
+    /** Another source's episode to open (the screen opens a player there). (sourceId, mediaId, chapterId) */
+    private val _openNext = kotlinx.coroutines.flow.MutableSharedFlow<Triple<String, String, String>>(extraBufferCapacity = 1)
+    val openNext: kotlinx.coroutines.flow.SharedFlow<Triple<String, String, String>> = _openNext
+
+    private var sisterEpisodes: List<com.nelson.yomukai.data.work.EpisodeRef> = emptyList()
+
+    private fun ChapterEntity.ref() = com.nelson.yomukai.data.work.EpisodeRef(sourceId, mediaId, chapterId, number, sortIndex)
+
+    private fun updateNext() {
+        val current = currentChapter() ?: run { _next.value = null; return }
+        _next.value = com.nelson.yomukai.data.work.NextEpisode.pick(current.ref(), chapters.map { it.ref() }, sisterEpisodes)
+    }
+
+    /** The sister sources' episodes: known from the work's page, or (connected) from the server. */
+    private suspend fun loadSisters() {
+        val known = container.workSisters["$sourceId|$mediaId"].orEmpty().ifEmpty { serverSisters() }
+        sisterEpisodes = known.flatMap { (s, m) ->
+            repo.getChapters(s, m).ifEmpty { runCatching { repo.refreshChapters(s, m) }; repo.getChapters(s, m) }.map { it.ref() }
+        }
+        updateNext()
+    }
+
+    private suspend fun serverSisters(): List<Pair<String, String>> {
+        if (container.serverSync.serverUrl == null) return emptyList()
+        fun enc(s: String) = java.net.URLEncoder.encode(s, Charsets.UTF_8)
+        fun com.google.gson.JsonObject.text(k: String) = get(k)?.takeIf { it.isJsonPrimitive }?.asString?.ifBlank { null }
+        val whole = runCatching { container.serverSync.api("GET", "/api/works/whole?s=${enc(sourceId)}&id=${enc(mediaId)}") }.getOrNull()
+        val list = whole?.takeIf { it.isJsonObject }?.asJsonObject?.getAsJsonObject("chapters")?.getAsJsonArray("chapters") ?: return emptyList()
+        return list.mapNotNull { e -> e.takeIf { it.isJsonObject }?.asJsonObject?.let { o -> o.text("sourceId")?.let { s -> o.text("mediaId")?.let { m -> s to m } } } }
+            .filter { (s, _) -> s != sourceId && container.sourceManager.get(s) is AnimeSource }.distinct().take(MAX_SISTERS)
+    }
+
+    fun hasNext(): Boolean = _next.value != null
+
+    /** The episode this player moved to by itself, a moment ago: the room's old state must not take it back. */
+    private var moved: Pair<String, Long>? = null
+
+    fun movedHere(chapterId: String?): Boolean = moved?.let { (c, at) -> c == chapterId && System.currentTimeMillis() - at < MOVED_MS } == true
+
+    /** Tells the room first, when this phone may drive it, so everyone goes to the new episode. */
+    private fun announce(pick: com.nelson.yomukai.data.work.EpisodeRef) {
+        moved = pick.chapterId to System.currentTimeMillis()
+        val party = _party.value ?: return
+        if (!party.room.value.canControl) return
+        party.sendState(
+            com.nelson.yomukai.data.social.PartyState(
+                pick.sourceId, pick.mediaId, pick.chapterId, title = _state.value.playing.title.substringBefore(" - "),
+                server = _state.value.playing.serverName, position = 0.0, playing = true, speed = 1.0
+            )
+        )
+    }
+
+    fun playNext() {
+        val pick = _next.value ?: return
+        announce(pick)
+        if (pick.sourceId == sourceId && pick.mediaId == mediaId) chapterById(pick.chapterId)?.let(::playEpisode)
+        else _openNext.tryEmit(Triple(pick.sourceId, pick.mediaId, pick.chapterId))
+    }
 
     /** Resolves the servers of [chapter] and switches to the best direct stream. */
     fun playEpisode(chapter: ChapterEntity) {
@@ -276,6 +339,7 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
                         )
                     )
                 }
+                updateNext()
                 return@launch
             }
             source.fetchVideoSources(fresh.url)
@@ -303,6 +367,7 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
                             )
                         )
                     }
+                    updateNext()
                 }
                 .onFailure { e -> _state.update { it.copy(isResolving = false, error = e.message ?: tr("No se pudo cargar el episodio")) } }
         }
@@ -388,5 +453,7 @@ class AnimePlayerViewModel(handle: SavedStateHandle, private val container: AppC
 
     private companion object {
         const val SAVE_INTERVAL_MS = 5_000L
+        const val MAX_SISTERS = 4
+        const val MOVED_MS = 15_000L
     }
 }
