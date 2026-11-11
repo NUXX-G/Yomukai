@@ -644,12 +644,13 @@ private fun Route.workFichaRoute(s: Services) {
                     ) { true } == true
                 }
             }
-            // From a dub's section (?audio=CASTELLANO…), the sources with that audio go first, then the user's own.
             val audio = call.request.queryParameters["audio"]?.uppercase()?.takeIf { a -> com.nelson.yomukai.domain.model.AudioTrack.entries.any { it.name == a } }
-            val dubbed = if (audio == null) emptyList() else s.db.tx {
-                all.filter { (sid, mid) -> queryOne("SELECT 1 FROM index_items WHERE source_id = ? AND media_id = ? AND audio = ?", sid, mid, audio) { true } == true }
+            val audios = s.db.tx {
+                all.associateWith { (sid, mid) ->
+                    queryOne("SELECT audio FROM index_items WHERE source_id = ? AND media_id = ? AND audio IS NOT NULL LIMIT 1", sid, mid) { getString(1) }
+                }
             }
-            (dubbed + mine + all).distinct()
+            orderWorkPlaces(all, mine.toSet(), audios, audio, s.sources.degraded.keys)
         }
         val only = places.map { it.first }.toSet()
         // ?light=1: only where it is (the clients open the work right away and load its chapters there).
@@ -664,6 +665,24 @@ private fun Route.workFichaRoute(s: Services) {
         )
     }
 }
+
+/**
+ * Which source of a work opens first (O2, O4): with ?audio= (a dub's section) the sources with that audio; otherwise
+ * the one the user already follows, then the subtitled ones (original audio: by default a work opens in Japanese
+ * with subtitles in the user's language), then the dubs. Sources that are down always go last.
+ */
+internal fun orderWorkPlaces(
+    all: List<Pair<String, String>>,
+    mine: Set<Pair<String, String>>,
+    audios: Map<Pair<String, String>, String?>,
+    wanted: String?,
+    down: Set<String>,
+): List<Pair<String, String>> = all.sortedWith(
+    compareBy<Pair<String, String>> { it.first in down }
+        .thenBy { wanted != null && audios[it] != wanted }
+        .thenBy { it !in mine }
+        .thenBy { wanted == null && (audios[it] ?: "ORIGINAL") != "ORIGINAL" }
+)
 
 private const val MAX_PAGE = 500
 private const val MAX_BODY = 8_000
