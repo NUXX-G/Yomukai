@@ -63,6 +63,50 @@ class SocialTest {
         """{"rows":[{"sourceId":"mangadex","chapterId":"$chapter","mediaId":"$media","read":true,"page":0,"total":10,"fraction":1,"updatedAt":${System.currentTimeMillis()}}],
            "history":{"sourceId":"mangadex","mediaId":"$media","chapterId":"$chapter","chapterTitle":"$label","title":"$title","cover":"","type":"MANGA","readAt":${System.currentTimeMillis()}}}"""
 
+    private fun rows(media: String, chapters: IntRange, source: String = "mangadex") = chapters.joinToString(",") {
+        """{"sourceId":"$source","chapterId":"$media-$it","mediaId":"$media","read":true,"page":0,"total":1,"fraction":1,"updatedAt":${System.currentTimeMillis()}}"""
+    }
+
+    private fun history(media: String, chapter: Int, title: String, source: String = "mangadex", at: Long = System.currentTimeMillis()) =
+        """{"sourceId":"$source","mediaId":"$media","chapterId":"$media-$chapter","chapterTitle":"Cap. $chapter","title":"$title","cover":"","type":"MANGA","readAt":$at}"""
+
+    /**
+     * F1.4: the feed only showed your own activity. Finishing chapter 7 in the web sends chapters 1 to 7 at once
+     * (everything before is read too), and the phone syncs many rows together: both were taken as bulk marks.
+     */
+    @Test
+    fun friendsActivityReachesEveryoneFromTheWebAndFromThePhone() = testApplication {
+        val c = config()
+        val s = Services(c)
+        application { yomukai(c, s) }
+        val admin = session().also { it.login("admin", "admin-password-1") }
+        listOf("ana", "beto", "carla").forEach { admin.postJson("/api/admin/users", """{"name":"$it","password":"$it-password-1"}""") }
+        val ana = session().also { it.login("ana", "ana-password-1") }
+        val beto = session().also { it.login("beto", "beto-password-1") }
+        val carla = session().also { it.login("carla", "carla-password-1") }
+
+        // Beto (web) finishes chapter 7 of something that is not even in his library.
+        assertEquals(HttpStatusCode.OK, beto.postJson("/api/progress", """{"rows":[${rows("vagabond", 1..7)}],"history":${history("vagabond", 7, "Vagabond")}}""").status)
+        // Carla (phone) syncs a batch: two works read since the last sync, plus an old history entry from weeks ago.
+        val old = System.currentTimeMillis() - 30 * Social.DAY_MS
+        val sync = """{"since":0,"progress":[${rows("monster", 1..5)},${rows("pluto", 1..2)},${rows("akira", 1..9)}],
+            "history":[${history("monster", 5, "Monster")},${history("pluto", 2, "Pluto")},${history("akira", 9, "Akira", at = old)}]}"""
+        assertEquals(HttpStatusCode.OK, carla.postJson("/api/sync", sync).status)
+        // A bulk "mark everything as read" from the work's page, without a chapter being read, stays out.
+        beto.postJson("/api/progress", """{"rows":[${rows("bulk", 1..40)}]}""")
+
+        val feed = ana.array("/api/feed").map { it.asJsonObject }
+        val seen = feed.map { it["user"].asString + ":" + it["title"].asString + ":" + it["last"].asString }.toSet()
+        assertTrue("$seen", "beto:Vagabond:Cap. 7" in seen)
+        assertTrue("$seen", "carla:Monster:Cap. 5" in seen)
+        assertTrue("$seen", "carla:Pluto:Cap. 2" in seen)
+        assertTrue("old history synced late is not news: $seen", seen.none { it.contains("Akira") })
+        assertTrue(seen.none { it.contains("bulk") })
+        // And each of them sees the others too, not only themselves.
+        assertTrue(beto.array("/api/feed").any { it.asJsonObject["user"].asString == "carla" })
+        assertTrue(carla.array("/api/feed").any { it.asJsonObject["user"].asString == "beto" })
+    }
+
     @Test
     fun profilesStatsPrivacyFeedRatingsAndAchievements() = testApplication {
         val c = config()

@@ -188,16 +188,23 @@ class Social(
 
     /**
      * Called before progress is stored: chapters that just became read become "done" events for the feed and the
-     * achievements. Bulk changes ("mark everything as read") are not activity and are skipped.
+     * achievements. The chapter being read or watched comes with its history entry, and counts even when the same
+     * save also marks every earlier one as read (finishing episode 7 sends episodes 1 to 7: F1.4, the feed stayed
+     * empty past episode 3). Other rows count only in small saves: a bulk "mark everything as read" is not activity.
      */
-    suspend fun onProgress(user: User, rows: List<ProgressRow>, history: HistoryRow?) {
-        if (user.isGuest || rows.isEmpty() || rows.size > LIVE_ROWS) return
-        for (row in rows.filter { it.read }) {
+    suspend fun onProgress(user: User, rows: List<ProgressRow>, history: HistoryRow?) = onProgress(user, rows, listOfNotNull(history))
+
+    suspend fun onProgress(user: User, rows: List<ProgressRow>, histories: List<HistoryRow>) {
+        if (user.isGuest || rows.isEmpty()) return
+        val recent = clock() - LIVE_HISTORY_MS
+        val live = histories.filter { it.readAt >= recent }.associateBy { it.sourceId to it.chapterId }
+        val counted = if (rows.size <= LIVE_ROWS) rows else rows.filter { (it.sourceId to it.chapterId) in live }
+        for (row in counted.filter { it.read }.take(MAX_LIVE_EVENTS)) {
             val was = db.tx {
                 queryOne("SELECT read FROM progress WHERE user_id = ? AND source_id = ? AND chapter_id = ?", user.id, row.sourceId, row.chapterId) { getInt(1) == 1 }
             } == true
             if (was) continue
-            val h = history?.takeIf { it.sourceId == row.sourceId && it.mediaId == row.mediaId }
+            val h = live[row.sourceId to row.chapterId] ?: histories.lastOrNull { it.sourceId == row.sourceId && it.mediaId == row.mediaId }
             val title = h?.title ?: db.libraryRow(user.id, row.sourceId, row.mediaId)?.title ?: continue
             val anime = isAnime(row.sourceId)
             events.record(
@@ -369,6 +376,12 @@ class Social(
         const val MAX_IMAGE_BYTES = 4 * 1024 * 1024
         const val PRESENCE_MS = 3 * 60_000L
         const val LIVE_ROWS = 3
+
+        /** A synced history entry older than this is not "just read" (a phone syncing after days offline). */
+        const val LIVE_HISTORY_MS = 3 * 86_400_000L
+
+        /** At most this many feed entries from one save (a phone that synced a long trip offline). */
+        const val MAX_LIVE_EVENTS = 30
         const val DAY_MS = 86_400_000L
         const val MAX_RECOMMENDATIONS_PER_DAY = 30
         private val ACCENT = Regex("^#[0-9a-f]{6}$")

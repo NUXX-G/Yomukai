@@ -827,11 +827,12 @@ private fun Route.userRoutes(s: Services) {
         require(categories.size <= MAX_CATEGORIES) { "Demasiadas categorías" }
         val shared = root.getAsJsonObject("settings")
         require(shared == null || shared.toString().length < MAX_SETTINGS_CHARS) { "Ajustes demasiado grandes" }
-        // Chapters the phone just finished count as activity too (one at a time, never bulk marks).
-        progress.filter { !it.sourceId.isNullOrBlank() && !it.chapterId.isNullOrBlank() && !it.mediaId.isNullOrBlank() }.map { it.normalized() }
-            .takeIf { it.size <= Social.LIVE_ROWS }?.let { rows ->
-                s.social.onProgress(call.user, rows, history.lastOrNull { h -> rows.any { it.mediaId == h.mediaId } }?.normalized())
-            }
+        // Chapters the phone just finished count as activity too: the ones its recent history says it read (F1.4).
+        s.social.onProgress(
+            call.user,
+            progress.filter { !it.sourceId.isNullOrBlank() && !it.chapterId.isNullOrBlank() && !it.mediaId.isNullOrBlank() }.map { it.normalized() },
+            history.filter { !it.sourceId.isNullOrBlank() && !it.chapterId.isNullOrBlank() && !it.mediaId.isNullOrBlank() }.map { it.normalized() }
+        )
         // Rows without their keys are dropped rather than stored half empty.
         val changes = s.db.sync(
             call.user.id, root.get("since")?.asLong ?: 0L,
