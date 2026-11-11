@@ -142,7 +142,12 @@ class SeasonCalendarTest {
         assertEquals(HttpStatusCode.Unauthorized, client.get("/api/calendar/picks").status)
         assertEquals(HttpStatusCode.Unauthorized, client.put("/api/calendar/picks/42") { contentType(ContentType.Application.Json); setBody("{}") }.status)
         val admin = createClient { install(HttpCookies) }
-        admin.post("/auth/login") { contentType(ContentType.Application.Json); setBody("""{"name":"admin","password":"admin-password-1"}""") }
+        // The admin account is created as the server starts: try again for a moment.
+        for (i in 0 until 50) {
+            val r = admin.post("/auth/login") { contentType(ContentType.Application.Json); setBody("""{"name":"admin","password":"admin-password-1"}""") }
+            if (r.status == HttpStatusCode.OK) break
+            kotlinx.coroutines.delay(100)
+        }
         assertEquals(HttpStatusCode.OK, admin.get("/api/calendar/picks").status)
         s.features.set("season_social", false)
         assertEquals(HttpStatusCode.NotFound, admin.get("/api/calendar/picks").status)
