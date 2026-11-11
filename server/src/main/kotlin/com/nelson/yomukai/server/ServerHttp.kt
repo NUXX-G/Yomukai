@@ -29,6 +29,9 @@ class SourceBlockedException(host: String, protection: String) : IOException(
     "$host bloqueó al servidor ($protection). Si usas Docker, activa FlareSolverr."
 )
 
+/** Bot checks a real browser (FlareSolverr) gets through; a firewall's outright «blocked» is not one of them. */
+private val SOLVABLE = setOf("Cloudflare", "DDoS-Guard", "comprobación anti-bot")
+
 /** A site or a proxied link pointed at the server's own network. */
 class BlockedAddressException(host: String) : IOException("Dirección no permitida: $host")
 
@@ -242,7 +245,8 @@ class ServerHttp(private val flareSolverrUrl: String?, outboundProxy: String? = 
         }
         val protection = WebProtection.detectProtection(code, body, mitigated)
         if (protection != null) {
-            if (cloudflareFallback && protection == "Cloudflare" && flareSolverrUrl != null && solverAllows(request.url.host)) {
+            val solvable = protection in SOLVABLE && flareSolverrUrl != null
+            if (cloudflareFallback && solvable && solverAllows(request.url.host)) {
                 return solve(url)
             }
             throw SourceBlockedException(request.url.host, protection)

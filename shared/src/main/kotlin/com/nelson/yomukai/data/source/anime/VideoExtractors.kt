@@ -23,13 +23,42 @@ class VideoExtractors(private val network: HttpFetcher) {
 
     /** Resolves every embed it can (in parallel), returning the streams most likely to play first. */
     suspend fun resolveAll(sources: List<VideoSource>): List<VideoSource> = coroutineScope {
-        sources.map { source ->
+        val checked = sources.map { source ->
             async {
-                if (source.isDirect) return@async listOf(source)
+                if (source.isDirect) return@async Checked(listOf(source), usable = true)
                 val direct = withTimeoutOrNull(20_000) { runCatching { resolve(source) }.getOrNull() }
-                listOfNotNull(direct, source)
+                if (direct != null) return@async Checked(listOf(direct, source), usable = true)
+                withTimeoutOrNull(PROBE_TIMEOUT_MS) { runCatching { probe(source) }.getOrNull() } ?: Checked(listOf(source), usable = true)
             }
-        }.awaitAll().flatten().distinctBy { it.videoUrl }.let(::bestFirst)
+        }.awaitAll()
+        // A host that is dead, asks for a bot check it would not pass, or refuses to play in the app is only offered
+        // when nothing else is left (F2, F3): better one server that plays than five that do not.
+        val good = checked.filter { it.usable }.flatMap { it.sources }
+        (good.ifEmpty { checked.flatMap { it.sources } }).distinctBy { it.videoUrl }.let(::bestFirst)
+    }
+
+    private class Checked(val sources: List<VideoSource>, val usable: Boolean)
+
+    /**
+     * Any other host: its page is read (through FlareSolverr when it shows a bot check, on the server) and its stream
+     * taken from the page or its packed player script. Dead, sandbox-refusing or still-blocked pages are marked unusable.
+     */
+    private suspend fun probe(source: VideoSource): Checked {
+        val url = source.videoUrl
+        if (!url.startsWith("http")) return Checked(listOf(source), usable = true)
+        val origin = url.substringBefore("://") + "://" + url.substringAfter("://").substringBefore('/') + "/"
+        val html = network.getString(url, mapOf("Referer" to origin))
+        if (EmbedProbe.isDead(html) || com.nelson.yomukai.data.network.WebProtection.detectProtection(200, html) != null) {
+            return Checked(listOf(source), usable = false)
+        }
+        EmbedProbe.findStream(html)?.let { stream ->
+            val direct = source.copy(
+                videoUrl = stream, isDirect = true, headers = mapOf("Referer" to origin),
+                quality = source.quality + if ("m3u8" in stream) " • HLS" else " • MP4"
+            )
+            return Checked(listOf(direct, source), usable = true)
+        }
+        return Checked(listOf(source), usable = !EmbedProbe.refusesSandbox(html))
     }
 
     private suspend fun resolve(source: VideoSource): VideoSource? {
@@ -89,6 +118,7 @@ class VideoExtractors(private val network: HttpFetcher) {
 
         private val BLOGGER_STREAM = Regex(""""(https://[a-z0-9-]+\.googlevideo\.com/videoplayback\?[^"\\]+)",\[(\d+)]""")
         private const val VOE_HOST = "voe.sx"
+        private const val PROBE_TIMEOUT_MS = 25_000L
         private val VOE_MIRROR = Regex("""https://[a-zA-Z0-9.-]+/e/[a-z0-9]+""")
         private val VOE_DATA = Regex("""<script[^>]*type="application/json"[^>]*>(.*?)</script>""", RegexOption.DOT_MATCHES_ALL)
         private val VOE_NOISE = listOf("@$", "^^", "~@", "%?", "*~", "!!", "#&")

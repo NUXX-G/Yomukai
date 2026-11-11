@@ -130,7 +130,8 @@ class Services(val config: Config) {
     val db = Database(File(config.dataDir, "yomukai.db"))
     val auth = Auth(db, config)
     val sources = SourceManager(http, null).also { manager ->
-        http.solverHosts = manager.all.mapNotNull { it.baseUrl.toHttpUrlOrNull()?.host?.lowercase()?.removePrefix("www.") }.toSet()
+        http.solverHosts = manager.all.mapNotNull { it.baseUrl.toHttpUrlOrNull()?.host?.lowercase()?.removePrefix("www.") }.toSet() +
+            com.nelson.yomukai.data.source.anime.EmbedProbe.VIDEO_HOSTS
     }
     val aniList = AniListClient(http)
     val kitsu = KitsuClient(http)
