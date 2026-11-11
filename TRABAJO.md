@@ -3,6 +3,78 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
+**AHORA (2026-11-11): PEDIDO 2026-11-10, bloque 1 (ver sección justo debajo).** Siguiente paso: F1.1/F1.2 reproductor.
+
+## PEDIDO 2026-11-10 (feedback `docs/feedback/2026-11-10.pdf`, con capturas)
+Autonomía total (solo preguntar si es irreversible y peligroso: borrar datos de usuarios, reescribir historial). Permiso
+para push a main, ramas, PRs, mergear los míos con CI en verde (los de auto-reparación de fuentes solo si el diff toca
+únicamente selectores/regex/dominios/fixtures), etiquetas y releases (semver, changelog en español para el usuario,
+pre-release si toca obras/migraciones/salas; nunca con tests en rojo). Primero web, luego app. Cada fallo: reproducir →
+arreglar → test que lo impida. **Nada se marca [x] sin probarlo de punta a punta como una persona** (traducción,
+autoscroll y voces estaban marcados y no iban). Al cerrar cada bloque: qué hice, qué publiqué y qué tiene que probar él.
+
+**Bloque 1 — fallos que rompen el uso**
+- [ ] F1.1 «Siguiente» del reproductor: fuente normal, obra unificada, Jellyfin y en sala.
+- [ ] F1.2 Barra de progreso: el relleno sigue al punto (arrastrar, clic, teclado); igual la de volumen.
+- [ ] F1.3 Volver a la ficha desde reproductor y lectores (también desde «Continuar»); atrás del navegador/móvil coherente.
+- [ ] F1.4 Actividad de amigos: solo sale la mía. Revisar cadena completa (eventos web/app, `hidden` por defecto,
+      categorías privadas, cliente). Probar con usuarios A, B, C.
+- [ ] F1.5 Cambio de idioma de la obra (EN ↔ ES) en la ficha: fuentes, capítulos y progreso coherentes.
+- [ ] F1.6 Obra unificada a prueba de fallos: batería de casos reales (temporadas, partes, títulos multi-idioma,
+      spin-offs, remakes, novela/manga/anime con el mismo nombre); nunca perder biblioteca/progreso/historial.
+- [ ] F1.7 Buscador: tipo por metadatos (AniList format + countryOfOrigin: JP manga, KR manhwa, CN manhua; cómic
+      occidental aparte; fuente de respaldo) y relevancia (exacto/alternativos primero, erratas sin basura). Tests reales.
+- [ ] Extra del PDF: sinopsis en el idioma de la interfaz cuando exista (tarjetas y hero).
+
+**Bloque 2 — velocidad y bloqueos**
+- [ ] F2.1 Medir cada fuente (listado, ficha, capítulos, páginas/vídeo), cuellos de botella, antes/después.
+- [ ] F2.2 Worker precarga (capítulos de bibliotecas, siguiente cap./ep., portadas/banners, metadatos de temporada),
+      prioridad baja, sube a la caché del VPS; sin worker todo igual.
+- [ ] F2.3 Bloqueos de LaLiga: detectar (fallos a IPs de Cloudflare, hayahora.futbol si es útil), desvío automático por el
+      proxy del VPS (o Tor si el VPS está en España) y aviso claro en vez de error genérico.
+
+**Bloque 3 — contenido**
+- [ ] F3.1 Doblajes castellano / latino / inglés: idioma de audio por episodio y fuente (aparte de subtítulos), visible
+      en tarjetas y ficha, filtrable; secciones propias.
+- [ ] F3.2 Fuente animeonline.ninja (anime-castellano = doblaje castellano), tests de páginas reales, punta a punta.
+- [ ] F3.3 Sección Cómics y filtros correctos; pestañas Todo · Anime · Manga · Manhwa y manhua · Cómics · Novelas.
+
+**Bloque 4 — salas, DMs y compartir**
+- [ ] F4.1 Salas comunes abiertas con cola (varios animes, reordenar, votar/saltar, paso automático); Siguiente en salas.
+- [ ] F4.2 DMs 1 a 1 en tiempo real: lista, no leídos, campana + ntfy, escribiendo/visto, historial, buscar, borrar los
+      míos, bloquear/silenciar; solo texto y tarjetas de obra; antispam; tests de autorización; sin invitados; accesos
+      desde perfil, /amigos y icono en la barra.
+- [ ] F4.3 Compartir (ficha, episodio, capítulo) a DM / sala / hilo en dos toques; tarjeta con portada, tipo, idioma,
+      ep./cap., escudo anti-spoilers; buscador de obra dentro de chat y editor del foro.
+- [ ] F4.4 Paridad app: DMs, compartir, salas comunes.
+- [ ] F4.5 Logros nuevos de DMs y compartir.
+
+**Bloque 5 — calendario**
+- [ ] F5.1 Portada en cada entrada; hover / pulsación larga: sinopsis, géneros, nota, abrir ficha.
+- [ ] F5.2 Recomendaciones y comentarios del grupo desde el calendario.
+- [ ] F5.3 Lo que valora la comunidad externa (AniList/MAL de la temporada; revisar condiciones de uso; caché).
+
+**Bloque 6 — voces, autoscroll, traducción**
+- [ ] F6.1 Pocket TTS multilingüe con voces en español por defecto; `scripts/tts-compare.sh`; audios para que elija;
+      cadena (troceo, pausas, números, abreviaturas, volumen).
+- [ ] F6.2 Autoscroll estable a todas las velocidades y lectores, capítulos largos; dos modos: normal e inteligente.
+- [ ] F6.3 Traducción: seleccionar/mantener palabra o frase en cualquier lector (novela; manga/cómic sobre OCR);
+      cadena diccionario offline → traductor del navegador → ML Kit (app) → LibreTranslate (worker). Luego bocadillos.
+
+**Bloque 7 — aspecto (neobrutalismo moderado + guiños al manga, estructura Netflix/Seanime)**
+- [ ] 7.0 Capturas de referencias en `docs/referencias/neobrutalismo/` + `docs/referencias/ESTILO.md`.
+- [ ] 7.1 Tema por defecto nuevo sobre tokens (+ variante clara y suave), contraste AA, display + texto legible.
+- [ ] 7.2 Tarjetas sin difuminado; vertical = póster, ancha = imagen horizontal o composición; mismo recorte en tamaños;
+      placeholder de la casa.
+- [ ] 7.3 Identidad por tipo (color, insignia, detalle) en todas partes.
+- [ ] 7.4 Pantalla de carga animada con tiempo máximo; esqueletos en navegaciones internas.
+- [ ] 7.5 Animaciones (transform/opacity, prefers-reduced-motion).
+- [ ] 7.6 Capturas antes/después en `docs/capturas/` (móvil y escritorio) y app Android con los mismos tokens.
+
+**Bitácora del pedido** (qué hice, qué publiqué, qué probar):
+- (vacío)
+
+## Estado anterior
 Última actualización: 2026-11-08 (noche). Versión de la app: **2.2.0** (versionCode 28): un APK por procesador (arm64 29 MB) + universal; la release se publica sola al subir la etiqueta v2.1.0.
 
 **PEDIDO 2026-11-08 (noche, tras probar la web) — PRIORIDAD MÁXIMA, dejarlo «de putísima madre». Autonomía total, subir a GitHub, NO release (se prueba en web y luego se migra a la app).**
