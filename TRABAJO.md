@@ -3,7 +3,32 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
-**AHORA (2026-11-11): PEDIDO 2026-11-10 — bloque 1 CERRADO y release v2.3.0 (pre-release). Bloque 2 CERRADO, release v2.4.0. Siguiente: bloque 3 (F3.1 doblajes).**
+**AHORA (2026-11-11, tarde, sesión A): bloques 1-6 CERRADOS. Release v2.5.0 (pre-release) PUBLICADA con los bloques 3-6. Bloque 7 (aspecto) hecho en la web; quedan la app Android y las capturas. Después: PEDIDO 2026-11-11 «solo obras de mis fuentes».**
+
+### PEDIDO DEL USUARIO 2026-11-11 (tarde) — NO PERDER
+1. **Paleta**: blanco y negro tipo manga + UN solo color (brasa `#ff5a1f`). Máximo 3 colores en total. HECHO en
+   tokens/web (commit 79298d3); los tipos de obra se distinguen por forma, no por color. Ver `docs/referencias/ESTILO.md`.
+2. **Botones** neobrutalistas «finos» siguiendo las buenas prácticas (borde 3 px, esquinas rectas, sombra dura 4 px,
+   hover = hundir a medias, pulsar = hundir del todo). HECHO en la web (`web/src/app.css`, sección `.btn`).
+3. **Solo obras que estén en sus fuentes**: cualquier anime/manga/obra que salga (Inicio, secciones, búsqueda,
+   calendario, relacionadas, «Para ti", explorador…) tiene que estar en sus fuentes; si no está, NO sale. Todo por
+   OBRAS, y **nunca más «Buscando en tus fuentes…»**: al tocar una tarjeta se abre al instante porque ya se sabe
+   dónde está (índice de obras del servidor). En la app igual. Tiene que quedar asegurado con tests.
+4. Al terminar 1-2: **publicar release** y decirle exactamente dónde y cómo actualizar (VPS, worker, app). Después
+   hacer el punto 3, comprobarlo de punta a punta y publicar otra vez.
+5. Apuntar aquí todo lo que quede pendiente para que otra sesión de Claude pueda seguir.
+
+### PENDIENTE (orden)
+- [ ] Bloque 7 en la app Android: tokens ya regenerados (`DesignTokens.kt`), falta `MediaCard`/`TypeBadge` de
+      `ui/components/Components.kt` con borde de tinta, sombra dura, tipo por forma (sin colores por tipo:
+      `badgeColor()` aún usa 6 colores) y botones con el mismo estilo.
+- [ ] 7.6 capturas «después» en `docs/capturas/despues/` (escritorio y móvil) con Playwright.
+- [ ] Release v2.6.0 (estilo) + instrucciones de actualización al usuario.
+- [ ] Punto 3 del pedido (solo obras de sus fuentes, sin «buscando»): web, servidor y app, con tests.
+- [ ] Release v2.7.0 con el punto 3.
+- [ ] Menores: LectorTMO sin capítulos y ZonaTMO sin páginas (comprobar desde el VPS: en casa la operadora bloquea);
+      F6.1 el usuario debe elegir voz con `scripts/tts-compare.sh` en el worker; F6.3 OCR en el navegador sin worker;
+      espacio del NAS en el panel de admin (11.1); README/ARCHITECTURE sin las funciones de los bloques 3-6 (11.7).
 
 ## TRABAJO EN PARALELO (desde 2026-11-11)
 Varias sesiones de Claude Code con cuentas distintas, cada una en su copia del repo, todas sobre main:
@@ -70,7 +95,7 @@ autoscroll y voces estaban marcados y no iban). Al cerrar cada bloque: qué hice
 - [~] F6.3 (sesión C) Causas: la pulsación larga solo iba con el «modo aprendizaje» (apagado por defecto), la hoja solo preguntaba al servidor de casa (503 sin worker) y el traductor de Chrome se quedaba colgado descargando el modelo. Ahora cadena común (web `lib/translate-chain.js`, shared `TranslationChain.kt`): diccionario sin conexión → traductor del navegador / ML Kit en la app (con tiempo máximo) → servidor (worker o, si está apagado, MyMemory para frases cortas: `OnlineTranslator.kt`, interruptor `online_translate`, tope 4500 caracteres/día) → enlace al traductor de Google. Web: seleccionar en novelas → «Traducir» (probado con Playwright en escritorio con traductor del navegador simulado y en iPhone sin nada: traduce vía MyMemory); manga/cómic: mantener pulsado o clic derecho sobre un bocadillo con OCR (sin probar de punta a punta: falta un capítulo con OCR). App probada en el emulador: novela en español (SkyNovels) con la app en inglés, mantener pulsada «articulada» → «articulated» y la frase traducida con ML Kit, sin servidor ni modo aprendizaje. Bocadillos en la app: la pulsación larga va cuando el OCR está activo (Traducir bocadillos, Leer bocadillos o modo aprendizaje); leer todas las páginas siempre gastaba batería y sacaba «No se pudo traducir esta página» sin pedirlo (corregido). Web: bocadillos probados con Playwright (escritorio y iPhone, OCR simulado). Falta: traducción completa de bocadillos sin worker (OCR en el navegador).
 
 **Bloque 7 — aspecto (neobrutalismo moderado + guiños al manga, estructura Netflix/Seanime)**
-- [ ] 7.0 Capturas de referencias en `docs/referencias/neobrutalismo/` + `docs/referencias/ESTILO.md`.
+- [x] 7.0 Capturas de referencias en `docs/referencias/neobrutalismo/` + `docs/referencias/ESTILO.md`.
 - [ ] 7.1 Tema por defecto nuevo sobre tokens (+ variante clara y suave), contraste AA, display + texto legible.
 - [ ] 7.2 Tarjetas sin difuminado; vertical = póster, ancha = imagen horizontal o composición; mismo recorte en tamaños;
       placeholder de la casa.
