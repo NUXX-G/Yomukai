@@ -111,6 +111,7 @@ class AppContainer(context: Context) {
         }
     }
     val serverSync = com.nelson.yomukai.data.sync.ServerSync(context, database, preferences) { broken -> sourceManager.degraded = broken }
+        .also { sync -> network.relay.target = { sync.relayTarget() } }
     val dictionary by lazy { com.nelson.yomukai.data.learning.OfflineDictionary(context, serverSync) }
     val deviceOcr by lazy { com.nelson.yomukai.data.ocr.DeviceOcr() }
     val bubbleSpeaker by lazy { com.nelson.yomukai.data.ocr.BubbleSpeaker(context) }

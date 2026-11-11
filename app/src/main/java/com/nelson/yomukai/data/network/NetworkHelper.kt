@@ -111,6 +111,9 @@ class NetworkHelper(
     @Volatile
     var domainsOfSources: (Set<String>) -> Set<String> = { emptySet() }
 
+    /** Through the connected server when a source cannot be reached from here (F2.3). */
+    val relay = ServerRelay()
+
     @Volatile
     var client: OkHttpClient = buildClient(settings.value, tor.value)
         private set
@@ -187,6 +190,8 @@ class NetworkHelper(
             .connectionPool(connectionPool)
             .dispatcher(Dispatcher().apply { maxRequests = 64; maxRequestsPerHost = 12 })
             .addInterceptor(BrowserHeadersInterceptor())
+            // A source this connection cannot reach (LaLiga's blocks) is asked through the connected server.
+            .addInterceptor(relay.interceptor)
 
         if (torRouted(settings)) {
             val direct = domainsOfSources(settings.torExcludedSources)

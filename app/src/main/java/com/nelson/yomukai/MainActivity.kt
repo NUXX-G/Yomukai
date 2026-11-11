@@ -107,6 +107,12 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) readDeepLink(intent)
         val container = (application as YomukaiApplication).container
         setContent {
+            // A blocked source went through the server: said once, plainly (F2.3).
+            LaunchedEffect(Unit) {
+                container.network.relay.notices.collect {
+                    android.widget.Toast.makeText(this@MainActivity, tr(com.nelson.yomukai.data.network.LaLigaBlocks.NOTICE), android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
             val settings by container.preferences.app.collectAsStateWithLifecycle()
             // A chosen theme (shared with the web) decides light or dark by its own background.
             val custom = remember(settings.customTheme) { com.nelson.yomukai.ui.theme.CustomTheme.parse(settings.customTheme) }

@@ -488,6 +488,13 @@ class ServerSync(
      * The session cookie for [url] when it is an address of the connected server (same scheme, host and port), so the
      * player can open its streams (the home Jellyfin); null for any other site, which never gets it.
      */
+
+    /** The connected server and its session cookie, for the relay used when a source is blocked (F2.3). */
+    fun relayTarget(): Pair<okhttp3.HttpUrl, String>? {
+        val server = _state.value.server?.toHttpUrlOrNull() ?: return null
+        return cookieFor(server)?.let { server to it }
+    }
+
     fun cookieFor(url: okhttp3.HttpUrl): String? {
         val server = _state.value.server?.toHttpUrlOrNull() ?: return null
         val session = token ?: return null
