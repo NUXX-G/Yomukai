@@ -55,7 +55,7 @@ object SourceDiagnostics {
 
         step<MediaItem>("Detalle", { it.title }, critical = false) { source.fetchMediaDetails(first).mapCatching { it.also { d -> problems(SourceValidation.details(d)) } } }
         val chapters = step<List<Chapter>>("Capítulos", { "${it.size} capítulos" }) {
-            source.fetchChapterList(first.id).mapCatching { list -> list.also { problems(SourceValidation.chapters(it)) } }
+            chaptersOfSomeTitle(source, latest).mapCatching { list -> list.also { problems(SourceValidation.chapters(it)) } }
         } ?: return steps
         // Prefer the oldest chapter: it is the least likely to be paywalled or still processing.
         val chapter = chapters.minByOrNull { it.chapterNumber } ?: chapters.first()
@@ -74,4 +74,21 @@ object SourceDiagnostics {
         }
         return steps
     }
+
+    /**
+     * The chapters of one of the newest titles. A title with none yet (announced, still uploading) is not a broken
+     * source: the next one is tried, up to [TITLES_TRIED]. Any other error (blocked, page changed) counts at once.
+     */
+    private suspend fun chaptersOfSomeTitle(source: CatalogueSource, latest: List<MediaItem>): Result<List<Chapter>> {
+        var last: Result<List<Chapter>> = Result.failure(NoChaptersException())
+        for (item in latest.take(TITLES_TRIED)) {
+            last = source.fetchChapterList(item.id)
+            val error = last.exceptionOrNull()
+            if (error == null && last.getOrNull().orEmpty().isNotEmpty()) return last
+            if (error != null && error !is NoChaptersException) return last
+        }
+        return last
+    }
+
+    private const val TITLES_TRIED = 3
 }
