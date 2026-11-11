@@ -1775,5 +1775,6 @@
  "solo con enlace": "link only",
  "{0} dentro: {1}": "{0} inside: {1}",
  "{0} sin leer": "{0} unread",
- "¿Seguro? Pulsa otra vez": "Sure? Tap again"
+ "¿Seguro? Pulsa otra vez": "Sure? Tap again",
+ "AniList va saturado; lo intento otra vez en unos segundos…": "AniList is busy; trying again in a few seconds…"
 }

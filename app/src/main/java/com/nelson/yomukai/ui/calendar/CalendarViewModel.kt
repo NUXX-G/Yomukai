@@ -54,8 +54,22 @@ class CalendarViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             val sync = container.serverSync
             val now = System.currentTimeMillis() / 1000
-            val airingJob = async { safe { container.aniListDiscover.airing(now - DAY_S, now + 8 * DAY_S) }.orEmpty() }
-            val communityJob = async { safe { container.aniListDiscover.seasonCommunity() }.orEmpty() }
+            val viaServer = sync.serverUrl != null
+            // With the server, its cached copy (one AniList request every few hours for everybody); without it, AniList
+            // straight away, kept a while in memory and tried again when AniList says "too many requests" (429).
+            val airingJob = async {
+                cachedOr(AIRING) {
+                    (if (viaServer) safe { sync.api("GET", "/api/calendar/airing")?.let { j -> items(j, "items") } } else null)
+                        ?: retrying { container.aniListDiscover.airing(now - DAY_S, now + 8 * DAY_S) }
+                }.orEmpty()
+            }
+            val communityJob = async {
+                cachedOr(COMMUNITY) {
+                    (if (viaServer) safe { sync.api("GET", "/api/calendar/community")?.let { j -> mapOf("top" to items(j, "top"), "trending" to items(j, "trending")) } } else null)
+                        ?.takeIf { m -> m.values.any { it.isNotEmpty() } }
+                        ?: retrying { container.aniListDiscover.seasonCommunity() }
+                }.orEmpty()
+            }
             val featuresJob = async { if (sync.serverUrl != null) sync.features() else null }
             val mineJob = async { if (sync.serverUrl != null) safe { sync.api("GET", "/api/calendar?days=8&raw=1") }?.let(::parseMine) else null }
             val library = container.libraryRepository.observeLibrary().first().filter { it.type == MediaType.ANIME }.map { it.title }
@@ -133,11 +147,52 @@ class CalendarViewModel(private val container: AppContainer) : ViewModel() {
         synopsis = e.synopsis, genres = e.genres, score = e.score, entry = e
     )
 
+    /** The server's AniList items (DiscoverItemDto) as entries; covers back to AniList's own address. */
+    private fun items(json: JsonElement, field: String): List<DiscoverEntry> =
+        json.takeIf { it.isJsonObject }?.asJsonObject?.getAsJsonArray(field)?.mapNotNull { e ->
+            val o = e.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
+            DiscoverEntry(
+                anilistId = o.int("anilistId") ?: return@mapNotNull null, malId = null, title = o.text("title"),
+                names = o.getAsJsonArray("names")?.mapNotNull { n -> n.takeIf { it.isJsonPrimitive }?.asString }.orEmpty(),
+                cover = absolute(o.text("cover")), banner = "", color = o.text("color"),
+                genres = o.getAsJsonArray("genres")?.mapNotNull { g -> g.takeIf { it.isJsonPrimitive }?.asString }.orEmpty(),
+                score = o.int("score"), format = o.text("format"), type = runCatching { MediaType.valueOf(o.text("type")) }.getOrDefault(MediaType.ANIME),
+                synopsis = o.text("synopsis"), status = o.text("status"), season = o.text("season"), year = o.int("year"),
+                episodes = o.int("episodes"), chapters = o.int("chapters"), nextEpisode = o.int("nextEpisode"),
+                nextAiringAt = o.get("nextAiringAt")?.takeIf { it.isJsonPrimitive }?.asLong
+            )
+        }.orEmpty()
+
+    @Suppress("UNCHECKED_CAST")
+    private suspend fun <T : Any> cachedOr(key: String, load: suspend () -> T?): T? {
+        memory[key]?.takeIf { System.currentTimeMillis() - it.first < CACHE_MS }?.let { return it.second as T }
+        return load()?.takeIf { it !is Collection<*> || it.isNotEmpty() }?.takeIf { it !is Map<*, *> || it.isNotEmpty() }
+            ?.also { memory[key] = System.currentTimeMillis() to it }
+    }
+
+    /** AniList allows ~30 requests a minute; the home screen spends some. On a 429, wait and try twice more. */
+    private suspend fun <T> retrying(block: suspend () -> T): T? {
+        repeat(RETRIES) { attempt ->
+            try {
+                return block()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.w("Calendario", "AniList: ${e.message}")
+                if (e.message?.contains("429") != true || attempt == RETRIES - 1) return null
+                _state.update { it.copy(error = tr("AniList va saturado; lo intento otra vez en unos segundos…")) }
+                kotlinx.coroutines.delay(RETRY_WAIT_MS * (attempt + 1))
+            }
+        }
+        return null
+    }
+
     private suspend fun <T> safe(block: suspend () -> T): T? = try {
         block()
     } catch (e: CancellationException) {
         throw e
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+        android.util.Log.w("Calendario", "No se pudo cargar", e)
         null
     }
 
@@ -146,5 +201,13 @@ class CalendarViewModel(private val container: AppContainer) : ViewModel() {
 
     companion object {
         private const val DAY_S = 86_400L
+        private const val AIRING = "airing"
+        private const val COMMUNITY = "community"
+        private const val CACHE_MS = 3 * 3_600_000L
+        private const val RETRIES = 3
+        private const val RETRY_WAIT_MS = 20_000L
+
+        /** Kept while the app lives: opening the calendar again costs no request. */
+        private val memory = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Any>>()
     }
 }
