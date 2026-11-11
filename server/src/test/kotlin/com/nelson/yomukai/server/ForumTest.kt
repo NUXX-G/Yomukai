@@ -76,6 +76,13 @@ class ForumTest {
         assertEquals("", behind["body"].asString)
         assertFalse(ana.json("/api/forum/$id?upTo=60")["posts"].asJsonArray.last().asJsonObject["hidden"].asBoolean)
         assertFalse(beto.json("/api/forum/$id")["posts"].asJsonArray.last().asJsonObject["hidden"].asBoolean)
+        // F4.3: a shared episode in a post; hidden with the text behind a spoiler; a bad card is refused.
+        val card = """{"kind":"chapter","sourceId":"mangadex","mediaId":"m1","chapterId":"c51","title":"Berserk","number":51,"label":"Cap. 51"}"""
+        assertEquals(HttpStatusCode.OK, beto.postJson("/api/forum/$id/posts", """{"body":"","card":$card}""").status)
+        assertEquals("Berserk", ana.json("/api/forum/$id?upTo=10")["posts"].asJsonArray.last().asJsonObject["card"].asJsonObject["title"].asString)
+        beto.postJson("/api/forum/$id/posts", """{"body":"ojo","spoilerUntil":50,"card":$card}""")
+        assertFalse(ana.json("/api/forum/$id?upTo=10")["posts"].asJsonArray.last().asJsonObject.has("card"))
+        assertEquals(HttpStatusCode.BadRequest, beto.postJson("/api/forum/$id/posts", """{"body":"x","card":{"kind":"work","sourceId":"<x>","mediaId":"m","title":"t"}}""").status)
         // Ana hears about Beto's reply in her thread.
         assertTrue(ana.json("/api/notifications")["items"].asJsonArray.any { it.asJsonObject["kind"].asString == "reply" })
 

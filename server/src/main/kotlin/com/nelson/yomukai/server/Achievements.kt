@@ -59,7 +59,11 @@ class Achievements(
         "theme_used" to setOf("theme_users"),
         "word_saved" to setOf("words_saved"),
         "chapter_no_lookup" to setOf("chapters_without_lookups"),
-        "jellyfin_download" to setOf("jellyfin_downloads")
+        "jellyfin_download" to setOf("jellyfin_downloads"),
+        "dm_sent" to setOf("dms_sent", "dm_people"),
+        "shared" to setOf("shares", "share_places", "spoiler_shields"),
+        "room_queued" to setOf("room_queued"),
+        "room_skip" to setOf("room_skips")
     )
 
     /** Checks the rules [kind] can affect; the first check of a user works everything out quietly. */
@@ -177,8 +181,16 @@ class Achievements(
         "recommendations_sent" -> db.tx { queryOne("SELECT COUNT(*) FROM recommendations WHERE from_id = ?", userId) { getInt(1) } } ?: 0
         "spoilers_hidden" -> (db.tx { queryOne("SELECT COUNT(*) FROM room_messages WHERE user_id = ? AND spoiler = 1", userId) { getInt(1) } } ?: 0) +
             events.count(userId, "forum_spoiler")
+        "dm_people" -> eventField(userId, "dm_sent", "to").filterNotNull().distinct().size
+        "share_places" -> eventField(userId, "shared", "to").filterNotNull().distinct().size
+        "spoiler_shields" -> eventField(userId, "shared", "spoiler").count { it == "true" }
         else -> EVENT_METRICS[metric]?.let { events.count(userId, it) } ?: 0
     }
+
+    /** One field of each event of [kind] (as text), for metrics like «how many different people». */
+    private suspend fun eventField(userId: Long, kind: String, field: String): List<String?> = db.tx {
+        query("SELECT data FROM events WHERE user_id = ? AND kind = ?", userId, kind) { getString(1) }
+    }.map { runCatching { JsonParser.parseString(it).asJsonObject.get(field)?.asString }.getOrNull() }
 
     /** Most timestamps inside any window of [windowMs]. */
     private fun maxInWindow(times: List<Long>, windowMs: Long): Int {
@@ -199,12 +211,14 @@ class Achievements(
             "opening_skips" to "skip_opening", "rooms_hosted" to "room_hosted", "late_joins" to "room_join_late",
             "most_pauses" to "room_most_pauses", "room_buffering" to "room_buffering", "questionable_taste" to "questionable_taste",
             "threads_revived" to "thread_revived", "theme_users" to "theme_used", "words_saved" to "word_saved",
-            "chapters_without_lookups" to "chapter_no_lookup", "jellyfin_downloads" to "jellyfin_download"
+            "chapters_without_lookups" to "chapter_no_lookup", "jellyfin_downloads" to "jellyfin_download",
+            "dms_sent" to "dm_sent", "shares" to "shared", "room_queued" to "room_queued", "room_skips" to "room_skip"
         )
         val METRICS: Set<String> = EVENT_METRICS.keys + setOf(
             "episodes", "chapters", "episodes_3_to_5", "episodes_in_a_day", "chapters_in_a_day", "longest_streak", "weekend_episodes",
             "series_in_a_week", "best_burst", "reactions_in_an_episode", "recommendations_followed", "dropped", "plan_to_read",
-            "completed", "library", "ratings", "room_messages", "recommendations_sent", "spoilers_hidden"
+            "completed", "library", "ratings", "room_messages", "recommendations_sent", "spoilers_hidden",
+            "dm_people", "share_places", "spoiler_shields"
         )
 
         /** What the apps may report themselves (things only the device sees); limited per day so it cannot be farmed. */

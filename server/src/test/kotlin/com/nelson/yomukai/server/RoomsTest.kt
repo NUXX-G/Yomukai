@@ -178,4 +178,88 @@ class RoomsTest {
             assertTrue(end.isClosed || end.getOrNull() is Frame.Close)
         }
     }
+
+    /** F4.1: a common room open to everyone, its queue (several animes), reordering, votes to skip and moving on alone. */
+    @Test
+    fun commonRoomsQueueVotesAndMoveOnByThemselves() = testApplication {
+        val c = config()
+        val s = Services(c)
+        application { yomukai(c, s) }
+        val admin = session().also { it.login("admin", "admin-password-1") }
+        listOf("ana", "beto").forEach { admin.post("/api/admin/users") { setBody("""{"name":"$it","password":"$it-password-1"}""") } }
+        val ana = session().also { it.login("ana", "ana-password-1") }
+        val beto = session().also { it.login("beto", "beto-password-1") }
+
+        val room = json(ana.post("/api/rooms") { contentType(ContentType.Application.Json); setBody("""{"name":"Viernes de anime","open":true}""") }.bodyAsText())
+        val code = room["code"].asString
+        assertTrue(room["open"].asBoolean)
+        // Only an admin makes a lasting one; nobody else opens or closes someone's room.
+        assertEquals(HttpStatusCode.BadRequest, ana.post("/api/rooms") { contentType(ContentType.Application.Json); setBody("""{"lasting":true}""") }.status)
+        assertEquals(HttpStatusCode.BadRequest, beto.post("/api/rooms/$code/open") { contentType(ContentType.Application.Json); setBody("""{"open":false}""") }.status)
+        val lasting = json(admin.post("/api/rooms") { contentType(ContentType.Application.Json); setBody("""{"name":"La sala de todos","lasting":true}""") }.bodyAsText())
+        // The admin's personal room is still his own, not the common one.
+        assertTrue(json(admin.get("/api/rooms/mine").bodyAsText())["code"].asString != lasting["code"].asString)
+        val listed = com.google.gson.JsonParser.parseString(beto.get("/api/rooms/open").bodyAsText()).asJsonArray.map { it.asJsonObject["code"].asString }
+        assertEquals(listOf(lasting["code"].asString, code), listed)
+
+        ana.webSocket("/api/rooms/$code/ws") {
+            val host = this
+            next("welcome")
+            say("""{"t":"state","state":{"sourceId":"animeflv","mediaId":"frieren","chapterId":"f1","title":"Frieren","episode":"Ep. 1","position":0,"playing":true}}""")
+            next("state")
+            beto.webSocket("/api/rooms/$code/ws") {
+                val guest = this
+                val hello = next("welcome")
+                assertEquals(0, hello["queue"].asJsonArray.size())
+                // Beto queues another anime, Ana one more; bad items are refused with a notice.
+                say("""{"t":"queue_add","item":{"sourceId":"animeflv","mediaId":"dandadan","chapterId":"d3","title":"Dandadan","episode":"Ep. 3","cover":"javascript:x"}}""")
+                var q = host.next("queue")
+                while (q["items"].asJsonArray.size() < 1) q = host.next("queue")
+                assertEquals("", q["items"].asJsonArray[0].asJsonObject["cover"].asString)
+                host.say("""{"t":"queue_add","item":{"sourceId":"animeflv","mediaId":"frieren","chapterId":"f2","title":"Frieren","episode":"Ep. 2"}}""")
+                while (q["items"].asJsonArray.size() < 2) q = guest.next("queue")
+                guest.say("""{"t":"queue_add","item":{"sourceId":"animeflv","mediaId":"dandadan","chapterId":"d3","title":"Dandadan"}}""")
+                assertTrue(guest.next("notice")["text"].asString.contains("ya está"))
+                // Beto does not drive: his reordering is ignored; Ana's goes through.
+                val ids = q["items"].asJsonArray.map { it.asJsonObject["id"].asLong }
+                guest.say("""{"t":"queue_move","id":${ids[1]},"to":0}""")
+                host.say("""{"t":"queue_move","id":${ids[1]},"to":0}""")
+                q = guest.next("queue")
+                assertEquals(listOf(ids[1], ids[0]), q["items"].asJsonArray.map { it.asJsonObject["id"].asLong })
+
+                // Skipping takes more than half: Beto alone is not enough among two; with Ana it skips to the queue's head.
+                guest.say("""{"t":"skip"}""")
+                q = guest.next("queue")
+                assertEquals(2, q["skip"].asJsonObject["needed"].asInt)
+                assertEquals(1, q["skip"].asJsonObject["votes"].asJsonArray.size())
+                host.say("""{"t":"skip"}""")
+                val skipped = guest.next("state")
+                assertTrue(skipped["advance"].asBoolean)
+                assertEquals("f2", skipped["state"].asJsonObject["chapterId"].asString)
+                q = guest.next("queue")
+                assertEquals(listOf(ids[0]), q["items"].asJsonArray.map { it.asJsonObject["id"].asLong })
+
+                // The episode ends: the room moves on by itself, once, even if two people say so.
+                guest.say("""{"t":"ended","chapterId":"f2"}""") // Beto does not drive: ignored
+                host.say("""{"t":"ended","chapterId":"f2"}""")
+                host.say("""{"t":"ended","chapterId":"f2"}""")
+                val auto = guest.next("state")
+                assertEquals("d3", auto["state"].asJsonObject["chapterId"].asString)
+                assertTrue(auto["state"].asJsonObject["playing"].asBoolean)
+
+                // A shared card in the chat arrives checked.
+                guest.say("""{"t":"chat","text":"mirad esto","card":{"kind":"work","sourceId":"mangadex","mediaId":"x","title":"Dandadan","type":"MANGA"}}""")
+                val chat = host.next("chat")["msg"].asJsonObject
+                assertEquals("Dandadan", chat["card"].asJsonObject["title"].asString)
+            }
+        }
+        delay(200)
+        // The queue lives in the database: the room's list says what comes next even with nobody inside.
+        val again = com.google.gson.JsonParser.parseString(beto.get("/api/rooms/open").bodyAsText()).asJsonArray.first { it.asJsonObject["code"].asString == code }.asJsonObject
+        assertEquals(0, again["queued"].asInt)
+        assertEquals(HttpStatusCode.OK, ana.post("/api/rooms/$code/open") { contentType(ContentType.Application.Json); setBody("""{"open":false}""") }.status)
+        assertTrue(com.google.gson.JsonParser.parseString(beto.get("/api/rooms/open").bodyAsText()).asJsonArray.none { it.asJsonObject["code"].asString == code })
+        s.features.set("open_rooms", false)
+        assertEquals("[]", beto.get("/api/rooms/open").bodyAsText())
+    }
 }

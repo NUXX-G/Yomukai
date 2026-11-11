@@ -3,6 +3,7 @@ package com.nelson.yomukai.server
 import com.google.gson.JsonObject
 import com.nelson.yomukai.data.image.ImageShrinker
 import com.nelson.yomukai.data.social.ChatGuard
+import com.nelson.yomukai.data.social.ShareCard
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -43,7 +44,9 @@ class Forum(
 
     data class Post(
         val id: Long, val author: String, val authorAvatar: String?, val body: String, val spoilerUntil: Double?, val hidden: Boolean,
-        val quoteId: Long?, val createdAt: Long, val editedAt: Long?, val reactions: Map<String, Int>, val mine: List<String>, val own: Boolean
+        val quoteId: Long?, val createdAt: Long, val editedAt: Long?, val reactions: Map<String, Int>, val mine: List<String>, val own: Boolean,
+        /** A work, episode or chapter shared in the post (F4.3); hidden with the text when the post is a spoiler. */
+        val card: ShareCard? = null
     )
 
     private fun java.sql.ResultSet.thread() = Thread(
@@ -83,7 +86,8 @@ class Forum(
                 Post(
                     getLong("id"), name, getLong("avatar_at").takeIf { it > 0 }?.let { "/api/users/${java.net.URLEncoder.encode(name, Charsets.UTF_8)}/avatar?v=$it" },
                     if (hidden) "" else getString("body"), spoiler, hidden, getLong("quote_id").takeUnless { wasNull() },
-                    getLong("created_at"), getLong("edited_at").takeUnless { wasNull() }, emptyMap(), emptyList(), getLong("author_id") == viewer.id
+                    getLong("created_at"), getLong("edited_at").takeUnless { wasNull() }, emptyMap(), emptyList(), getLong("author_id") == viewer.id,
+                    if (hidden) null else cardFromJson(getString("card"))
                 )
             }
         }
@@ -99,7 +103,7 @@ class Forum(
         }
     }
 
-    suspend fun newThread(user: User, category: String, title: String, body: String, workKey: String?, spoilerUntil: Double?): Long {
+    suspend fun newThread(user: User, category: String, title: String, body: String, workKey: String?, spoilerUntil: Double?, card: ShareCard? = null): Long {
         checkCanWrite(user)
         require(category in CATEGORIES.keys) { "Categoría desconocida" }
         require((category == "work") == (workKey != null)) { "Los hilos de obra van ligados a su obra" }
@@ -114,17 +118,17 @@ class Forum(
             )
             lastId()
         }
-        reply(user, id, body, spoilerUntil, null, newThread = true)
+        reply(user, id, body, spoilerUntil, null, newThread = true, card = card)
         if (category != "work") notifications.discord("Nuevo hilo en ${CATEGORIES[category]}: $cleanTitle (de ${user.name})")
         return id
     }
 
-    suspend fun reply(user: User, threadId: Long, body: String, spoilerUntil: Double?, quoteId: Long?, newThread: Boolean = false): Long {
+    suspend fun reply(user: User, threadId: Long, body: String, spoilerUntil: Double?, quoteId: Long?, newThread: Boolean = false, card: ShareCard? = null): Long {
         checkCanWrite(user)
         val t = thread(threadId) ?: throw NoSuchElementException("Ese hilo no existe")
         require(!t.locked || user.isAdmin) { "El hilo está cerrado" }
         val text = cleanBody(body)
-        require(text.isNotBlank()) { "Escribe algo" }
+        require(text.isNotBlank() || card != null) { "Escribe algo" }
         require(spoilerUntil == null || spoilerUntil in 0.0..100_000.0) { "Número de spoiler no válido" }
         val recent = db.tx { queryOne("SELECT COUNT(*) FROM forum_posts WHERE author_id = ? AND created_at > ?", user.id, clock() - 60_000) { getInt(1) } } ?: 0
         require(recent < MAX_POSTS_PER_MINUTE) { "Más despacio: espera un minuto" }
@@ -132,8 +136,8 @@ class Forum(
         val quote = quoteId?.let { q -> db.tx { queryOne("SELECT author_id FROM forum_posts WHERE id = ? AND thread_id = ? AND deleted = 0", q, threadId) { getLong(1) } } }
         val id = db.tx {
             update(
-                "INSERT INTO forum_posts(thread_id, author_id, body, spoiler_until, quote_id, created_at) VALUES(?,?,?,?,?,?)",
-                threadId, user.id, text, spoilerUntil, quote?.let { quoteId }, now
+                "INSERT INTO forum_posts(thread_id, author_id, body, spoiler_until, quote_id, created_at, card) VALUES(?,?,?,?,?,?,?)",
+                threadId, user.id, text, spoilerUntil, quote?.let { quoteId }, now, card?.let { com.google.gson.Gson().toJson(it) }
             )
             val id = lastId()
             update("UPDATE forum_threads SET last_post_at = ? WHERE id = ?", now, threadId)
@@ -141,6 +145,7 @@ class Forum(
         }
         if (!newThread && now - t.lastPostAt > NECRO_MS) events.record(user.id, "thread_revived", mapOf("thread" to threadId))
         if (spoilerUntil != null) events.record(user.id, "forum_spoiler", mapOf("post" to id))
+        if (card != null) events.record(user.id, "shared", mapOf("to" to "forum", "kind" to card.kind, "spoiler" to (card.spoiler || spoilerUntil != null)))
         val link = "/foro/$threadId#p$id"
         // Who hears about it: whoever is quoted, whoever is mentioned, and others who wrote in the thread.
         val told = HashSet<Long>().apply { add(user.id) }
@@ -312,13 +317,13 @@ private fun Route.forumWriteRoutes(s: Services) {
         val category = b.text("category", 30)
         // A work's thread is asked by source page; the server finds the work (it must already be known).
         val workKey = if (category == "work") s.works.keyOf(b.text("sourceId", 60), b.text("mediaId", 2_000)) ?: throw IllegalArgumentException("Abre antes la ficha de la obra") else null
-        call.respond(mapOf("id" to s.forum.newThread(call.user, category, b.text("title", 300), b.text("body", Forum.MAX_BODY + 100), workKey, b.num("spoilerUntil"))))
+        call.respond(mapOf("id" to s.forum.newThread(call.user, category, b.text("title", 300), b.text("body", Forum.MAX_BODY + 100), workKey, b.num("spoilerUntil"), b.sharedCard(s))))
     }
     post("/forum/{id}/posts") {
         if (!call.forumOn(s)) return@post
         val id = call.idParam()
         val b = call.jsonBody(16_384)
-        call.respond(mapOf("id" to s.forum.reply(call.user, id, b.text("body", Forum.MAX_BODY + 100), b.num("spoilerUntil"), b.num("quoteId")?.toLong())))
+        call.respond(mapOf("id" to s.forum.reply(call.user, id, b.text("body", Forum.MAX_BODY + 100), b.num("spoilerUntil"), b.num("quoteId")?.toLong(), card = b.sharedCard(s))))
     }
     put("/forum/posts/{id}") {
         if (!call.forumOn(s)) return@put
@@ -363,4 +368,11 @@ fun Route.forumAdminRoutes(s: Services) {
         s.forum.mute(b.text("name", 60), b.get("minutes")?.asInt ?: 0, b.text("reason", 200))
         call.respond(mapOf("ok" to true))
     }
+}
+
+/** The card of a post body, when sharing is on; an invalid one is an error, not silently dropped. */
+private suspend fun com.google.gson.JsonObject.sharedCard(s: Services): ShareCard? {
+    val raw = get("card")?.takeIf { !it.isJsonNull } ?: return null
+    if (!s.features.isOn("sharing")) return null
+    return cardFrom(raw) ?: throw IllegalArgumentException("Esa obra no se puede compartir")
 }

@@ -7,10 +7,13 @@ import com.nelson.yomukai.data.social.ChatGuard
 import com.nelson.yomukai.data.social.PartyState
 import com.nelson.yomukai.data.social.PartySync
 import com.nelson.yomukai.data.social.RoomCodes
+import com.nelson.yomukai.data.social.RoomQueue
+import com.nelson.yomukai.data.social.ShareCard
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.websocket.DefaultWebSocketServerSession
@@ -44,7 +47,11 @@ class Rooms(
     private val events: Events,
     private val clock: () -> Long = System::currentTimeMillis,
     /** Told when a room starts playing something (for the group's Discord). */
-    private val onOpen: (who: String, what: String) -> Unit = { _, _ -> }
+    private val onOpen: (who: String, what: String) -> Unit = { _, _ -> },
+    /** Whether a source plays anime (only episodes go in a queue). */
+    private val isAnime: (String) -> Boolean = { true },
+    /** Whether shared cards are on (F4.3); off, a card in the chat is dropped and the text goes alone. */
+    private val sharingOn: suspend () -> Boolean = { true }
 ) {
     private val log = LoggerFactory.getLogger("Rooms")
     private val gson = Gson()
@@ -57,7 +64,11 @@ class Rooms(
     @Volatile
     var sessionCheckMs = SESSION_CHECK_MS
 
-    data class RoomRow(val code: String, val ownerId: Long, val ownerName: String, val name: String, val persistent: Boolean)
+    /** [open]: listed for everyone as a common room (F4.1). [lasting]: an admin's common room that never expires. */
+    data class RoomRow(
+        val code: String, val ownerId: Long, val ownerName: String, val name: String, val persistent: Boolean,
+        val open: Boolean = false, val lasting: Boolean = false
+    )
 
     private class Member(val id: Long, val user: User, val session: DefaultWebSocketServerSession, val joinedAt: Long)
 
@@ -73,31 +84,42 @@ class Rooms(
         var waitJob: Job? = null
         val hostedBy = HashSet<Long>()
         val pauses = HashMap<Long, Int>()
+        var open = row.open
+        var queue: List<RoomQueue.Item> = emptyList()
+        val skipVotes = HashSet<Long>()
     }
 
     // ---------- Rooms in the database ----------
 
     suspend fun mine(user: User): RoomRow {
-        db.tx { queryOne("SELECT r.*, u.name AS owner_name FROM rooms r JOIN users u ON u.id = r.owner_id WHERE owner_id = ? AND persistent = 1", user.id) { row() } }
+        db.tx { queryOne("SELECT r.*, u.name AS owner_name FROM rooms r JOIN users u ON u.id = r.owner_id WHERE owner_id = ? AND persistent = 1 ORDER BY created_at LIMIT 1", user.id) { row() } }
             ?.let { return it }
         return create(user, persistent = true, name = "Sala de ${user.name}")
     }
 
-    suspend fun create(user: User, persistent: Boolean, name: String): RoomRow {
+    /**
+     * A new room. [open] lists it for everyone (a common room); [lasting] (admins only) keeps a common room for good
+     * instead of letting it go after a day without use.
+     */
+    suspend fun create(user: User, persistent: Boolean, name: String, open: Boolean = false, lasting: Boolean = false): RoomRow {
         require(!user.isGuest) { "Los invitados no pueden crear salas" }
-        val open = db.tx { queryOne("SELECT COUNT(*) FROM rooms WHERE owner_id = ? AND persistent = 0", user.id) { getInt(1) } } ?: 0
-        require(persistent || open < MAX_TEMP_ROOMS) { "Ya tienes $MAX_TEMP_ROOMS salas temporales abiertas" }
+        require(!lasting || user.isAdmin) { "Solo un administrador crea salas comunes fijas" }
+        val temp = db.tx { queryOne("SELECT COUNT(*) FROM rooms WHERE owner_id = ? AND persistent = 0", user.id) { getInt(1) } } ?: 0
+        require(persistent || lasting || temp < MAX_TEMP_ROOMS) { "Ya tienes $MAX_TEMP_ROOMS salas temporales abiertas" }
+        val clean = ChatGuard.clean(name).take(60).ifBlank { if (open) "Sala común de ${user.name}" else "Sala de ${user.name}" }
+        // persistent: 0 temporary, 1 the user's own room, 2 an admin's lasting common room.
+        val kind = when { lasting -> 2; persistent -> 1; else -> 0 }
         repeat(10) {
             val code = RoomCodes.generate()
             val inserted = runCatching {
                 db.tx {
                     update(
-                        "INSERT INTO rooms(code, owner_id, name, persistent, created_at, last_active) VALUES(?,?,?,?,?,?)",
-                        code, user.id, ChatGuard.clean(name).take(60).ifBlank { "Sala de ${user.name}" }, persistent, clock(), clock()
+                        "INSERT INTO rooms(code, owner_id, name, persistent, created_at, last_active, open) VALUES(?,?,?,?,?,?,?)",
+                        code, user.id, clean, kind, clock(), clock(), open || lasting
                     )
                 }
             }.isSuccess
-            if (inserted) return RoomRow(code, user.id, user.name, name.take(60), persistent)
+            if (inserted) return RoomRow(code, user.id, user.name, clean, kind != 0, open || lasting, lasting)
         }
         error("No se pudo crear la sala, prueba otra vez")
     }
@@ -105,13 +127,66 @@ class Rooms(
     suspend fun get(code: String): RoomRow? =
         db.tx { queryOne("SELECT r.*, u.name AS owner_name FROM rooms r JOIN users u ON u.id = r.owner_id WHERE code = ?", code) { row() } }
 
-    private fun java.sql.ResultSet.row() =
-        RoomRow(getString("code"), getLong("owner_id"), getString("owner_name"), getString("name"), getInt("persistent") == 1)
+    private fun java.sql.ResultSet.row() = RoomRow(
+        getString("code"), getLong("owner_id"), getString("owner_name"), getString("name"), getInt("persistent") != 0,
+        getInt("open") == 1, getInt("persistent") == 2
+    )
+
+    /** The owner (or an admin) opens a room to everyone or closes it again. */
+    suspend fun setOpen(user: User, code: String, open: Boolean): RoomRow {
+        val row = get(code) ?: throw NoSuchElementException("Esa sala no existe")
+        require(row.ownerId == user.id || user.isAdmin) { "Solo quien creó la sala puede abrirla o cerrarla" }
+        db.tx { update("UPDATE rooms SET open = ? WHERE code = ?", open, code) }
+        live[code]?.let { room -> room.lock.withLock { room.open = open; broadcast(room, roomInfo(room)) } }
+        return row.copy(open = open)
+    }
+
+    /** Whoever made a room that is not their own personal one (or an admin) removes it; its queue and chat go with it. */
+    suspend fun delete(user: User, code: String) {
+        val row = get(code) ?: throw NoSuchElementException("Esa sala no existe")
+        require(row.ownerId == user.id || user.isAdmin) { "Solo quien creó la sala puede borrarla" }
+        require(!row.persistent || row.lasting) { "Tu sala personal no se borra" }
+        db.tx { update("DELETE FROM rooms WHERE code = ?", code) }
+        live.remove(code)?.let { room ->
+            room.members.values.forEach { runCatching { it.session.close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "La sala se ha cerrado")) } }
+        }
+    }
+
+    /** Common rooms (open to everyone), with whoever is in them, what plays and what comes next. */
+    suspend fun openRooms(): List<Map<String, Any?>> {
+        val rows = db.tx {
+            query(
+                """SELECT r.*, u.name AS owner_name FROM rooms r JOIN users u ON u.id = r.owner_id WHERE r.open = 1
+                   ORDER BY r.persistent = 2 DESC, r.last_active DESC LIMIT 50"""
+            ) { row() }
+        }
+        val queued = db.tx { query("SELECT room_code, COUNT(*) FROM room_queue GROUP BY room_code") { getString(1) to getInt(2) } }.toMap()
+        return rows.map { row ->
+            val r = live[row.code]
+            val nextUp = r?.queue?.firstOrNull() ?: if (r == null && (queued[row.code] ?: 0) > 0) loadQueue(row.code).firstOrNull() else null
+            mapOf(
+                "code" to row.code, "name" to row.name, "owner" to row.ownerName, "lasting" to row.lasting,
+                "members" to r?.members?.values?.map { it.user.name }?.distinct().orEmpty(),
+                "title" to r?.state?.title, "episode" to r?.state?.episode, "playing" to r?.state?.playing,
+                "queued" to (r?.queue?.size ?: queued[row.code] ?: 0),
+                "next" to nextUp?.let { mapOf("title" to it.title, "episode" to it.episode, "cover" to it.cover) }
+            )
+        }
+    }
+
+    private suspend fun loadQueue(code: String): List<RoomQueue.Item> = db.tx {
+        query("SELECT * FROM room_queue WHERE room_code = ? ORDER BY position, id", code) {
+            RoomQueue.Item(
+                getLong("id"), getString("source_id"), getString("media_id"), getString("chapter_id"), getString("title"),
+                getString("episode"), getString("cover"), getLong("added_by"), getString("added_by_name")
+            )
+        }
+    }
 
     /** Rooms with people in them right now: who is there and what plays (for the home row). */
     fun active(): List<Map<String, Any?>> = live.values.filter { it.members.isNotEmpty() }.map { r ->
         mapOf(
-            "code" to r.row.code, "name" to r.row.name, "owner" to r.row.ownerName,
+            "code" to r.row.code, "name" to r.row.name, "owner" to r.row.ownerName, "open" to r.open,
             "members" to r.members.values.map { it.user.name }.distinct(),
             "host" to r.members.values.firstOrNull { it.user.id == r.host }?.user?.name,
             "title" to r.state?.title, "episode" to r.state?.episode, "playing" to r.state?.playing
@@ -138,11 +213,15 @@ class Rooms(
         val room = live.computeIfAbsent(code) { LiveRoom(row) }
         val me = Member(ids.incrementAndGet(), user, session, clock())
         room.lock.withLock {
+            if (room.members.isEmpty()) room.queue = loadQueue(code)
             val firstOfUser = room.members.values.none { it.user.id == user.id }
             room.members[me.id] = me
             if (room.host == null || room.members.values.none { it.user.id == room.host }) room.host = PartySync.nextHost(null, userIds(room), null)
             send(me, welcome(room, me))
-            if (firstOfUser) broadcast(room, members(room))
+            if (firstOfUser) {
+                broadcast(room, members(room))
+                broadcast(room, queueMessage(room))
+            }
             lateJoiner(room, user)
         }
         db.tx { update("UPDATE rooms SET last_active = ? WHERE code = ?", clock(), code) }
@@ -179,6 +258,14 @@ class Rooms(
             "chat" -> chat(room, me, msg)
             "react" -> react(room, me, msg.get("emoji")?.asString.orEmpty())
             "host" -> room.lock.withLock { giveHost(room, me, msg.get("userId")?.asLong) }
+            "queue_add" -> room.lock.withLock { queueAdd(room, me, msg.get("item")?.takeIf { it.isJsonObject }?.asJsonObject) }
+            "queue_remove" -> room.lock.withLock { queueRemove(room, me, msg.get("id")?.asLong) }
+            "queue_move" -> room.lock.withLock { queueMove(room, me, msg.get("id")?.asLong, msg.get("to")?.asInt) }
+            "queue_play" -> room.lock.withLock {
+                if (canControl(room, me)) room.queue.firstOrNull { it.id == msg.get("id")?.asLong }?.let { advance(room, it, by = me.user.name) }
+            }
+            "skip" -> room.lock.withLock { skipVote(room, me) }
+            "ended" -> room.lock.withLock { ended(room, me, msg.get("chapterId")?.asString) }
             "allow" -> room.lock.withLock {
                 if (me.user.id == room.host) {
                     room.everyoneControls = msg.get("all")?.asBoolean == true
@@ -210,6 +297,10 @@ class Rooms(
         if (previous == null || previous.chapterId != next.chapterId) {
             room.loading.clear()
             room.waitingSince = null
+            if (room.skipVotes.isNotEmpty()) {
+                room.skipVotes.clear()
+                broadcast(room, queueMessage(room))
+            }
             if (room.hostedBy.add(me.user.id)) events.record(me.user.id, "room_hosted", mapOf("room" to room.row.code))
             if (previous == null) onOpen(me.user.name, ChatGuard.clean(listOf(next.title, next.episode).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { room.row.name }).take(200))
         }
@@ -265,7 +356,8 @@ class Rooms(
 
     private suspend fun chat(room: LiveRoom, me: Member, msg: JsonObject) {
         val text = ChatGuard.clean(msg.get("text")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty())
-        if (text.isBlank()) return
+        val card = msg.get("card")?.let(::cardFrom)?.takeIf { sharingOn() }
+        if (text.isBlank() && card == null) return
         val muted = db.tx { queryOne("SELECT muted_until FROM users WHERE id = ?", me.user.id) { getLong(1) } } ?: 0
         if (muted > clock()) return send(me, mapOf("t" to "notice", "text" to "Estás silenciado por un administrador"))
         if (!guard.allowMessage(me.user.id, clock())) return send(me, mapOf("t" to "notice", "text" to "Más despacio: espera unos segundos"))
@@ -273,14 +365,15 @@ class Rooms(
         val now = clock()
         val id = db.tx {
             update(
-                "INSERT INTO room_messages(room_code, user_id, user_name, kind, text, spoiler, created_at) VALUES(?,?,?,?,?,?,?)",
-                room.row.code, me.user.id, me.user.name, "msg", text, spoiler, now
+                "INSERT INTO room_messages(room_code, user_id, user_name, kind, text, spoiler, created_at, card) VALUES(?,?,?,?,?,?,?,?)",
+                room.row.code, me.user.id, me.user.name, "msg", text, spoiler, now, card?.let(gson::toJson)
             )
             lastId()
         }
         events.record(me.user.id, "room_message", emptyMap())
+        if (card != null) events.record(me.user.id, "shared", mapOf("to" to "room", "kind" to card.kind, "spoiler" to card.spoiler))
         val mentions = ChatGuard.mentions(text)
-        broadcast(room, mapOf("t" to "chat", "msg" to ChatMessage(id, me.user.name, text, spoiler, now, mentions)))
+        broadcast(room, mapOf("t" to "chat", "msg" to ChatMessage(id, me.user.name, text, spoiler, now, mentions, card)))
     }
 
     private suspend fun react(room: LiveRoom, me: Member, emoji: String) {
@@ -303,7 +396,11 @@ class Rooms(
                 live.remove(room.row.code, room)
             } else {
                 maybeResume(room)
-                if (!stillHere) broadcast(room, members(room))
+                if (!stillHere) {
+                    room.skipVotes.remove(me.user.id)
+                    broadcast(room, members(room))
+                    broadcast(room, queueMessage(room))
+                }
             }
         }
     }
@@ -323,7 +420,107 @@ class Rooms(
     private fun userIds(room: LiveRoom): List<Long> = room.members.values.map { it.user.id }.distinct()
     private fun waitingNames(room: LiveRoom): List<String> = room.loading.mapNotNull { room.members[it]?.user?.name }.distinct()
 
-    data class ChatMessage(val id: Long, val from: String, val text: String, val spoiler: Boolean, val at: Long, val mentions: List<String>)
+    data class ChatMessage(
+        val id: Long, val from: String, val text: String, val spoiler: Boolean, val at: Long, val mentions: List<String>, val card: ShareCard? = null
+    )
+
+    // ---------- Queue (F4.1) ----------
+
+    private fun canControl(room: LiveRoom, me: Member) = PartySync.canControl(me.user.id, room.host, room.everyoneControls)
+
+    private fun queueMessage(room: LiveRoom) = mapOf(
+        "t" to "queue", "items" to room.queue,
+        "skip" to mapOf("votes" to room.skipVotes.toList(), "needed" to RoomQueue.votesToSkip(userIds(room).size))
+    )
+
+    private fun roomInfo(room: LiveRoom) = mapOf(
+        "t" to "room",
+        "room" to mapOf("code" to room.row.code, "name" to room.row.name, "owner" to room.row.ownerName, "persistent" to room.row.persistent, "open" to room.open)
+    )
+
+    private suspend fun queueAdd(room: LiveRoom, me: Member, raw: JsonObject?) {
+        if (me.user.isGuest) return send(me, mapOf("t" to "notice", "text" to "Los invitados no añaden a la cola"))
+        fun str(name: String) = raw?.get(name)?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+        val card = ShareCard.sanitize(
+            ShareCard("episode", str("sourceId"), str("mediaId"), str("chapterId"), str("title"), cover = str("cover"), label = str("episode"))
+        ) ?: return send(me, mapOf("t" to "notice", "text" to "Ese episodio no se puede poner en la cola"))
+        if (!isAnime(card.sourceId)) return send(me, mapOf("t" to "notice", "text" to "En la cola solo van episodios de anime"))
+        val draft = RoomQueue.Item(0, card.sourceId, card.mediaId, card.chapterId, card.title, card.label, card.cover, me.user.id, me.user.name)
+        RoomQueue.refuseAdd(room.queue, draft)?.let { return send(me, mapOf("t" to "notice", "text" to it)) }
+        val id = db.tx {
+            update(
+                """INSERT INTO room_queue(room_code, position, source_id, media_id, chapter_id, title, episode, cover, added_by, added_by_name, created_at)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+                room.row.code, room.queue.size, draft.sourceId, draft.mediaId, draft.chapterId, draft.title, draft.episode, draft.cover,
+                draft.addedBy, draft.addedByName, clock()
+            )
+            lastId()
+        }
+        room.queue = room.queue + draft.copy(id = id)
+        db.tx { update("UPDATE rooms SET last_active = ? WHERE code = ?", clock(), room.row.code) }
+        events.record(me.user.id, "room_queued", emptyMap())
+        broadcast(room, queueMessage(room))
+    }
+
+    private suspend fun queueRemove(room: LiveRoom, me: Member, id: Long?) {
+        val item = room.queue.firstOrNull { it.id == id } ?: return
+        if (!RoomQueue.canEdit(me.user.id, item, canControl(room, me))) return
+        room.queue = room.queue - item
+        db.tx { update("DELETE FROM room_queue WHERE id = ? AND room_code = ?", item.id, room.row.code) }
+        broadcast(room, queueMessage(room))
+    }
+
+    private suspend fun queueMove(room: LiveRoom, me: Member, id: Long?, to: Int?) {
+        if (id == null || to == null || !canControl(room, me)) return
+        val moved = RoomQueue.move(room.queue, id, to)
+        if (moved == room.queue) return
+        room.queue = moved
+        savePositions(room)
+        broadcast(room, queueMessage(room))
+    }
+
+    private suspend fun savePositions(room: LiveRoom) = db.tx {
+        room.queue.forEachIndexed { i, item -> update("UPDATE room_queue SET position = ? WHERE id = ?", i, item.id) }
+    }
+
+    /** A vote (or taking it back) to skip what plays; enough votes move on. */
+    private suspend fun skipVote(room: LiveRoom, me: Member) {
+        val state = room.state ?: return
+        if (!room.skipVotes.add(me.user.id)) room.skipVotes.remove(me.user.id)
+        if (RoomQueue.skipPasses(room.skipVotes, userIds(room).toSet())) {
+            // Everyone who voted for it counts it (for «La democracia ha hablado»).
+            val voters = room.skipVotes.filter { it in userIds(room) }
+            room.skipVotes.clear()
+            voters.forEach { events.record(it, "room_skip", emptyMap()) }
+            val next = room.queue.firstOrNull()
+            if (next != null) advance(room, next, by = null)
+            // Nothing queued: whoever drives goes on to the next episode of the same anime.
+            else broadcast(room, mapOf("t" to "skip", "chapterId" to state.chapterId))
+        }
+        broadcast(room, queueMessage(room))
+    }
+
+    /** The episode finished: with something queued the room moves on by itself (once, whoever says it first). */
+    private suspend fun ended(room: LiveRoom, me: Member, chapterId: String?) {
+        val state = room.state ?: return
+        if (chapterId != state.chapterId || !canControl(room, me)) return
+        room.queue.firstOrNull()?.let { advance(room, it, by = null) }
+    }
+
+    /** Plays [item] for everyone from the start and takes it off the queue. */
+    private suspend fun advance(room: LiveRoom, item: RoomQueue.Item, by: String?) {
+        room.queue = room.queue.filter { it.id != item.id }
+        db.tx { update("DELETE FROM room_queue WHERE id = ?", item.id) }
+        savePositions(room)
+        room.loading.clear()
+        room.waitingSince = null
+        room.waitJob?.cancel()
+        room.resumeAfterWait = false
+        room.skipVotes.clear()
+        room.state = PartyState(item.sourceId, item.mediaId, item.chapterId, item.title, item.episode, position = 0.0, playing = true, at = clock())
+        broadcast(room, mapOf("t" to "state", "state" to room.state, "by" to by, "waiting" to emptyList<String>(), "advance" to true))
+        broadcast(room, queueMessage(room))
+    }
 
     private fun members(room: LiveRoom) = mapOf(
         "t" to "members",
@@ -336,11 +533,12 @@ class Rooms(
             query(
                 "SELECT * FROM room_messages WHERE room_code = ? AND created_at > ? ORDER BY id DESC LIMIT 50",
                 room.row.code, clock() - CHAT_KEEP_MS
-            ) { ChatMessage(getLong("id"), getString("user_name"), getString("text"), getInt("spoiler") == 1, getLong("created_at"), emptyList()) }
+            ) { ChatMessage(getLong("id"), getString("user_name"), getString("text"), getInt("spoiler") == 1, getLong("created_at"), emptyList(), cardFromJson(getString("card"))) }
         }.reversed()
         return members(room) + mapOf(
             "t" to "welcome", "you" to me.user.id, "now" to clock(),
-            "room" to mapOf("code" to room.row.code, "name" to room.row.name, "owner" to room.row.ownerName, "persistent" to room.row.persistent),
+            "room" to mapOf("code" to room.row.code, "name" to room.row.name, "owner" to room.row.ownerName, "persistent" to room.row.persistent, "open" to room.open),
+            "queue" to room.queue, "skip" to mapOf("votes" to room.skipVotes.toList(), "needed" to RoomQueue.votesToSkip(userIds(room).size)),
             "state" to room.state, "waiting" to waitingNames(room), "history" to history, "reactions" to ChatGuard.REACTIONS
         )
     }
@@ -418,10 +616,27 @@ fun Route.roomRoutes(s: Services, addressOf: (ApplicationCall) -> String) {
     }
     get("/rooms") { if (call.roomsOn()) call.respond(s.rooms.active()) }
     get("/rooms/mine") { if (call.roomsOn()) call.respond(s.rooms.mine(call.user)) }
+    get("/rooms/open") { if (call.roomsOn()) call.respond(if (s.features.isOn("open_rooms")) s.rooms.openRooms() else emptyList()) }
     post("/rooms") {
         if (!call.roomsOn()) return@post
         val body = call.jsonBody(1_024)
-        call.respond(s.rooms.create(call.user, persistent = false, name = body.text("name", 60)))
+        val open = body.get("open")?.takeIf { it.isJsonPrimitive }?.asBoolean == true
+        require(!open || s.features.isOn("open_rooms")) { "Las salas comunes están desactivadas" }
+        val lasting = body.get("lasting")?.takeIf { it.isJsonPrimitive }?.asBoolean == true
+        call.respond(s.rooms.create(call.user, persistent = false, name = body.text("name", 60), open = open || lasting, lasting = lasting))
+    }
+    post("/rooms/{code}/open") {
+        if (!call.roomsOn()) return@post
+        val code = RoomCodes.normalize(call.parameters["code"].orEmpty()) ?: throw NoSuchElementException("Código no válido")
+        val open = call.jsonBody(256).get("open")?.takeIf { it.isJsonPrimitive }?.asBoolean == true
+        require(!open || s.features.isOn("open_rooms")) { "Las salas comunes están desactivadas" }
+        call.respond(s.rooms.setOpen(call.user, code, open))
+    }
+    delete("/rooms/{code}") {
+        if (!call.roomsOn()) return@delete
+        val code = RoomCodes.normalize(call.parameters["code"].orEmpty()) ?: throw NoSuchElementException("Código no válido")
+        s.rooms.delete(call.user, code)
+        call.respond(mapOf("ok" to true))
     }
     get("/rooms/{code}") {
         if (!call.roomsOn()) return@get

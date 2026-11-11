@@ -188,7 +188,10 @@ class Services(val config: Config) {
     }
     val events = Events(db)
     val notifications = Notifications(db, notifier, config.pushUrl, config.publicUrl)
-    val rooms = Rooms(db, events, onOpen = { who, title -> notifications.discord("$who ha abierto una sala: $title") })
+    val rooms = Rooms(
+        db, events, onOpen = { who, title -> notifications.discord("$who ha abierto una sala: $title") },
+        isAnime = { id -> sources.get(id) is com.nelson.yomukai.data.source.AnimeSource }, sharingOn = { features.isOn("sharing") }
+    )
     val forum = Forum(db, events, notifications, config.dataDir)
     val dms = DirectMessages(db, notifications, events)
     val themes = ThemesService(db, events, config.dataDir)

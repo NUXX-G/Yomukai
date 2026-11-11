@@ -133,6 +133,13 @@ class DirectMessagesTest {
         assertEquals(HttpStatusCode.Forbidden, refused.status)
         assertTrue(refused.bodyAsText().contains("conteste"))
 
+        // F4.5: the new achievements for messages and sharing.
+        delay(200)
+        val unlocked = JsonParser.parseString(ana.get("/api/achievements").bodyAsText()).asJsonArray.map { it.asJsonObject }
+            .filter { it.has("unlockedAt") && !it["unlockedAt"].isJsonNull }.map { it["id"].asString }
+        assertTrue(unlocked.toString(), "first_dm" in unlocked && "first_share" in unlocked)
+        assertFalse("networker" in unlocked)
+
         // An admin can switch it all off.
         s.features.set("dms", false)
         assertEquals(HttpStatusCode.NotFound, ana.get("/api/dm").status)

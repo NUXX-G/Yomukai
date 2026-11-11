@@ -32,6 +32,15 @@
     { "id": "five_thousand_chapters", "name": "Ojos de búho lector", "description": "5000 capítulos leídos.", "emoji": "👓", "rarity": "legendary", "secret": false, "rule": { "metric": "chapters", "atLeast": 5000 } },
     { "id": "sociable", "name": "Alma de la fiesta", "description": "Escribir 100 mensajes en salas.", "emoji": "🥳", "rarity": "common", "secret": false, "rule": { "metric": "room_messages", "atLeast": 100 } },
     { "id": "matchmaker", "name": "Celestino", "description": "Recomendar 10 obras a tus amigos.", "emoji": "💘", "rarity": "common", "secret": false, "rule": { "metric": "recommendations_sent", "atLeast": 10 } },
-    { "id": "weekend_lost", "name": "Fin de semana perdido", "description": "30 episodios entre sábado y domingo.", "emoji": "🫠", "rarity": "epic", "secret": true, "rule": { "metric": "weekend_episodes", "atLeast": 30 } }
+    { "id": "weekend_lost", "name": "Fin de semana perdido", "description": "30 episodios entre sábado y domingo.", "emoji": "🫠", "rarity": "epic", "secret": true, "rule": { "metric": "weekend_episodes", "atLeast": 30 } },
+    { "id": "first_dm", "name": "Te escribo por privado", "description": "Mandar tu primer mensaje directo.", "emoji": "✉️", "rarity": "common", "secret": false, "rule": { "metric": "dms_sent", "atLeast": 1 } },
+    { "id": "chatterbox", "name": "Esto podía ser un audio", "description": "300 mensajes directos. El grupo ya sabe que existes.", "emoji": "💬", "rarity": "rare", "secret": false, "rule": { "metric": "dms_sent", "atLeast": 300 } },
+    { "id": "networker", "name": "Contactos en la agenda", "description": "Hablar por privado con 5 personas distintas.", "emoji": "📇", "rarity": "rare", "secret": false, "rule": { "metric": "dm_people", "atLeast": 5 } },
+    { "id": "first_share", "name": "Tienes que ver esto", "description": "Compartir tu primera obra, episodio o capítulo.", "emoji": "📤", "rarity": "common", "secret": false, "rule": { "metric": "shares", "atLeast": 1 } },
+    { "id": "town_crier", "name": "El pregonero", "description": "Compartir 25 obras. Tu lista de pendientes es la de todos.", "emoji": "📣", "rarity": "epic", "secret": false, "rule": { "metric": "shares", "atLeast": 25 } },
+    { "id": "everywhere", "name": "Lo has puesto en todas partes", "description": "Compartir algo en un mensaje directo, en una sala y en el foro.", "emoji": "🛰️", "rarity": "rare", "secret": false, "rule": { "metric": "share_places", "atLeast": 3 } },
+    { "id": "spoiler_shield", "name": "Escudo anti-spoilers", "description": "Compartir 5 episodios o capítulos con el escudo puesto. Un héroe sin capa.", "emoji": "🛡️", "rarity": "rare", "secret": true, "rule": { "metric": "spoiler_shields", "atLeast": 5 } },
+    { "id": "room_dj", "name": "Pincha el DJ", "description": "Poner 20 episodios en la cola de una sala.", "emoji": "🎧", "rarity": "rare", "secret": false, "rule": { "metric": "room_queued", "atLeast": 20 } },
+    { "id": "democracy", "name": "La democracia ha hablado", "description": "10 episodios saltados por votación en salas.", "emoji": "🗳️", "rarity": "epic", "secret": true, "rule": { "metric": "room_skips", "atLeast": 10 } }
   ]
 }
