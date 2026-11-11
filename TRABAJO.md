@@ -3,7 +3,7 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
-**AHORA (2026-11-11): PEDIDO 2026-11-10, bloque 1 (ver sección justo debajo).** Siguiente paso: F1.1/F1.2 reproductor.
+**AHORA (2026-11-11): PEDIDO 2026-11-10 — bloque 1 CERRADO y release v2.3.0 (pre-release). Siguiente: bloque 2 (F2.1 medir cada fuente con scripts/probe o bench; luego F2.2 worker y F2.3 LaLiga).**
 
 ## PEDIDO 2026-11-10 (feedback `docs/feedback/2026-11-10.pdf`, con capturas)
 Autonomía total (solo preguntar si es irreversible y peligroso: borrar datos de usuarios, reescribir historial). Permiso
@@ -14,17 +14,17 @@ arreglar → test que lo impida. **Nada se marca [x] sin probarlo de punta a pun
 autoscroll y voces estaban marcados y no iban). Al cerrar cada bloque: qué hice, qué publiqué y qué tiene que probar él.
 
 **Bloque 1 — fallos que rompen el uso**
-- [ ] F1.1 «Siguiente» del reproductor: fuente normal, obra unificada, Jellyfin y en sala.
-- [ ] F1.2 Barra de progreso: el relleno sigue al punto (arrastrar, clic, teclado); igual la de volumen.
-- [ ] F1.3 Volver a la ficha desde reproductor y lectores (también desde «Continuar»); atrás del navegador/móvil coherente.
-- [ ] F1.4 Actividad de amigos: solo sale la mía. Revisar cadena completa (eventos web/app, `hidden` por defecto,
+- [x] F1.1 «Siguiente»: en sala el estado viejo devolvía al anfitrión al episodio anterior (arreglado y probado en local con sala real); en obra unificada elige el siguiente número entre todas las fuentes (`lib/next-episode.js`, tests); la página embed del servidor tiene «Siguiente →». Fuente normal probada (AnimeFLV). Jellyfin = fuente normal del servidor (sin NAS real para probar). App hecha.
+- [x] F1.2 Barra: el relleno no se movía mientras el vídeo buscaba (`seeking` sin `timeupdate`); `lib/scrub.js` con tests; probado con clic y teclado (flechas = ±10 s, sin doble salto). Volumen con el mismo cálculo. App hecha.
+- [x] F1.3 Botón «Ficha» + título enlazado en reproductor y lectores; router con `history.state.idx`; entrada directa mete la ficha debajo (probado: atrás del navegador → ficha). App hecha.
+- [x] F1.4 (causa: >3 filas por envío = «masivo»; acabar el ep. 7 manda del 1 al 7 y la app sincroniza en lote. Ahora cuenta el capítulo con historial reciente; test con 3 usuarios que falla sin el arreglo; probado en la web con 2 usuarios). Original: Actividad de amigos: solo sale la mía. Revisar cadena completa (eventos web/app, `hidden` por defecto,
       categorías privadas, cliente). Probar con usuarios A, B, C.
-- [ ] F1.5 Cambio de idioma de la obra (EN ↔ ES) en la ficha: fuentes, capítulos y progreso coherentes.
-- [ ] F1.6 Obra unificada a prueba de fallos: batería de casos reales (temporadas, partes, títulos multi-idioma,
+- [x] F1.5 Causas: los chips solo salían con ?obra= (no desde biblioteca/búsqueda/Continuar) y el «leído» de la obra solo miraba las fuentes del idioma mostrado. Ahora GET /api/obras/de, leído entre todas las páginas de la obra, Continuar lo respeta y vuelve a tu fuente. Probado ES→EN→ES con Dragon Ball Super: Beerus (3 vistos y «Continuar · Ep. 5» en los dos). App hecha.
+- [x] F1.6 (HardWorkCasesTest: temporadas escritas de cualquier forma, partes, spin-offs, películas, remakes de anime por año entre paréntesis —en manga el año que añaden las webs no separa—, «×», varios idiomas, novela/manga/anime; migración 22 reagrupa solo lo provisional afectado; biblioteca/progreso/historial van por fuente+id y no se tocan). Original: Obra unificada a prueba de fallos: batería de casos reales (temporadas, partes, títulos multi-idioma,
       spin-offs, remakes, novela/manga/anime con el mismo nombre); nunca perder biblioteca/progreso/historial.
-- [ ] F1.7 Buscador: tipo por metadatos (AniList format + countryOfOrigin: JP manga, KR manhwa, CN manhua; cómic
+- [x] F1.7 (tipo por AniList: formato + país, migración 23 corrige los confirmados de 50 en 50; filtro por tipo de la obra; búsqueda puntúa todos los nombres, erratas con prefijos cortos + Damerau, sin espacios, umbral contra basura; probado en local: «one pice», «dragon bal super», «onepiece», «qwzx» vacío). Original: Buscador: tipo por metadatos (AniList format + countryOfOrigin: JP manga, KR manhwa, CN manhua; cómic
       occidental aparte; fuente de respaldo) y relevancia (exacto/alternativos primero, erratas sin basura). Tests reales.
-- [ ] Extra del PDF: sinopsis en el idioma de la interfaz cuando exista (tarjetas y hero).
+- [x] Extra del PDF: sinopsis en español desde una fuente española de la obra (servidor, en segundo plano; probado en local: One Piece y Bleach pasan a español tras un ciclo).
 
 **Bloque 2 — velocidad y bloqueos**
 - [ ] F2.1 Medir cada fuente (listado, ficha, capítulos, páginas/vídeo), cuellos de botella, antes/después.
@@ -72,7 +72,7 @@ autoscroll y voces estaban marcados y no iban). Al cerrar cada bloque: qué hice
 - [ ] 7.6 Capturas antes/después en `docs/capturas/` (móvil y escritorio) y app Android con los mismos tokens.
 
 **Bitácora del pedido** (qué hice, qué publiqué, qué probar):
-- (vacío)
+- 2026-11-11 · **Bloque 1 cerrado** (web, servidor y app). App probada en el emulador: Siguiente 354→355 en Bleach (AnimeAV1) y «Ir a la ficha» desde el reproductor. Sin probar en el emulador: sala desde la app y Siguiente a una fuente hermana (necesitan servidor conectado; cubierto por tests de NextEpisode). Release **v2.3.0 (pre-release)** con notas en docs/releases/v2.3.0.md (el flujo de release usa ese archivo y marca pre-release si empieza por <!-- prerelease -->). Qué tiene que probar el usuario: lista «Qué probar» de esas notas.
 
 ## Estado anterior
 Última actualización: 2026-11-08 (noche). Versión de la app: **2.2.0** (versionCode 28): un APK por procesador (arm64 29 MB) + universal; la release se publica sola al subir la etiqueta v2.1.0.

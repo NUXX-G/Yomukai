@@ -64,6 +64,13 @@ jobs:
         run: |
           PREV=$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)
           RANGE="${PREV:+$PREV..}${GITHUB_REF_NAME}"
+          # Hand-written notes for the user (docs/releases/<tag>.md) win over the commit list.
+          if [ -f "docs/releases/${GITHUB_REF_NAME}.md" ]; then
+            grep -v '^<!-- prerelease -->' "docs/releases/${GITHUB_REF_NAME}.md" > NOTAS.md
+            echo >> NOTAS.md
+            echo "Se instala encima de la versión anterior sin perder datos. Comprueba el archivo con su .sha256." >> NOTAS.md
+            exit 0
+          fi
           {
             echo "## Novedades"
             git log --format='%s' $RANGE | grep -E '^feat(\(|:)' | sed -E 's/^feat(\([^)]*\))?: /- /' || true
@@ -78,4 +85,8 @@ jobs:
       - name: Publicar
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" Yomukai-"${GITHUB_REF_NAME}"*.apk Yomukai-"${GITHUB_REF_NAME}"*.apk.sha256 --title "Yomukai ${GITHUB_REF_NAME#v}" --notes-file NOTAS.md
+        run: |
+          # Delicate releases (works, migrations, rooms) go out as pre-release: the notes start with <!-- prerelease -->.
+          PRE=""
+          if [ -f "docs/releases/${GITHUB_REF_NAME}.md" ] && head -1 "docs/releases/${GITHUB_REF_NAME}.md" | grep -q '<!-- prerelease -->'; then PRE="--prerelease"; fi
+          gh release create "$GITHUB_REF_NAME" Yomukai-"${GITHUB_REF_NAME}"*.apk Yomukai-"${GITHUB_REF_NAME}"*.apk.sha256 --title "Yomukai ${GITHUB_REF_NAME#v}" --notes-file NOTAS.md $PRE
