@@ -34,14 +34,17 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nelson.yomukai.data.learning.Dictionary
+import com.nelson.yomukai.data.learning.TranslationChain
+import androidx.compose.runtime.collectAsState
 import com.nelson.yomukai.i18n.tr
 import com.nelson.yomukai.ui.LocalAppContainer
 import kotlinx.coroutines.launch
 import java.util.Locale
 
 /**
- * Learning mode: what a long press on a word opens. The offline dictionary (meaning, pronunciation, Spanish words),
- * the word read aloud, and «Guardar» to review it later with its sentence and the work (needs the server).
+ * What a long press on a word or a bubble opens, in every reader (F6.3): its translation through the chain
+ * (dictionary, ML Kit on the phone, the server), the offline dictionary (meaning, pronunciation, Spanish words), its
+ * sentence translated, the word read aloud and, in learning mode, «Guardar» to review it later (needs the server).
  */
 @Composable
 private fun DictionaryResult(status: String?, entries: List<Dictionary.Entry>) {
@@ -79,6 +82,13 @@ fun WordSheet(word: String, sentence: String, lang: String, source: String, onDi
     val choices = remember(word) { wordsOf(word) }
     var current by remember(word) { mutableStateOf(choices.firstOrNull() ?: word) }
 
+    val target = com.nelson.yomukai.i18n.I18n.lang
+    var phrase by remember(word) { mutableStateOf<TranslationChain.Result?>(null) }
+    var sentenceTr by remember(sentence) { mutableStateOf<TranslationChain.Result?>(null) }
+    val learning = container.preferences.app.collectAsState().value.learningEnabled
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    LaunchedEffect(word) { phrase = container.textTranslator.translate(word, code, target) }
+    LaunchedEffect(sentence) { if (sentence.isNotBlank() && sentence != word) sentenceTr = container.textTranslator.translate(sentence, code, target) }
     LaunchedEffect(current, code) {
         status = null
         val (s, found) = container.dictionary.lookup(code, current)
@@ -97,7 +107,19 @@ fun WordSheet(word: String, sentence: String, lang: String, source: String, onDi
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(current, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            if (choices.size > 1) Text(word, style = MaterialTheme.typography.titleMedium)
+            when {
+                phrase == null -> CircularProgressIndicator()
+                phrase?.text != null -> {
+                    Text(phrase!!.text!!, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text(tr("Con: {0}", viaName(phrase!!.via)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                else -> {
+                    Text(tr("Aquí no hay traductor disponible: ni el diccionario, ni el del móvil, ni el servidor."), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    phrase?.webUrl?.let { url -> TextButton(onClick = { runCatching { uri.openUri(url) } }) { Text(tr("Abrir en el traductor de Google")) } }
+                }
+            }
+            Text(current, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             if (choices.size > 1) {
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     choices.forEach { w -> androidx.compose.material3.FilterChip(selected = w == current, onClick = { current = w }, label = { Text(w) }) }
@@ -109,7 +131,7 @@ fun WordSheet(word: String, sentence: String, lang: String, source: String, onDi
                     Text(" " + tr("Escuchar"))
                 }
                 Spacer(Modifier.weight(1f))
-                if (connected) {
+                if (connected && learning) {
                     Button(onClick = {
                         scope.launch {
                             val meaning = entries.firstOrNull()?.let { e -> e.es.joinToString(", ").ifEmpty { e.glosses.firstOrNull().orEmpty() } }.orEmpty()
@@ -124,7 +146,10 @@ fun WordSheet(word: String, sentence: String, lang: String, source: String, onDi
                 }
             }
             DictionaryResult(status, entries)
-            if (sentence.isNotBlank() && sentence != word) Text("«$sentence»", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (sentence.isNotBlank() && sentence != word) {
+                Text("«$sentence»", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                sentenceTr?.text?.let { Text(it) }
+            }
             if (connected && status == "ready" && !container.dictionary.isDownloaded(code)) {
                 TextButton(enabled = !downloading, onClick = {
                     downloading = true
@@ -147,3 +172,11 @@ private fun wordsOf(text: String): List<String> {
 }
 
 private const val MAX_CHOICES = 30
+
+private fun viaName(via: TranslationChain.Via?): String = when (via) {
+    TranslationChain.Via.DICTIONARY -> tr("diccionario sin conexión")
+    TranslationChain.Via.DEVICE -> tr("traductor del móvil")
+    TranslationChain.Via.SERVER -> tr("servidor de casa")
+    TranslationChain.Via.ONLINE -> tr("traductor en línea (MyMemory)")
+    else -> tr("mismo idioma")
+}

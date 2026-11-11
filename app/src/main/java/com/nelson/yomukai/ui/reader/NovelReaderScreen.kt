@@ -149,8 +149,7 @@ fun NovelReaderScreen(
     val bookmarked = bookmarks.any { it.chapterId == currentChapterId && it.position == currentParagraph }
     var scrollTarget by remember(state.generation) { mutableStateOf<Int?>(null) }
     var autoScroll by remember { mutableStateOf(false) }
-    // Language learning (off by default): long press on a word → dictionary sheet.
-    val learning = com.nelson.yomukai.ui.LocalAppContainer.current.preferences.app.collectAsState().value.learningEnabled
+    // Long press on a word → its translation and the dictionary (F6.3; «Guardar» only in learning mode).
     var picked by remember { mutableStateOf<com.nelson.yomukai.data.learning.PickedWord?>(null) }
 
     val matches = remember(items, currentChapterId, searchQuery, searchOpen) {
@@ -339,8 +338,8 @@ fun NovelReaderScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .then(
-                                            // Learning mode only: a long press opens the word; a tap works as always.
-                                            if (!learning) Modifier else Modifier.pointerInput(item.text) {
+                                            // A long press opens the word with its translation (F6.3); a tap works as always.
+                                            Modifier.pointerInput(item.text) {
                                                 detectTapGestures(
                                                     onTap = { if (autoScroll) autoScroll = false else overlayVisible = !overlayVisible },
                                                     onLongPress = { pos ->

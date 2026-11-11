@@ -183,14 +183,15 @@ fun MangaReaderScreen(
     }
     val onNearEnd: () -> Unit = { if (settings.infiniteScroll) viewModel.loadNext() }
 
-    // Bubbles translated on the device when the source is in another language than the interface.
-    // Learning mode also reads them, so a long press on a bubble opens its words.
-    val learning = com.nelson.yomukai.ui.LocalAppContainer.current.preferences.app.collectAsState().value.learningEnabled
-    val bubbleSpec = remember(settings.translateBubbles, settings.speakBubbles, learning, viewModel.language) {
+    // Bubbles translated on the device when the source is in another language than the interface. The pages are
+    // also read (on the phone, page by page as they show, cached) so a long press on any bubble gives its text and
+    // translation (F6.3), with or without learning mode, whenever the work is in another language.
+    val bubbleSpec = remember(settings.translateBubbles, settings.speakBubbles, viewModel.language) {
         val from = viewModel.language.lowercase()
         val to = com.nelson.yomukai.i18n.I18n.lang
         val translate = settings.translateBubbles && from != to
         val speak = settings.speakBubbles
+        val learning = from != to
         val wanted = translate || learning || speak
         if (from.length == 2 && wanted) com.nelson.yomukai.data.ocr.BubbleTranslation(from, to, translate, learning, speak) else null
     }

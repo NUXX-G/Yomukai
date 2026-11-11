@@ -139,7 +139,7 @@ fun SettingsScreen(
             item { DeviceVoicesSection() }
             item { GroupTitle(tr("Aprender idiomas")) }
             item {
-                SwitchItem(tr("Modo aprendizaje"), tr("Mantén pulsada una palabra de una novela para ver su significado, oírla y guardarla"), app.learningEnabled) { v ->
+                SwitchItem(tr("Modo aprendizaje"), tr("Guarda las palabras que mantengas pulsadas para repasarlas después (traducir funciona siempre)"), app.learningEnabled) { v ->
                     viewModel.updateApp { it.copy(learningEnabled = v) }
                 }
             }

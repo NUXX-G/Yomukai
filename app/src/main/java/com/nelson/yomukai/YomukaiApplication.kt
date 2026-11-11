@@ -114,6 +114,7 @@ class AppContainer(context: Context) {
         .also { sync -> network.relay.target = { sync.relayTarget() } }
     val dictionary by lazy { com.nelson.yomukai.data.learning.OfflineDictionary(context, serverSync) }
     val deviceOcr by lazy { com.nelson.yomukai.data.ocr.DeviceOcr() }
+    val textTranslator by lazy { com.nelson.yomukai.data.learning.TextTranslator(dictionary, deviceOcr, serverSync) }
     val bubbleSpeaker by lazy { com.nelson.yomukai.data.ocr.BubbleSpeaker(context) }
     val scrollProfiles by lazy { com.nelson.yomukai.data.ocr.ScrollProfiles(context, deviceOcr) }
 
