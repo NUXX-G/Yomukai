@@ -75,7 +75,7 @@ class MigrationsTest {
             assertTrue(Migrations.run(c).isEmpty())
             // Idempotent even if the version table were lost: every step can meet its own work already done.
             c.exec("DELETE FROM schema_version")
-            assertEquals((1..Migrations.LATEST).toList(), Migrations.run(c))
+            assertEquals(Migrations.ALL.map { it.version }, Migrations.run(c))
         }
         Database(file)
     }
@@ -114,13 +114,29 @@ class MigrationsTest {
     }
 
     @Test
-    fun versionsMustBeContiguous() {
+    fun versionsMustStartAtOneAndIncrease() {
         open(tempFile()).use { c ->
-            try {
-                Migrations.run(c, listOf(Migration(2, "sin la 1") {}))
-                fail("should refuse a gap")
-            } catch (_: IllegalArgumentException) {
+            for (bad in listOf(listOf(Migration(2, "sin la 1") {}), listOf(Migration(1, "uno") {}, Migration(1, "repetida") {}))) {
+                try {
+                    Migrations.run(c, bad)
+                    fail("should refuse $bad")
+                } catch (_: IllegalArgumentException) {
+                }
             }
+        }
+    }
+
+    /** Parallel sessions reserve ranges: a step with a lower number that arrives later still runs. */
+    @Test
+    fun aLowerStepThatArrivesLaterStillRuns() {
+        open(tempFile()).use { c ->
+            val one = Migration(1, "uno") { exec("CREATE TABLE IF NOT EXISTS a(x INTEGER)") }
+            val late = Migration(24, "de otra sesión") { exec("CREATE TABLE IF NOT EXISTS b(x INTEGER)") }
+            val mine = Migration(28, "mía") { exec("CREATE TABLE IF NOT EXISTS c(x INTEGER)") }
+            assertEquals(listOf(1, 28), Migrations.run(c, listOf(one, mine)))
+            assertEquals(listOf(24), Migrations.run(c, listOf(one, late, mine)))
+            assertTrue("b" in tables(c))
+            assertTrue(Migrations.run(c, listOf(one, late, mine)).isEmpty())
         }
     }
 

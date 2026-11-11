@@ -332,19 +332,29 @@ object Migrations {
 
     val LATEST: Int get() = ALL.last().version
 
-    /** Applies the steps this database has not seen, each in its own transaction. Returns the versions applied. */
+    /**
+     * Applies the steps this database has not seen, each in its own transaction, in version order. Versions are unique
+     * and increasing but may have gaps: parallel sessions reserve ranges (24-27, 28-31…), so a step with a lower number
+     * may arrive after a higher one was applied, and it still runs. Returns the versions applied.
+     */
     fun run(connection: Connection, migrations: List<Migration> = ALL): List<Int> {
-        require(migrations.map { it.version } == (1..migrations.size).toList()) { "Las migraciones deben ir numeradas 1, 2, 3… sin huecos" }
+        val versions = migrations.map { it.version }
+        require(versions.isNotEmpty() && versions.first() == 1 && versions.zipWithNext().all { (a, b) -> b > a }) {
+            "Las migraciones deben empezar en 1 e ir en orden creciente, sin repetir números"
+        }
         connection.exec(
             "CREATE TABLE IF NOT EXISTS schema_version(version INTEGER PRIMARY KEY, description TEXT NOT NULL, applied_at INTEGER NOT NULL)"
         )
         val current = currentVersion(connection)
-        check(current <= migrations.size) {
-            "La base de datos es de una versión más nueva de Yomukai (esquema $current, este programa conoce hasta ${migrations.size}). " +
+        check(current <= versions.last()) {
+            "La base de datos es de una versión más nueva de Yomukai (esquema $current, este programa conoce hasta ${versions.last()}). " +
                 "Actualiza Yomukai o restaura una copia de seguridad."
         }
+        val seen = connection.createStatement().use { s ->
+            s.executeQuery("SELECT version FROM schema_version").use { r -> buildSet { while (r.next()) add(r.getInt(1)) } }
+        }
         val applied = mutableListOf<Int>()
-        for (m in migrations.drop(current)) {
+        for (m in migrations.filter { it.version !in seen }) {
             val auto = connection.autoCommit
             connection.autoCommit = false
             try {
