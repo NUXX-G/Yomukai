@@ -3,7 +3,7 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
-**AHORA (2026-11-11): PEDIDO 2026-11-10 — bloque 1 CERRADO y release v2.3.0 (pre-release). Bloque 2: F2.1 y F2.2 hechos; siguiente F2.3 (LaLiga) y arreglar lectortmo (sin capítulos) y zonatmo_to (sin páginas).**
+**AHORA (2026-11-11): PEDIDO 2026-11-10 — bloque 1 CERRADO y release v2.3.0 (pre-release). Bloque 2: F2.1 y F2.2 hechos; F2.3 hecho en servidor, falta app+web (ver F2.3). lectortmo/zonatmo_to funcionan (eran un título sin capítulos y un capítulo sin páginas en la propia web). Después: release 2.4.0 y bloque 3.**
 
 ## PEDIDO 2026-11-10 (feedback `docs/feedback/2026-11-10.pdf`, con capturas)
 Autonomía total (solo preguntar si es irreversible y peligroso: borrar datos de usuarios, reescribir historial). Permiso
@@ -30,7 +30,7 @@ autoscroll y voces estaban marcados y no iban). Al cerrar cada bloque: qué hice
 - [x] F2.1 (medido con scripts/source-timing.mjs → docs/medidas/fuentes-2026-11-11.md; en caliente todo < 20 ms; lo lento es la primera vez: AnimeDLatino 1,5-3,5 s, NovelCool ~1-2 s, Marmota ~1 s. Arreglo: precarga del siguiente y listas en memoria; siguiente capítulo de ~1 s a ~10 ms. Pendiente: lectortmo sin capítulos y zonatmo_to sin páginas). Original: Medir cada fuente (listado, ficha, capítulos, páginas/vídeo), cuellos de botella, antes/después.
 - [x] F2.2 (Prefetcher en el VPS, solo red ligera: siguiente capítulo/episodio y listas de lo que se sigue cada 30 min; worker: trabajo «covers» con portadas 240-720 y banners 1080-1920, test de ida y vuelta; metadatos de temporada ya los busca Discover cada 20 s. Sin worker, todo igual que antes). Original: Worker precarga (capítulos de bibliotecas, siguiente cap./ep., portadas/banners, metadatos de temporada),
       prioridad baja, sube a la caché del VPS; sin worker todo igual.
-- [ ] F2.3 Bloqueos de LaLiga: detectar (fallos a IPs de Cloudflare, hayahora.futbol si es útil), desvío automático por el
+- [~] F2.3 SERVIDOR HECHO (LaLiga.kt: sondeo de hayahora.futbol/estado/blocked-any.txt cada 10 min, GET /api/bloqueos, error explicado, OUTBOUND_PROXY de salida, GET /api/relay con tests de autorización). FALTA: (a) app: interceptor en data/network/NetworkHelper.kt (junto a RetryInterceptor) que ante LaLigaBlocks.looksBlocked(e) en GET a una fuente y con serverSync conectado repita por {server}/api/relay?u=… con la cookie de serverSync.cookieFor y cabeceras X-Relay-Referer/Origin/Accept/Range, restaure Content-Type desde X-Relay-Type y emita un aviso único (LaLigaBlocks.NOTICE) que MainActivity muestre como Toast; NetworkHelper se crea antes que serverSync en YomukaiApplication.kt:46, así que inyectar un lambda después; (b) web: aviso en Inicio si /api/bloqueos.active; (c) documentar OUTBOUND_PROXY en docs/INSTALACION.md. Original: Bloqueos de LaLiga: detectar (fallos a IPs de Cloudflare, hayahora.futbol si es útil), desvío automático por el
       proxy del VPS (o Tor si el VPS está en España) y aviso claro en vez de error genérico.
 
 **Bloque 3 — contenido**
