@@ -49,7 +49,7 @@ internal fun BubbleOverlay(key: String, index: Int, image: Image, spec: BubbleTr
     var bubbles by remember(key, spec) { mutableStateOf<List<Pair<TextBox, String>>?>(null) }
     var failed by remember(key, spec) { mutableStateOf(false) }
     var original by remember(key) { mutableStateOf(false) }
-    // Learning mode: a long press on a bubble opens its words (original text) in the dictionary.
+    // A long press on a bubble opens its text with its translation and dictionary (F6.3).
     var picked by remember(key) { mutableStateOf<String?>(null) }
     picked?.let { text -> com.nelson.yomukai.ui.learning.WordSheet(text, text, spec.from, "") { picked = null } }
     LaunchedEffect(key, spec) {
@@ -62,7 +62,8 @@ internal fun BubbleOverlay(key: String, index: Int, image: Image, spec: BubbleTr
     BoxWithConstraints(modifier) {
         val place = OverlayGeometry.place(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat(), image.width.toFloat(), image.height.toFloat(), mode)
             ?: return@BoxWithConstraints
-        if (failed) {
+        // Only worth saying when a translation was asked for (reading aloud or learning just get nothing).
+        if (failed && spec.translate) {
             Text(
                 tr("No se pudo traducir esta página en el móvil"), color = Color.White, style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
                 modifier = Modifier.align(Alignment.TopCenter).padding(8.dp).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp)).padding(6.dp)
