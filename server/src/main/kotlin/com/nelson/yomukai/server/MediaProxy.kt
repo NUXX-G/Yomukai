@@ -61,6 +61,9 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
     private val shrinkLimit = Semaphore(SHRINK_PARALLEL)
     private val shrinkQueued = java.util.concurrent.atomic.AtomicInteger()
 
+    /** However many people ask, at most this many images come down from the sites at once (2 GB VPS). */
+    private val downloadLimit = Semaphore(DOWNLOAD_PARALLEL)
+
     /** Widths readers asked for, and when: pages are prepared ahead at those. */
     private val recentWidths = ConcurrentHashMap<Int, Long>()
     private val warmQueued = AtomicInteger()
@@ -184,7 +187,10 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
         val mine = imageScope.async(start = kotlinx.coroutines.CoroutineStart.LAZY) { shrinkNow(url, headers, width, key) }
         val running = imagesInFlight.putIfAbsent(key, mine)
         if (running != null) { mine.cancel(); return running.await() }
-        return try { mine.await() } finally { imagesInFlight.remove(key, mine) }
+        // Removed when the work really ends, not when this caller stops waiting (the 10 s limit): a slow image is
+        // never downloaded twice because someone gave up on it.
+        mine.invokeOnCompletion { imagesInFlight.remove(key, mine) }
+        return mine.await()
     }
 
     /**
@@ -248,12 +254,13 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
         val mine = imageScope.async(start = kotlinx.coroutines.CoroutineStart.LAZY) { download(url, headers) }
         val running = imagesInFlight.putIfAbsent(url, mine)
         if (running != null) { mine.cancel(); return running.await() }
-        return try { mine.await() } finally { imagesInFlight.remove(url, mine) }
+        mine.invokeOnCompletion { imagesInFlight.remove(url, mine) }
+        return mine.await()
     }
 
-    private suspend fun download(url: String, headers: Map<String, String>): Pair<ByteArray, String>? {
+    private suspend fun download(url: String, headers: Map<String, String>): Pair<ByteArray, String>? = downloadLimit.withPermit {
         val cached = imageCache.get(url)
-        return cached ?: withContext(Dispatchers.IO) {
+        cached ?: withContext(Dispatchers.IO) {
             val request = Request.Builder().url(url)
                 .header("User-Agent", headers["User-Agent"] ?: http.userAgentFor(url.toHttpUrlOrNull()?.host.orEmpty()))
                 .header("Accept", "image/avif,image/webp,image/*,*/*;q=0.8")
@@ -412,6 +419,7 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
         private const val WARM_MAX_PAGES = 80
         private const val SHRINK_PARALLEL = 2
         private const val SHRINK_MAX_QUEUED = 64
+        private const val DOWNLOAD_PARALLEL = 24
         private const val IMAGE_WAIT_MS = 10_000L
         private const val WARM_MAX_QUEUED = 240
         private const val RECENT_WIDTH_MS = 30 * 60_000L
