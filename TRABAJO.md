@@ -37,7 +37,7 @@ P2 — fuentes (scrapear mejor: hacer lo que haga falta para conseguir capítulo
       m3u8/mp4 directo; ordenar servidores por los que funcionan; probar TODAS las fuentes de anime de punta a punta.
 - [x] F4 (causa: las 3 MangaDex comparten IP y MangaDex limita ~5 pet/s → respuesta no-JSON; cola común `MangaDexThrottle` 4/s y reintentos. Antes: en local MangaDex va de punta a punta: listado, ficha, capítulos, imágenes; api.mangadex.org responde 200 con nuestro UA y 302 con UA de navegador. FALTA el texto de Administración › Salud de las fuentes del VPS para ver qué paso falla allí) MangaDex sale como caída y NO lo está (https://mangadex.org/). Revisar canario/salud y la API (api.mangadex.org).
 P3 — velocidad e imagen
-- [ ] V1 Portadas: unas cargan y otras no, o tardan ~1 min; se ve horrible. La animación de entrada debe servir para
+- [~] V1 (causa: la cola de reducir imágenes tenía 1 hueco y lo ocupaba durante la descarga → portadas en fila; ahora descarga en paralelo, 2 huecos de CPU, original al momento si la cola está ocupada, 10 s máximo y luego la miniatura; medido 7,1 s → 0,65 s. FALTA: la pantalla de carga precargando las portadas de Inicio) Portadas: unas cargan y otras no, o tardan ~1 min; se ve horrible. La animación de entrada debe servir para
       precargar el máximo de portadas. Revisar el proxy /api/img (tiempos, caché, concurrencia, fallback a otra portada).
 
 ### PEDIDO DEL USUARIO 2026-11-11 (tarde) — NO PERDER
@@ -409,6 +409,8 @@ Lo pesado nunca en el VPS (2 GB, compartido con el portfolio): va al worker de c
 | Después de Fase 2 (local) | sin cambio apreciable (las comprobaciones son hashes y buckets en memoria) | — | — | 5-8 ms local | 77 KB + paneles de admin (4,4 KB) y seguridad (2,3 KB) bajo demanda | ~igual |
 | Después de Fase 5 (local, arranque limpio con el heap de Docker: SerialGC, -Xmx550m) | 198 MB | 256 MB | 6,0 s en 300 peticiones + novedades | 7 ms local · 370 ms novedades | 99,6 KB (JS 86,7 + CSS 12,9) + Inter (woff2 latin ~48 KB, en caché) + hls.js 178 KB solo en el reproductor; Explorar 2,8 KB y Calendario 1,6 KB bajo demanda | 55 MB debug (release sin medir) |
 | Después de Fases 6-10 + idiomas + catálogo (2026-11-07, local, scripts/bench.sh) | 208 MB | 240 MB | 6,0 s en 300 peticiones + novedades | 6 ms local · 851 ms novedades | inicial 91 KB gz (index) + api 25,5 KB; inglés 33,8 KB solo si se elige; hls.js 180 KB solo en el reproductor | ~igual (debug); OkHttp 5 y Compose 2026 |
+
+| Portadas (V1, 2026-11-11, local): 40 a la vez como Inicio | — | — | — | antes 7,1 s todas (mediana 5,9 s) → después 0,65 s (mediana 84 ms), 2.ª vez 0,28 s | — | — |
 
 Cómo medir: `./gradlew :server:installDist`, `cd web && npm run build`, `bash scripts/bench.sh` (o `scripts/bench.sh https://tu-vps PID` en el VPS con `BENCH_USER`/`BENCH_PASSWORD`). En el VPS real aún no se ha medido (no tengo acceso): pendiente de que el usuario lance el script allí.
 

@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Request
 import java.io.File
@@ -58,6 +59,7 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
 
     /** Shrinking is CPU work: a couple at a time. */
     private val shrinkLimit = Semaphore(SHRINK_PARALLEL)
+    private val shrinkQueued = java.util.concurrent.atomic.AtomicInteger()
 
     /** Widths readers asked for, and when: pages are prepared ahead at those. */
     private val recentWidths = ConcurrentHashMap<Int, Long>()
@@ -129,7 +131,10 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
         val (url, headers) = verified("img", call) ?: return call.respond(HttpStatusCode.Forbidden)
         // "w": the reader's width in pixels. Pages much wider than it come shrunk (and stay cached so).
         val width = ImageShrinker.bucket(call.request.queryParameters["w"])
-        suspend fun get(u: String) = if (width != null) fetchShrunk(u, headers, width) else fetchImage(u, headers)
+
+        // V1: a site that takes too long does not hold the card: the download goes on (and is kept for next time), the
+        // answer moves to the thumbnail it came from.
+        suspend fun get(u: String) = withTimeoutOrNull(IMAGE_WAIT_MS) { if (width != null) fetchShrunk(u, headers, width) else fetchImage(u, headers) }
         // A cover upgraded to its original falls back to the thumbnail it came from (already checked by the signature).
         val (bytes, type) = get(url) ?: call.request.queryParameters["o"]?.let { get(it) }
             ?: return call.respond(HttpStatusCode.BadGateway)
@@ -182,15 +187,33 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
         return try { mine.await() } finally { imagesInFlight.remove(key, mine) }
     }
 
+    /**
+     * V1: the download happens in parallel, outside the shrinking queue (it used to hold the only turn while a slow
+     * site answered, so a Home page of covers came one by one, up to a minute). When the CPU queue is busy, the
+     * original goes out now and the smaller copy is made in the background for the next time.
+     */
     private suspend fun shrinkNow(url: String, headers: Map<String, String>, width: Int, key: String): Pair<ByteArray, String>? {
-        // The original is only held in memory while its turn to be shrunk has come.
-        val (original, small) = shrinkLimit.withPermit {
-            val fetched = fetchImage(url, headers) ?: return null
-            fetched to withContext(Dispatchers.Default) { runCatching { ImageShrinker.shrink(fetched.first, fetched.second.lowercase(), width) }.getOrNull() }
+        val original = fetchImage(url, headers) ?: return null
+        if (!shrinkLimit.tryAcquire()) {
+            if (shrinkQueued.incrementAndGet() > SHRINK_MAX_QUEUED) shrinkQueued.decrementAndGet()
+            else imageScope.launch {
+                try {
+                    shrinkLimit.withPermit { if (!imageCache.has(key)) shrinkAndKeep(original, width, key) }
+                } finally {
+                    shrinkQueued.decrementAndGet()
+                }
+            }
+            return original
         }
-        // Either way the answer is kept: the same page at the same width is never worked on twice.
-        if (small != null) imageCache.put(key, small, "image/jpeg") else imageCache.put(key, ByteArray(0), SAME_AS_ORIGINAL)
+        val small = try { shrinkAndKeep(original, width, key) } finally { shrinkLimit.release() }
         return if (small != null) small to "image/jpeg" else original
+    }
+
+    /** Either way the answer is kept: the same image at the same width is never worked on twice. */
+    private suspend fun shrinkAndKeep(original: Pair<ByteArray, String>, width: Int, key: String): ByteArray? {
+        val small = withContext(Dispatchers.Default) { runCatching { ImageShrinker.shrink(original.first, original.second.lowercase(), width) }.getOrNull() }
+        if (small != null) imageCache.put(key, small, "image/jpeg") else imageCache.put(key, ByteArray(0), SAME_AS_ORIGINAL)
+        return small
     }
 
     /**
@@ -387,7 +410,9 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
         private const val SAME_AS_ORIGINAL = "x-yomukai/original"
         private const val WARM_PARALLEL = 12
         private const val WARM_MAX_PAGES = 80
-        private const val SHRINK_PARALLEL = 1
+        private const val SHRINK_PARALLEL = 2
+        private const val SHRINK_MAX_QUEUED = 64
+        private const val IMAGE_WAIT_MS = 10_000L
         private const val WARM_MAX_QUEUED = 240
         private const val RECENT_WIDTH_MS = 30 * 60_000L
         private const val BUFFER = 64 * 1024
