@@ -28,7 +28,8 @@ class HardWorkCasesTest {
         assertSame(item("animeflv", "Kusuriya no Hitorigoto Temporada 2").title, item("animeflv", "Kusuriya no Hitorigoto Temporada 2"), item("jkanime", "Kusuriya no Hitorigoto 2nd Season"))
         assertApart("part 2 is its own entry", item("animeflv", "Shingeki no Kyojin: The Final Season"), item("jkanime", "Shingeki no Kyojin: The Final Season Part 2"))
         assertSame("«Part 2» and «Parte 2»", item("animeflv", "Dr. Stone Science Future Parte 2"), item("jkanime", "Dr. Stone: Science Future Part 2"))
-        assertApart("GATE season 2 has another name and is not season 1", item("anitaku", "Gate: Jieitai Kanochi nite, Kaku Tatakaeri"), item("anitaku", "Gate: Jieitai Kanochi nite, Kaku Tatakaeri 2nd Season"))
+        val gate = "Gate: Jieitai Kanochi nite, Kaku Tatakaeri"
+        assertApart("GATE season 2 is not season 1", item("anitaku", gate), item("anitaku", "$gate 2nd Season"))
     }
 
     @Test
@@ -55,7 +56,8 @@ class HardWorkCasesTest {
         assertSame("Spanish source uses the romaji name", en, item("animeflv", "Kusuriya no Hitorigoto"))
         assertSame("spacing and case", item("animeflv", "SPY x FAMILY"), item("jkanime", "Spy × Family"))
         assertSame("Ao Ashi / Aoashi", item("animeflv", "Ao Ashi"), item("jkanime", "Aoashi"))
-        assertSame("accents and punctuation", item("olympus", "¡Tensei Shitara Slime Datta Ken!", MediaType.MANGA, alt = listOf("That Time I Got Reincarnated as a Slime")), item("mangadex_en", "That Time I Got Reincarnated as a Slime", MediaType.MANGA))
+        val slime = "That Time I Got Reincarnated as a Slime"
+        assertSame("accents and punctuation", item("olympus", "¡Tensei Shitara Slime Datta Ken!", MediaType.MANGA, alt = listOf(slime)), item("mangadex_en", slime, MediaType.MANGA))
     }
 
     @Test
@@ -66,7 +68,11 @@ class HardWorkCasesTest {
         assertEquals(3, WorkGrouper.group(listOf(anime, manga, novel)).size)
         assertNotEquals(WorkKey.of(MediaType.NOVEL, "Mushoku Tensei"), WorkKey.of(MediaType.MANGA, "Mushoku Tensei"))
         assertNotEquals(WorkKey.of(MediaType.ANIME, "Mushoku Tensei"), WorkKey.of(MediaType.MANGA, "Mushoku Tensei"))
-        assertSame("manhwa and its manga edition are one work (same author)", item("olympus", "Solo Leveling", MediaType.MANHWA, author = "Chugong"), item("mangadex", "Solo Leveling", MediaType.MANGA, author = "Chugong, DUBU", alt = listOf("Na Honjaman Level Up")))
+        val manhwa = item("olympus", "Solo Leveling", MediaType.MANHWA, author = "Chugong")
+        assertSame(
+            "manhwa and its manga edition are one work (same author)", manhwa,
+            item("mangadex", "Solo Leveling", MediaType.MANGA, author = "Chugong, DUBU", alt = listOf("Na Honjaman Level Up")))
+        )
     }
 
     @Test
