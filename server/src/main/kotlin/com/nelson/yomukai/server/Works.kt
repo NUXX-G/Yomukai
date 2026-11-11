@@ -260,14 +260,7 @@ class Works(
         }.awaitAll().filterNotNull()
         val overrides = db.tx { query("SELECT number_key, source_id FROM work_choices WHERE user_id = ? AND work_key = ?", user.id, key) { getString(1) to getString(2) } }.toMap()
         val merged = ChapterMerge.merge(lists, MergePrefs(languages, sourceOrder, overrides))
-        val read = db.tx {
-            links.flatMap { l ->
-                query("SELECT chapter_id FROM progress WHERE user_id = ? AND source_id = ? AND media_id = ? AND read = 1", user.id, l.sourceId, l.mediaId) {
-                    l.sourceId to getString(1)
-                }
-            }
-        }.toSet()
-        val readKeys = WorkProgress.readNumbers(lists, read)
+        val readKeys = readNumbers(user, key, links.map { it.sourceId to it.mediaId }, lists)
         WorkChaptersDto(
             merged.chapters.map { c ->
                 MergedChapterDto(
@@ -280,6 +273,26 @@ class Works(
             WorkProgress.next(merged, readKeys)?.key,
             failed
         )
+    }
+
+    /**
+     * Chapter numbers read in ANY page of the work, in any language: the shown list may be only the English sources,
+     * but episode 5 watched in Spanish is still watched (F1.5). Pages read but not in [lists] are fetched (briefly).
+     */
+    private suspend fun readNumbers(user: User, key: String, shown: List<Pair<String, String>>, lists: List<SourceChapters>): Set<String> = coroutineScope {
+        val pages = (shown + sourcesOf(key).map { it.sourceId to it.mediaId } + db.tx {
+            query("SELECT source_id, media_id FROM index_items WHERE work_key = ?", key) { getString(1) to getString(2) }
+        }).distinct().filter { sources.get(it.first) != null }
+        val read = db.tx {
+            pages.flatMap { (sid, mid) ->
+                query("SELECT chapter_id FROM progress WHERE user_id = ? AND source_id = ? AND media_id = ? AND read = 1", user.id, sid, mid) { sid to getString(1) }
+            }
+        }.toSet()
+        val have = lists.map { it.sourceId }.toSet()
+        val extra = pages.filter { (sid, _) -> sid !in have && read.any { it.first == sid } }.distinctBy { it.first }.map { (sid, mid) ->
+            async { withTimeoutOrNull(READ_LOOKUP_MS) { catalog.chapterList(sid, mid) }?.getOrNull()?.let { SourceChapters(sid, sources.get(sid)?.language ?: "", it) } }
+        }.awaitAll().filterNotNull()
+        WorkProgress.readNumbers(lists + extra, read)
     }
 
     suspend fun choose(user: User, key: String, numberKey: String, sourceId: String?) = db.tx {
@@ -411,6 +424,7 @@ class Works(
     }
 
     companion object {
+        private const val READ_LOOKUP_MS = 5_000L
         private const val TMDB_WAIT_MS = 4_000L
         private const val KITSU_WAIT_MS = 4_000L
         private const val WANTED_MAX = 300

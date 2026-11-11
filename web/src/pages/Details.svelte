@@ -68,10 +68,14 @@
   // ---------- The work behind this page (AniList): banner, other names, fillers, where to continue ----------
   let work = $state(null);
   // The work in other languages (from the works index): chips to switch, e.g. from the Spanish edition to the English one.
-  const obraKey = route.query.get('obra');
-  const obraLang = route.query.get('lang') || i18n.lang;
+  const askedKey = route.query.get('obra');
+  const askedLang = route.query.get('lang') || i18n.lang;
+  let obraKey = $state(askedKey);
+  let obraLang = $state(askedLang);
   let obraLangs = $state([]);
-  if (obraKey) api.obraFicha(obraKey, obraLang, true).then((r) => (obraLangs = r.langs || []), () => {});
+  if (askedKey) api.obraFicha(askedKey, askedLang, true).then((r) => (obraLangs = r.langs || []), () => {});
+  // Opened from the library, a search or "Continuar" (no ?obra=): the index says which work this page is (F1.5).
+  else api.obraDe(sourceId, mediaId).then((r) => { obraKey = r.key; obraLang = r.lang || obraLang; obraLangs = r.langs || []; }, () => {});
   const LANG_NAMES = { es: 'Español', en: 'English', zh: '中文', ja: '日本語', ko: '한국어', fr: 'Français', de: 'Deutsch', it: 'Italiano', pt: 'Português', ru: 'Русский' };
   /** Episode number -> 'FILLER' | 'MIXED' (AnimeFillerList); only for anime. */
   let fillers = $state({});
@@ -182,6 +186,13 @@
   // The same work in the user's other sources: what this source lacks comes from them, so this is one list for the
   // work (one One Piece, not several) and nothing is lost if this source fails or stops.
   let extras = $state([]);
+  /** Chapter numbers read in another source or language of the work. */
+  let readElsewhere = new Set();
+  function applyElsewhere() {
+    for (const c of list.chapters) {
+      if (!progress[c.id]?.read && readElsewhere.has(String(Math.round(c.number * 10) / 10))) progress[c.id] = { chapterId: c.id, read: true, elsewhere: true };
+    }
+  }
   async function loadWhole() {
     try {
       const whole = await api.workWhole(sourceId, mediaId);
@@ -193,6 +204,9 @@
           label: (anime ? t('Ep. {0}', [c.key]) : t('Cap. {0}', [c.key])), name: c.title, date: '', foreign: true, read: c.read,
           sourceName: sourceById(c.sourceId)?.name || c.sourceId
         }));
+      // Read in any source or language of the work counts here too: the same episode is not new again (F1.5).
+      readElsewhere = new Set((whole.chapters?.chapters || []).filter((c) => c.read).map((c) => String(Math.round(c.number * 10) / 10)));
+      applyElsewhere();
     } catch { /* the source's own list stays */ }
   }
   const allChapters = $derived(extras.length ? [...list.chapters, ...extras].sort((a, b) => a.number - b.number) : list.chapters);
@@ -248,7 +262,7 @@
       (r) => { list = { ...r, loading: false, error: '' }; loadWhole(); },
       (e) => { list = { ...list, loading: false, error: e.message }; loadWhole(); }
     );
-    progressMap(sourceId, mediaId).then((p) => (progress = p));
+    progressMap(sourceId, mediaId).then((p) => { progress = p; applyElsewhere(); });
     api.metadata(sourceId, mediaId).then((m) => (meta = m), () => {}).finally(() => (metaLoading = false));
     api.work(sourceId, mediaId).then((w) => {
       work = w;

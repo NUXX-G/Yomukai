@@ -428,6 +428,21 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         ) { getString(1) to getString(2) }
     }
 
+    /** The work a source page is in: the index's own entry, or the work the page was joined to (same work). */
+    suspend fun keyOfPage(sourceId: String, mediaId: String): String? = s.db.tx {
+        queryOne("SELECT work_key FROM index_items WHERE source_id = ? AND media_id = ? AND work_key IS NOT NULL", sourceId, mediaId) { getString(1) }
+            ?: queryOne(
+                """SELECT ws.work_key FROM work_sources ws WHERE ws.source_id = ? AND ws.media_id = ?
+                   AND EXISTS(SELECT 1 FROM index_items i WHERE i.work_key = ws.work_key)""",
+                sourceId, mediaId
+            ) { getString(1) }
+    }
+
+    /** The language of a source page in the index (null when unknown). */
+    suspend fun langOfPage(sourceId: String, mediaId: String): String? = s.db.tx {
+        queryOne("SELECT lang FROM index_items WHERE source_id = ? AND media_id = ?", sourceId, mediaId) { getString(1) }
+    }
+
     /** Languages a work is in. */
     suspend fun langsOf(key: String): List<String> = s.db.tx {
         query("SELECT DISTINCT lang FROM index_items WHERE work_key = ?", key) { getString(1) }
@@ -511,11 +526,28 @@ fun Route.workIndexRoutes(s: Services) {
             ?: return@post call.respond(io.ktor.http.HttpStatusCode.NotFound, mapOf("error" to "Esa obra aún no está en el índice"))
         call.respond(mapOf("key" to key))
     }
+    workOfPageRoute(s)
     workFichaRoute(s)
 }
 
+private const val MAX_SOURCE_ID = 60
+private const val MAX_MEDIA_ID = 2_000
+
 private fun io.ktor.server.application.ApplicationCall.indexLang() =
     request.queryParameters["lang"]?.lowercase()?.takeIf { it.matches(Regex("[a-z]{2}")) } ?: "es"
+
+private fun Route.workOfPageRoute(s: Services) {
+    // The work a source page belongs to and its languages, so any page (opened from the library, a search or
+    // "Continuar") can switch to the other language, not only the ones opened from the index (F1.5).
+    get("/obras/de") {
+        if (!s.features.isOn("work_index")) return@get call.respond(io.ktor.http.HttpStatusCode.NotFound, mapOf("error" to "Desactivado por el administrador"))
+        val sourceId = call.request.queryParameters["s"]?.take(MAX_SOURCE_ID).orEmpty()
+        val mediaId = call.request.queryParameters["id"]?.take(MAX_MEDIA_ID).orEmpty()
+        val key = s.workIndex.keyOfPage(sourceId, mediaId)
+            ?: return@get call.respond(io.ktor.http.HttpStatusCode.NotFound, mapOf("error" to "Esa obra aún no está en el índice"))
+        call.respond(mapOf("key" to key, "lang" to s.workIndex.langOfPage(sourceId, mediaId), "langs" to s.workIndex.langsOf(key)))
+    }
+}
 
 private fun Route.workFichaRoute(s: Services) {
     // A work in one language: its sources there, the languages it has, and its chapters joined (a slow source does
@@ -526,7 +558,20 @@ private fun Route.workFichaRoute(s: Services) {
         val work = s.works.get(key) ?: return@get call.respond(io.ktor.http.HttpStatusCode.NotFound, mapOf("error" to "Esa obra no existe"))
         val langs = s.workIndex.langsOf(key)
         val lang = call.indexLang().takeIf { it in langs } ?: langs.firstOrNull() ?: call.indexLang()
-        val places = s.workIndex.sourcesOf(key, lang).filter { s.sources.get(it.first) != null }
+        // The source the user already follows it in (library or progress) opens first: switching language and back
+        // returns to the same page, not to whichever source updated last.
+        val places = s.workIndex.sourcesOf(key, lang).filter { s.sources.get(it.first) != null }.let { all ->
+            val mine = s.db.tx {
+                all.filter { (sid, mid) ->
+                    queryOne(
+                        """SELECT 1 WHERE EXISTS(SELECT 1 FROM library WHERE user_id = ? AND source_id = ? AND media_id = ? AND deleted = 0)
+                           OR EXISTS(SELECT 1 FROM progress WHERE user_id = ? AND source_id = ? AND media_id = ?)""",
+                        call.user.id, sid, mid, call.user.id, sid, mid
+                    ) { true } == true
+                }
+            }
+            mine + (all - mine.toSet())
+        }
         val only = places.map { it.first }.toSet()
         // ?light=1: only where it is (the clients open the work right away and load its chapters there).
         val light = call.request.queryParameters["light"] == "1"

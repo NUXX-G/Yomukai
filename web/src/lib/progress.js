@@ -52,13 +52,4 @@ export async function progressMap(sourceId, mediaId) {
   return Object.fromEntries(rows.map((r) => [r.chapterId, r]));
 }
 
-/** The chapter the main button opens and whether reading already started; same rule as the app. */
-export function continueTarget(chapters, progress) {
-  if (!chapters.length) return null;
-  const touched = chapters.filter((c) => progress[c.id]?.updatedAt).sort((a, b) => progress[b.id].updatedAt - progress[a.id].updatedAt);
-  const last = touched[0];
-  if (!last) return { chapter: chapters[0], started: false };
-  if (!progress[last.id].read) return { chapter: last, started: true };
-  const next = chapters.find((c) => c.index > last.index && !progress[c.id]?.read);
-  return { chapter: next || last, started: true };
-}
+export { continueTarget } from './continue.js';

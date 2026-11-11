@@ -41,6 +41,20 @@ class WorkIndexTest {
         assertTrue(index.list("es", setOf("NOVEL"), "az", 1).all { it.type == "NOVEL" })
     }
 
+    /** F1.5: any page of a work (opened from the library, not from the index) knows its work and its other language. */
+    @Test
+    fun anySourcePageFindsItsWorkAndItsOtherLanguage() = runBlocking {
+        index.record("animedlatino", "es", listOf(item("animedlatino", "dbs-es", "Dragon Ball Super: Beerus", MediaType.ANIME)), fresh = false)
+        index.record("anitaku", "en", listOf(item("anitaku", "dbs-en", "Dragon Ball Super: Beerus", MediaType.ANIME)), fresh = false)
+        index.groupPending()
+        val key = index.keyOfPage("animedlatino", "dbs-es")!!
+        assertEquals(key, index.keyOfPage("anitaku", "dbs-en"))
+        assertEquals("es", index.langOfPage("animedlatino", "dbs-es"))
+        assertEquals(setOf("es", "en"), index.langsOf(key).toSet())
+        assertEquals(listOf("anitaku" to "dbs-en"), index.sourcesOf(key, "en"))
+        assertEquals(null, index.keyOfPage("anitaku", "otra-cosa"))
+    }
+
     @Test
     fun aTitleFromAniListOpensItsWorkByNameButNeverAnotherSeason() = runBlocking {
         index.record("animeflv", "es", listOf(item("animeflv", "f1", "Ao Ashi Season 2", MediaType.ANIME), item("animeflv", "f2", "Ao Ashi", MediaType.ANIME)), fresh = false)
