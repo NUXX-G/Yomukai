@@ -5,7 +5,8 @@
   import Icon from './Icon.svelte';
 
   /** value: pixels per second; base: the speed shown as ×1. */
-  let { value, base, min, max, onchange, onstop, label = t('Desplazamiento automático') } = $props();
+  /** mode / onmode (optional): 'normal' | 'smart', shown as a switch so the two auto-scrolls stay apart. */
+  let { value, base, min, max, onchange, onstop, label = t('Desplazamiento automático'), mode = '', onmode = null } = $props();
 
   const STEP = 1.15;
   const clamp = (v) => Math.round(Math.min(max, Math.max(min, v)));
@@ -21,7 +22,13 @@
 <svelte:window onkeydown={key} />
 
 <div class="speed" role="toolbar" aria-label={label} onclick={(e) => e.stopPropagation()} onpointerup={(e) => e.stopPropagation()}>
-  <span class="small lbl">{label}</span>
+  {#if onmode}
+    <button class="mode" onclick={() => onmode(mode === 'smart' ? 'normal' : 'smart')} title={t('Cambiar entre velocidad fija e inteligente')}>
+      {mode === 'smart' ? t('Inteligente') : t('Normal')}
+    </button>
+  {:else}
+    <span class="small lbl">{label}</span>
+  {/if}
   <button class="icon-btn" onclick={() => onchange(clamp(value / STEP))} disabled={value <= min} aria-label={t('Más lento')} title={t('Más lento (−)')}><Icon name="remove" size={20} /></button>
   <span class="val" aria-live="polite">×{factor}</span>
   <button class="icon-btn" onclick={() => onchange(clamp(value * STEP))} disabled={value >= max} aria-label={t('Más rápido')} title={t('Más rápido (+)')}><Icon name="add" size={20} /></button>
@@ -33,6 +40,7 @@
   .speed .icon-btn { color: #fff; }
   .speed .icon-btn:disabled { opacity: 0.35; }
   .lbl { color: #fffb; margin-right: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mode { padding: 4px 10px; margin-right: 4px; border-radius: 999px; border: 1px solid #fff5; color: #fff; font-size: var(--fs-small); font-weight: 700; white-space: nowrap; }
   .val { min-width: 48px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
   @media (max-width: 380px) { .lbl { display: none; } }
 </style>

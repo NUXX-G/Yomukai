@@ -14,6 +14,7 @@
   import { session, features } from '../lib/store.svelte.js';
   import WordSheet from '../components/WordSheet.svelte';
   import SelectionTranslate from '../components/SelectionTranslate.svelte';
+  import { createAutoScroll, novelSpeed, clampSmart, BASE, BASE_WPM } from '../lib/autoscroll.js';
   import Sheet from '../components/Sheet.svelte';
   import SpeedControl from '../components/SpeedControl.svelte';
   import { SpeechReader, speechVoices, loadVoices, voiceSettings, setVoice } from '../lib/speech.svelte.js';
@@ -53,7 +54,6 @@
   let speaking = $state(null);
   let speechPaused = $state(false);
   let scrolling = $state(false);
-  let scrollFrame = 0;
   let clockTimer;
   let article;
   const finished = new Set();
@@ -287,24 +287,45 @@
   const genderName = (g) => (g === 'f' ? 'mujer' : g === 'm' ? 'hombre' : '');
   const voiceLabel = (v) => v.label + ' · ' + v.region + (v.gender ? ' · ' + genderName(v.gender) : '');
 
-  // Auto-scroll: a steady glide, stopped by a tap.
+  // ---------- Auto-scroll (F6.2): normal (fixed speed) or smart (your reading pace over the paragraph on screen) ----------
+  const scrollMode = $derived(settings.novel.scrollMode || 'normal');
+  /** Smart: the paragraph at the reading line sets how many pixels make up a word; [wpm] of them go by each minute. */
+  function smartNovel() {
+    const wpm = settings.novel.wpm || BASE_WPM;
+    // Without a paragraph to measure: one line (font size × line height) holds about 12 words.
+    const pace = novelSpeed(12, settings.novel.size * settings.novel.line, wpm) || BASE.novel;
+    const y = innerHeight * 0.4;
+    let p = null;
+    for (const el of article?.querySelectorAll('p') || []) {
+      const r = el.getBoundingClientRect();
+      if (r.bottom >= y) { if (r.top <= y + 40) p = el; break; }
+    }
+    if (!p) return pace;
+    const words = p.textContent.trim().split(/\s+/).length;
+    return clampSmart(novelSpeed(words, p.getBoundingClientRect().height, wpm), pace, 0.5, 2);
+  }
+  const engine = createAutoScroll({
+    target: () => (scrollMode === 'smart' ? smartNovel() : settings.novel.autoSpeed || BASE.novel),
+    atEnd: () => innerHeight + scrollY >= document.documentElement.scrollHeight - 2,
+    // At the end with «seguir con el siguiente»: the next chapter is asked for here too (a short chapter may never
+    // scroll far enough to ask for it), and the engine waits for it.
+    waitMore: () => {
+      if (!infinite) return false;
+      const next = nextOf(loaded.at(-1)?.chapter);
+      if (next && !loadingNext) { loadingNext = true; loadChapter(next).finally(() => (loadingNext = false)); }
+      return loadingNext || !!next;
+    },
+    onStop: () => (scrolling = false)
+  });
   function toggleScroll() {
     scrolling = !scrolling;
-    if (!scrolling) { cancelAnimationFrame(scrollFrame); return; }
+    if (!scrolling) { engine.stop(); return; }
     ui = false;
-    let last = performance.now();
-    let carry = 0;
-    const step = (t) => {
-      if (!scrolling) return;
-      carry += ((t - last) / 1000) * (settings.novel.autoSpeed || 30);
-      last = t;
-      const px = Math.floor(carry);
-      if (px > 0) { window.scrollBy(0, px); carry -= px; }
-      if (innerHeight + scrollY >= document.documentElement.scrollHeight - 2 && !loadingNext) { scrolling = false; return; }
-      scrollFrame = requestAnimationFrame(step);
-    };
-    scrollFrame = requestAnimationFrame(step);
+    engine.start();
   }
+  $effect(() => { if (!scrolling) engine.stop(); });
+  function nudge() { if (scrolling) engine.nudge(); }
+  function setScrollMode(m) { set('scrollMode', m); }
 
   // Bookmarks: a paragraph of a chapter, with its first words as a reminder.
   async function toggleBookmark() {
@@ -396,14 +417,14 @@
     }
   });
 
-  onDestroy(() => { stopPresence(); leaveImmersive(); clearInterval(clockTimer); cancelAnimationFrame(scrollFrame); scrolling = false; flush(); stopSpeech(); });
+  onDestroy(() => { stopPresence(); leaveImmersive(); clearInterval(clockTimer); engine.stop(); scrolling = false; flush(); stopSpeech(); });
 
   function set(key, value) { settings.novel[key] = value; saveSettings(); }
   function size(delta) { set('size', Math.min(32, Math.max(13, settings.novel.size + delta))); }
   function line(delta) { set('line', Math.round(Math.min(2.4, Math.max(1.2, settings.novel.line + delta)) * 10) / 10); }
 </script>
 
-<svelte:window onscroll={onScroll} onkeydown={key} onpointerup={() => { if (settings.reader.fullscreen) enterFullscreenQuietly(); }} />
+<svelte:window onscroll={onScroll} onkeydown={key} onwheel={nudge} ontouchmove={nudge} onpointerup={() => { if (settings.reader.fullscreen) enterFullscreenQuietly(); }} />
 
 <div class="novel" style:background={colors[0]} style:color={colors[1]} onclick={tap} role="presentation">
   {#if error}
@@ -465,7 +486,12 @@
 {/if}
 
 {#if scrolling && !speaking}
-  <SpeedControl value={settings.novel.autoSpeed || 30} base={30} min={5} max={300} onchange={(v) => set('autoSpeed', v)} onstop={toggleScroll} />
+  {#if scrollMode === 'smart'}
+    <SpeedControl value={Math.round(BASE.novel * (settings.novel.wpm || BASE_WPM) / BASE_WPM)} base={BASE.novel} min={11} max={95}
+      onchange={(v) => set('wpm', Math.round(Math.min(700, Math.max(80, (BASE_WPM * v) / BASE.novel))))} onstop={toggleScroll} mode={scrollMode} onmode={setScrollMode} />
+  {:else}
+    <SpeedControl value={settings.novel.autoSpeed || BASE.novel} base={BASE.novel} min={5} max={300} onchange={(v) => set('autoSpeed', v)} onstop={toggleScroll} mode={scrollMode} onmode={setScrollMode} />
+  {/if}
 {:else if speaking}
   <div class="speech-bar">
     {#if speaking}
@@ -534,7 +560,16 @@
   <label class="toggle"><span class="grow">{t('Texto justificado')}</span><input type="checkbox" checked={settings.novel.justify !== false} onchange={(e) => set('justify', e.target.checked)} /></label>
   <label class="toggle"><span class="grow">{t('Seguir con el siguiente capítulo al llegar al final')}</span><input type="checkbox" checked={infinite} onchange={(e) => set('infinite', e.target.checked)} /></label>
   <div class="opt-row"><span class="grow">{t('Desplazamiento automático')}</span><button class="btn outline" onclick={() => { options = false; toggleScroll(); }}>{scrolling ? 'Parar' : 'Empezar'}</button></div>
-  <input class="range" type="range" min="5" max="300" step="5" value={settings.novel.autoSpeed || 30} oninput={(e) => set('autoSpeed', +e.target.value)} aria-label={t('Velocidad del desplazamiento')} />
+  <div class="opt-row wrap">
+    <button class="chip" class:on={scrollMode === 'normal'} onclick={() => setScrollMode('normal')}>{t('Normal (velocidad fija)')}</button>
+    <button class="chip" class:on={scrollMode === 'smart'} onclick={() => setScrollMode('smart')}>{t('Inteligente (según el contenido)')}</button>
+  </div>
+  {#if scrollMode === 'normal'}
+    <input class="range" type="range" min="5" max="300" step="5" value={settings.novel.autoSpeed || BASE.novel} oninput={(e) => set('autoSpeed', +e.target.value)} aria-label={t('Velocidad del desplazamiento')} />
+  {:else}
+    <p class="small muted">{t('Avanza a tu velocidad de lectura según las palabras de cada párrafo.')} {settings.novel.wpm || BASE_WPM} {t('palabras por minuto')}</p>
+    <input class="range" type="range" min="80" max="700" step="10" value={settings.novel.wpm || BASE_WPM} oninput={(e) => set('wpm', +e.target.value)} aria-label={t('Palabras por minuto')} />
+  {/if}
   {#if canSpeak}
     <div class="opt-row"><span class="grow">{t('Leer en voz alta')}</span><button class="btn outline" onclick={() => { options = false; voiceOpen = true; }}><Icon name="speech" size={18} /> {t('Elegir voz')}</button></div>
   {/if}

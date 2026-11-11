@@ -1799,5 +1799,15 @@
  "Aquí no hay traductor disponible: ni el diccionario, ni el del móvil, ni el servidor.": "No translator is available here: not the dictionary, not the phone’s, not the server’s.",
  "traductor del móvil": "phone translator",
  "Guarda las palabras que mantengas pulsadas para repasarlas después (traducir funciona siempre)": "Save the words you long-press to review them later (translating always works)",
- "Obra": "Work"
+ "Obra": "Work",
+ "Avanza a tu velocidad de lectura según las palabras de cada párrafo.": "Moves at your reading speed, from the words in each paragraph.",
+ "Cambiar entre velocidad fija e inteligente": "Switch between fixed and smart speed",
+ "Empezar": "Start",
+ "Inteligente": "Smart",
+ "Inteligente (según el contenido)": "Smart (follows the content)",
+ "Normal (velocidad fija)": "Normal (fixed speed)",
+ "Palabras por minuto": "Words per minute",
+ "Pasar página solo": "Turn pages by themselves",
+ "Va más despacio donde hay texto (según tu velocidad de lectura) y más rápido en viñetas sin texto y huecos.": "Slower where there is text (at your reading speed), faster over panels without text and gaps.",
+ "palabras por minuto": "words per minute"
 }

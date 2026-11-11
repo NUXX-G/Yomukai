@@ -9,6 +9,7 @@
   import { settings, saveSettings, notify, features, sourceById } from '../lib/store.svelte.js';
   import { readingOrder, directionFor, stripMs, analyze, wordsIn, boxAt } from '../lib/ocr.js';
   import { translateTexts } from '../lib/translate.js';
+  import { createAutoScroll, clampSmart, BASE, BASE_WPM } from '../lib/autoscroll.js';
   import { track, markThrough, flush, progressMap } from '../lib/progress.js';
   import { clock } from '../lib/format.js';
   import { detectCrop, cropStyles } from '../lib/crop.js';
@@ -45,7 +46,6 @@
     return r.length ? r[Math.floor(r.length / 2)] : null;
   }
   let scrolling = $state(false);
-  let scrollFrame = 0;
 
   let item = $state(null);
   let chapters = $state([]);
@@ -291,8 +291,8 @@
     const pxPerSecond = STRIP_PX / (stripMs(strip, settings.reader.wpm || 220) / 1000);
     // The speed control still works: it scales the plan (80 = as planned).
     // Panels without text follow the reader's pace too (text already uses it through the words per minute).
-    const pace = strip.words ? 1 : (settings.reader.wpm || 220) / 220;
-    return Math.min(900, Math.max(15, pxPerSecond * pace * (base / 80)));
+    const pace = strip.words ? 1 : (settings.reader.wpm || BASE_WPM) / BASE_WPM;
+    return pxPerSecond * pace;
   }
   const STRIP_PX = 300;
   function pictureStrip(img, from, to) {
@@ -311,31 +311,55 @@
     } catch { return null; }
   }
 
-  // Auto-scroll for long strips: a steady glide, stopped by a tap or at the end.
+  // ---------- Auto-scroll (F6.2): two modes kept apart, in the strip and in the paged reader ----------
+  /** 'normal' = a fixed speed; 'smart' = the speed of what is on screen around the reader's pace. */
+  const scrollMode = $derived(settings.reader.scrollMode || (settings.reader.smartScroll === true ? 'smart' : 'normal'));
+  /** The smart mode's ×1, from the reading pace only (it never takes the normal mode's speed). */
+  const smartPace = () => BASE.manga * (settings.reader.wpm || BASE_WPM) / BASE_WPM;
+  const engine = createAutoScroll({
+    target: () => (scrollMode === 'smart' ? clampSmart(smartSpeed(smartPace()), smartPace()) : settings.reader.autoSpeed || BASE.manga),
+    atEnd: () => innerHeight + scrollY >= document.documentElement.scrollHeight - 2,
+    // At the end of a chapter with «Pasar solo al siguiente capítulo», the next one is on its way: wait for it.
+    waitMore: () => {
+      const next = current && nextOf(current);
+      if (!next || !settings.reader.infinite) return false;
+      if (!loaded.some((l) => l.chapter.id === next.id) && !loadingNext) finished(current);
+      return true;
+    },
+    onStop: () => (scrolling = false)
+  });
+  let pageTimer = 0;
   function toggleScroll() {
     scrolling = !scrolling;
-    if (scrolling) { ui = false; glide(); } else cancelAnimationFrame(scrollFrame);
+    if (!scrolling) { engine.stop(); clearTimeout(pageTimer); return; }
+    ui = false;
+    if (mode === 'vertical') engine.start();
+    else turnLater();
   }
-  function glide() {
-    let last = performance.now();
-    let carry = 0;
-    let speed = 0;
-    const step = (t) => {
+  /** Paged reader: the page turns by itself, after the time this page needs (its words in smart mode). */
+  function turnLater() {
+    clearTimeout(pageTimer);
+    if (!scrolling || mode === 'vertical') return;
+    const p = flat[pagedIndex];
+    let ms = 8000 * BASE.manga / (settings.reader.autoSpeed || BASE.manga);
+    if (scrollMode === 'smart') {
+      const data = p ? ocr[pageKey(p.chapter.url, p.i)] : null;
+      if (p && data === undefined) ensureOcr(p.chapter, p.i);
+      const wpm = settings.reader.wpm || BASE_WPM;
+      ms = data?.boxes ? 1500 + (wordsIn(data.boxes, 0, 1) / wpm) * 60_000 : 4000 * BASE_WPM / wpm;
+    }
+    pageTimer = setTimeout(() => {
       if (!scrolling) return;
-      const base = settings.reader.autoSpeed || 80;
-      const dt = Math.min(0.1, (t - last) / 1000);
-      const target = settings.reader.smartScroll !== false ? smartSpeed(base) : base;
-      // Eases from one strip's speed to the next (no sudden jumps between a gutter and a bubble).
-      speed = speed ? speed + (target - speed) * Math.min(1, dt * 2.5) : target;
-      carry += dt * speed;
-      last = t;
-      const px = Math.floor(carry);
-      if (px > 0) { window.scrollBy(0, px); carry -= px; }
-      if (innerHeight + scrollY >= document.documentElement.scrollHeight - 2) { scrolling = false; return; }
-      scrollFrame = requestAnimationFrame(step);
-    };
-    scrollFrame = requestAnimationFrame(step);
+      if (pagedIndex >= flat.length - 1 && !(current && nextOf(current))) { scrolling = false; return; }
+      turn(1);
+      turnLater();
+    }, Math.min(120_000, Math.max(1200, ms)));
   }
+  function setScrollMode(m) { setReader('scrollMode', m); if (scrolling && mode !== 'vertical') turnLater(); }
+  // A wheel or a finger dragging the page: a pause, then on from there (a tap still stops it).
+  function nudge() { if (scrolling) engine.nudge(); }
+  // However it was stopped (a tap on the page, the end, leaving), the engine and the page timer stop with it.
+  $effect(() => { if (!scrolling) { engine.stop(); clearTimeout(pageTimer); } });
 
   function cropFor(e, src) {
     if (!settings.reader.crop) return;
@@ -549,11 +573,11 @@
     }
   });
 
-  onDestroy(() => { stopPresence(); leaveImmersive(); observer?.disconnect(); clearInterval(clockTimer); cancelAnimationFrame(scrollFrame); scrolling = false; flush(); });
+  onDestroy(() => { stopPresence(); leaveImmersive(); observer?.disconnect(); clearInterval(clockTimer); engine.stop(); clearTimeout(pageTimer); scrolling = false; flush(); });
 </script>
 
 <!-- With full screen chosen, the first touch in the reader enters it (browsers only allow it after one). -->
-<svelte:window onkeydown={key} onpointerup={() => { if (settings.reader.fullscreen) enterFullscreenQuietly(); }} />
+<svelte:window onkeydown={key} onwheel={nudge} ontouchmove={nudge} onpointerup={() => { if (settings.reader.fullscreen) enterFullscreenQuietly(); }} />
 
 <div class="reader f-{filter}" class:paged={mode === 'paged'}>
   {#if brightness < 1}<div class="dim" style:opacity={1 - brightness}></div>{/if}
@@ -635,20 +659,22 @@
           </span>
           {#if mode === 'vertical'}<button class="icon-btn" class:active={readingBubbles} onclick={toggleBubbles} aria-label={readingBubbles ? t('Parar la lectura') : t('Leer los bocadillos en voz alta')} title={t('Leer los bocadillos')}><Icon name="speech" /></button>{/if}
         {/if}
-        {#if mode === 'vertical'}<button class="icon-btn" onclick={toggleScroll} aria-label={scrolling ? 'Parar desplazamiento' : t('Desplazamiento automático')} title={t('Desplazamiento automático')}><Icon name={scrolling ? 'pause' : 'play'} /></button>{/if}
+        <button class="icon-btn" onclick={toggleScroll} aria-label={scrolling ? 'Parar desplazamiento' : t('Desplazamiento automático')} title={t('Desplazamiento automático')}><Icon name={scrolling ? 'pause' : 'play'} /></button>
         <button class="btn text nav-btn" disabled={!current || !nextOf(current)} onclick={() => open(nextOf(current))} aria-label={t('Siguiente')}><span class="lbl">{t('Siguiente')}</span><Icon name="chevronRight" size={20} /></button>
       </div>
     </footer>
   {:else}
     <div class="mini-clock">{now}</div>
   {/if}
-  {#if scrolling && mode === 'vertical'}
-    {#if settings.reader.smartScroll !== false}
+  {#if scrolling}
+    {#if scrollMode === 'smart'}
       <!-- Smart mode: the control is the reader's reading speed (words per minute); it is remembered and used for all text. -->
-      <SpeedControl value={Math.round(80 * (settings.reader.wpm || 220) / 220)} base={80} min={30} max={250}
-        onchange={(v) => setReader('wpm', Math.round(Math.min(700, Math.max(80, (220 * v) / 80))))} onstop={toggleScroll} />
+      <SpeedControl value={Math.round(BASE.manga * (settings.reader.wpm || BASE_WPM) / BASE_WPM)} base={BASE.manga} min={30} max={250}
+        onchange={(v) => setReader('wpm', Math.round(Math.min(700, Math.max(80, (BASE_WPM * v) / BASE.manga))))} onstop={toggleScroll}
+        mode={scrollMode} onmode={setScrollMode} />
     {:else}
-      <SpeedControl value={settings.reader.autoSpeed || 80} base={80} min={15} max={800} onchange={(v) => setReader('autoSpeed', v)} onstop={toggleScroll} />
+      <SpeedControl value={settings.reader.autoSpeed || BASE.manga} base={BASE.manga} min={15} max={800} onchange={(v) => setReader('autoSpeed', v)} onstop={toggleScroll}
+        mode={scrollMode} onmode={setScrollMode} />
     {/if}
   {/if}
   <!-- While the bubbles are read aloud, stopping is always one tap away (the bars may be hidden). -->
@@ -716,10 +742,18 @@
   <div class="wrap">
     {#each FILTERS as [k, label]}<button class="chip" class:on={filter === k} onclick={() => setReader('filter', k)}>{label}</button>{/each}
   </div>
-  {#if mode === 'vertical'}
-    <div class="small muted">{t('Velocidad del desplazamiento automático')}</div>
-    <input class="range" type="range" min="15" max="800" step="5" value={settings.reader.autoSpeed || 80} oninput={(e) => setReader('autoSpeed', +e.target.value)} aria-label={t('Velocidad')} />
+  <div class="small muted">{mode === 'vertical' ? t('Desplazamiento automático') : t('Pasar página solo')}</div>
+  <div class="wrap">
+    <button class="chip" class:on={scrollMode === 'normal'} onclick={() => setScrollMode('normal')}>{t('Normal (velocidad fija)')}</button>
+    <button class="chip" class:on={scrollMode === 'smart'} onclick={() => setScrollMode('smart')}>{t('Inteligente (según el contenido)')}</button>
+  </div>
+  {#if scrollMode === 'normal'}
+    <input class="range" type="range" min="15" max="800" step="5" value={settings.reader.autoSpeed || BASE.manga} oninput={(e) => setReader('autoSpeed', +e.target.value)} aria-label={t('Velocidad')} />
+  {:else}
+    <p class="small muted">{t('Va más despacio donde hay texto (según tu velocidad de lectura) y más rápido en viñetas sin texto y huecos.')}</p>
+    <input class="range" type="range" min="80" max="700" step="10" value={settings.reader.wpm || BASE_WPM} oninput={(e) => setReader('wpm', +e.target.value)} aria-label={t('Palabras por minuto')} />
   {/if}
+  <button class="btn outline" onclick={() => { optionsOpen = false; toggleScroll(); }}>{scrolling ? t('Parar') : t('Empezar')}</button>
   <p class="small muted">{t('Teclado: ← → para pasar página, Esc para salir. En el móvil puedes pellizcar para hacer zoom.')}</p>
 </Sheet>
 
