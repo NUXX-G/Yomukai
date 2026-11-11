@@ -22,6 +22,9 @@ object FeatureCatalog {
         Feature("tts_browser", "Voces naturales en el navegador", "Voces inglesas Kokoro que el navegador genera solo (unos 90 MB la primera vez); el servidor solo guarda el modelo"),
         Feature("tts_nightly", "Voces preparadas de madrugada", "De 3 a 6 el servidor de casa prepara el audio del siguiente capítulo de las novelas que cada uno lee, con sus voces"),
         Feature("rooms", "Salas para ver juntos", "Watch party sincronizada con chat y reacciones; cada cliente reproduce su propio vídeo"),
+        Feature("open_rooms", "Salas comunes", "Salas abiertas a todo el grupo con cola de episodios de varios animes, votos para saltar y paso automático"),
+        Feature("dms", "Mensajes directos", "Conversaciones 1 a 1 en tiempo real entre miembros (texto y obras compartidas); nunca invitados"),
+        Feature("sharing", "Compartir obras", "Mandar una obra, episodio o capítulo a un mensaje directo, una sala o un hilo del foro, con escudo anti-spoilers"),
         Feature("source_repair", "Auto-reparación de fuentes", "Cuando el canario ve una fuente rota, el worker propone un arreglo como PR en GitHub (nunca se aplica solo)", default = false)
     )
     private val byName = ALL.associateBy { it.name }

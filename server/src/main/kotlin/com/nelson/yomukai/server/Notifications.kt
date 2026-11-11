@@ -69,6 +69,15 @@ class Notifications(
         runCatching { client.newCall(request).execute().close() }.onFailure { log.debug("ntfy: {}", it.message) }
     }
 
+    /** Something live for one user's open pages other than a notification (direct messages: new, typing, seen...). */
+    data class LiveEvent(val userId: Long, val type: String, val json: String)
+
+    val events = MutableSharedFlow<LiveEvent>(extraBufferCapacity = 512)
+
+    fun emit(userId: Long, type: String, payload: Any) {
+        events.tryEmit(LiveEvent(userId, type, gson.toJson(payload)))
+    }
+
     suspend fun list(userId: Long): Map<String, Any> {
         val items = db.tx {
             query("SELECT * FROM notifications WHERE user_id = ? ORDER BY id DESC LIMIT 50", userId) {
@@ -112,6 +121,7 @@ fun Route.notificationRoutes(s: Services) {
         val me = call.user.id
         val gson = Gson()
         val job = launch { s.notifications.live.filter { it.userId == me }.collect { send(ServerSentEvent(gson.toJson(it), event = "notification")) } }
+        val other = launch { s.notifications.events.filter { it.userId == me }.collect { send(ServerSentEvent(it.json, event = it.type)) } }
         try {
             while (true) {
                 withTimeoutOrNull(25_000) { kotlinx.coroutines.awaitCancellation() }

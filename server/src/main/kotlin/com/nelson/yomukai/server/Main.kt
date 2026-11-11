@@ -190,6 +190,7 @@ class Services(val config: Config) {
     val notifications = Notifications(db, notifier, config.pushUrl, config.publicUrl)
     val rooms = Rooms(db, events, onOpen = { who, title -> notifications.discord("$who ha abierto una sala: $title") })
     val forum = Forum(db, events, notifications, config.dataDir)
+    val dms = DirectMessages(db, notifications, events)
     val themes = ThemesService(db, events, config.dataDir)
     val voices by lazy { VoiceRouter(this) }
     val ocr by lazy { OcrStore(this) }
@@ -434,6 +435,7 @@ fun Application.yomukai(config: Config, services: Services = Services(config)) {
                 achievementRoutes(services)
                 forumRoutes(services)
                 notificationRoutes(services)
+                directMessageRoutes(services)
                 themeRoutes(services)
                 learningRoutes(services)
                 workerLanguageRoutes(services)
