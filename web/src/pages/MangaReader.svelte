@@ -7,13 +7,14 @@
   import { api, downloadChapters } from '../lib/api.js';
   import { route, back, navigate, media as mediaHref, reader } from '../lib/router.svelte.js';
   import { settings, saveSettings, notify, features, sourceById } from '../lib/store.svelte.js';
-  import { readingOrder, directionFor, stripMs, analyze, wordsIn } from '../lib/ocr.js';
+  import { readingOrder, directionFor, stripMs, analyze, wordsIn, boxAt } from '../lib/ocr.js';
   import { translateTexts } from '../lib/translate.js';
   import { track, markThrough, flush, progressMap } from '../lib/progress.js';
   import { clock } from '../lib/format.js';
   import { detectCrop, cropStyles } from '../lib/crop.js';
   import Icon from '../components/Icon.svelte';
   import Sheet from '../components/Sheet.svelte';
+  import WordSheet from '../components/WordSheet.svelte';
   import SpeedControl from '../components/SpeedControl.svelte';
   import { screen, canFullscreen, toggleFullscreen, enterFullscreen, enterFullscreenQuietly, leaveImmersive } from '../lib/fullscreen.svelte.js';
 
@@ -121,6 +122,53 @@
     } catch { ocr[key] = null; }
     return null;
   }
+
+  // ---------- Long press (or right click) on a bubble: its text and translation (F6.3) ----------
+  let wordPick = $state(null);
+  let bubblePress = null;
+  /** The page and the point (0..1 of the image) under a pointer event, or null. */
+  function pagePoint(e) {
+    const pg = e.target.closest?.('.pg');
+    const img = pg?.querySelector('img');
+    if (!img) return null;
+    const r = img.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width;
+    const y = (e.clientY - r.top) / r.height;
+    if (x < 0 || x > 1 || y < 0 || y > 1) return null;
+    let chapter, index;
+    if (pg.dataset.chapter) { chapter = loaded.find((l) => l.chapter.id === pg.dataset.chapter)?.chapter; index = Number(pg.dataset.index); }
+    else { chapter = flat[pagedIndex]?.chapter; index = flat[pagedIndex]?.i; }
+    return chapter ? { chapter, index, x, y } : null;
+  }
+  async function pickBubble(p) {
+    if (!ocrOn) { notify(t('El OCR de cómics está desactivado en este servidor')); return; }
+    const data = await ensureOcr(p.chapter, p.index);
+    if (!data) {
+      notify(features.available?.ocr ? t('Leyendo el texto de este capítulo en el servidor de casa; prueba otra vez en un momento') : t('Para traducir el texto de una imagen hace falta el OCR: el servidor de casa encendido o la app de Android'));
+      return;
+    }
+    const box = boxAt(data.boxes, p.x, p.y);
+    if (!box) { notify(t('No hay texto reconocido en ese punto')); return; }
+    const text = box.text.replace(/\s+/g, ' ').trim();
+    wordPick = { word: text, sentence: text, paragraph: '', lang: textLang, source: item?.title || '', phrase: !/^[\p{L}'’-]{1,40}$/u.test(text) };
+  }
+  function bubbleDown(e) {
+    if (e.button > 0) return;
+    const p = pagePoint(e);
+    if (!p) return;
+    bubblePress = { x: e.clientX, y: e.clientY, timer: setTimeout(() => { bubblePress = null; suppressTap = true; pickBubble(p); }, 550) };
+  }
+  function bubbleMove(e) { if (bubblePress && Math.hypot(e.clientX - bubblePress.x, e.clientY - bubblePress.y) > 10) { clearTimeout(bubblePress.timer); bubblePress = null; } }
+  function bubbleUp() { if (bubblePress) { clearTimeout(bubblePress.timer); bubblePress = null; } }
+  function bubbleMenu(e) {
+    const p = pagePoint(e);
+    if (!p) return;
+    e.preventDefault();
+    pickBubble(p);
+  }
+  // The tap that ends a long press must not also show or hide the bars.
+  let suppressTap = false;
+  function eatTap() { if (suppressTap) { suppressTap = false; return true; } return false; }
 
   async function translatePage(chapter, i) {
     const data = await ensureOcr(chapter, i);
@@ -504,7 +552,7 @@
   {#if error}
     <div class="center"><p>{error}</p><button class="btn tonal" onclick={() => back(mediaHref(sourceId, mediaId))}>{t('Volver')}</button></div>
   {:else if mode === 'vertical'}
-    <div class="strip w-{width}" style:max-width={width === 'original' && column ? column + 'px' : null} onclick={() => { if (scrolling) { scrolling = false; return; } ui = !ui; }} role="presentation">
+    <div class="strip w-{width}" style:max-width={width === 'original' && column ? column + 'px' : null} onclick={() => { if (eatTap()) return; if (scrolling) { scrolling = false; return; } ui = !ui; }} onpointerdown={bubbleDown} onpointermove={bubbleMove} onpointerup={bubbleUp} onpointercancel={bubbleUp} oncontextmenu={bubbleMenu} role="presentation">
       {#each loaded as l, li (l.chapter.id)}
         {@const usual = usualRatio(l.pages)}
         {#if li > 0}<div class="divider">{l.chapter.label}{l.chapter.name ? ' · ' + l.chapter.name : ''}</div>{/if}
@@ -535,7 +583,7 @@
       {/if}
     </div>
   {:else}
-    <div class="single" onclick={tapPaged} role="presentation" ontouchstart={(e) => (touchX = e.touches[0].clientX)} ontouchend={swipe}>
+    <div class="single" onclick={(e) => { if (!eatTap()) tapPaged(e); }} onpointerdown={bubbleDown} onpointermove={bubbleMove} onpointerup={bubbleUp} onpointercancel={bubbleUp} oncontextmenu={bubbleMenu} role="presentation" ontouchstart={(e) => (touchX = e.touches[0].clientX)} ontouchend={swipe}>
       {#if flat[pagedIndex]}
         {@const p = flat[pagedIndex]}
         <div class="pg one" class:cropped={crops[p.src]} style:aspect-ratio={crops[p.src]?.ratio} style:width={crops[p.src] ? `min(100vw, calc(100dvh * ${crops[p.src].ratio}))` : null}>
@@ -665,6 +713,8 @@
   {/if}
   <p class="small muted">{t('Teclado: ← → para pasar página, Esc para salir. En el móvil puedes pellizcar para hacer zoom.')}</p>
 </Sheet>
+
+<WordSheet bind:pick={wordPick} />
 
 <style>
   .reader { background: #000; min-height: 100vh; color: #fff; }

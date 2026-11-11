@@ -30,3 +30,13 @@ test('picture analysis and words per band', () => {
   assert.equal(wordsIn(boxes, 0, 0.5), 3);
   assert.equal(wordsIn(boxes, 0.5, 1), 0);
 });
+
+test('boxAt finds the bubble under the finger, with a little margin', async () => {
+  const { boxAt } = await import('../src/lib/ocr.js');
+  const boxes = [{ x: 0.1, y: 0.1, w: 0.3, h: 0.2, text: 'grande' }, { x: 0.15, y: 0.15, w: 0.05, h: 0.05, text: 'chico' }, { x: 0.6, y: 0.6, w: 0.1, h: 0.1, text: '  ' }];
+  assert.equal(boxAt(boxes, 0.3, 0.25).text, 'grande');
+  assert.equal(boxAt(boxes, 0.17, 0.17).text, 'chico');
+  assert.equal(boxAt(boxes, 0.41, 0.2).text, 'grande');
+  assert.equal(boxAt(boxes, 0.65, 0.65), null);
+  assert.equal(boxAt([], 0.5, 0.5), null);
+});

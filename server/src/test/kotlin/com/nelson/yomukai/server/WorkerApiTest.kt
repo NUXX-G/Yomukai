@@ -165,13 +165,13 @@ class WorkerApiTest {
             client.put("/worker/jobs/${claimed!!.get("id").asLong}/result") {
                 header("Authorization", "Bearer $token"); contentType(ContentType.Application.Json); setBody("""{"translations":["hola","mundo"]}""")
             }
-            assertEquals("""{"translations":["hola","mundo"]}""", answer.await().bodyAsText())
+            assertEquals("""{"translations":["hola","mundo"],"via":"worker"}""", answer.await().bodyAsText())
         }
         // The same texts again come from the cache, without the worker.
-        assertEquals("""{"translations":["hola","mundo"]}""", admin.post("/api/translate") { setBody("""{"texts":["hello","world"],"from":"en","to":"es"}""") }.bodyAsText())
+        assertEquals("""{"translations":["hola","mundo"],"via":"worker"}""", admin.post("/api/translate") { setBody("""{"texts":["hello","world"],"from":"en","to":"es"}""") }.bodyAsText())
         // A blank bubble in between keeps its place: every translation stays on its own bubble.
         assertEquals(
-            """{"translations":["hola","","mundo"]}""",
+            """{"translations":["hola","","mundo"],"via":"worker"}""",
             admin.post("/api/translate") { setBody("""{"texts":["hello","  ","world"],"from":"en","to":"es"}""") }.bodyAsText()
         )
     }

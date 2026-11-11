@@ -379,12 +379,17 @@ fun Route.workerLanguageRoutes(s: Services) {
     post("/translate") {
         val b = call.jsonBody(64_000)
         val texts = b.getAsJsonArray("texts")?.mapNotNull { e -> e.takeIf { it.isJsonPrimitive }?.asString }.orEmpty()
+        var via = "worker"
         val result = try {
             s.language.translate(call.user, texts, b.text("from", 5).ifBlank { "auto" }, b.text("to", 5).ifBlank { "es" })
         } catch (_: TranslationPending) {
             // The home worker is on it (a slow computer): the reader asks again in a moment.
             return@post call.respond(HttpStatusCode.Accepted, mapOf("pending" to true))
-        } ?: return@post call.respond(HttpStatusCode.ServiceUnavailable, mapOf("error" to "La traducción necesita el servidor de casa encendido"))
-        call.respond(mapOf("translations" to result))
+        }
+            // Worker off: short selections can still go to the free online translator (F6.3, switch online_translate).
+            ?: (if (!call.user.isGuest && s.features.isOn("online_translate")) s.onlineTranslator.translate(call.user.id, texts, b.text("from", 5), b.text("to", 5).ifBlank { "es" }) else null)
+                ?.also { via = "online" }
+            ?: return@post call.respond(HttpStatusCode.ServiceUnavailable, mapOf("error" to "La traducción necesita el servidor de casa encendido"))
+        call.respond(mapOf("translations" to result, "via" to via))
     }
 }

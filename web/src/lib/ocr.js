@@ -69,3 +69,17 @@ export function wordsIn(boxes, top, bottom) {
   }
   return n;
 }
+
+/**
+ * The text box under a point of the page (x, y from 0 to 1), for a long press on a bubble (F6.3). A little margin
+ * around each box, as fingers are wide; the smallest box wins when they overlap. Null when there is none.
+ */
+export function boxAt(boxes, x, y, pad = 0.02) {
+  let best = null;
+  for (const b of boxes || []) {
+    if (!b?.text?.trim()) continue;
+    if (x < b.x - pad || x > b.x + b.w + pad || y < b.y - pad || y > b.y + b.h + pad) continue;
+    if (!best || b.w * b.h < best.w * best.h) best = b;
+  }
+  return best;
+}

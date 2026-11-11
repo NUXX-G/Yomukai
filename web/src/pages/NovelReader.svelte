@@ -11,6 +11,7 @@
   import { clock } from '../lib/format.js';
   import Icon from '../components/Icon.svelte';
   import WordSheet from '../components/WordSheet.svelte';
+  import SelectionTranslate from '../components/SelectionTranslate.svelte';
   import Sheet from '../components/Sheet.svelte';
   import SpeedControl from '../components/SpeedControl.svelte';
   import { SpeechReader, speechVoices, loadVoices, voiceSettings, setVoice } from '../lib/speech.svelte.js';
@@ -354,6 +355,7 @@
 
   function tap() {
     if (scrolling) { scrolling = false; return; }
+    if (document.getSelection()?.toString().trim()) return;
     ui = !ui;
   }
 
@@ -574,6 +576,7 @@
 </Sheet>
 
 <WordSheet bind:pick={wordPick} />
+<SelectionTranslate root={article} lang={speechLang} source={item?.title || ''} onpick={(p) => (wordPick = p)} />
 
 {#if kokoroState.progress != null}
   <div class="voice-download" role="status">{t('Preparando la voz del navegador (solo la primera vez): {0} %', [Math.round(kokoroState.progress * 100)])}</div>

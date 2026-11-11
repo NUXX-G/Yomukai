@@ -1779,5 +1779,21 @@
  "AniList va saturado; lo intento otra vez en unos segundos…": "AniList is busy; trying again in a few seconds…",
  "+ Siguiente": "+ Next",
  "Cola · {0}": "Queue · {0}",
- "No hay siguiente episodio": "There is no next episode"
+ "No hay siguiente episodio": "There is no next episode",
+ "Abrir en el traductor de Google": "Open in Google Translate",
+ "Aquí no hay traductor disponible: ni el diccionario, ni el del navegador, ni el servidor de casa.": "No translator is available here: not the dictionary, not the browser’s, not the home server’s.",
+ "Con: {0}": "With: {0}",
+ "El OCR de cómics está desactivado en este servidor": "Comic OCR is turned off on this server",
+ "Leyendo el texto de este capítulo en el servidor de casa; prueba otra vez en un momento": "The home server is reading this chapter’s text; try again in a moment",
+ "No hay texto reconocido en ese punto": "No text recognised at that spot",
+ "Para traducir el texto de una imagen hace falta el OCR: el servidor de casa encendido o la app de Android": "Translating text in an image needs OCR: the home server switched on, or the Android app",
+ "Traducción": "Translation",
+ "Traduciendo…": "Translating…",
+ "diccionario sin conexión": "offline dictionary",
+ "traductor del navegador": "browser translator",
+ "servidor de casa": "home server",
+ "mismo idioma": "same language",
+ "traductor en línea (MyMemory)": "online translator (MyMemory)",
+ "Traductor en línea de respaldo": "Backup online translator",
+ "Si el servidor de casa está apagado y el navegador no traduce, lo seleccionado (frases cortas) se traduce con MyMemory, gratis y con un tope diario": "If the home server is off and the browser cannot translate, what you select (short phrases) is translated with MyMemory, free and with a daily cap"
 }
