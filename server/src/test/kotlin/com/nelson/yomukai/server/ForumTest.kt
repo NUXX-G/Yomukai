@@ -83,6 +83,10 @@ class ForumTest {
         beto.postJson("/api/forum/$id/posts", """{"body":"ojo","spoilerUntil":50,"card":$card}""")
         assertFalse(ana.json("/api/forum/$id?upTo=10")["posts"].asJsonArray.last().asJsonObject.has("card"))
         assertEquals(HttpStatusCode.BadRequest, beto.postJson("/api/forum/$id/posts", """{"body":"x","card":{"kind":"work","sourceId":"<x>","mediaId":"m","title":"t"}}""").status)
+        // A work the server has never seen is looked up in its source; an unknown source says so clearly.
+        val unknown = beto.postJson("/api/forum", """{"category":"work","sourceId":"no-existe","mediaId":"x","title":"Nada","body":"hola"}""")
+        assertEquals(HttpStatusCode.BadRequest, unknown.status)
+        assertTrue(unknown.bodyAsText().contains("No se pudo encontrar esa obra"))
         // Ana hears about Beto's reply in her thread.
         assertTrue(ana.json("/api/notifications")["items"].asJsonArray.any { it.asJsonObject["kind"].asString == "reply" })
 

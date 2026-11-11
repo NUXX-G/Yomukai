@@ -4,7 +4,9 @@
   // whoever is behind, images uploaded to the server, and the admin's tools (pin, close, delete, mute).
   import { api } from '../lib/api.js';
   import { navigate } from '../lib/router.svelte.js';
-  import { session, notify } from '../lib/store.svelte.js';
+  import { session, notify, features } from '../lib/store.svelte.js';
+  import ShareCard from './ShareCard.svelte';
+  import WorkPicker from './WorkPicker.svelte';
   import { quoteOf } from '../lib/markdown.js';
   import Markdown from './Markdown.svelte';
   import Icon from './Icon.svelte';
@@ -18,6 +20,9 @@
   let posts = $state([]);
   let loading = $state(false);
   let body = $state('');
+  // A work shared in the post (F4.3), picked with the search without leaving the editor.
+  let card = $state(null);
+  let picking = $state(false);
   let spoiler = $state('');
   let sending = $state(false);
   let revealed = $state({});
@@ -49,17 +54,19 @@
 
   async function send(e) {
     e.preventDefault();
-    if (!body.trim()) return;
+    if (!body.trim() && !card) return;
     sending = true;
     const spoilerUntil = spoiler === '' ? undefined : Number(spoiler);
     try {
       if (!id && newFor) {
-        const r = await api.forumNew({ category: 'work', sourceId: newFor.sourceId, mediaId: newFor.mediaId, title: newFor.title, body, spoilerUntil });
+        const r = await api.forumNew({ category: 'work', sourceId: newFor.sourceId, mediaId: newFor.mediaId, title: newFor.title, body, spoilerUntil, card: card || undefined });
         id = r.id;
       } else {
-        await api.forumReply(id, { body, spoilerUntil });
+        await api.forumReply(id, { body, spoilerUntil, card: card || undefined });
       }
       body = '';
+      card = null;
+      picking = false;
       spoiler = '';
       await load();
     } catch (err) { notify(err.message); } finally { sending = false; }
@@ -141,7 +148,8 @@
           <textarea class="field" rows="5" bind:value={editText} maxlength="5000"></textarea>
           <div class="row"><button class="btn text" onclick={() => (editingId = null)}>{t('Cancelar')}</button><button class="btn primary" onclick={() => saveEdit(p)}>{t('Guardar')}</button></div>
         {:else}
-          <Markdown text={p.body} />
+          {#if p.body}<Markdown text={p.body} />{/if}
+          {#if p.card}<ShareCard card={p.card} mine={p.own} />{/if}
         {/if}
         <div class="tools">
           {#each Object.entries(p.reactions) as [emoji, count] (emoji)}
@@ -166,13 +174,16 @@
     <form class="compose" onsubmit={send}>
       <textarea class="field" rows="4" maxlength="5000" bind:this={input} bind:value={body}
         placeholder={t('Escribe... **negrita**, *cursiva*, > cita, - lista, @nombre')}></textarea>
+      {#if picking}<WorkPicker onpick={(c) => { card = c; picking = false; }} onclose={() => (picking = false)} />{/if}
+      {#if card}<div class="row"><ShareCard {card} mine /><button type="button" class="icon-btn" onclick={() => (card = null)} aria-label={t('Quitar la obra')}><Icon name="close" size={18} /></button></div>{/if}
       <div class="row">
+        {#if features.flags.sharing !== false}<button type="button" class="btn text small" onclick={() => (picking = !picking)} aria-expanded={picking}><Icon name="search" size={16} /> {t('Obra')}</button>{/if}
         <label class="btn text small" title={t('Subir una imagen')}><Icon name="add" size={16} /> {t('Imagen')}<input type="file" accept="image/*" hidden onchange={addImage} /></label>
         <label class="spoiler">{t('Spoiler hasta el {0}', [unit])}
           <input class="field num" type="number" min="0" max="100000" step="0.1" inputmode="decimal" bind:value={spoiler} placeholder="—" />
         </label>
         <span class="grow"></span>
-        <button class="btn primary" disabled={sending || !body.trim()}>{sending ? 'Enviando...' : id ? 'Responder' : 'Publicar'}</button>
+        <button class="btn primary" disabled={sending || (!body.trim() && !card)}>{sending ? 'Enviando...' : id ? 'Responder' : 'Publicar'}</button>
       </div>
     </form>
   {:else if thread?.locked}

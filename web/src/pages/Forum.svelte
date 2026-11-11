@@ -3,7 +3,10 @@
   // /foro (categories and threads) and /foro/:id (one thread). Works' own threads live on their title pages too.
   import { api } from '../lib/api.js';
   import { route, navigate } from '../lib/router.svelte.js';
-  import { session, notify } from '../lib/store.svelte.js';
+  import { session, notify, features } from '../lib/store.svelte.js';
+  import ShareCard from '../components/ShareCard.svelte';
+  import WorkPicker from '../components/WorkPicker.svelte';
+  import Icon from '../components/Icon.svelte';
   import ForumThread from '../components/ForumThread.svelte';
   import Sheet from '../components/Sheet.svelte';
 
@@ -12,7 +15,8 @@
   let category = $state(route.query.get('c') || 'recomendaciones');
   let threads = $state(null);
   let creating = $state(false);
-  let form = $state({ title: '', body: '' });
+  let form = $state({ title: '', body: '', card: null });
+  let picking = $state(false);
 
   async function load() {
     threads = null;
@@ -29,9 +33,9 @@
   async function create(e) {
     e.preventDefault();
     try {
-      const r = await api.forumNew({ category, title: form.title, body: form.body });
+      const r = await api.forumNew({ category, title: form.title, body: form.body, card: form.card || undefined });
       creating = false;
-      form = { title: '', body: '' };
+      form = { title: '', body: '', card: null };
       navigate('/foro/' + r.id);
     } catch (err) { notify(err.message); }
   }
@@ -74,8 +78,13 @@
 <Sheet bind:open={creating} title={t('Nuevo hilo')}>
   <form class="new" onsubmit={create}>
     <input class="field" placeholder={t('Título')} maxlength="120" bind:value={form.title} required />
-    <textarea class="field" rows="6" maxlength="5000" placeholder={t('Escribe... **negrita**, *cursiva*, > cita, - lista, @nombre')} bind:value={form.body} required></textarea>
-    <button class="btn primary block" disabled={form.title.trim().length < 3 || !form.body.trim()}>{t('Publicar')}</button>
+    <textarea class="field" rows="6" maxlength="5000" placeholder={t('Escribe... **negrita**, *cursiva*, > cita, - lista, @nombre')} bind:value={form.body}></textarea>
+    {#if features.flags.sharing !== false}
+      {#if picking}<WorkPicker onpick={(c) => { form.card = c; picking = false; }} onclose={() => (picking = false)} />
+      {:else if form.card}<div class="attached"><ShareCard card={form.card} mine /><button type="button" class="icon-btn" onclick={() => (form.card = null)} aria-label={t('Quitar la obra')}><Icon name="close" size={18} /></button></div>
+      {:else}<button type="button" class="btn text" onclick={() => (picking = true)}><Icon name="search" size={16} /> {t('Compartir una obra')}</button>{/if}
+    {/if}
+    <button class="btn primary block" disabled={form.title.trim().length < 3 || (!form.body.trim() && !form.card)}>{t('Publicar')}</button>
   </form>
 </Sheet>
 
@@ -91,4 +100,5 @@
   .tag { font-size: var(--fs-tiny); font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--c-surface-high); color: var(--c-text-dim); }
   .back { display: inline-block; margin: 8px 0 14px; color: var(--c-text-dim); }
   .new { display: flex; flex-direction: column; gap: 10px; }
+  .attached { display: flex; align-items: center; gap: 6px; }
 </style>

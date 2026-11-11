@@ -317,7 +317,14 @@ private fun Route.forumWriteRoutes(s: Services) {
         val b = call.jsonBody(16_384)
         val category = b.text("category", 30)
         // A work's thread is asked by source page; the server finds the work (it must already be known).
-        val workKey = if (category == "work") s.works.keyOf(b.text("sourceId", 60), b.text("mediaId", 2_000)) ?: throw IllegalArgumentException("Abre antes la ficha de la obra") else null
+        // Not seen by the server yet (shared from the app, or a page nobody opened through it): resolved now, once.
+        val workKey = if (category == "work") {
+            val sourceId = b.text("sourceId", 60)
+            val mediaId = b.text("mediaId", 2_000)
+            s.works.keyOf(sourceId, mediaId)
+                ?: runCatching { s.works.resolve(sourceId, mediaId).key }.getOrNull()
+                ?: throw IllegalArgumentException("No se pudo encontrar esa obra en su fuente; ábrela antes y vuelve a probar")
+        } else null
         call.respond(mapOf("id" to s.forum.newThread(call.user, category, b.text("title", 300), b.text("body", Forum.MAX_BODY + 100), workKey, b.num("spoilerUntil"), b.sharedCard(s))))
     }
     post("/forum/{id}/posts") {
