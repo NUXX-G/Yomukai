@@ -37,6 +37,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Bookmarks
@@ -122,6 +123,10 @@ fun MangaReaderScreen(
     viewModel: MangaReaderViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // Compartir (F4.3): the chapter on screen, to a person, a room or the work's thread.
+    var shareOpen by remember { mutableStateOf(false) }
+    val canShare = com.nelson.yomukai.ui.LocalAppContainer.current.serverSync.serverUrl != null && state.chapter != null
+    if (shareOpen) viewModel.shareCard()?.let { card -> com.nelson.yomukai.ui.social.ShareSheet(card) { shareOpen = false } } ?: run { shareOpen = false }
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val chapterList by viewModel.chapterList.collectAsStateWithLifecycle()
     val bookmarks by viewModel.bookmarks.collectAsStateWithLifecycle()
@@ -349,6 +354,9 @@ fun MangaReaderScreen(
                     IconButton(onClick = onOpenDetails) {
                         Icon(Icons.Default.Info, contentDescription = tr("Ir a la ficha"), tint = Color.White)
                     }
+                }
+                if (canShare) {
+                    IconButton(onClick = { shareOpen = true }) { Icon(Icons.AutoMirrored.Filled.Send, tr("Compartir"), tint = Color.White) }
                 }
                 Column(Modifier.weight(1f)) {
                     Text(

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -21,6 +22,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
@@ -171,6 +173,8 @@ internal fun ConversationView(sync: ServerSync, name: String, onOpenCard: (Share
     var error by remember(name) { mutableStateOf<String?>(null) }
     var deleting by remember { mutableStateOf<Line?>(null) }
     var lastTyping by remember { mutableLongStateOf(0L) }
+    var attached by remember(name) { mutableStateOf<ShareCard?>(null) }
+    var picking by remember { mutableStateOf(false) }
     val list = rememberLazyListState()
     val path = "/api/dm/" + enc(name)
 
@@ -211,10 +215,11 @@ internal fun ConversationView(sync: ServerSync, name: String, onOpenCard: (Share
 
     fun send() {
         val text = draft.trim()
-        if (text.isEmpty()) return
+        val card = attached
+        if (text.isEmpty() && card == null) return
         scope.launch {
-            runCatching { sync.api("POST", path, JsonObject().apply { addProperty("text", text) })?.asJsonObject }
-                .onSuccess { m -> draft = ""; m?.line()?.let { l -> if (lines.none { it.id == l.id }) lines = lines + l } }
+            runCatching { sync.api("POST", path, JsonObject().apply { addProperty("text", text); card?.let { add("card", gson.toJsonTree(it)) } })?.asJsonObject }
+                .onSuccess { m -> draft = ""; attached = null; m?.line()?.let { l -> if (lines.none { it.id == l.id }) lines = lines + l } }
                 .onFailure { toast(it.message) }
         }
     }
@@ -252,7 +257,15 @@ internal fun ConversationView(sync: ServerSync, name: String, onOpenCard: (Share
             }
         }
         if (blocked) Text(tr("Has bloqueado a esta persona. Desbloquéala para escribirle."), Modifier.padding(16.dp))
-        else Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        else Column {
+        attached?.let { c ->
+            Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) { ShareCardView(c, mine = true) }
+                TextButton(onClick = { attached = null }) { Text(tr("Quitar la obra")) }
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { picking = true }) { Icon(Icons.Default.Add, tr("Compartir una obra")) }
             OutlinedTextField(
                 draft, { v ->
                     draft = v.take(MAX_DM)
@@ -263,9 +276,11 @@ internal fun ConversationView(sync: ServerSync, name: String, onOpenCard: (Share
                 },
                 Modifier.weight(1f), placeholder = { Text(tr("Escribe un mensaje")) }, maxLines = 4
             )
-            IconButton(enabled = draft.isNotBlank(), onClick = ::send) { Icon(Icons.AutoMirrored.Filled.Send, tr("Enviar")) }
+            IconButton(enabled = draft.isNotBlank() || attached != null, onClick = ::send) { Icon(Icons.AutoMirrored.Filled.Send, tr("Enviar")) }
+        }
         }
     }
+    if (picking) WorkPickerDialog(onPick = { attached = it; picking = false }, onDismiss = { picking = false })
     deleting?.let { m ->
         AlertDialog(
             onDismissRequest = { deleting = null },
@@ -279,6 +294,43 @@ internal fun ConversationView(sync: ServerSync, name: String, onOpenCard: (Share
             dismissButton = { TextButton(onClick = { deleting = null }) { Text(tr("Cancelar")) } }
         )
     }
+}
+
+/** Finds a work without leaving the chat (F4.3): the server's instant work search; tapping one returns its card. */
+@Composable
+fun WorkPickerDialog(onPick: (ShareCard) -> Unit, onDismiss: () -> Unit) {
+    val sync = LocalAppContainer.current.serverSync
+    var query by remember { mutableStateOf("") }
+    var results by remember { mutableStateOf(emptyList<JsonObject>()) }
+    LaunchedEffect(query) {
+        val q = query.trim()
+        if (q.length < 2) { results = emptyList(); return@LaunchedEffect }
+        delay(SEARCH_DEBOUNCE_MS)
+        results = runCatching { sync.api("GET", "/api/obras/buscar?q=" + enc(q))?.asJsonObject?.get("works").objs().take(MAX_RESULTS) }.getOrDefault(emptyList())
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(tr("Compartir una obra")) },
+        text = {
+            Column {
+                OutlinedTextField(query, { query = it.take(MAX_QUERY) }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(tr("Buscar una obra para compartir...")) })
+                LazyColumn(Modifier.fillMaxWidth().heightIn(max = 320.dp)) {
+                    items(results, key = { it.str("key") }) { w ->
+                        ListItem(
+                            headlineContent = { Text(w.str("title"), maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                            supportingContent = { Text(TYPE_NAMES[w.str("type")]?.let { tr(it) } ?: w.str("type")) },
+                            modifier = Modifier.clickable {
+                                val lang = w.getAsJsonArray("langs")?.firstOrNull()?.asString.orEmpty()
+                                ShareCard.sanitize(ShareCard("work", "", "", title = w.str("title"), cover = w.str("cover"), type = w.str("type"), lang = lang, workKey = w.str("key")))
+                                    ?.let(onPick)
+                            }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr("Cerrar")) } }
+    )
 }
 
 // ---------- Common rooms ----------
@@ -420,6 +472,9 @@ fun ShareSheet(card: ShareCard, onDismiss: () -> Unit) {
 }
 
 private const val LIST_REFRESH_MS = 15_000L
+private const val SEARCH_DEBOUNCE_MS = 300L
+private const val MAX_RESULTS = 12
+private const val MAX_QUERY = 100
 private const val TYPING_SHOWN_MS = 5_000L
 private const val TYPING_EVERY_MS = 3_000L
 private const val MAX_DM = 2_000

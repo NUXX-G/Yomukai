@@ -36,6 +36,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Bookmarks
@@ -119,6 +120,10 @@ fun NovelReaderScreen(
     viewModel: NovelReaderViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // Compartir (F4.3): the chapter on screen, to a person, a room or the work's thread.
+    var shareOpen by remember { mutableStateOf(false) }
+    val canShare = com.nelson.yomukai.ui.LocalAppContainer.current.serverSync.serverUrl != null && state.chapter != null
+    if (shareOpen) viewModel.shareCard()?.let { card -> com.nelson.yomukai.ui.social.ShareSheet(card) { shareOpen = false } } ?: run { shareOpen = false }
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val chapterList by viewModel.chapterList.collectAsStateWithLifecycle()
     val bookmarks by viewModel.bookmarks.collectAsStateWithLifecycle()
@@ -513,6 +518,9 @@ fun NovelReaderScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Volver"), tint = textColor) }
                     if (onOpenDetails != null) {
                         IconButton(onClick = onOpenDetails) { Icon(Icons.Default.Info, tr("Ir a la ficha"), tint = textColor) }
+                    }
+                    if (canShare) {
+                        IconButton(onClick = { shareOpen = true }) { Icon(Icons.AutoMirrored.Filled.Send, tr("Compartir"), tint = textColor) }
                     }
                     Column(Modifier.weight(1f)) {
                         Text(state.mediaTitle, color = textColor, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)

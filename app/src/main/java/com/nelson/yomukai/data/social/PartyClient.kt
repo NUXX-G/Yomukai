@@ -199,7 +199,8 @@ class PartyClient(private val sync: ServerSync, val code: String) {
     fun sendState(state: PartyState) = send(mapOf("t" to "state", "state" to state))
     fun loading() = send(mapOf("t" to "loading"))
     fun ready() = send(mapOf("t" to "ready"))
-    fun chat(text: String, spoiler: Boolean = false) = send(mapOf("t" to "chat", "text" to text.take(MAX_CHAT), "spoiler" to spoiler))
+    fun chat(text: String, spoiler: Boolean = false, card: ShareCard? = null) =
+        send(mapOf("t" to "chat", "text" to text.take(MAX_CHAT), "spoiler" to spoiler) + (card?.let { mapOf("card" to it) } ?: emptyMap()))
     fun react(emoji: String) = send(mapOf("t" to "react", "emoji" to emoji))
     fun queueAdd(sourceId: String, mediaId: String, chapterId: String, title: String, episode: String, cover: String = "") =
         send(mapOf("t" to "queue_add", "item" to mapOf("sourceId" to sourceId, "mediaId" to mediaId, "chapterId" to chapterId, "title" to title, "episode" to episode, "cover" to cover)))

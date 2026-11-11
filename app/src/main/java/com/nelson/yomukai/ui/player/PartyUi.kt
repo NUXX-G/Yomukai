@@ -161,6 +161,8 @@ internal fun RoomSheet(viewModel: AnimePlayerViewModel, onDismiss: () -> Unit) {
     val room by party.room.collectAsState()
     val context = LocalContext.current
     var draft by remember { mutableStateOf("") }
+    var attached by remember { mutableStateOf<com.nelson.yomukai.data.social.ShareCard?>(null) }
+    var picking by remember { mutableStateOf(false) }
     val list = rememberLazyListState()
     LaunchedEffect(room.messages.size) { party.seen(); if (room.messages.isNotEmpty()) list.animateScrollToItem(room.messages.size - 1) }
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -214,9 +216,17 @@ internal fun RoomSheet(viewModel: AnimePlayerViewModel, onDismiss: () -> Unit) {
                     room.reactions.take(MAX_REACTIONS).forEach { e -> TextButton(onClick = { party.react(e) }) { Text(e) } }
                 }
             }
+            attached?.let { c ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.foundation.layout.Box(Modifier.weight(1f)) { com.nelson.yomukai.ui.social.ShareCardView(c, mine = true) }
+                    TextButton(onClick = { attached = null }) { Text(tr("Quitar la obra")) }
+                }
+            }
+            if (picking) com.nelson.yomukai.ui.social.WorkPickerDialog(onPick = { attached = it; picking = false }, onDismiss = { picking = false })
             Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { picking = true }) { Text("+") }
                 OutlinedTextField(draft, { draft = it.take(MAX_CHAT) }, Modifier.weight(1f), placeholder = { Text(tr("Escribe en la sala")) }, singleLine = true)
-                IconButton(enabled = draft.isNotBlank(), onClick = { party.chat(draft.trim()); draft = "" }) {
+                IconButton(enabled = draft.isNotBlank() || attached != null, onClick = { party.chat(draft.trim(), card = attached); draft = ""; attached = null }) {
                     Icon(Icons.AutoMirrored.Filled.Send, tr("Enviar"))
                 }
             }

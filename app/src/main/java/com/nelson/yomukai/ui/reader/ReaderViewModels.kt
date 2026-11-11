@@ -51,6 +51,19 @@ data class ReaderUiState<T>(
 abstract class BaseReaderViewModel<T>(handle: SavedStateHandle, protected val container: AppContainer) : ViewModel() {
     protected val sourceId: String = checkNotNull(handle[Routes.ARG_SOURCE])
     protected val mediaId: String = checkNotNull(handle[Routes.ARG_MEDIA])
+    private var mediaType = ""
+    private var mediaCover = ""
+
+    /** The chapter on screen as a card for «Compartir» (F4.3), with its number for the spoiler shield. */
+    fun shareCard(): com.nelson.yomukai.data.social.ShareCard? {
+        val chapter = _state.value.chapter ?: return null
+        return com.nelson.yomukai.data.social.ShareCard(
+            kind = "chapter", sourceId = sourceId, mediaId = mediaId, chapterId = chapter.chapterId, title = _state.value.mediaTitle,
+            cover = mediaCover.takeIf { it.startsWith("https://") }.orEmpty(), type = mediaType,
+            lang = container.sourceManager.get(sourceId)?.language.orEmpty(),
+            number = chapter.number.takeIf { it >= 0f }?.toDouble(), label = chapter.title
+        )
+    }
     private val startChapterId: String = checkNotNull(handle[Routes.ARG_CHAPTER])
 
     protected val repo = container.libraryRepository
@@ -83,7 +96,10 @@ abstract class BaseReaderViewModel<T>(handle: SavedStateHandle, protected val co
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
-            val title = repo.getMedia(sourceId, mediaId)?.title.orEmpty()
+            val media = repo.getMedia(sourceId, mediaId)
+            val title = media?.title.orEmpty()
+            mediaType = media?.type.orEmpty()
+            mediaCover = media?.coverUrl.orEmpty()
             chapters = repo.getChapters(sourceId, mediaId)
             if (chapters.none { it.chapterId == startChapterId }) {
                 repo.refreshChapters(sourceId, mediaId)
