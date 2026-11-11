@@ -375,17 +375,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
             if (loose.isNotBlank()) candidates(loose, FUZZY_CANDIDATES)
         }
         // How well the query names each work: its best name (any source, any language, AniList's), 1.0 = exactly.
-        // Written without spaces («onepiece») counts too.
-        val squashed = squash(query)
-        fun nameScore(name: String): Double {
-            val n = squash(name)
-            return when {
-                n == squashed -> 1.0
-                squashed.length >= MIN_SQUASHED && n.startsWith(squashed) -> SQUASHED_PREFIX_SCORE
-                else -> SmartSearch.scoreTitle(query, name)
-            }
-        }
-        val score = names.mapValues { (_, text) -> text.split(" | ").maxOfOrNull(::nameScore) ?: 0.0 }
+        val score = names.mapValues { (_, text) -> text.split(" | ").maxOfOrNull { nameScore(query, it) } ?: 0.0 }
         val keys = score.filterValues { it >= MIN_SEARCH_SCORE }.keys.toList()
         if (keys.isEmpty()) return emptyList()
         val cards = s.db.tx {
@@ -415,6 +405,17 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
     }
 
     private fun squash(text: String) = text.lowercase().filter { it.isLetterOrDigit() }
+
+    /** How well [query] names [name], 0..1; written without spaces («onepiece») counts too. */
+    private fun nameScore(query: String, name: String): Double {
+        val q = squash(query)
+        val n = squash(name)
+        return when {
+            n == q -> 1.0
+            q.length >= MIN_SQUASHED && n.startsWith(q) -> SQUASHED_PREFIX_SCORE
+            else -> SmartSearch.scoreTitle(query, name)
+        }
+    }
 
     /**
      * SQL: the work [w] has no sexual genre (adult, hentai, smut, ecchi… in any spelling the taxonomy knows) in any of
