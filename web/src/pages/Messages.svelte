@@ -221,8 +221,8 @@
           </a>
           <span class="grow"></span>
           {#if convo}
-            <button class="icon-btn" onclick={() => toggle('muted')} aria-pressed={convo.muted} title={convo.muted ? t('Quitar silencio') : t('Silenciar')} aria-label={convo.muted ? t('Quitar silencio') : t('Silenciar')}><Icon name={convo.muted ? 'mute' : 'volume'} /></button>
-            <button class="icon-btn" onclick={() => toggle('blocked')} aria-pressed={convo.blocked} title={convo.blocked ? t('Desbloquear') : t('Bloquear')} aria-label={convo.blocked ? t('Desbloquear') : t('Bloquear')}><Icon name="remove" /></button>
+            <button class="btn text small" onclick={() => toggle('muted')} aria-pressed={convo.muted}><Icon name={convo.muted ? 'volume' : 'mute'} size={18} /> {convo.muted ? t('Quitar silencio') : t('Silenciar')}</button>
+            <button class="btn text small" onclick={() => toggle('blocked')} aria-pressed={convo.blocked}>{convo.blocked ? t('Desbloquear') : t('Bloquear')}</button>
           {/if}
         </header>
 

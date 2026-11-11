@@ -14,8 +14,23 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import java.util.concurrent.ConcurrentHashMap
 
+/**
+ * Covers of shared cards go through our signed image proxy: the web's CSP only loads images from the server itself,
+ * and the viewer never asks the source's CDN directly. Set by [Services] (the proxy needs its secret).
+ */
+object ShareCovers {
+    @Volatile
+    var proxy: (sourceId: String, url: String) -> String = { _, url -> url }
+
+    fun of(card: ShareCard): ShareCard =
+        if (card.cover.startsWith("https://")) runCatching { proxy(card.sourceId, card.cover) }.getOrNull()
+            ?.let { ShareCard.sanitize(card.copy(cover = it)) } ?: card.copy(cover = "") else card
+}
+
 /** A card in a request body ({ kind, sourceId, ... }), checked by [ShareCard.sanitize]; null when absent or invalid. */
-internal fun cardFrom(element: JsonElement?): ShareCard? {
+internal fun cardFrom(element: JsonElement?): ShareCard? = cardFromRaw(element)?.let(ShareCovers::of)
+
+private fun cardFromRaw(element: JsonElement?): ShareCard? {
     val o = element?.takeIf { it.isJsonObject }?.asJsonObject ?: return null
     fun s(name: String) = o.get(name)?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
     return ShareCard.sanitize(

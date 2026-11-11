@@ -226,6 +226,7 @@ class Services(val config: Config) {
         if (ytdlp.available) {
             com.nelson.yomukai.data.source.anime.VideoExtractors.preferred = { video -> if (features.isOn("ytdlp")) ytdlp.resolve(video) else null }
         }
+        ShareCovers.proxy = { sourceId, url -> proxy.cover(url, sources.get(sourceId)?.imageHeaders.orEmpty()) }
         sources.onDomainChange = { id, from, to ->
             notifier.admin("domain-$id-$to", "La fuente $id cambió de dominio", "Ahora está en $to (antes $from). Se sigue sola; actualiza baseUrl y domains en sources/$id.json.")
         }

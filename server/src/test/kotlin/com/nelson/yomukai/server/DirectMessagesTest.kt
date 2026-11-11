@@ -133,6 +133,11 @@ class DirectMessagesTest {
         assertEquals(HttpStatusCode.Forbidden, refused.status)
         assertTrue(refused.bodyAsText().contains("conteste"))
 
+        // A real cover goes through our signed image proxy (the web only loads images from the server).
+        val proxied = ana.postJson("/api/dm/beto", """{"card":{"kind":"work","sourceId":"mangadex","mediaId":"m","title":"Frieren","cover":"https://uploads.example/c.jpg"}}""")
+        val cover = JsonParser.parseString(proxied.bodyAsText()).asJsonObject["card"].asJsonObject["cover"].asString
+        assertTrue(cover, cover.startsWith("/api/img?u=https%3A%2F%2Fuploads.example%2Fc.jpg"))
+
         // F4.5: the new achievements for messages and sharing.
         delay(200)
         val unlocked = JsonParser.parseString(ana.get("/api/achievements").bodyAsText()).asJsonArray.map { it.asJsonObject }

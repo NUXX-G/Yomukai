@@ -7,6 +7,7 @@
 
   let { card, mine = false } = $props();
   let shown = $state(false);
+  let broken = $state(false);
 
   const TYPES = { ANIME: 'Anime', MANGA: 'Manga', MANHWA: 'Manhwa', MANHUA: 'Manhua', COMIC: 'Cómic', NOVEL: 'Novela' };
   const href = $derived(
@@ -25,7 +26,7 @@
   </button>
 {:else}
   <a class="card" {href}>
-    <span class="cover">{#if card.cover}<img src={card.cover} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<Icon name={card.type === 'ANIME' ? 'tv' : card.type === 'NOVEL' ? 'novel' : 'book'} />{/if}</span>
+    <span class="cover">{#if card.cover && !broken}<img src={card.cover} alt="" loading="lazy" referrerpolicy="no-referrer" onerror={() => (broken = true)} />{:else}<Icon name={card.type === 'ANIME' ? 'tv' : card.type === 'NOVEL' ? 'novel' : 'book'} />{/if}</span>
     <span class="info">
       <span class="title">{card.title}</span>
       {#if what}<span class="what">{what}</span>{/if}
