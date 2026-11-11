@@ -87,8 +87,10 @@ object WorkGrouper {
         return group(items).mapTo(LinkedHashSet()) { card -> WorkKey.itemKey(card.items.minBy { order[WorkKey.itemKey(it)] ?: Int.MAX_VALUE }) }
     }
 
+    // The same names the matcher compares (seasons however written, with and without spaces), so a work is never
+    // split just because one source writes «2nd Season» and another «Temporada 2».
     private fun names(item: MediaItem) =
-        (listOf(item.title) + item.altTitles).map { WorkKey.family(item.type) + "|" + SmartSearch.duplicateKey(it) }.filter { it.length > 10 }
+        TitleMatcher.keys(listOf(item.title) + item.altTitles).map { WorkKey.family(item.type) + "|" + it }.filter { it.length > 10 }
 
     private fun rank(c: MatchConfidence) = when (c) {
         MatchConfidence.SAME_WORK -> 3

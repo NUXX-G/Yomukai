@@ -18,6 +18,7 @@ object SmartSearch {
     private val combiningMarks = Regex("\\p{Mn}+")
     private val nonAlphanumeric = Regex("[^\\p{L}\\p{N}]+")
     private val parenthesised = Regex("\\([^)]*\\)|\\[[^]]*]")
+    private val bracketYear = Regex("""[(\[]\s*((?:19|20)\d{2})\s*[)\]]""")
 
     /** Lowercase, strip accents and punctuation, collapse whitespace. "Ñandú: ¡Rápido!" -> "nandu rapido". */
     fun normalize(text: String): String =
@@ -122,7 +123,14 @@ object SmartSearch {
     }
 
     /** Key shared by the same title in different sources: normalised, without "(2026)" style suffixes. */
-    fun duplicateKey(title: String): String = normalize(title.replace(parenthesised, " "))
+    /**
+     * The name two copies of one title share: notes in brackets dropped («(Sub)», «(2026)» that some sites add to a
+     * manhwa). «×» is the «x» of «Spy × Family». For anime a year is a remake: see [bracketYear] and TitleMatcher.
+     */
+    fun duplicateKey(title: String): String = normalize(title.replace('×', 'x').replace(parenthesised, " "))
+
+    /** The year in brackets of a title, «Ranma1/2 (2024)» → «2024»; null when there is none. */
+    fun bracketYear(title: String): String? = bracketYear.find(title)?.groupValues?.get(1)
 
     fun keyOf(item: MediaItem) = item.sourceId + "|" + item.id
 

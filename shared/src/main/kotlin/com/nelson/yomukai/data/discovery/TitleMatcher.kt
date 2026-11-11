@@ -28,13 +28,21 @@ object TitleMatcher {
      * novel get different keys, the manhwa and a manga edition of it the same one.
      */
     fun familyKey(type: MediaType, title: String): String =
-        (if (type.isReadableAsImages) "images" else type.name) + "|" + SmartSearch.duplicateKey(title)
+        (if (type.isReadableAsImages) "images" else type.name) + "|" + SmartSearch.duplicateKey(Seasons.canonical(title)) +
+            (if (type == MediaType.ANIME) SmartSearch.bracketYear(title)?.let { " $it" }.orEmpty() else "")
+
+    /**
+     * An anime and its remake share the name and differ in the year in brackets: «Ranma 1/2» and «Ranma1/2 (2024)»,
+     * «Hunter x Hunter (2011)». Two lists of names are apart when the years they give are not the same.
+     */
+    fun yearsConflict(a: Collection<String>, b: Collection<String>): Boolean =
+        a.mapNotNull(SmartSearch::bracketYear).toSet() != b.mapNotNull(SmartSearch::bracketYear).toSet()
 
     /**
      * Names compared: case, accents, punctuation and the way a season is written ignored, and the spaces too («Ao
      * Ashi» and «Aoashi» are one name), so long as what is left is not too short to be a coincidence.
      */
-    private fun keys(names: Collection<String>): Set<String> =
+    fun keys(names: Collection<String>): Set<String> =
         names.map { SmartSearch.duplicateKey(Seasons.canonical(it)) }.filter { it.length >= MIN_KEY_LENGTH }
             .flatMap { k -> listOf(k, k.replace(" ", "")) }.filter { it.length >= MIN_KEY_LENGTH }.toSet()
 
@@ -50,6 +58,7 @@ object TitleMatcher {
     fun compare(names: Collection<String>, author: String, type: MediaType, candidate: MediaItem): MatchConfidence {
         if (!sameFamily(type, candidate.type)) return MatchConfidence.NONE
         val shared = sharedKey(names, listOf(candidate.title) + candidate.altTitles) ?: return MatchConfidence.NONE
+        if (type == MediaType.ANIME && yearsConflict(names.take(1), listOf(candidate.title))) return MatchConfidence.NONE
         return when {
             authorsDisagree(author, candidate.author) -> MatchConfidence.DIFFERENT_AUTHOR
             authorsKnown(author, candidate.author) -> MatchConfidence.SAME_WORK

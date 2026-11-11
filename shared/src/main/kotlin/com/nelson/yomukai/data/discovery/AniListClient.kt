@@ -109,7 +109,10 @@ class AniListClient(private val network: HttpFetcher) {
             .take(MAX_LOOKUP_QUERIES)
         var found: AniListEntry? = null
         for (search in queries) {
-            found = parseEntries(query(LOOKUP, search, type)).firstOrNull { TitleMatcher.shareName(names, it.names) }
+            // An anime remake (a year in brackets) is never confirmed as the original, nor the other way round.
+            found = parseEntries(query(LOOKUP, search, type)).firstOrNull {
+                TitleMatcher.shareName(names, it.names) && !(type == MediaType.ANIME && TitleMatcher.yearsConflict(names.take(1), it.names.take(1)))
+            }
             if (found != null) break
         }
         if (found == null) {

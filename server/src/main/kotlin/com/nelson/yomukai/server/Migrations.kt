@@ -1,5 +1,9 @@
 package com.nelson.yomukai.server
 
+import com.nelson.yomukai.data.discovery.Seasons
+import com.nelson.yomukai.data.search.SmartSearch
+import com.nelson.yomukai.data.work.WorkKey
+import com.nelson.yomukai.domain.model.MediaType
 import org.slf4j.LoggerFactory
 import java.sql.Connection
 
@@ -299,6 +303,27 @@ object Migrations {
         },
         Migration(21, "Dominios que el canario sospecha que son los nuevos de una web: el admin los confirma") {
             exec("CREATE TABLE IF NOT EXISTS domain_suggestions(old_host TEXT PRIMARY KEY, new_host TEXT NOT NULL, found_at INTEGER NOT NULL)")
+        },
+        // F1.6: work keys by name now read seasons however written («2nd Season» = «Temporada 2»), «×» as «x», and keep
+        // an anime's year in brackets (a remake). Titles grouped only by name (t:) whose key changes are let go, and the
+        // index groups them again with the new rules on its next round. Confirmed works (al:, mal:) and everything of
+        // the users (library, progress, history) are not touched.
+        Migration(22, "Obras por nombre: temporadas, «×» y remakes de anime con las reglas nuevas") {
+            val changed = mutableListOf<Pair<String, String>>()
+            prepareStatement("SELECT source_id, media_id, type, title, work_key FROM index_items WHERE work_key LIKE 't:%'").use { st ->
+                st.executeQuery().use { r ->
+                    while (r.next()) {
+                        val type = runCatching { MediaType.valueOf(r.getString(3)) }.getOrDefault(MediaType.MANGA)
+                        val title = r.getString(4)
+                        val touched = Seasons.canonical(title) != title || '×' in title || (type == MediaType.ANIME && SmartSearch.bracketYear(title) != null)
+                        if (touched && WorkKey.of(type, title) != r.getString(5)) changed += r.getString(1) to r.getString(2)
+                    }
+                }
+            }
+            prepareStatement("UPDATE index_items SET work_key = NULL WHERE source_id = ? AND media_id = ?").use { st ->
+                changed.forEach { (s, m) -> st.setString(1, s); st.setString(2, m); st.addBatch() }
+                st.executeBatch()
+            }
         }
     )
 
