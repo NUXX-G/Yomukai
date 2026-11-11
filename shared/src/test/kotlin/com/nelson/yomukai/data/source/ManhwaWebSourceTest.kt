@@ -49,4 +49,12 @@ class ManhwaWebSourceTest {
         assertEquals(68, pages.size)
         assertEquals("https://img2mw.xyz/manhwas/ldlive_1781589982404/chapter_1/ver_01/001.webp", pages.first())
     }
+
+    /** Leviathan (2026-11-12): the chapter's base link has no images any more; its upload (a version) is what reads. */
+    @Test
+    fun aChapterWithoutImagesOfItsOwnReadsThroughItsVersion() {
+        val see = json("manhwaweb_see_versions.json")
+        val chapters = ManhwaWebSource.parseChapters(see, "leviatan_1727741041911")
+        assertEquals("leviatan_1727741041911-9_01", chapters.first { it.chapterNumber == 9f }.url)
+    }
 }

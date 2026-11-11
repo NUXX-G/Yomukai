@@ -131,10 +131,11 @@ class ManhwaWebSource(private val network: HttpFetcher) : MangaSource {
         /** Every chapter with a reader on the site: its id (the last part of its link) is what the API reads. */
         fun parseChapters(o: JsonObject, mediaId: String): List<Chapter> =
             ((o.arr("chapters_esp")?.objects().orEmpty()) + (o.arr("chapters")?.objects().orEmpty())).mapNotNull { c ->
-                // The link is on the chapter, or (several uploads of it) on its first version.
-                val link = c.str("link").takeIf { it.contains("/leer/") }
-                    ?: c.arr("versions")?.objects()?.firstNotNullOfOrNull { v -> v.str("link").takeIf { it.contains("/leer/") } }
-                    ?: return@mapNotNull null
+                // The chapter's own link only when it has images itself; otherwise (Leviathan: the base entry is empty and
+                // each upload is a version, «…-9_01») the first version's, which is what the site's reader opens.
+                val own = c.str("link").takeIf { it.contains("/leer/") && c.arr("img")?.size() ?: 0 > 0 }
+                val version = c.arr("versions")?.objects()?.firstNotNullOfOrNull { v -> v.str("link").takeIf { it.contains("/leer/") } }
+                val link = own ?: version ?: c.str("link").takeIf { it.contains("/leer/") } ?: return@mapNotNull null
                 val chapterId = link.substringAfter("/leer/").substringBefore('?').trimEnd('/').ifBlank { return@mapNotNull null }
                 val number = c.str("chapter").toFloatOrNull() ?: -1f
                 val label = if (number % 1f == 0f) number.toInt().toString() else number.toString()

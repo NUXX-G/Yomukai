@@ -1,0 +1,47 @@
+{
+ "_id": "leviatan_1727741041911",
+ "real_id": "leviatan_1727741041911",
+ "the_real_name": "Leviatán",
+ "_status": "finalizado",
+ "chapters_esp": [],
+ "chapters": [
+  {
+   "chapter": 1,
+   "img": [],
+   "link": "https://manhwaweb.com/leer/leviatan_1727741041911-1",
+   "create": 1727741059703,
+   "versions": [
+    {
+     "link": "https://manhwaweb.com/leer/leviatan_1727741041911-1_01",
+     "joint": [
+      {
+       "_id": 17340636078284,
+       "tipo": "uploader",
+       "name": "El Retumbar "
+      }
+     ],
+     "create": 1790073692097
+    }
+   ]
+  },
+  {
+   "chapter": 9,
+   "img": [],
+   "link": "https://manhwaweb.com/leer/leviatan_1727741041911-9",
+   "create": 1727741059703,
+   "versions": [
+    {
+     "link": "https://manhwaweb.com/leer/leviatan_1727741041911-9_01",
+     "joint": [
+      {
+       "_id": 17340636078284,
+       "tipo": "uploader",
+       "name": "El Retumbar "
+      }
+     ],
+     "create": 1790073692100
+    }
+   ]
+  }
+ ]
+}
