@@ -386,6 +386,23 @@ object Migrations {
                 changed.forEach { (s, m) -> st.setString(1, s); st.setString(2, m); st.addBatch() }
                 st.executeBatch()
             }
+        },
+        Migration(34, "«Título II» es la temporada 2: los títulos que acaban en número romano se reagrupan") {
+            val changed = mutableListOf<Pair<String, String>>()
+            prepareStatement("SELECT source_id, media_id, type, title, work_key FROM index_items WHERE work_key LIKE 't:%'").use { st ->
+                st.executeQuery().use { r ->
+                    while (r.next()) {
+                        val type = runCatching { MediaType.valueOf(r.getString(3)) }.getOrDefault(MediaType.MANGA)
+                        val title = r.getString(4)
+                        val roman = Regex("""\s(II|III|IV|V|VI)\s*$""").containsMatchIn(title)
+                        if (roman && WorkKey.of(type, title) != r.getString(5)) changed += r.getString(1) to r.getString(2)
+                    }
+                }
+            }
+            prepareStatement("UPDATE index_items SET work_key = NULL WHERE source_id = ? AND media_id = ?").use { st ->
+                changed.forEach { (s, m) -> st.setString(1, s); st.setString(2, m); st.addBatch() }
+                st.executeBatch()
+            }
         }
     )
 

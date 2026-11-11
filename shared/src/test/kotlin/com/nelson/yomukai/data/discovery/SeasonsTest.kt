@@ -37,4 +37,13 @@ class SeasonsTest {
         assertTrue(TitleMatcher.shareName(listOf("Ao Ashi Season 2"), listOf("Aoashi 2nd Season")))
         assertFalse(TitleMatcher.shareName(listOf("Ao Ashi Season 2"), listOf("Aoashi")))
     }
+
+    /** O1: «II» at the end (AnimeFLV) is AniList's «2nd Season»; a numeral inside the name is not a season. */
+    @Test
+    fun romanNumeralClosingTheTitleIsItsSeason() {
+        assertTrue(TitleMatcher.shareName(listOf("Tensei shitara Ken deshita II"), listOf("Tensei Shitara Ken Deshita 2nd Season")))
+        assertEquals(Seasons.canonical("Overlord IV"), Seasons.canonical("Overlord Season 4"))
+        assertEquals("Final Fantasy VII: Advent Children", Seasons.canonical("Final Fantasy VII: Advent Children"))
+        assertFalse(TitleMatcher.shareName(listOf("Tensei shitara Ken deshita II"), listOf("Tensei Shitara Ken Deshita")))
+    }
 }

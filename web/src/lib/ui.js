@@ -1,7 +1,7 @@
 // Small helpers shared by the redesigned pages.
 import { navigate, media } from './router.svelte.js';
 import { openRelated } from './open.svelte.js';
-import { t, tk } from './i18n.svelte.js';
+import { t, tk, i18n } from './i18n.svelte.js';
 
 /** A proxied image at about [width] CSS pixels (the proxy keeps a shrunk copy); other addresses as they are. */
 export function sized(url, width) {
@@ -34,10 +34,11 @@ const SEASON = { WINTER: tk('Invierno'), SPRING: tk('Primavera'), SUMMER: tk('Ve
 export const seasonName = (s, y) => [SEASON[s] && t(SEASON[s]), y].filter(Boolean).join(' ');
 
 /**
- * Opens an AniList title: straight to its page when a source already has it, otherwise the sheet that looks for it
- * in your sources.
+ * Opens an AniList title: as a WORK in the user's language (O1, O2: its best source there, subtitled first), so
+ * a Spanish user never lands on an English source because it was the first one linked.
  */
 export function openDiscover(item) {
+  if (item.workKey) return navigate('/obras/' + encodeURIComponent(item.workKey) + '?lang=' + i18n.lang);
   if (item.sourceId && item.mediaId) return navigate(media(item.sourceId, item.mediaId));
   openRelated({
     title: item.title, names: item.names || [], cover: item.cover, type: item.type, genres: item.genres || [],

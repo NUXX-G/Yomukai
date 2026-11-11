@@ -19,7 +19,13 @@ object Seasons {
     private val PART_N = Regex("""\b(?:part|parte|cour)\s*(\d{1,2})\b""", RegexOption.IGNORE_CASE)
     private val NTH_PART = Regex("""\b(\d{1,2})\s*(?:st|nd|rd|th|ª|a)?\s+(?:part|parte|cour)\b""", RegexOption.IGNORE_CASE)
 
-    fun canonical(title: String): String = title
+    // «Tensei shitara Ken deshita II» (AnimeFLV and others): a Roman numeral closing the title is its season. Only at
+    // the very end, so «Final Fantasy VII: Advent Children» keeps its name.
+    private val ROMAN_END = Regex("""\s(II|III|IV|V|VI)\s*$""")
+    private val ROMANS = mapOf("II" to 2, "III" to 3, "IV" to 4, "V" to 5, "VI" to 6)
+
+    fun canonical(title: String): String = title.trim()
+        .replace(ROMAN_END) { " season ${ROMANS.getValue(it.groupValues[1])} " }
         .replace(WORD_SEASON) { " season ${ORDINALS[it.groupValues[1].lowercase()]} " }
         .replace(NTH_SEASON) { " season ${it.groupValues[1].toInt()} " }
         .replace(SEASON_N) { " season ${it.groupValues[1].toInt()} " }
