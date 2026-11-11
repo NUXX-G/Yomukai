@@ -175,6 +175,16 @@ private suspend fun serverIndexFirst(container: com.nelson.yomukai.AppContainer,
     }
     val key = container.serverSync.api("POST", "/api/obras/encontrar?lang=$lang", ask)?.asJsonObject?.get("key")
         ?.takeIf { it.isJsonPrimitive }?.asString ?: return null
+    return placeOfWork(container, key, type, lang)
+}
+
+/** A source this app has for the server's index work [key] (shared cards carry only the key), or null. */
+internal suspend fun placeOfWork(
+    container: com.nelson.yomukai.AppContainer,
+    key: String,
+    type: com.nelson.yomukai.domain.model.MediaType,
+    lang: String = com.nelson.yomukai.i18n.I18n.lang
+): MediaItem? {
     val ficha = container.serverSync.api("GET", "/api/obras/ficha/${java.net.URLEncoder.encode(key, Charsets.UTF_8).replace("+", "%20")}?lang=$lang&light=1")
         ?.takeIf { it.isJsonObject }?.asJsonObject ?: return null
     val work = ficha.get("work")?.takeIf { it.isJsonObject }?.asJsonObject

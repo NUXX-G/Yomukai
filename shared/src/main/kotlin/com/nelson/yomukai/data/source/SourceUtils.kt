@@ -44,6 +44,25 @@ object SourceUtils {
     /** Invisible characters some sites hide in their text as a watermark (thousands per chapter). */
     private val invisible = Regex("[\\u200B\\u200C\\u200E\\u200F\\u2060-\\u2064\\uFEFF]")
 
+    private val mdHeading = Regex("^#{1,6}\\s+")
+    private val mdBold = Regex("\\*\\*(\\S(?:.*?\\S)?)\\*\\*")
+    private val mdUnderline = Regex("__(\\S(?:.*?\\S)?)__")
+    private val mdItalic = Regex("(?<![*\\w])\\*([^*\\s](?:.*?[^*\\s])?)\\*(?![*\\w])")
+    private val mdEscape = Regex("\\\\([\\\\`*_\\[\\]()#+.!>~|-])")
+
+    /**
+     * Plain text from a chapter some sites write in Markdown (SkyNovels: «**\[Misión…\]**»): drops headings, bold,
+     * italics and backslash escapes, keeping scene breaks such as «***» or «* * *» as they are.
+     */
+    fun markdownToText(text: String): String =
+        normalizeParagraphs(text).split("\n\n").map { line ->
+            var s = mdHeading.replace(line, "")
+            s = mdBold.replace(s, "$1")
+            s = mdUnderline.replace(s, "$1")
+            s = mdItalic.replace(s, "$1")
+            mdEscape.replace(s, "$1").trim()
+        }.filter { it.isNotEmpty() }.joinToString("\n\n")
+
     fun normalizeParagraphs(text: String): String =
         text.replace(invisible, "").replace("\r\n", "\n")
             .split('\n')

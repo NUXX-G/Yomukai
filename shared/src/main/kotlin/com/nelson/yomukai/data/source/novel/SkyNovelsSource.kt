@@ -122,7 +122,7 @@ class SkyNovelsSource(private val network: HttpFetcher) : NovelSource {
     override suspend fun fetchChapterText(chapterUrl: String): Result<String> = runCatching {
         val chapter = getJson(chapterUrl.removePrefix(api)).arr("chapter").objects().firstOrNull()
             ?: error("Capítulo no encontrado")
-        val body = SourceUtils.htmlToText(chapter.str("chp_content").orEmpty())
+        val body = SourceUtils.markdownToText(SourceUtils.htmlToText(chapter.str("chp_content").orEmpty()))
         body.ifBlank { error("Este capítulo no tiene contenido disponible (¿VIP?)") }
     }
 }

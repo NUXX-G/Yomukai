@@ -62,6 +62,35 @@ import com.nelson.yomukai.ui.LocalAppContainer
 import kotlinx.coroutines.launch
 
 /**
+ * Opens a shared card. One picked from the works index carries only its key: ask the server for a source this app
+ * has, and say so if none of them has it.
+ */
+@Composable
+internal fun rememberCardOpener(onOpenWork: (String, String) -> Unit): (com.nelson.yomukai.data.social.ShareCard) -> Unit {
+    val container = LocalAppContainer.current
+    val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    return { card ->
+        if (card.sourceId.isNotEmpty()) {
+            onOpenWork(card.sourceId, card.mediaId)
+        } else if (card.workKey.isNotEmpty()) {
+            scope.launch {
+                val type = runCatching { com.nelson.yomukai.domain.model.MediaType.valueOf(card.type.uppercase()) }
+                    .getOrDefault(com.nelson.yomukai.domain.model.MediaType.MANGA)
+                val place = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    runCatching { com.nelson.yomukai.ui.details.placeOfWork(container, card.workKey, type) }.getOrNull()
+                }
+                if (place != null) {
+                    onOpenWork(place.sourceId, place.id)
+                } else {
+                    android.widget.Toast.makeText(context, tr("Ninguna de tus fuentes tiene esta obra"), android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+}
+
+/**
  * Comunidad (needs the server, like on the web): friends' activity, the people on the server and their profiles, the
  * forum, and your own profile. Same API as the web's /amigos, /u/nombre and /foro pages.
  */
@@ -71,10 +100,10 @@ fun CommunityScreen(
     onBack: () -> Unit,
     onOpenWork: (sourceId: String, mediaId: String) -> Unit,
     onRoom: (code: String) -> Unit = {},
-    onOpenCard: (com.nelson.yomukai.data.social.ShareCard) -> Unit = { if (it.sourceId.isNotEmpty()) onOpenWork(it.sourceId, it.mediaId) },
     startTab: Int = 0
 ) {
     val sync = LocalAppContainer.current.serverSync
+    val onOpenCard = rememberCardOpener(onOpenWork)
     var tab by rememberSaveable { mutableIntStateOf(startTab) }
     var chat by rememberSaveable { mutableStateOf<String?>(null) }
     var person by rememberSaveable { mutableStateOf<String?>(null) }

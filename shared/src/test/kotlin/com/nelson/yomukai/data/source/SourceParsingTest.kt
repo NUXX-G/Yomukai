@@ -12,6 +12,15 @@ class SourceParsingTest {
         checkNotNull(javaClass.classLoader?.getResource(name)) { "missing fixture $name" }.readText()
 
     @Test
+    fun markdownChaptersBecomePlainText() {
+        val md = "## Capítulo 3\n\n**\\[Misión: sobrevivir\\]**\n\nÉl dijo *hola* y __adiós__.\n\n***\n\n* * *\n\n2\\*3 = 6"
+        assertEquals(
+            "Capítulo 3\n\n[Misión: sobrevivir]\n\nÉl dijo hola y adiós.\n\n***\n\n* * *\n\n2*3 = 6",
+            SourceUtils.markdownToText(md)
+        )
+    }
+
+    @Test
     fun parsesChapterNumbersFromTitles() {
         assertEquals(12.5f, SourceUtils.parseChapterNumber("Capítulo 12.5 - El regreso", 0f))
         assertEquals(7f, SourceUtils.parseChapterNumber("Chapter 7: Start", 0f))
