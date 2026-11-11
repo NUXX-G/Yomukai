@@ -327,7 +327,36 @@ object Migrations {
         },
         Migration(23, "Tipo de cada obra según AniList (país de origen y formato), no según la web") {
             addColumn("works", "kind_checked", "INTEGER NOT NULL DEFAULT 0")
-        }
+        },
+        // 24-27: bloque 4 (sesión B). 28-31: sesión C. 32-35: sesión A.
+        Migration(24, "Mensajes directos 1 a 1: mensajes, leído hasta, silenciar y bloquear") {
+            exec(
+                """CREATE TABLE IF NOT EXISTS dm_messages(id INTEGER PRIMARY KEY AUTOINCREMENT, from_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                   to_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, text TEXT NOT NULL DEFAULT '', card TEXT,
+                   created_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0)"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS dm_messages_pair ON dm_messages(from_id, to_id, id)")
+            exec("CREATE INDEX IF NOT EXISTS dm_messages_to ON dm_messages(to_id, id)")
+            exec(
+                """CREATE TABLE IF NOT EXISTS dm_peers(user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                   peer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, last_read_id INTEGER NOT NULL DEFAULT 0,
+                   muted INTEGER NOT NULL DEFAULT 0, blocked INTEGER NOT NULL DEFAULT 0, started_at INTEGER, PRIMARY KEY(user_id, peer_id))"""
+            )
+        },
+        Migration(25, "Salas comunes abiertas con cola, y obras compartidas en el chat de sala y en el foro") {
+            addColumn("rooms", "open", "INTEGER NOT NULL DEFAULT 0")
+            exec(
+                """CREATE TABLE IF NOT EXISTS room_queue(id INTEGER PRIMARY KEY AUTOINCREMENT, room_code TEXT NOT NULL REFERENCES rooms(code) ON DELETE CASCADE,
+                   position INTEGER NOT NULL, source_id TEXT NOT NULL, media_id TEXT NOT NULL, chapter_id TEXT NOT NULL, title TEXT NOT NULL,
+                   episode TEXT NOT NULL DEFAULT '', cover TEXT NOT NULL DEFAULT '', added_by INTEGER NOT NULL, added_by_name TEXT NOT NULL, created_at INTEGER NOT NULL)"""
+            )
+            exec("CREATE INDEX IF NOT EXISTS room_queue_room ON room_queue(room_code, position)")
+            addColumn("room_messages", "card", "TEXT")
+            addColumn("forum_posts", "card", "TEXT")
+        },
+        // Kept for block 4 so the numbers of the other sessions (28 onwards) never leave a gap.
+        Migration(26, "Reservada (bloque 4)") {},
+        Migration(27, "Reservada (bloque 4)") {}
     )
 
     val LATEST: Int get() = ALL.last().version
