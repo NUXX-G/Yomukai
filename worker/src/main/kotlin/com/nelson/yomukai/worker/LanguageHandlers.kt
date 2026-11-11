@@ -23,6 +23,17 @@ internal object PublicOnly {
         }
     }
 
+    /**
+     * A resolver that only ever returns public addresses: the address checked is the one connected to, so a name that
+     * changes its answer after the check (DNS rebinding) still cannot reach this home network.
+     */
+    val dns = okhttp3.Dns { host ->
+        okhttp3.Dns.SYSTEM.lookup(host).filterNot(::isLocal).ifEmpty { throw java.net.UnknownHostException("$host no es una dirección pública") }
+    }
+
+    /** [base] without following redirects by itself (each hop is checked by hand) and with the public-only [dns]. */
+    fun client(base: okhttp3.OkHttpClient): okhttp3.OkHttpClient = base.newBuilder().followRedirects(false).followSslRedirects(false).dns(dns).build()
+
     private fun isLocal(a: InetAddress): Boolean =
         a.isLoopbackAddress || a.isSiteLocalAddress || a.isLinkLocalAddress || a.isAnyLocalAddress || a.isMulticastAddress || isPrivateV6(a)
 

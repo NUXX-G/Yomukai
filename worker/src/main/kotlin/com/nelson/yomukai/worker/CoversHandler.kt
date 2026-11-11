@@ -43,13 +43,34 @@ class CoversHandler(
     }
 
     private fun download(url: String, headers: com.google.gson.JsonObject?, context: JobContext): Pair<ByteArray, String>? {
-        PublicOnly.check(url)
-        val request = Request.Builder().url(url).apply {
-            headers?.entrySet()?.take(MAX_HEADERS)?.forEach { (k, v) ->
-                if (k in ALLOWED_HEADERS && v.isJsonPrimitive) header(k, v.asString.take(MAX_HEADER_VALUE))
+        // Only public addresses, at every hop: redirects are followed by hand and each one is checked again, and the
+        // resolver never hands out a home address (so a name re-pointed after the check cannot reach this network).
+        val client = PublicOnly.client(context.http)
+        var target = url
+        repeat(MAX_REDIRECTS + 1) {
+            PublicOnly.check(target)
+            val request = Request.Builder().url(target).apply {
+                headers?.entrySet()?.take(MAX_HEADERS)?.forEach { (k, v) ->
+                    if (k in ALLOWED_HEADERS && v.isJsonPrimitive) header(k, v.asString.take(MAX_HEADER_VALUE))
+                }
+            }.build()
+            var redirected = false
+            val answer = client.newCall(request).execute().use { r ->
+                if (r.isRedirect) {
+                    target = r.header("Location")?.let { r.request.url.resolve(it)?.toString() } ?: return null
+                    redirected = true
+                    null
+                } else {
+                    read(r)
+                }
             }
-        }.build()
-        context.http.newCall(request).execute().use { r ->
+            if (!redirected) return answer
+        }
+        return null
+    }
+
+    private fun read(r: okhttp3.Response): Pair<ByteArray, String>? {
+        run {
             if (!r.isSuccessful) return null
             val type = r.header("Content-Type").orEmpty().substringBefore(';').trim()
             if (!type.startsWith("image/")) return null
@@ -64,6 +85,7 @@ class CoversHandler(
         const val MAX_IMAGES = 20
         const val MAX_BYTES = 12 * 1024 * 1024
         private const val MAX_HEADERS = 6
+        private const val MAX_REDIRECTS = 3
         private const val MAX_HEADER_VALUE = 500
         private val ALLOWED_HEADERS = setOf("Referer", "User-Agent", "Origin", "Accept")
         val WIDTHS = setOf(240, 360, 480, 720, 1080, 1440, 1920)
