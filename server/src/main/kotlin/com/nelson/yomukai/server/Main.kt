@@ -125,7 +125,7 @@ fun runCommand(config: Config, args: List<String>): Int {
 }
 
 class Services(val config: Config) {
-    val http = ServerHttp(config.flareSolverrUrl)
+    val http = ServerHttp(config.flareSolverrUrl, config.outboundProxy)
     val domainAliases by lazy { DomainAliases(db, http) }
     val db = Database(File(config.dataDir, "yomukai.db"))
     val auth = Auth(db, config)
@@ -251,15 +251,14 @@ private fun Application.startCatalogJobs(services: Services) {
 }
 
 /** Everything the server does on its own: start-up work, sweeps, the canary's view, backups, resolvers. */
-private fun Application.startBackgroundJobs(config: Config, services: Services) {
-    launch { runCatching { refreshDegraded(services.health, services.sources) } }
-    launch { runCatching { services.sourceCatalog.loadHidden() }.onFailure { log.warn("Fuentes quitadas", it) } }
-    // Top AniList titles are looked for in the sources, one every 20 s, so the home rows can open them directly.
+
+/** Work done ahead of the users (F2.2) and the watch on LaLiga's blocks (F2.3). */
+private fun Application.startAheadJobs(services: Services) {
+    // LaLiga's blocks in Spain: the addresses blocked now, every 10 min (F2.3).
     launch {
         while (true) {
-            delay(20_000L)
-            runCatching { services.discover.resolveNext() }.onFailure { log.debug("Descubrir: {}", it.message) }
-            runCatching { services.discover.localizeSome() }.onFailure { log.debug("Sinopsis: {}", it.message) }
+            runCatching { LaLigaState.refresh(services.http) }
+            delay(LaLigaState.REFRESH_MS)
         }
     }
     // What people follow keeps its chapter list in memory, so its page opens at once (F2.2).
@@ -271,6 +270,20 @@ private fun Application.startBackgroundJobs(config: Config, services: Services) 
             delay(Prefetcher.ROUND_MS)
         }
     }
+}
+
+private fun Application.startBackgroundJobs(config: Config, services: Services) {
+    launch { runCatching { refreshDegraded(services.health, services.sources) } }
+    launch { runCatching { services.sourceCatalog.loadHidden() }.onFailure { log.warn("Fuentes quitadas", it) } }
+    // Top AniList titles are looked for in the sources, one every 20 s, so the home rows can open them directly.
+    launch {
+        while (true) {
+            delay(20_000L)
+            runCatching { services.discover.resolveNext() }.onFailure { log.debug("Descubrir: {}", it.message) }
+            runCatching { services.discover.localizeSome() }.onFailure { log.debug("Sinopsis: {}", it.message) }
+        }
+    }
+    startAheadJobs(services)
     // Library and history rows get their work a few at a time (AniList allows ~30 requests a minute).
     launch {
         runCatching { services.works.loadKnown() }
@@ -487,6 +500,10 @@ suspend fun ApplicationCall.fail(e: Throwable) =
 fun sourceErrorText(e: Throwable): String {
     val chain = generateSequence(e) { it.cause }.take(6).toList()
     return when {
+        // During a match the operators block Cloudflare's addresses: said as such, not as a broken site.
+        LaLigaState.active && com.nelson.yomukai.data.network.LaLigaBlocks.looksBlocked(e) ->
+            "Esta fuente va lenta o no carga por el bloqueo de LaLiga (durante los partidos las operadoras bloquean webs que " +
+                "no tienen nada que ver). Se pasa por el servidor cuando se puede; si no, prueba en un rato u otra fuente."
         chain.any { it is javax.net.ssl.SSLException || it.message.orEmpty().contains("PKIX") } ->
             "La web de esta fuente no se puede abrir desde el servidor (su certificado no es válido aquí; a veces son " +
                 "bloqueos de la operadora, como los de los partidos de fútbol). Prueba más tarde u otra fuente."
@@ -674,6 +691,7 @@ private fun Route.catalogRoutes(s: Services) {
     voiceRoutes(s)
     kokoroRoutes(s)
     workIndexRoutes(s)
+    laLigaRoutes(s)
     get("/videos") { call.reply(s.catalog.videos(call.q("s"), call.q("c"))) }
     get("/metadata") {
         val sourceId = call.q("s")

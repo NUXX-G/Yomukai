@@ -98,7 +98,7 @@ private class MemoryCookieJar : CookieJar {
  * streaming media. Identical requests made moments apart share one answer, so ten people opening
  * the same title cost one request to the site.
  */
-class ServerHttp(private val flareSolverrUrl: String?) : HttpFetcher {
+class ServerHttp(private val flareSolverrUrl: String?, outboundProxy: String? = null) : HttpFetcher {
     private val log = LoggerFactory.getLogger("YomukaiHttp")
     private val cookies = MemoryCookieJar()
     private val pool = ConnectionPool(64, 5, TimeUnit.MINUTES)
@@ -123,12 +123,34 @@ class ServerHttp(private val flareSolverrUrl: String?) : HttpFetcher {
     /** Set by FlareSolverr: Cloudflare ties its clearance cookie to the browser's user agent. */
     private val agentByHost = ConcurrentHashMap<String, String>()
 
+    /**
+     * The way out through [outboundProxy] (e.g. a Tor container), only for a site that cannot be reached directly:
+     * LaLiga's blocks in Spain (F2.3). The proxy resolves the name itself; the name is checked to be public first.
+     */
+    private val viaProxy: OkHttpClient? = OutboundProxy.parse(outboundProxy)?.let { proxy ->
+        OkHttpClient.Builder().proxy(proxy).cookieJar(cookies).connectTimeout(30, TimeUnit.SECONDS).readTimeout(40, TimeUnit.SECONDS)
+            .callTimeout(90, TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false).build()
+    }
+
+    /** A request that failed like a block goes out again through the proxy, once (redirects not followed there). */
+    private val blockFallback = okhttp3.Interceptor { chain ->
+        try {
+            chain.proceed(chain.request())
+        } catch (e: java.io.IOException) {
+            val proxied = viaProxy
+            if (proxied == null || !com.nelson.yomukai.data.network.LaLigaBlocks.looksBlocked(e) || !OutboundProxy.publicHost(chain.request().url.host)) throw e
+            LaLigaState.usedProxy()
+            proxied.newCall(chain.request()).execute()
+        }
+    }
+
     val client: OkHttpClient = OkHttpClient.Builder()
         .connectionPool(pool)
         .dispatcher(dispatcher)
         .cookieJar(cookies)
         .dns(PublicAddresses.dns)
         .addInterceptor(aliasInterceptor)
+        .addInterceptor(blockFallback)
         .addInterceptor(PublicAddresses.literalGuard)
         .addNetworkInterceptor(PublicAddresses.guard)
         .connectTimeout(10, TimeUnit.SECONDS)

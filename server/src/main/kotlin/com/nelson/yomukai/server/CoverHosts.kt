@@ -26,6 +26,9 @@ object CoverHosts {
         if (set.size < MAX_HOSTS_PER_SOURCE) set.add(host)
     }
 
+    /** Every image host learnt, of any source. */
+    fun known(): Set<String> = bySource.values.flatMapTo(HashSet()) { it }
+
     fun knows(sourceId: String, host: String): Boolean = bySource[sourceId]?.contains(host) == true
 
     /** After a restart: the covers already in the works index. */

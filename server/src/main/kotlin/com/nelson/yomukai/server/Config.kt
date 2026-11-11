@@ -19,6 +19,8 @@ data class Config(
     val guestsEnabled: Boolean,
     val guestDays: Int,
     val flareSolverrUrl: String?,
+    /** Way out when a site cannot be reached from here (LaLiga's blocks in Spain): socks5://host:port or http://host:port. */
+    val outboundProxy: String? = null,
     val malClientId: String,
     /** Requests a guest may make per minute; accounts get [ACCOUNT_RATE]. */
     val guestRatePerMinute: Int,
@@ -83,6 +85,7 @@ data class Config(
                 guestsEnabled = env["GUESTS_ENABLED"]?.lowercase() == "true",
                 guestDays = env["GUEST_DAYS"]?.toIntOrNull()?.coerceIn(1, 365) ?: 1,
                 flareSolverrUrl = env["FLARESOLVERR_URL"]?.trimEnd('/')?.ifBlank { null },
+                outboundProxy = env["OUTBOUND_PROXY"]?.trim()?.ifBlank { null },
                 malClientId = env["MAL_CLIENT_ID"].orEmpty().trim(),
                 tmdbApiKey = env["TMDB_API_KEY"].orEmpty().trim(),
                 guestRatePerMinute = env["GUEST_RATE"]?.toIntOrNull() ?: 120,
