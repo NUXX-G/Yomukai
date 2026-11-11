@@ -15,6 +15,21 @@ object WebProtection {
             "<title>Just a moment" in head || "<title>Un momento" in head
     }
 
+    /**
+     * The «Security check · Checking your browser · verify you're human» pages that several video hosts and shields
+     * answer with (often with HTTP 200). Only short HTML pages count, so an article that quotes the phrase is not one.
+     */
+    fun isGenericBotCheck(html: String): Boolean {
+        val head = html.take(6000)
+        if ("<html" !in head.lowercase() || html.length > 60_000) return false
+        return BOT_CHECK_PHRASES.count { it in head } >= 2
+    }
+
+    private val BOT_CHECK_PHRASES = listOf(
+        "Checking your browser", "verify you're human", "verify you’re human", "Verification failed", "Security check",
+        "Comprobando tu navegador", "Verificando que eres humano",
+    )
+
     /** A browser shows JSON or plain text wrapped in `<pre>`; the callers want the original text. */
     fun unwrapPlainText(html: String): String {
         val body = Jsoup.parse(html).body()
@@ -31,6 +46,7 @@ object WebProtection {
             "Tu acceso a este sitio ha sido limitado" in head ||
                 "Your access to this site has been limited" in head -> "Wordfence"
             "DDoS-Guard" in head && code in setOf(403, 503) -> "DDoS-Guard"
+            isGenericBotCheck(head) -> "comprobación anti-bot"
             code == 403 && body.length < 2000 && "<html" in body.lowercase() -> "acceso denegado"
             else -> null
         }

@@ -24,7 +24,32 @@ internal fun JsonArray?.objects(): List<JsonObject> =
 internal fun JsonArray?.strings(): List<String> =
     this?.filter { it.isJsonPrimitive }?.map { it.asString.trim() }.orEmpty()
 
-internal fun parseJson(text: String): JsonElement = JsonParser.parseString(text)
+/**
+ * Parses an API answer. A web page instead of data (anti-bot check, error page, moved site) becomes a clear message
+ * instead of Gson's «MalformedJsonException … setStrictness(LENIENT)», which used to reach the user as it was.
+ */
+internal fun parseJson(text: String): JsonElement {
+    val clean = text.removePrefix("﻿").removePrefix(")]}'").trimStart()
+    if (clean.startsWith("<")) throw NotJsonException(clean)
+    return try {
+        JsonParser.parseString(clean)
+    } catch (e: com.google.gson.JsonParseException) {
+        throw NotJsonException(clean, e)
+    }
+}
+
+/** The site answered with something that is not the data it promises (usually a web page). */
+class NotJsonException(body: String, cause: Throwable? = null) : java.io.IOException(describe(body), cause) {
+    private companion object {
+        fun describe(body: String): String = when {
+            com.nelson.yomukai.data.network.WebProtection.detectProtection(200, body) != null ->
+                "La web pide una comprobación anti-bot y no ha dejado pasar; se reintentará por otra vía"
+            body.startsWith("<") -> "La web respondió con una página en vez de datos (puede estar caída o haber cambiado)"
+            body.isBlank() -> "La web respondió vacía"
+            else -> "La web respondió con datos ilegibles"
+        }
+    }
+}
 
 private val NEXT_DATA = Regex("""<script id="__NEXT_DATA__" type="application/json">(.*?)</script>""", RegexOption.DOT_MATCHES_ALL)
 
