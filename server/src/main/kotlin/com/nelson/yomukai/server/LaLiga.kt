@@ -33,8 +33,11 @@ object LaLigaState {
 
     @Volatile private var lastProxy: Long = 0
 
-    /** Blocks going on now (by the list), or this server had to use its way out in the last half hour. */
-    val active: Boolean get() = blocked.isNotEmpty() || System.currentTimeMillis() - lastProxy < RECENT_MS
+    /**
+     * Blocks going on now: a match blocks dozens of Cloudflare addresses at once (one or two stay listed all week, so
+     * those alone are not a match), or this server had to use its way out in the last half hour.
+     */
+    val active: Boolean get() = blocked.size >= MATCH_BLOCKS || System.currentTimeMillis() - lastProxy < RECENT_MS
 
     fun usedProxy() { lastProxy = System.currentTimeMillis() }
 
@@ -53,6 +56,7 @@ object LaLigaState {
     }
 
     const val REFRESH_MS = 10 * 60_000L
+    const val MATCH_BLOCKS = 10
     private const val RECENT_MS = 30 * 60_000L
     private const val MAX_LIST_BYTES = 256 * 1024
 }

@@ -86,6 +86,18 @@ Ejemplo con todo: `curl -fsSL …/install-worker.sh | YOMUKAI_URL=… WORKER_TOK
 | `COMPOSE_PROFILES`, `LOCAL_WORKER_TOKEN`, `WORKER_MEMORY`, `WORKER_CPUS` | Todo en uno | — |
 | `MAL_CLIENT_ID` | Notas de MyAnimeList | — |
 | `TMDB_API_KEY` | Fondos panorámicos de alta resolución para el anime (themoviedb.org, gratis) | — |
+| `OUTBOUND_PROXY` | Salida alternativa cuando el servidor no llega a una web (bloqueos de LaLiga si el VPS está en España): `socks5://tor:9050` o `http://proxy:3128`. Solo se usa para esas webs y solo tras un fallo de conexión | — |
 | `SOURCE_REPOS` | Repositorios extra de fuentes JSON firmadas: `https://…/bundle.json#CLAVE` (ver sources/README.md) | — |
 
 Más detalles del VPS pequeño (swap de colchón, medir memoria, canario de fuentes, yt-dlp) en [VPS.md](VPS.md).
+
+## Bloqueos de LaLiga (España)
+
+Durante los partidos las operadoras españolas bloquean direcciones de Cloudflare y se caen webs que no tienen nada
+que ver. Yomukai lo detecta con la lista pública de [hayahora.futbol](https://hayahora.futbol) (cada 10 minutos) y:
+
+- explica el error tal cual («la fuente va lenta o no carga por el bloqueo de LaLiga») en vez de uno genérico;
+- en la app conectada a tu servidor, si el móvil no llega a una fuente, la pide a través del servidor (`/api/relay`)
+  y lo avisa una vez;
+- si el propio VPS está en España y también le afecta, pon `OUTBOUND_PROXY` (por ejemplo un contenedor de Tor:
+  `docker run -d --name tor --network yomukai_default dperson/torproxy` y `OUTBOUND_PROXY=socks5://tor:9050`).

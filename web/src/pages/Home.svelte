@@ -42,6 +42,10 @@
     fn().then((items) => (data[key] = { loading: false, items, at: Date.now() }), () => (data[key] = { loading: false, items: known?.items || [], at: Date.now() }));
   }
 
+  // LaLiga's blocks in Spain (F2.3): said plainly, so a slow source is not taken for a broken one.
+  let blocked = $state(false);
+  onMount(() => { api.blocks().then((b) => (blocked = !!b?.active), () => {}); });
+
   onMount(() => {
     load('continue', () => api.continueList(), 30_000);
     load('anime', () => api.discover('anime').then((r) => r.rows), 30 * 60_000);
@@ -144,6 +148,9 @@
 </script>
 
 <div class="page home">
+  {#if blocked}
+    <p class="block-note" role="status">{t('Hay bloqueos de LaLiga ahora mismo: si una fuente va lenta o no carga, se pasa por el servidor. No es un fallo de la fuente.')}</p>
+  {/if}
   <Hero {slides} />
   <Welcome />
 
@@ -271,4 +278,5 @@
   .feed-what { color: var(--c-text-dim); font-size: var(--fs-small); }
   .feed-title { font-weight: 650; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .feed-when { margin-top: auto; color: var(--c-text-faint); font-size: var(--fs-tiny); }
+  .block-note { margin: 8px 16px; padding: 10px 14px; border-radius: var(--r-md, 10px); background: color-mix(in srgb, var(--c-accent, #ff8a5b) 16%, transparent); border: 1px solid var(--c-border); font-size: 0.9rem; }
 </style>

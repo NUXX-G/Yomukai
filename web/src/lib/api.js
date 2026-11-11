@@ -157,6 +157,7 @@ export const api = {
   obraFicha: (key, lang, light = false) => request('GET', `/api/obras/ficha/${encodeURIComponent(key)}?${qs({ lang, light: light ? 1 : undefined })}`),
   obraAniList: (id) => request('GET', `/api/obras/anilist/${id}`),
   obraEncontrar: (related, lang) => request('POST', `/api/obras/encontrar?${qs({ lang })}`, { title: related.title, names: related.names || [], type: related.type, anilistId: related.anilistId }),
+  blocks: () => request('GET', '/api/bloqueos'),
   obraDe: (s, id) => request('GET', `/api/obras/de?${qs({ s, id })}`),
   workWhole: (s, id) => request('GET', `/api/works/whole?${qs({ s, id })}`),
   workChoice: (key, number, sourceId) => request('PUT', `/api/works/${encodeURIComponent(key)}/choice`, { number, sourceId }),

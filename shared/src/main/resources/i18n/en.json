@@ -697,6 +697,7 @@
  "Favoritos": "Bookmarks",
  "Favoritos e historial": "Bookmarks and history",
  "Ficha": "Details",
+ "Hay bloqueos de LaLiga ahora mismo: si una fuente va lenta o no carga, se pasa por el servidor. No es un fallo de la fuente.": "LaLiga blocking is active in Spain right now: if a source is slow or not loading, it goes through the server. The source is not broken.",
  "Esta fuente va lenta o no carga por el bloqueo de LaLiga; pasando por el servidor.": "This source is slow or not loading because of LaLiga's blocking in Spain; going through the server.",
  "Ir a la ficha": "Go to its page",
  "Filas del inicio": "Home rows",

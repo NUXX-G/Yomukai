@@ -51,15 +51,17 @@ class LaLigaTest {
         assertTrue(Relay.allowed(host, s))
         assertTrue(!Relay.allowed("evil.example", s))
         // The state the clients read.
-        LaLigaState.set(setOf("104.16.93.114"))
+        LaLigaState.set((1..12).map { "104.16.93.$it" }.toSet())
         assertTrue(admin.get("/api/bloqueos").bodyAsText().contains("\"active\":true"))
         LaLigaState.set(emptySet())
     }
 
     @Test
     fun aBlockIsExplainedAsSuchAndTheProxyAddressIsChecked() {
-        LaLigaState.set(setOf("104.16.93.114"))
+        LaLigaState.set((1..12).map { "104.16.93.$it" }.toSet())
         assertTrue(sourceErrorText(javax.net.ssl.SSLHandshakeException("PKIX path building failed")).contains("LaLiga"))
+        LaLigaState.set(setOf("192.124.249.25"))
+        assertTrue("one address listed all week is not a match", !LaLigaState.active)
         LaLigaState.set(emptySet())
         assertTrue(!sourceErrorText(javax.net.ssl.SSLHandshakeException("PKIX path building failed")).contains("LaLiga"))
         assertNotNull(OutboundProxy.parse("socks5://tor:9050"))
