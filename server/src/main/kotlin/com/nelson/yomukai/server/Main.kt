@@ -140,6 +140,7 @@ class Services(val config: Config) {
     )
     val proxy = MediaProxy(http, config.secret, File(config.dataDir, "cache"), config.guestStreams, config.imageCacheBytes)
     val catalog = Catalog(sources, aniList, metadata, proxy)
+    val prefetcher by lazy { Prefetcher(catalog, db, sources) }
     val downloads = Downloader(catalog, proxy, http)
 
     /** Natural voices for reading novels aloud (Piper, installed in the Docker image). */
@@ -258,6 +259,14 @@ private fun Application.startBackgroundJobs(config: Config, services: Services) 
             delay(20_000L)
             runCatching { services.discover.resolveNext() }.onFailure { log.debug("Descubrir: {}", it.message) }
             runCatching { services.discover.localizeSome() }.onFailure { log.debug("Sinopsis: {}", it.message) }
+        }
+    }
+    // What people follow keeps its chapter list in memory, so its page opens at once (F2.2).
+    launch {
+        delay(5 * 60_000L)
+        while (true) {
+            runCatching { services.prefetcher.refreshLibraries() }.onFailure { log.debug("Precarga: {}", it.message) }
+            delay(Prefetcher.ROUND_MS)
         }
     }
     // Library and history rows get their work a few at a time (AniList allows ~30 requests a minute).
@@ -861,6 +870,13 @@ private fun Route.userRoutes(s: Services) {
         s.db.putProgress(call.user.id, rows)
         s.jellyfinSync.pushLater(call.user.id, rows)
         history?.let { s.db.putHistory(call.user.id, it) }
+        // The next chapter or episode gets ready while this one is read or watched (F2.2).
+        if (!call.user.isGuest && history != null) {
+            rows.firstOrNull { it.chapterId == history.chapterId }?.let { r ->
+                val fraction = if (r.read) 1.0 else if (r.total > 0) r.page.toDouble() / r.total else r.fraction
+                s.prefetcher.afterProgress(r.sourceId, r.mediaId, r.chapterId, fraction)
+            }
+        }
         call.respond(mapOf("ok" to true))
     }
     get("/history") {
