@@ -16,5 +16,7 @@ data class MediaItem(
     val author: String = "",
     val genres: List<String> = emptyList(),
     /** Alternative titles when the source provides them (used by smart search). */
-    val altTitles: List<String> = emptyList()
+    val altTitles: List<String> = emptyList(),
+    /** The audio when the site says it outright (a dubs-only section); null: read from its title (see [AudioTrack.of]). */
+    val audio: AudioTrack? = null
 )

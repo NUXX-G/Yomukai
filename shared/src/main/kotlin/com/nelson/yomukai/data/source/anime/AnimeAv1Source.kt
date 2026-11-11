@@ -11,6 +11,7 @@ import com.nelson.yomukai.data.source.SelectFilter
 import com.nelson.yomukai.data.source.SourceFilter
 import com.nelson.yomukai.data.source.SourceUtils
 import com.nelson.yomukai.data.source.single
+import com.nelson.yomukai.domain.model.AudioTrack
 import com.nelson.yomukai.domain.model.Chapter
 import com.nelson.yomukai.domain.model.MediaItem
 import com.nelson.yomukai.domain.model.MediaType
@@ -183,8 +184,13 @@ class AnimeAv1Source(private val network: HttpFetcher) : AnimeSource {
             val block = html.substring(start, end)
             val sources = mutableListOf<VideoSource>()
             Regex("""(SUB|DUB|LAT):\[(.*?)]""").findAll(block).forEach { lang ->
-                val label = if (lang.groupValues[1] == "SUB") "Sub español" else "Doblado"
-                EMBED.findAll(lang.groupValues[2]).forEach { m -> sources += embedSource(m.groupValues[1], m.groupValues[2], label) }
+                // SUB: original audio with Spanish subtitles; LAT: Latin American dub; DUB: a dub the site does not name.
+                val (label, audio) = when (lang.groupValues[1]) {
+                    "SUB" -> "Sub español" to AudioTrack.ORIGINAL
+                    "LAT" -> "Latino" to AudioTrack.LATINO
+                    else -> "Doblado" to AudioTrack.DOBLADO
+                }
+                EMBED.findAll(lang.groupValues[2]).forEach { m -> sources += embedSource(m.groupValues[1], m.groupValues[2], label).copy(audio = audio) }
             }
             return sources.sortedByDescending { it.isDirect }
         }

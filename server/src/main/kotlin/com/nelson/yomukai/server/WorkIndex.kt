@@ -55,16 +55,17 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
             val known = queryOne("SELECT 1 FROM index_items WHERE source_id = ? AND media_id = ?", sourceId, it.id) { 1 } != null
             if (!known) added++
             update(
-                """INSERT INTO index_items(source_id, media_id, lang, type, title, alt_titles, cover, status, genres, seen_at, updated_at, adult)
-                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+                """INSERT INTO index_items(source_id, media_id, lang, type, title, alt_titles, cover, status, genres, seen_at, updated_at, adult, audio)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
                    ON CONFLICT(source_id, media_id) DO UPDATE SET title = excluded.title, alt_titles = excluded.alt_titles,
                      cover = CASE WHEN excluded.cover <> '' THEN excluded.cover ELSE cover END, status = excluded.status,
                      genres = excluded.genres, seen_at = excluded.seen_at, updated_at = CASE WHEN ? THEN excluded.updated_at ELSE updated_at END,
-                     adult = MAX(adult, excluded.adult)""",
+                     adult = MAX(adult, excluded.adult), audio = excluded.audio""",
                 sourceId, it.id.take(MAX_ID), lang, it.type.name, it.title.take(MAX_TITLE), gson.toJson(it.altTitles.take(MAX_NAMES)),
                 it.coverUrl.take(MAX_URL), it.status.take(MAX_SHORT), gson.toJson(it.genres.take(MAX_NAMES)), now, now,
                 // A title that says it is sexual content is marked so, whatever its genres (and stays marked).
-                if (com.nelson.yomukai.data.metadata.AdultHints.isExplicit(it.title)) 1 else 0, fresh
+                if (com.nelson.yomukai.data.metadata.AdultHints.isExplicit(it.title)) 1 else 0,
+                com.nelson.yomukai.domain.model.AudioTrack.of(it, s.sources.get(sourceId)?.language ?: lang).name, fresh
             )
         }
         added

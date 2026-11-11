@@ -124,7 +124,7 @@ class Catalog(
     private val metadata: MetadataRepository,
     private val proxy: MediaProxy
 ) {
-    val dtos = Dtos(proxy) { id -> sources.get(id)?.imageHeaders.orEmpty() }
+    val dtos = Dtos(proxy) { id -> sources.get(id)?.imageHeaders.orEmpty() }.also { d -> d.languageOf = { id -> sources.get(id)?.language ?: "ES" } }
     private val gson = Gson()
 
     /** Every title seen in a list, so its page can be opened by source and id alone. */
@@ -448,7 +448,7 @@ class Catalog(
                 val hls = v.isDirect && (v.videoUrl.contains("m3u8") || v.quality.contains("HLS", ignoreCase = true))
                 // The server's own routes (the home Jellyfin) are links already; everything else direct goes through the proxy.
                 val url = when { v.videoUrl.startsWith("/api/") -> v.videoUrl; v.isDirect -> proxy.stream(v.videoUrl, v.headers); else -> v.videoUrl }
-                VideoDto(v.serverName, v.quality, url, v.isDirect, hls, if (v.isDirect) null else proxy.embed(v.videoUrl))
+                VideoDto(v.serverName, v.quality, url, v.isDirect, hls, if (v.isDirect) null else proxy.embed(v.videoUrl), v.audio.name)
             }
         }
     }

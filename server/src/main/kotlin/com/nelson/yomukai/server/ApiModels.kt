@@ -25,7 +25,9 @@ data class SourceDto(
 
 data class MediaDto(
     val id: String, val sourceId: String, val title: String, val cover: String, val type: String,
-    val status: String, val description: String, val author: String, val genres: List<String>, val altTitles: List<String>
+    val status: String, val description: String, val author: String, val genres: List<String>, val altTitles: List<String>,
+    /** Anime only: what it is heard in (AudioTrack name: ORIGINAL, CASTELLANO, LATINO, INGLES, DOBLADO). */
+    val audio: String? = null
 )
 
 data class ChapterDto(
@@ -62,7 +64,11 @@ data class AlternativeDto(
 )
 
 /** [embed]: for a site's own player (not direct), the page of this server that shows it full screen. */
-data class VideoDto(val server: String, val quality: String, val url: String, val direct: Boolean, val hls: Boolean, val embed: String? = null)
+data class VideoDto(
+    val server: String, val quality: String, val url: String, val direct: Boolean, val hls: Boolean, val embed: String? = null,
+    /** What this server's video is heard in (F3.1). */
+    val audio: String = "ORIGINAL"
+)
 
 /** [doubt]: this card may be the same work as a neighbouring one, but it could not be confirmed. */
 data class SearchGroupDto(val primary: MediaDto, val others: List<MediaDto>, val doubt: Boolean = false)
@@ -92,10 +98,14 @@ class Dtos(private val proxy: MediaProxy, private val headersOf: (String) -> Map
     /** A sharper cover for a source page (AniList's, once the page is joined to a work); null keeps the source's. */
     var betterCover: (sourceId: String, mediaId: String) -> String? = { _, _ -> null }
 
+    /** A source's language (ES, EN…), to read an anime's audio from its title. */
+    var languageOf: (sourceId: String) -> String = { "ES" }
+
     fun media(item: MediaItem) = MediaDto(
         item.id, item.sourceId, item.title,
         betterCover(item.sourceId, item.id)?.let { proxy.cover(it, emptyMap()) } ?: proxy.cover(item.coverUrl, headersOf(item.sourceId)), item.type.name,
-        item.status, item.description, item.author, item.genres, item.altTitles
+        item.status, item.description, item.author, item.genres, item.altTitles,
+        if (item.type == com.nelson.yomukai.domain.model.MediaType.ANIME) com.nelson.yomukai.domain.model.AudioTrack.of(item, languageOf(item.sourceId)).name else null
     )
 
     fun related(r: RelatedTitle) = RelatedDto(

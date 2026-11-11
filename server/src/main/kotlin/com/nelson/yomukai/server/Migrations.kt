@@ -356,7 +356,10 @@ object Migrations {
         },
         // Kept for block 4 so the numbers of the other sessions (28 onwards) never leave a gap.
         Migration(26, "Reservada (bloque 4)") {},
-        Migration(27, "Reservada (bloque 4)") {}
+        Migration(27, "Reservada (bloque 4)") {},
+        Migration(32, "Idioma del audio de cada anime de las fuentes (subtitulado, castellano, latino, inglés)") {
+            addColumn("index_items", "audio", "TEXT NOT NULL DEFAULT 'ORIGINAL'")
+        }
     )
 
     val LATEST: Int get() = ALL.last().version

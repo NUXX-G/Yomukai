@@ -9,5 +9,7 @@ data class VideoSource(
     val videoUrl: String,
     val serverName: String,
     val isDirect: Boolean = false,
-    val headers: Map<String, String> = emptyMap()
+    val headers: Map<String, String> = emptyMap(),
+    /** What it is heard in (F3.1); the original with subtitles unless the site says otherwise. */
+    val audio: AudioTrack = AudioTrack.ORIGINAL
 )

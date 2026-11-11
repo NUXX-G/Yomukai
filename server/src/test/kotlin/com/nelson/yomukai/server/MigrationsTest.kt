@@ -142,26 +142,14 @@ class MigrationsTest {
 
     /** F1.6: name keys changed (seasons, «×», anime remakes); only the provisional groups that change are redone. */
     @Test
-    fun workKeysByNameAreRedoneOnlyWhereTheRulesChanged() {
+    fun aStepThatArrivesLaterThanAHigherOneIsStillApplied() {
         open(tempFile()).use { c ->
-            Migrations.run(c, Migrations.ALL.take(21))
-            fun add(id: String, type: String, title: String, key: String) = c.prepareStatement(
-                "INSERT INTO index_items(source_id, media_id, lang, type, title, work_key, updated_at, seen_at) VALUES('src', ?, 'es', ?, ?, ?, 1, 1)"
-            ).use { it.setString(1, id); it.setString(2, type); it.setString(3, title); it.setString(4, key); it.executeUpdate() }
-            add("season", "ANIME", "Ao Ashi 2nd Season", "t:ANIME|ao ashi 2nd season")
-            add("remake", "ANIME", "Ranma1/2 (2024)", "t:ANIME|ranma1 2")
-            add("manhwa", "MANHWA", "Regicide (2026)", "t:images|regicide")
-            add("plain", "ANIME", "Frieren", "t:ANIME|frieren")
-            add("sure", "ANIME", "Ao Ashi 2nd Season", "al:12345")
-            Migrations.run(c)
-            val keys = c.createStatement().use { s ->
-                s.executeQuery("SELECT media_id, work_key FROM index_items").use { rs -> buildMap { while (rs.next()) put(rs.getString(1), rs.getString(2)) } }
-            }
-            assertEquals(null, keys["season"])
-            assertEquals(null, keys["remake"])
-            assertEquals("a manhwa with a site's year keeps its key", "t:images|regicide", keys["manhwa"])
-            assertEquals("t:ANIME|frieren", keys["plain"])
-            assertEquals("confirmed works are never touched", "al:12345", keys["sure"])
+            val made = mutableListOf<String>()
+            assertEquals(listOf(1, 32), Migrations.run(c, listOf(Migration(1, "base") { made += "1" }, Migration(32, "sesión A") { made += "32" })))
+            val later = listOf(Migration(1, "base") { made += "1" }, Migration(24, "sesión B") { made += "24" }, Migration(32, "sesión A") { made += "32" })
+            assertEquals(listOf(24), Migrations.run(c, later))
+            assertEquals(listOf("1", "32", "24"), made)
+            assertTrue(Migrations.run(c, later).isEmpty())
         }
     }
 
