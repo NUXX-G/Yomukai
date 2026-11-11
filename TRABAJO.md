@@ -3,7 +3,7 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
-**AHORA (2026-11-11): PEDIDO 2026-11-10 — bloque 1 CERRADO y release v2.3.0 (pre-release). Siguiente: bloque 2 (F2.1 medir cada fuente con scripts/probe o bench; luego F2.2 worker y F2.3 LaLiga).**
+**AHORA (2026-11-11): PEDIDO 2026-11-10 — bloque 1 CERRADO y release v2.3.0 (pre-release). Bloque 2: F2.1 y F2.2 hechos; siguiente F2.3 (LaLiga) y arreglar lectortmo (sin capítulos) y zonatmo_to (sin páginas).**
 
 ## PEDIDO 2026-11-10 (feedback `docs/feedback/2026-11-10.pdf`, con capturas)
 Autonomía total (solo preguntar si es irreversible y peligroso: borrar datos de usuarios, reescribir historial). Permiso
@@ -27,8 +27,8 @@ autoscroll y voces estaban marcados y no iban). Al cerrar cada bloque: qué hice
 - [x] Extra del PDF: sinopsis en español desde una fuente española de la obra (servidor, en segundo plano; probado en local: One Piece y Bleach pasan a español tras un ciclo).
 
 **Bloque 2 — velocidad y bloqueos**
-- [ ] F2.1 Medir cada fuente (listado, ficha, capítulos, páginas/vídeo), cuellos de botella, antes/después.
-- [ ] F2.2 Worker precarga (capítulos de bibliotecas, siguiente cap./ep., portadas/banners, metadatos de temporada),
+- [x] F2.1 (medido con scripts/source-timing.mjs → docs/medidas/fuentes-2026-11-11.md; en caliente todo < 20 ms; lo lento es la primera vez: AnimeDLatino 1,5-3,5 s, NovelCool ~1-2 s, Marmota ~1 s. Arreglo: precarga del siguiente y listas en memoria; siguiente capítulo de ~1 s a ~10 ms. Pendiente: lectortmo sin capítulos y zonatmo_to sin páginas). Original: Medir cada fuente (listado, ficha, capítulos, páginas/vídeo), cuellos de botella, antes/después.
+- [x] F2.2 (Prefetcher en el VPS, solo red ligera: siguiente capítulo/episodio y listas de lo que se sigue cada 30 min; worker: trabajo «covers» con portadas 240-720 y banners 1080-1920, test de ida y vuelta; metadatos de temporada ya los busca Discover cada 20 s. Sin worker, todo igual que antes). Original: Worker precarga (capítulos de bibliotecas, siguiente cap./ep., portadas/banners, metadatos de temporada),
       prioridad baja, sube a la caché del VPS; sin worker todo igual.
 - [ ] F2.3 Bloqueos de LaLiga: detectar (fallos a IPs de Cloudflare, hayahora.futbol si es útil), desvío automático por el
       proxy del VPS (o Tor si el VPS está en España) y aviso claro en vez de error genérico.
