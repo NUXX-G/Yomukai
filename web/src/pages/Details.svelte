@@ -77,16 +77,9 @@
   let obraKey = $state(askedKey);
   let obraLang = $state(askedLang);
   let obraLangs = $state([]);
-  // O2: the versions of an anime (Japanese with subtitles in each language, and each dub), to switch in one tap.
-  let obraVersions = $state([]);
-  let obraAudio = $state(route.query.get('audio') || '');
-  if (askedKey) api.obraFicha(askedKey, askedLang, true, route.query.get('audio') || undefined).then((r) => { obraLangs = r.langs || []; obraVersions = r.versions || []; }, () => {});
+  if (askedKey) api.obraFicha(askedKey, askedLang, true).then((r) => (obraLangs = r.langs || []), () => {});
   // Opened from the library, a search or "Continuar" (no ?obra=): the index says which work this page is (F1.5).
-  else api.obraDe(sourceId, mediaId).then((r) => { obraKey = r.key; obraLang = r.lang || obraLang; obraLangs = r.langs || []; obraVersions = r.versions || []; obraAudio = r.audio || obraAudio; }, () => {});
-  const SUB_NAMES = { es: 'Subtítulos en español', en: 'Subtítulos en inglés' };
-  const versionName = (v) => v.audio === 'ORIGINAL' ? (SUB_NAMES[v.lang] || 'Subtítulos' + ' · ' + (LANG_NAMES[v.lang] || v.lang.toUpperCase())) : (AUDIO[v.audio]?.label || v.audio);
-  const isCurrentVersion = (v) => v.lang === obraLang && v.audio === (obraAudio || item?.audio || 'ORIGINAL');
-  const versionHref = (v) => '/obras/' + encodeURIComponent(obraKey) + '?lang=' + v.lang + '&audio=' + v.audio;
+  else api.obraDe(sourceId, mediaId).then((r) => { obraKey = r.key; obraLang = r.lang || obraLang; obraLangs = r.langs || []; }, () => {});
   const LANG_NAMES = { es: 'Español', en: 'English', zh: '中文', ja: '日本語', ko: '한국어', fr: 'Français', de: 'Deutsch', it: 'Italiano', pt: 'Português', ru: 'Русский' };
   /** Episode number -> 'FILLER' | 'MIXED' (AnimeFillerList); only for anime. */
   let fillers = $state({});
@@ -385,13 +378,7 @@
         </div>
       </div>
 
-      {#if anime && obraVersions.length > 1}
-        <div class="obra-langs" role="group" aria-label={t('Versión')}>
-          {#each obraVersions as v (v.lang + v.audio)}
-            <a class="chip" class:on={isCurrentVersion(v)} aria-current={isCurrentVersion(v) ? 'true' : undefined} href={versionHref(v)}>{t(versionName(v))}</a>
-          {/each}
-        </div>
-      {:else if obraLangs.length > 1}
+      {#if obraLangs.length > 1}
         {#if item?.audio && item.audio !== 'ORIGINAL' && AUDIO[item.audio]}<span class="audio-chip">{t(AUDIO[item.audio].label)}</span>{/if}
         <div class="obra-langs" role="group" aria-label={t('Idioma')}>
           {#each obraLangs as l (l)}

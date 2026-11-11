@@ -216,6 +216,8 @@ class Services(val config: Config) {
     val achievements = Achievements(db, events, animeCheck, notifications::send).also { a -> events.onEvent = { user, kind -> a.check(user, kind) } }
     val discover = Discover(com.nelson.yomukai.data.discovery.AniListDiscover(http), db, catalog, works) { proxy.cover(it, emptyMap()) }.apply {
         wanted = { e -> workIndex.want(e.anilistId, e.type, listOf(e.title) + e.names) }
+        fromIndex = { lang, types, sort, genre -> workIndex.list(lang, types, sort, 1, hideAdult = true, genre = genre) }
+        sourceImage = { url, sid -> proxy.cover(url, sources.get(sid)?.imageHeaders.orEmpty()) }
     }
     val onlineTranslator = OnlineTranslator(http)
 

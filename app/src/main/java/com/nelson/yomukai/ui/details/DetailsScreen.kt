@@ -461,10 +461,6 @@ private fun WorkLanguageChips(viewModel: DetailsViewModel, onOpenMedia: (MediaIt
     val work = languages ?: return
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    if (work.versions.size > 1) {
-        WorkVersionChips(viewModel, work, onOpenMedia)
-        return
-    }
     Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         work.langs.forEach { lang ->
             FilterChip(
@@ -480,39 +476,6 @@ private fun WorkLanguageChips(viewModel: DetailsViewModel, onOpenMedia: (MediaIt
             )
         }
     }
-}
-
-/** O2: an anime's versions (subtitles in each language, each dub), the subtitled one in your language first. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun WorkVersionChips(viewModel: DetailsViewModel, work: DetailsViewModel.WorkLanguages, onOpenMedia: (MediaItem) -> Unit) {
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    FlowRow(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        work.versions.forEach { (lang, audio) ->
-            val current = lang == work.lang && audio == work.audio
-            FilterChip(
-                selected = current,
-                onClick = {
-                    if (!current) scope.launch {
-                        val page = viewModel.pageIn(lang, audio)
-                        if (page != null) onOpenMedia(page)
-                        else android.widget.Toast.makeText(context, tr("Ahora mismo no se puede ver con esta versión."), android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                },
-                label = { Text(versionName(lang, audio)) }
-            )
-        }
-    }
-}
-
-private fun versionName(lang: String, audio: String): String = when (audio) {
-    "ORIGINAL" -> when (lang) {
-        "es" -> tr("Subtítulos en español")
-        "en" -> tr("Subtítulos en inglés")
-        else -> tr("Subtítulos") + " · " + (LANGUAGE_NAMES[lang] ?: lang.uppercase())
-    }
-    else -> com.nelson.yomukai.domain.model.AudioTrack.fromName(audio).label
 }
 
 private val LANGUAGE_NAMES = mapOf("es" to "Español", "en" to "English", "zh" to "中文", "ja" to "日本語", "ko" to "한국어", "fr" to "Français", "pt" to "Português")

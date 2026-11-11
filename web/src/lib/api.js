@@ -146,7 +146,7 @@ export const api = {
   adminRunCanary: (id) => request('POST', `/api/admin/canary/${encodeURIComponent(id)}`),
   features: () => request('GET', '/api/features'),
   continueList: () => request('GET', '/api/continue'),
-  discover: (kind) => cached(`/api/discover/${kind}?lang=${i18n.lang}`),
+  discover: (kind, type) => cached(`/api/discover/${kind}?lang=${i18n.lang}` + (type ? `&type=${type}` : '')),
   discoverBrowse: (kind, filters) => request('GET', `/api/discover/${kind}/browse?${qs({ ...filters, lang: i18n.lang })}`),
   unified: () => request('GET', '/api/updates/unified'),
   work: (s, id) => request('GET', `/api/work?${qs({ s, id })}`),

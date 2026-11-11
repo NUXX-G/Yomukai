@@ -44,6 +44,15 @@ class Discover(
 
     /** Told about every AniList title shown that the works index has not confirmed yet (set by the server). */
     @Volatile var wanted: (DiscoverEntry) -> Unit = {}
+
+    /**
+     * P3: works of the index to fill a row that AniList (filtered to what the sources have) leaves short: by type,
+     * sort ("popular" / "updated") and AniList genre. Set by the server; null keeps the rows as AniList gives them.
+     */
+    @Volatile var fromIndex: (suspend (lang: String, types: Set<String>, sort: String, genre: String?) -> List<WorkIndex.Card>)? = null
+
+    /** A source's cover through the proxy with the headers that source needs (set by the server). */
+    @Volatile var sourceImage: (String, String) -> String = { url, _ -> image(url) }
     private val cache = ConcurrentHashMap<DiscoverKind, Pair<Long, Map<String, List<DiscoverEntry>>>>()
     private val pending = ConcurrentLinkedDeque<DiscoverEntry>()
     private val checked = ConcurrentHashMap<Int, Long>()
@@ -52,7 +61,7 @@ class Discover(
     private val spanish = ConcurrentHashMap<Int, String>()
     private val wantSpanish = ConcurrentLinkedDeque<Pair<Int, String>>()
 
-    suspend fun rows(kind: DiscoverKind, lang: String = "es"): List<DiscoverRowDto> {
+    suspend fun rows(kind: DiscoverKind, lang: String = "es", types: Set<String>? = null): List<DiscoverRowDto> {
         val now = System.currentTimeMillis()
         val cached = cache[kind]
         val data = if (cached != null && now - cached.first < TTL_MS) cached.second else {
@@ -63,7 +72,34 @@ class Discover(
                 } ?: cached?.second.orEmpty()
         }
         val order = listOf("trending", "season", "releasing", "popular", "top") + AniListDiscover.GENRE_ROWS.map { it.first }
-        return order.mapNotNull { id -> data[id]?.let { DiscoverRowDto(id, TITLES[id] ?: id, decorate(it, lang)) }?.takeIf { it.items.isNotEmpty() } }
+        val wantedTypes = types?.takeIf { it.isNotEmpty() } ?: kind.types
+        return order.mapNotNull { id ->
+            val fromAniList = data[id]?.let { decorate(it, lang) }.orEmpty().filter { it.type in wantedTypes }
+            // A row of two cards looks broken (P3): what AniList does not give, the index does (what the sources have).
+            val items = if (fromAniList.size >= MIN_ROW) fromAniList else fromAniList + topUp(id, lang, wantedTypes, fromAniList.mapNotNull { it.workKey }.toSet())
+            DiscoverRowDto(id, TITLES[id] ?: id, items).takeIf { it.items.size >= MIN_ROW_SHOWN }
+        }
+    }
+
+    private val DiscoverKind.types: Set<String>
+        get() = when (this) {
+            DiscoverKind.ANIME -> setOf("ANIME")
+            DiscoverKind.MANGA -> setOf("MANGA", "MANHWA", "MANHUA")
+            DiscoverKind.NOVEL -> setOf("NOVEL")
+        }
+
+    private suspend fun topUp(rowId: String, lang: String, types: Set<String>, already: Set<String>): List<DiscoverItemDto> {
+        val fill = fromIndex ?: return emptyList()
+        val genre = AniListDiscover.GENRE_ROWS.firstOrNull { it.first == rowId }?.second
+        val sort = if (rowId in setOf("releasing", "season")) "updated" else "popular"
+        val cards = runCatching { fill(lang, types, sort, genre) }.getOrDefault(emptyList())
+        return cards.filter { it.key !in already }.map { c ->
+            val cover = c.cover.takeIf { it.isNotBlank() }?.let { if (c.coverSource.isBlank()) image(it) else sourceImage(it, c.coverSource) }.orEmpty()
+            DiscoverItemDto(
+                c.key.removePrefix("al:").toIntOrNull() ?: 0, c.title, emptyList(), cover, "", "", emptyList(), null, "", c.type, "", c.status,
+                "", null, null, null, null, null, c.key, null, null
+            )
+        }.take(ROW_FILL)
     }
 
     suspend fun browse(kind: DiscoverKind, filter: DiscoverFilter, lang: String = "es"): List<DiscoverItemDto> =
@@ -144,6 +180,10 @@ class Discover(
     }
 
     companion object {
+        /** Below this many cards AniList alone, the index fills the row; below this many in all, the row is not shown. */
+        private const val MIN_ROW = 8
+        private const val MIN_ROW_SHOWN = 4
+        private const val ROW_FILL = 20
         private const val TTL_MS = 6 * 3_600_000L
         private const val MAX_WANTED = 200
         private const val PAGES_PER_WORK = 3
@@ -177,7 +217,8 @@ private fun discoverLang(raw: String?) = raw?.lowercase()?.takeIf { it.matches(R
 fun Route.discoverRoutes(s: Services) {
     get("/discover/{kind}") {
         val kind = Discover.kindOf(call.parameters["kind"]) ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Sección desconocida"))
-        call.respond(mapOf("rows" to s.discover.rows(kind, discoverLang(call.request.queryParameters["lang"]))))
+        val types = call.request.queryParameters["type"]?.split(',')?.map { it.trim().uppercase() }?.filter { t -> t.all(Char::isLetter) }?.toSet()
+        call.respond(mapOf("rows" to s.discover.rows(kind, discoverLang(call.request.queryParameters["lang"]), types)))
     }
     get("/discover/{kind}/browse") {
         val kind = Discover.kindOf(call.parameters["kind"]) ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Sección desconocida"))

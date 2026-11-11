@@ -382,7 +382,12 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
     // ---------- Reading --------------------------------------------------------------------------------------------
 
     /** Works with a source in [lang] (multi-language sources count for every language), of [types] when given. */
-    suspend fun list(lang: String, types: Set<String>?, sort: String, page: Int, hideAdult: Boolean = true, audio: String? = null): List<Card> = s.db.tx {
+    suspend fun list(
+        lang: String, types: Set<String>?, sort: String, page: Int, hideAdult: Boolean = true, audio: String? = null,
+        /** An AniList genre name (letters only); the work must carry it. */
+        genre: String? = null
+    ): List<Card> = s.db.tx {
+        val genreFilter = genre?.filter { it.isLetter() || it == ' ' }?.takeIf { it.isNotBlank() }
         // Only a known audio name ever reaches the query (F3.1: castellano, latino, inglés, subtitulado sections).
         val audioFilter = audio?.takeIf { a -> com.nelson.yomukai.domain.model.AudioTrack.entries.any { it.name == a } }
         val typeFilter = types?.takeIf { it.isNotEmpty() }?.joinToString(",") { "'" + it.filter(Char::isLetter) + "'" }
@@ -399,9 +404,9 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
                  (SELECT GROUP_CONCAT(DISTINCT i5.audio) FROM index_items i5 WHERE i5.work_key = w.key) AS audios
                FROM works w JOIN index_items i ON i.work_key = w.key AND i.lang = ? AND i.source_id NOT IN (${downSql()})
                WHERE ${identifiedSql()} ${if (typeFilter != null) "AND w.type IN ($typeFilter)" else ""} ${if (hideAdult) "AND $notAdult" else ""}
-                 ${if (audioFilter != null) "AND i.audio = '$audioFilter'" else ""}
+                 ${if (audioFilter != null) "AND i.audio = '$audioFilter'" else ""} ${if (genreFilter != null) "AND w.genres LIKE ?" else ""}
                GROUP BY w.key ORDER BY $order LIMIT ? OFFSET ?""",
-            lang, lang, PAGE_SIZE, (page - 1).coerceAtLeast(0) * PAGE_SIZE
+            *listOfNotNull(lang, lang, genreFilter?.let { "%\"$it\"%" }, PAGE_SIZE, (page - 1).coerceAtLeast(0) * PAGE_SIZE).toTypedArray()
         ) { card() }
     }
 
