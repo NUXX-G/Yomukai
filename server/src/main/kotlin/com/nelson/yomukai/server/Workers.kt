@@ -230,6 +230,7 @@ fun Route.workerRoutes(s: Services) {
             val type = call.request.contentType().withoutParameters().toString()
             val job = s.jobs.complete(id, call.worker.id, call.receiveChannel().toInputStream(), type)
             runCatching { s.library.finished(job) }
+            runCatching { s.coverJobs.finished(job) }
             call.respond(mapOf("ok" to true, "status" to job.status.db))
         }
         post("/jobs/{id}/fail") {

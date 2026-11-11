@@ -141,6 +141,7 @@ class Services(val config: Config) {
     val proxy = MediaProxy(http, config.secret, File(config.dataDir, "cache"), config.guestStreams, config.imageCacheBytes)
     val catalog = Catalog(sources, aniList, metadata, proxy)
     val prefetcher by lazy { Prefetcher(catalog, db, sources) }
+    val coverJobs by lazy { CoverJobs(this) }
     val downloads = Downloader(catalog, proxy, http)
 
     /** Natural voices for reading novels aloud (Piper, installed in the Docker image). */
@@ -266,6 +267,7 @@ private fun Application.startBackgroundJobs(config: Config, services: Services) 
         delay(5 * 60_000L)
         while (true) {
             runCatching { services.prefetcher.refreshLibraries() }.onFailure { log.debug("Precarga: {}", it.message) }
+            runCatching { services.coverJobs.enqueueSome() }.onFailure { log.debug("Portadas al worker: {}", it.message) }
             delay(Prefetcher.ROUND_MS)
         }
     }

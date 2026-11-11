@@ -19,13 +19,16 @@ object JobTypes {
     const val CBZ_EXPORT = "cbz_export"
     const val DICTIONARY = "dictionary"
 
+    /** Covers and banners at every width, made at home (F2.2). */
+    const val COVERS = "covers"
+
     /** Test job: the worker sends the payload back. Used by the admin's "probar worker" button. */
     const val ECHO = "echo"
 
     /** A broken source: the worker proposes a fix as a GitHub pull request (scripts/auto-repair.sh). */
     const val SOURCE_REPAIR = "source_repair"
 
-    val ALL = setOf(TTS, OCR, TRANSLATE, WHISPER, AUDIO_FINGERPRINT, JELLYFIN_DOWNLOAD, CBZ_EXPORT, ECHO, SOURCE_REPAIR, DICTIONARY)
+    val ALL = setOf(TTS, OCR, TRANSLATE, WHISPER, AUDIO_FINGERPRINT, JELLYFIN_DOWNLOAD, CBZ_EXPORT, ECHO, SOURCE_REPAIR, DICTIONARY, COVERS)
 
     /** Better on a GPU: given to a GPU worker first when one is online. */
     val GPU_PREFERRED = setOf(TTS, WHISPER)
@@ -107,6 +110,13 @@ class ResultCache(private val db: Database, private val dir: File, private val m
     }
 
     suspend fun has(key: String): Boolean = db.tx { queryOne("SELECT 1 FROM results WHERE key = ?", key) { 1 } } != null
+
+    /** Deletes a result once it has been used up (its contents now live elsewhere). */
+    suspend fun remove(key: String) {
+        val file = db.tx { queryOne("SELECT file FROM results WHERE key = ?", key) { getString(1) } } ?: return
+        db.tx { update("DELETE FROM results WHERE key = ?", key) }
+        File(dir, file).delete()
+    }
 
     suspend fun totalBytes(): Long = db.tx { queryOne("SELECT COALESCE(SUM(size), 0) FROM results") { getLong(1) } } ?: 0
 

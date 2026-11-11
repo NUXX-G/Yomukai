@@ -3,6 +3,7 @@ package com.nelson.yomukai.server
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.nelson.yomukai.data.image.HighResCovers
+import com.nelson.yomukai.data.image.ImageShrinker
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -138,6 +139,35 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
         // this origin could run scripts in it. Browsers decode images by their bytes anyway.
         call.response.header("Content-Security-Policy", "sandbox; default-src 'none'")
         call.respondBytes(bytes, ContentType.parse(safeImageType(type)))
+    }
+
+    /** Whether [url] is already on disk at [width] (null: the original), so the worker is not asked for it again. */
+    fun hasImage(url: String, width: Int? = null): Boolean = imageCache.has(if (width == null) url else "$url#w=$width")
+
+    /**
+     * Stores what the home worker made (F2.2): the original of [url] and its [widths] (null = no smaller than the
+     * original, like [shrinkNow] decides). Only real raster images are kept: the bytes come from scraped sites.
+     */
+    fun storeFromWorker(url: String, original: ByteArray, type: String, widths: Map<Int, ByteArray?>): Boolean {
+        if (sniffImage(original) == null) return false
+        imageCache.put(url, original, safeImageType(type))
+        widths.forEach { (w, bytes) ->
+            when {
+                bytes == null -> imageCache.put("$url#w=$w", ByteArray(0), SAME_AS_ORIGINAL)
+                sniffImage(bytes) == "image/jpeg" -> imageCache.put("$url#w=$w", bytes, "image/jpeg")
+            }
+        }
+        return true
+    }
+
+    /** The image type by its first bytes (JPEG, PNG, GIF, WebP, AVIF); null for anything else. */
+    private fun sniffImage(b: ByteArray): String? = when {
+        b.size > 3 && b[0] == 0xFF.toByte() && b[1] == 0xD8.toByte() && b[2] == 0xFF.toByte() -> "image/jpeg"
+        b.size > 8 && b[0] == 0x89.toByte() && String(b, 1, 3, Charsets.US_ASCII) == "PNG" -> "image/png"
+        b.size > 6 && String(b, 0, 4, Charsets.US_ASCII) == "GIF8" -> "image/gif"
+        b.size > 12 && String(b, 0, 4, Charsets.US_ASCII) == "RIFF" && String(b, 8, 4, Charsets.US_ASCII) == "WEBP" -> "image/webp"
+        b.size > 12 && String(b, 4, 4, Charsets.US_ASCII) == "ftyp" -> "image/avif"
+        else -> null
     }
 
     /** The image no wider than [width] (see [ImageShrinker]); the original when shrinking gains nothing. */

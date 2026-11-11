@@ -1,4 +1,4 @@
-package com.nelson.yomukai.server
+package com.nelson.yomukai.data.image
 
 import java.awt.Color
 import java.awt.RenderingHints

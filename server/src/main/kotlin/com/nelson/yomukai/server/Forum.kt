@@ -1,6 +1,7 @@
 package com.nelson.yomukai.server
 
 import com.google.gson.JsonObject
+import com.nelson.yomukai.data.image.ImageShrinker
 import com.nelson.yomukai.data.social.ChatGuard
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders

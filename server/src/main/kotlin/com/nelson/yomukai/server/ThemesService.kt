@@ -2,6 +2,7 @@ package com.nelson.yomukai.server
 
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.nelson.yomukai.data.image.ImageShrinker
 import com.nelson.yomukai.data.theme.Contrast
 import com.nelson.yomukai.data.theme.ThemeRules
 import com.nelson.yomukai.data.theme.ThemeSpec
