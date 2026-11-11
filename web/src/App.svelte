@@ -38,6 +38,8 @@
   define('anime', '/anime');
   define('manga', '/manga');
   define('novels', '/novelas');
+  define('manhwa', '/manhwa');
+  define('comics', '/comics');
   define('calendar', '/calendario');
   define('search', '/buscar');
   define('library', '/biblioteca');
@@ -63,12 +65,15 @@
   const sections = [
     { name: 'home', href: '/', label: t('Inicio'), icon: 'home' },
     { name: 'anime', href: '/anime', label: t('Anime'), icon: 'tv' },
-    { name: 'manga', href: '/manga', label: t('Manga y manhwa'), short: 'Manga', icon: 'book' },
+    { name: 'manga', href: '/manga', label: t('Manga'), short: 'Manga', icon: 'book' },
+    { name: 'manhwa', href: '/manhwa', label: t('Manhwa y manhua'), short: 'Manhwa', icon: 'book' },
+    { name: 'comics', href: '/comics', label: t('Cómics'), icon: 'book' },
     { name: 'novels', href: '/novelas', label: t('Novelas'), icon: 'novel' },
     { name: 'library', href: '/biblioteca', label: t('Biblioteca'), icon: 'library' },
     { name: 'calendar', href: '/calendario', label: t('Calendario'), icon: 'calendar' }
   ];
-  const mobileTabs = sections.slice(0, 5);
+  // Phones: home, anime, manga, the library and the calendar; the other kinds are in the tabs of each section.
+  const mobileTabs = sections.filter((s) => ['home', 'anime', 'manga', 'library', 'calendar'].includes(s.name));
 
   /** Readers and the player take the whole screen. */
   const immersive = $derived(route.name === 'read' || route.name === 'watch');
@@ -136,7 +141,7 @@
       default: return Home;
     }
   });
-  const lazyPage = $derived(route.name === 'anime' || route.name === 'manga' || route.name === 'novels' ? Explore : route.name === 'calendar' ? Calendar : route.name === 'room' ? Room : route.name === 'profile' ? Profile : route.name === 'friends' ? Friends : route.name === 'forum' || route.name === 'forumThread' ? ForumPage : route.name === 'review' ? Review : route.name === 'messages' || route.name === 'conversation' ? Messages : route.name === 'rooms' ? Rooms : null);
+  const lazyPage = $derived(['anime', 'manga', 'manhwa', 'comics', 'novels'].includes(route.name) ? Explore : route.name === 'calendar' ? Calendar : route.name === 'room' ? Room : route.name === 'profile' ? Profile : route.name === 'friends' ? Friends : route.name === 'forum' || route.name === 'forumThread' ? ForumPage : route.name === 'review' ? Review : route.name === 'messages' || route.name === 'conversation' ? Messages : route.name === 'rooms' ? Rooms : null);
 
   async function logout() {
     menu = false;

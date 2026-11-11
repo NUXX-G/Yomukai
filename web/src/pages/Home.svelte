@@ -3,6 +3,7 @@
   // Inicio: a hero carousel and rows of works (never of sources): continue, new in the library, airing, trending,
   // for you, recently updated everywhere (one card per work) and genres. Rows can be hidden and reordered.
   import { onMount } from 'svelte';
+  import SectionTabs from '../components/SectionTabs.svelte';
   import { api } from '../lib/api.js';
   import { settings, saveSettings, library, updates, loadUpdates, home, features, session } from '../lib/store.svelte.js';
   import { media, reader, navigate } from '../lib/router.svelte.js';
@@ -148,6 +149,7 @@
 </script>
 
 <div class="page home">
+  <SectionTabs />
   {#if blocked}
     <p class="block-note" role="status">{t('Hay bloqueos de LaLiga ahora mismo: si una fuente va lenta o no carga, se pasa por el servidor. No es un fallo de la fuente.')}</p>
   {/if}

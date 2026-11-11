@@ -10,15 +10,21 @@
   import Hero from '../components/Hero.svelte';
   import Shelf from '../components/Shelf.svelte';
   import MediaCard from '../components/MediaCard.svelte';
+  import SectionTabs from '../components/SectionTabs.svelte';
 
-  const kind = route.name === 'anime' ? 'anime' : route.name === 'novels' ? 'novelas' : 'manga';
-  const TITLE = { anime: 'Anime', manga: t('Manga y manhwa'), novelas: 'Novelas' }[kind];
+  // Each kind of work has its section (F3.3): manga (Japan) apart from manhwa and manhua (Korea, China), and comics
+  // from the user's sources (AniList hardly knows western comics).
+  const section = route.name;
+  const kind = section === 'anime' ? 'anime' : section === 'novels' ? 'novelas' : section === 'comics' ? 'comics' : 'manga';
+  const TITLE = { anime: t('Anime'), manga: t('Manga'), manhwa: t('Manhwa y manhua'), comics: t('Cómics'), novels: t('Novelas') }[section];
+  /** Rows from AniList keep only the section's kind (its kind comes from the country of origin). */
+  const inSection = (d) => section === 'manga' ? d.type === 'MANGA' : section === 'manhwa' ? d.type === 'MANHWA' || d.type === 'MANHUA' : true;
   const YEARS = Array.from({ length: 36 }, (_, i) => new Date().getFullYear() + 1 - i);
   const STATUS = [['', 'Cualquier estado'], ['RELEASING', kind === 'anime' ? t('En emisión') : t('En publicación')], ['FINISHED', 'Terminado'], ['NOT_YET_RELEASED', t('Próximamente')], ['HIATUS', t('En pausa')]];
   const FORMATS = kind === 'anime'
     ? [['', 'Cualquier formato'], ['TV', 'Serie'], ['MOVIE', t('Película')], ['OVA', 'OVA'], ['ONA', 'ONA'], ['SPECIAL', 'Especial']]
     : kind === 'manga' ? [['', 'Cualquier formato'], ['MANGA', 'Serie'], ['ONE_SHOT', 'One-shot']] : [];
-  const COUNTRIES = kind === 'manga' ? [['', t('Manga, manhwa y manhua')], ['JP', 'Manga'], ['KR', 'Manhwa'], ['CN', 'Manhua']] : [];
+  const COUNTRIES = section === 'manhwa' ? [['KR', 'Manhwa'], ['CN', 'Manhua'], ['TW', t('Manhua (Taiwán)')]] : [];
   const SORTS = [['TRENDING_DESC', 'Tendencia'], ['POPULARITY_DESC', 'Popularidad'], ['SCORE_DESC', 'Nota'], ['START_DATE_DESC', t('Más recientes')]];
 
   let rows = $state([]);
@@ -39,7 +45,24 @@
   }
   if (kind === 'anime') loadDubs('CASTELLANO');
 
-  let filters = $state({ genre: '', year: '', status: '', format: '', country: '', sort: 'TRENDING_DESC', minScore: '' });
+  let filters = $state({ genre: '', year: '', status: '', format: '', country: section === 'manga' ? 'JP' : section === 'manhwa' ? 'KR' : '', sort: 'TRENDING_DESC', minScore: '' });
+
+  // Comics: what the user's sources have, in the language chosen, newest first or by name.
+  let comicsLang = $state(i18n.lang === 'en' ? 'en' : 'es');
+  let comicsSort = $state('updated');
+  let comics = $state([]);
+  let comicsPage = $state(1);
+  let comicsMore = $state(false);
+  let comicsLoading = $state(false);
+  async function loadComics(next = false) {
+    comicsLoading = true;
+    comicsPage = next ? comicsPage + 1 : 1;
+    try {
+      const works = (await api.obras({ lang: comicsLang, type: 'COMIC', sort: comicsSort, page: comicsPage })).works || [];
+      comics = next ? [...comics, ...works] : works;
+      comicsMore = works.length >= 40;
+    } catch { if (!next) comics = []; comicsMore = false; } finally { comicsLoading = false; }
+  }
   let onlyAvailable = $state(false);
   let results = $state([]);
   let page = $state(1);
@@ -47,7 +70,8 @@
   let more = $state(true);
 
   onMount(async () => {
-    try { rows = (await api.discover(kind)).rows; } catch { rows = []; } finally { loadingRows = false; }
+    if (kind === 'comics') { loadingRows = false; loadComics(); return; }
+    try { rows = (await api.discover(kind)).rows.map((r) => ({ ...r, items: r.items.filter(inSection) })).filter((r) => r.items.length); } catch { rows = []; } finally { loadingRows = false; }
     runSearch();
   });
 
@@ -71,6 +95,29 @@
 </script>
 
 <div class="page">
+  <SectionTabs />
+  {#if kind === 'comics'}
+    <h1 class="page-title">{TITLE}</h1>
+    <form class="filters" onsubmit={(e) => { e.preventDefault(); loadComics(); }}>
+      <select class="field" bind:value={comicsLang} onchange={() => loadComics()} aria-label={t('Idioma')}>
+        <option value="es">{t('Español')}</option>
+        <option value="en">{t('Inglés')}</option>
+      </select>
+      <select class="field" bind:value={comicsSort} onchange={() => loadComics()} aria-label={t('Orden')}>
+        <option value="updated">{t('Recién actualizado')}</option>
+        <option value="popular">{t('Popularidad')}</option>
+        <option value="az">{t('De la A a la Z')}</option>
+      </select>
+    </form>
+    <div class="grid results">
+      {#each comics as w (w.key)}
+        <MediaCard href={'/obras/' + encodeURIComponent(w.key) + '?lang=' + comicsLang} title={w.title} cover={w.cover} showType type={w.type}
+          badges={w.sources > 1 ? [{ text: t('En {0} fuentes', [w.sources]), tone: 'dark' }] : []} />
+      {/each}
+    </div>
+    {#if !comicsLoading && !comics.length}<p class="muted center-text">{t('Todavía no hay cómics en este idioma en tus fuentes.')}</p>{/if}
+    {#if comicsMore}<div class="center-text"><button class="btn tonal" onclick={() => loadComics(true)} disabled={comicsLoading}>{comicsLoading ? t('Cargando...') : t('Ver más')}</button></div>{/if}
+  {:else}
   <Hero {slides} />
   <h1 class="page-title">{TITLE}</h1>
 
@@ -151,6 +198,7 @@
       <div class="center-text"><button class="btn tonal" onclick={() => runSearch(true)} disabled={searching}>{searching ? 'Cargando...' : t('Ver más')}</button></div>
     {/if}
   </section>
+  {/if}
 </div>
 
 <style>
