@@ -21,6 +21,7 @@
   import InstallGuide from './components/InstallGuide.svelte';
   import CommandPalette from './components/CommandPalette.svelte';
   import { exitFullscreen } from './lib/fullscreen.svelte.js';
+  import { startLive, stopLive, on as onLive, dm, refreshDmUnread } from './lib/live.svelte.js';
 
   // Pages users rarely open are loaded only when they do (smaller first download).
   const Explore = () => import('./pages/Explore.svelte');
@@ -30,6 +31,8 @@
   const Friends = () => import('./pages/Friends.svelte');
   const ForumPage = () => import('./pages/Forum.svelte');
   const Review = () => import('./pages/Review.svelte');
+  const Messages = () => import('./pages/Messages.svelte');
+  const Rooms = () => import('./pages/Rooms.svelte');
 
   define('home', '/');
   define('anime', '/anime');
@@ -51,6 +54,9 @@
   define('forum', '/foro');
   define('review', '/repaso');
   define('forumThread', '/foro/:id');
+  define('messages', '/mensajes');
+  define('conversation', '/mensajes/:name');
+  define('rooms', '/salas');
   startRouter();
 
   /** The site's sections: rail on computers, bottom bar on phones (the first five). */
@@ -87,28 +93,22 @@
   // ---------- Notifications: the bell's list, live over SSE while the page is open ----------
   let notes = $state({ items: [], unread: 0 });
   let bellOpen = $state(false);
-  let stream = null;
   const bellCount = $derived(notes.unread + newCount);
 
   async function loadNotes() {
     try { notes = await api.notifications(); } catch { /* offline: try later */ }
   }
-  function openStream() {
-    stream?.close();
-    if (!session.user || session.user.guest || typeof EventSource === 'undefined') return;
-    stream = new EventSource('/api/notifications/stream');
-    stream.addEventListener('notification', (e) => {
-      try {
-        const n = JSON.parse(e.data);
-        notes = { items: [n, ...notes.items].slice(0, 50), unread: notes.unread + 1 };
-        notify(n.text);
-      } catch { /* bad event */ }
-    });
-  }
-  $effect(() => {
-    if (session.user && !session.user.guest) { loadNotes(); openStream(); }
-    return () => stream?.close();
+  // Notifications and direct messages arrive over one live stream (lib/live.svelte.js).
+  onLive('notification', (n) => {
+    notes = { items: [n, ...notes.items].slice(0, 50), unread: notes.unread + 1 };
+    // A direct message is already heard where it is read; elsewhere a short notice.
+    if (n.kind !== 'dm' || route.name !== 'conversation') notify(n.text);
   });
+  $effect(() => {
+    if (session.user && !session.user.guest) { loadNotes(); startLive(session.user); refreshDmUnread(); }
+    return () => stopLive();
+  });
+  const dmsOn = $derived(features.flags.dms !== false && session.user && !session.user.guest);
   async function toggleBell() {
     bellOpen = !bellOpen;
     if (bellOpen && notes.unread) {
@@ -136,7 +136,7 @@
       default: return Home;
     }
   });
-  const lazyPage = $derived(route.name === 'anime' || route.name === 'manga' || route.name === 'novels' ? Explore : route.name === 'calendar' ? Calendar : route.name === 'room' ? Room : route.name === 'profile' ? Profile : route.name === 'friends' ? Friends : route.name === 'forum' || route.name === 'forumThread' ? ForumPage : route.name === 'review' ? Review : null);
+  const lazyPage = $derived(route.name === 'anime' || route.name === 'manga' || route.name === 'novels' ? Explore : route.name === 'calendar' ? Calendar : route.name === 'room' ? Room : route.name === 'profile' ? Profile : route.name === 'friends' ? Friends : route.name === 'forum' || route.name === 'forumThread' ? ForumPage : route.name === 'review' ? Review : route.name === 'messages' || route.name === 'conversation' ? Messages : route.name === 'rooms' ? Rooms : null);
 
   async function logout() {
     menu = false;
@@ -217,6 +217,11 @@
         <span class="grow"></span>
         <button class="icon-btn mobile-only" onclick={() => (palette = true)} aria-label={t('Buscar')}><Icon name="search" /></button>
         <a class="icon-btn mobile-only" href="/calendario" aria-label={t('Calendario')}><Icon name="calendar" /></a>
+        {#if dmsOn}
+          <a class="icon-btn bell" href="/mensajes" aria-label={dm.unread ? t('Mensajes: {0} sin leer', [dm.unread]) : t('Mensajes')} title={t('Mensajes')}>
+            <Icon name="chat" />{#if dm.unread}<span class="count">{dm.unread > 9 ? '9+' : dm.unread}</span>{/if}
+          </a>
+        {/if}
         <div class="bell-wrap">
           <button class="icon-btn bell" onclick={toggleBell} aria-haspopup="true" aria-expanded={bellOpen} aria-label={bellCount ? `${bellCount} avisos` : 'Avisos'}>
             <Icon name="bell" />{#if bellCount}<span class="count">{bellCount > 9 ? '9+' : bellCount}</span>{/if}
@@ -240,6 +245,8 @@
               {#if !session.user.guest}
                 <a role="menuitem" href="/u/{encodeURIComponent(session.user.name)}" onclick={() => (menu = false)}><Icon name="library" size={18} /> {t('Mi perfil')}</a>
                 <a role="menuitem" href="/amigos" onclick={() => (menu = false)}><Icon name="explore" size={18} /> {t('Amigos')}</a>
+                {#if dmsOn}<a role="menuitem" href="/mensajes" onclick={() => (menu = false)}><Icon name="chat" size={18} /> {t('Mensajes')}</a>{/if}
+                {#if features.flags.rooms !== false}<a role="menuitem" href="/salas" onclick={() => (menu = false)}><Icon name="tv" size={18} /> {t('Salas')}</a>{/if}
                 {#if settings.learning?.enabled && features.flags.learning !== false}<a role="menuitem" href="/repaso" onclick={() => (menu = false)}><Icon name="book" size={18} /> {t('Repaso')}</a>{/if}
                 {#if features.flags.forum !== false}<a role="menuitem" href="/foro" onclick={() => (menu = false)}><Icon name="list" size={18} /> {t('Foro')}</a>{/if}
               {/if}

@@ -16,6 +16,7 @@
   import Row from '../components/Row.svelte';
   import WorkSocial from '../components/WorkSocial.svelte';
   import ForumThread from '../components/ForumThread.svelte';
+  import ShareSheet from '../components/ShareSheet.svelte';
   import { themeState } from '../lib/theme.svelte.js';
 
   const sourceId = route.params.source;
@@ -25,6 +26,9 @@
 
   // What the list already knew, shown at once; the full page replaces it when it arrives.
   let item = $state(seenItem(sourceId, mediaId));
+  // Compartir (F4.3): this work as a card for a person, a room or its forum thread.
+  let shareOpen = $state(false);
+  const shareCard = $derived(item ? { kind: 'work', sourceId, mediaId, title: item.title, cover: item.cover || '', type: item.type || '', lang: sourceById(sourceId)?.language || '' } : null);
   let error = $state('');
   let list = $state({ loading: true, chapters: [], issues: [], abandoned: false, lastUpdate: null, error: '' });
   let progress = $state({});
@@ -404,6 +408,9 @@
           </button>
         {/if}
       {/if}
+      {#if features.flags.sharing !== false && session.user && !session.user.guest && item}
+        <button class="btn outline block lib" onclick={() => (shareOpen = true)}><Icon name="send" size={18} /> {t('Compartir')}</button>
+      {/if}
       <button class="btn tonal block lib" onclick={library}>
         <Icon name={saved ? 'heart' : 'heartOutline'} size={18} /> {saved ? t('En tu biblioteca') : t('Añadir a la biblioteca')}
       </button>
@@ -696,6 +703,8 @@
     {/each}
   {/if}
 </Sheet>
+
+{#if shareCard}<ShareSheet bind:open={shareOpen} card={shareCard} />{/if}
 
 <style>
   .obra-langs { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }

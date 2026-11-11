@@ -3,6 +3,8 @@
   // /amigos: everyone on this server (the group), what they are watching or reading right now, and their profiles.
   import { api } from '../lib/api.js';
   import { media } from '../lib/router.svelte.js';
+  import { features, session } from '../lib/store.svelte.js';
+  import Icon from '../components/Icon.svelte';
 
   let users = $state(null);
   api.users().then((u) => (users = u), () => (users = []));
@@ -17,6 +19,7 @@
   {:else}
     <div class="list">
       {#each sorted as u (u.name)}
+        <div class="cell">
         <a class="friend" href="/u/{encodeURIComponent(u.name)}" style:--accent={u.accent || 'var(--c-accent)'}>
           <span class="avatar" aria-hidden="true">{#if u.avatar}<img src={u.avatar} alt="" />{:else}{u.name.slice(0, 1).toUpperCase()}{/if}</span>
           <span class="grow">
@@ -26,6 +29,8 @@
             {/if}
           </span>
         </a>
+        {#if !u.me && features.flags.dms !== false && !session.user?.guest}<a class="dm icon-btn" href="/mensajes/{encodeURIComponent(u.name)}" aria-label={t('Escribir a {0}', [u.name])} title={t('Mensaje')}><Icon name="chat" size={20} /></a>{/if}
+        </div>
         {#if u.now?.sourceId}<a class="sr-only" href={media(u.now.sourceId, u.now.mediaId)}>{t('Abrir {0}', [u.now.title])}</a>{/if}
       {/each}
     </div>
@@ -35,6 +40,9 @@
 <style>
   h1 { margin: 12px 0 4px; font-size: var(--fs-title); font-weight: 800; }
   .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; margin-top: 18px; }
+  .cell { position: relative; }
+  .dm { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); }
+  .friend { padding-right: 56px !important; }
   .friend { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: var(--r-lg); background: var(--c-surface); border: 1px solid var(--c-border); }
   .friend:hover { border-color: var(--accent); }
   .avatar { width: 48px; height: 48px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; font-weight: 800; background: color-mix(in srgb, var(--accent) 40%, var(--c-surface-high)); flex: none; }

@@ -156,7 +156,7 @@
 
   {#each layout.filter((r) => !r.hidden) as r (r.id)}
     {#if r.id === 'rooms' && items('rooms').length}
-      <Shelf title={t('Salas activas')} subtitle={t('Tus amigos viendo algo juntos ahora mismo')} wide>
+      <Shelf title={t('Salas activas')} subtitle={t('Tus amigos viendo algo juntos ahora mismo')} wide href={features.flags.open_rooms !== false ? '/salas' : undefined}>
         {#each items('rooms') as room (room.code)}
           <a class="room-card" href="/sala/{room.code}">
             <span class="live"><span class="pulse"></span> {room.playing ? t('En directo') : t('En pausa')}</span>

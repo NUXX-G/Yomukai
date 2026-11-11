@@ -195,7 +195,7 @@ class DirectMessages(
             Triple(Message(id, me.name, true, body, card, now), !hadUnread, theirs.second)
         }
         typing.remove(me.id to peer.id)
-        notifications.emit(peer.id, "dm", mapOf("peer" to me.name, "message" to message.copy(mine = false)))
+        notifications.emit(peer.id, "dm", mapOf("peer" to me.name, "message" to message.copy(mine = false), "muted" to peerMuted))
         notifications.emit(me.id, "dm", mapOf("peer" to peer.name, "message" to message))
         if (firstUnread && !peerMuted) {
             val what = body.ifBlank { card?.summary().orEmpty() }.let { if (it.length > 80) it.take(79) + "…" else it }

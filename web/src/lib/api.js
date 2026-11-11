@@ -176,6 +176,23 @@ export const api = {
   roomMine: () => request('GET', '/api/rooms/mine'),
   roomCreate: (name) => request('POST', '/api/rooms', { name }),
   room: (code) => request('GET', `/api/rooms/${encodeURIComponent(code)}`),
+  // Common rooms (F4.1): open to everyone, with a queue.
+  roomsOpen: () => request('GET', '/api/rooms/open'),
+  roomCreateOpen: (name, lasting = false) => request('POST', '/api/rooms', { name, open: true, lasting }),
+  roomSetOpen: (code, open) => request('POST', `/api/rooms/${encodeURIComponent(code)}/open`, { open }),
+  roomChat: (code, text, card) => request('POST', `/api/rooms/${encodeURIComponent(code)}/chat`, { text, card }),
+  roomDelete: (code) => request('DELETE', `/api/rooms/${encodeURIComponent(code)}`),
+  // Direct messages (F4.2).
+  dms: () => request('GET', '/api/dm'),
+  dmUnread: () => request('GET', '/api/dm/unread'),
+  dmHistory: (name, before) => request('GET', `/api/dm/${encodeURIComponent(name)}?${qs({ before })}`),
+  dmSend: (name, text, card) => request('POST', `/api/dm/${encodeURIComponent(name)}`, card ? { text, card } : { text }),
+  dmRead: (name, upTo) => request('POST', `/api/dm/${encodeURIComponent(name)}/read`, { upTo }),
+  dmTyping: (name) => request('POST', `/api/dm/${encodeURIComponent(name)}/typing`, {}),
+  dmMute: (name, on) => request('POST', `/api/dm/${encodeURIComponent(name)}/mute`, { on }),
+  dmBlock: (name, on) => request('POST', `/api/dm/${encodeURIComponent(name)}/block`, { on }),
+  dmDelete: (id) => request('DELETE', `/api/dm/messages/${id}`),
+  dmSearch: (q, withName) => request('GET', `/api/dm/search?${qs({ q, with: withName })}`),
   profile: () => request('GET', '/api/profile'),
   saveProfile: (body) => request('PUT', '/api/profile', body),
   uploadProfileImage: async (kind, file) => {

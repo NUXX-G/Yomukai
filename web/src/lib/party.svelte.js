@@ -21,13 +21,15 @@ export function correction(local, expected, speed = 1) {
 }
 
 /**
- * A live room. `party.state` and friends are reactive. Callbacks: onState(state, by), onChat(msg), onReact(emoji, from),
- * onNotice(text).
+ * A live room. `party.state` and friends are reactive. Callbacks: onState(state, by, advance), onChat(msg),
+ * onReact(emoji, from), onNotice(text), onSkip(chapterId). `advance`: the room itself moved on (queue, votes): everyone
+ * goes, the host too. onSkip: votes skipped with nothing queued, so whoever drives goes to the next episode.
  */
 export function createParty(code, callbacks = {}) {
   const party = $state({
     code, connected: false, room: null, you: null, host: null, everyoneControls: false,
-    members: [], state: null, waiting: [], messages: [], reactions: [], unread: 0, closed: '', offset: 0
+    members: [], state: null, waiting: [], messages: [], reactions: [], unread: 0, closed: '', offset: 0,
+    queue: [], skip: { votes: [], needed: 1 }
   });
   let ws = null;
   let retry = 0;
@@ -68,6 +70,7 @@ export function createParty(code, callbacks = {}) {
         clockFrom(m.now, 0);
         party.room = m.room; party.you = m.you; party.state = m.state; party.waiting = m.waiting || [];
         party.messages = m.history || []; party.reactions = m.reactions || [];
+        party.queue = m.queue || []; party.skip = m.skip || { votes: [], needed: 1 };
         members(m);
         if (m.state) callbacks.onState?.(m.state, null);
         break;
@@ -75,8 +78,11 @@ export function createParty(code, callbacks = {}) {
       case 'members': members(m); break;
       case 'state':
         party.state = m.state; party.waiting = m.waiting || [];
-        callbacks.onState?.(m.state, m.by);
+        callbacks.onState?.(m.state, m.by, !!m.advance);
         break;
+      case 'queue': party.queue = m.items || []; party.skip = m.skip || party.skip; break;
+      case 'room': party.room = m.room; break;
+      case 'skip': callbacks.onSkip?.(m.chapterId); break;
       case 'chat':
         party.messages = [...party.messages.slice(-199), m.msg];
         party.unread++;
@@ -100,7 +106,14 @@ export function createParty(code, callbacks = {}) {
     sendState(state) { send({ t: 'state', state }); },
     loading() { send({ t: 'loading' }); },
     ready() { send({ t: 'ready' }); },
-    chat(text, spoiler = false) { send({ t: 'chat', text, spoiler }); },
+    chat(text, spoiler = false, card = null) { send(card ? { t: 'chat', text, spoiler, card } : { t: 'chat', text, spoiler }); },
+    queueAdd(item) { send({ t: 'queue_add', item }); },
+    queueRemove(id) { send({ t: 'queue_remove', id }); },
+    queueMove(id, to) { send({ t: 'queue_move', id, to }); },
+    queuePlay(id) { send({ t: 'queue_play', id }); },
+    skip() { send({ t: 'skip' }); },
+    ended(chapterId) { send({ t: 'ended', chapterId }); },
+    get votedSkip() { return party.you != null && party.skip.votes.includes(party.you); },
     react(emoji) { send({ t: 'react', emoji }); },
     giveHost(userId) { send({ t: 'host', userId }); },
     allowAll(all) { send({ t: 'allow', all }); },

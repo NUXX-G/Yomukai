@@ -9,6 +9,8 @@
   import Icon from '../components/Icon.svelte';
   import Sheet from '../components/Sheet.svelte';
   import RoomChat from '../components/RoomChat.svelte';
+  import ShareSheet from '../components/ShareSheet.svelte';
+  import { session, sourceById } from '../lib/store.svelte.js';
   import { startPresence } from '../lib/presence.js';
   import { createParty, expectedPosition, correction, copyRoomLink } from '../lib/party.svelte.js';
   import { notify, features } from '../lib/store.svelte.js';
@@ -40,6 +42,12 @@
   }
   $effect(() => { const url = subtitlesUrl; return () => { if (url) URL.revokeObjectURL(url); }; });
   let client = $state(null);
+  // Compartir (F4.3): this episode, with the spoiler shield on by default.
+  let shareOpen = $state(false);
+  const shareCard = $derived(item && episode ? {
+    kind: 'episode', sourceId, mediaId, chapterId: episode.id, title: item.title, cover: item.cover || '', type: 'ANIME',
+    lang: sourceById(sourceId)?.language || '', number: Number.isFinite(episode.number) && episode.number >= 0 ? episode.number : null, label: episode.label || ''
+  } : null);
   let chatOpen = $state(false);
   let floats = $state([]);
   let floatId = 0;
@@ -53,7 +61,9 @@
     client?.close();
     client = createParty(code, {
       // by === null: the server itself paused or resumed the room (someone loading); the host obeys that too.
-      onState: (state, by) => followState(state, by === null),
+      onState: (state, by, advance) => (advance ? followAdvance(state) : followState(state, by === null)),
+      // Votes skipped with nothing queued: whoever drives goes on to the next episode of this anime.
+      onSkip: (chapterId) => { if (client?.canControl && chapterId === episode?.id && nextPick) goNext(); },
       onReact: (emoji) => floatReaction(emoji),
       onNotice: (text) => notify(text)
     });
@@ -79,6 +89,21 @@
     if (!state.playing && !video.paused) video.pause();
     if (fix?.seek != null) video.currentTime = fix.seek;
     video.playbackRate = fix?.rate ?? (state.speed || 1);
+  }
+
+  /** The room moved on by itself (its queue, a vote): everyone goes there, the host too, without sending it back. */
+  function followAdvance(state) {
+    if (!state?.chapterId || (state.sourceId === sourceId && state.mediaId === mediaId && state.chapterId === episode?.id)) return followState(state, true);
+    cancelCountdown();
+    flush();
+    navigate(withRoom(reader('anime', state.sourceId, state.mediaId, state.chapterId)), { replace: true });
+  }
+
+  /** Puts an episode in the room's queue (F4.1). */
+  function queue(c) {
+    if (!client || !item) return;
+    client.queueAdd({ sourceId, mediaId, chapterId: c.id, title: item.title, episode: c.label || '', cover: item.cover || '' });
+    notify(t('Añadido a la cola: {0}', [c.label || item.title]));
   }
 
   /** The host (or anyone, when allowed) tells the room what plays. */
@@ -251,6 +276,8 @@
   function onEnded() {
     // In a room only whoever drives moves on; the rest follow.
     if (client && !client.canControl) return;
+    // Something queued in the room: the server moves everyone on (F4.1).
+    if (client && client.party.queue.length) { client.ended(episode.id); return; }
     if (next && settings.player.autoNext) startCountdown();
     else ui = true;
   }
@@ -516,6 +543,9 @@
             <button class="btn text light" onclick={watchTogether} title={t('Abre tu sala y copia el enlace')}>{t('Ver con amigos')}</button>
           {/if}
         {/if}
+        {#if features.flags.sharing !== false && session.user && !session.user.guest && item && episode}
+          <button class="btn text light" onclick={() => { shareOpen = true; video?.pause(); }}>{t('Compartir')}</button>
+        {/if}
         {#if features.available?.whisper}
           <button class="btn text light" aria-pressed={!!subtitlesUrl} disabled={subtitlesBusy} onclick={subtitles}>{subtitlesUrl ? t('Quitar subtítulos') : t('Subtítulos')}</button>
         {/if}
@@ -554,10 +584,13 @@
 
 <Sheet bind:open={episodesOpen} title={t('Episodios')}>
   {#each [...chapters].reverse() as c (c.id)}
-    <button class="list-item srv" class:current={c.id === episode?.id} onclick={() => { episodesOpen = false; if (c.id !== episode?.id) go(c); }}>
-      <span class="grow" class:seen={watchedIds[c.id]}>{c.label}{#if c.name} <span class="small muted">{c.name}</span>{/if}{#if isFiller(c)} <span class="filler">{t('Relleno')}</span>{/if}</span>
-      {#if watchedIds[c.id]}<Icon name="check" size={18} />{/if}
-    </button>
+    <div class="ep-row">
+      <button class="list-item srv" class:current={c.id === episode?.id} onclick={() => { episodesOpen = false; if (c.id !== episode?.id) go(c); }}>
+        <span class="grow" class:seen={watchedIds[c.id]}>{c.label}{#if c.name} <span class="small muted">{c.name}</span>{/if}{#if isFiller(c)} <span class="filler">{t('Relleno')}</span>{/if}</span>
+        {#if watchedIds[c.id]}<Icon name="check" size={18} />{/if}
+      </button>
+      {#if client && features.flags.open_rooms !== false}<button class="btn text queue-add" onclick={() => queue(c)} aria-label={t('Añadir {0} a la cola de la sala', [c.label])}>{t('+ Cola')}</button>{/if}
+    </div>
   {/each}
 </Sheet>
 
@@ -579,6 +612,8 @@
     {/if}
   {/each}
 </Sheet>
+
+{#if shareCard}<ShareSheet bind:open={shareOpen} card={shareCard} />{/if}
 
 <style>
   .player { position: fixed; inset: 0; background: #000; z-index: 50; }
@@ -651,4 +686,7 @@
   @keyframes in { from { opacity: 0; } }
   @keyframes slide-down { from { transform: translateY(-30%); opacity: 0; } }
   @keyframes slide-up { from { transform: translateY(30%); opacity: 0; } }
+  .ep-row { display: flex; align-items: center; gap: 4px; }
+  .ep-row .list-item { flex: 1; min-width: 0; }
+  .queue-add { flex: none; font-size: 0.8rem; }
 </style>

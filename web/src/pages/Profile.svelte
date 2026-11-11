@@ -4,7 +4,7 @@
   // achievements and the part of their library they share. Your own profile has «Editar perfil».
   import { api } from '../lib/api.js';
   import { route, media } from '../lib/router.svelte.js';
-  import { session, notify, categories } from '../lib/store.svelte.js';
+  import { session, notify, categories, features } from '../lib/store.svelte.js';
   import { genreName } from '../lib/ui.js';
   import MediaCard from '../components/MediaCard.svelte';
   import Sheet from '../components/Sheet.svelte';
@@ -85,7 +85,8 @@
           <div class="small muted">{t('En Yomukai desde {0}', [since(p.since)])}{#if p.admin}&nbsp;{t('· admin')}{/if}</div>
           {#if data.now}<div class="now"><span class="dot"></span> {data.now.kind === 'watching' ? 'Viendo' : 'Leyendo'} {data.now.title}{#if data.now.label} · {data.now.label}{/if}</div>{/if}
         </div>
-        {#if mine}<button class="btn tonal" onclick={edit}><Icon name="text" size={18} /> {t('Editar perfil')}</button>{/if}
+        {#if mine}<button class="btn tonal" onclick={edit}><Icon name="text" size={18} /> {t('Editar perfil')}</button>
+        {:else if features.flags.dms !== false && !session.user?.guest}<a class="btn tonal" href="/mensajes/{encodeURIComponent(p.name)}"><Icon name="chat" size={18} /> {t('Mensaje')}</a>{/if}
       </header>
       {#if p.bio}<p class="bio">{p.bio}</p>{/if}
 

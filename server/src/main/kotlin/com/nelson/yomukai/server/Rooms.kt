@@ -355,25 +355,37 @@ class Rooms(
     }
 
     private suspend fun chat(room: LiveRoom, me: Member, msg: JsonObject) {
-        val text = ChatGuard.clean(msg.get("text")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty())
-        val card = msg.get("card")?.let(::cardFrom)?.takeIf { sharingOn() }
-        if (text.isBlank() && card == null) return
-        val muted = db.tx { queryOne("SELECT muted_until FROM users WHERE id = ?", me.user.id) { getLong(1) } } ?: 0
-        if (muted > clock()) return send(me, mapOf("t" to "notice", "text" to "Estás silenciado por un administrador"))
-        if (!guard.allowMessage(me.user.id, clock())) return send(me, mapOf("t" to "notice", "text" to "Más despacio: espera unos segundos"))
-        val spoiler = msg.get("spoiler")?.asBoolean == true
+        val text = msg.get("text")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+        val card = msg.get("card")?.let(::cardFrom)
+        runCatching { say(room.row.code, me.user, text, msg.get("spoiler")?.asBoolean == true, card) }
+            .onFailure { e -> if (e is IllegalArgumentException) send(me, mapOf("t" to "notice", "text" to (e.message ?: "No se pudo enviar"))) else throw e }
+    }
+
+    /**
+     * A message in a room's chat, from its socket or from the share sheet (F4.3: no need to be inside). Stored, then
+     * heard live by whoever is in the room. Refusals (silenced, too fast, empty) are IllegalArgumentException.
+     */
+    suspend fun say(code: String, user: User, rawText: String, spoiler: Boolean, rawCard: ShareCard?): ChatMessage {
+        val row = live[code]?.row ?: get(code) ?: throw NoSuchElementException("Esa sala no existe")
+        val text = ChatGuard.clean(rawText)
+        val card = rawCard?.takeIf { sharingOn() }
+        require(text.isNotBlank() || card != null) { "El mensaje está vacío" }
+        val muted = db.tx { queryOne("SELECT muted_until FROM users WHERE id = ?", user.id) { getLong(1) } } ?: 0
+        require(muted <= clock()) { "Estás silenciado por un administrador" }
+        require(guard.allowMessage(user.id, clock())) { "Más despacio: espera unos segundos" }
         val now = clock()
         val id = db.tx {
             update(
                 "INSERT INTO room_messages(room_code, user_id, user_name, kind, text, spoiler, created_at, card) VALUES(?,?,?,?,?,?,?,?)",
-                room.row.code, me.user.id, me.user.name, "msg", text, spoiler, now, card?.let(gson::toJson)
+                row.code, user.id, user.name, "msg", text, spoiler, now, card?.let(gson::toJson)
             )
             lastId()
         }
-        events.record(me.user.id, "room_message", emptyMap())
-        if (card != null) events.record(me.user.id, "shared", mapOf("to" to "room", "kind" to card.kind, "spoiler" to card.spoiler))
-        val mentions = ChatGuard.mentions(text)
-        broadcast(room, mapOf("t" to "chat", "msg" to ChatMessage(id, me.user.name, text, spoiler, now, mentions, card)))
+        events.record(user.id, "room_message", emptyMap())
+        if (card != null) events.record(user.id, "shared", mapOf("to" to "room", "kind" to card.kind, "spoiler" to card.spoiler))
+        val message = ChatMessage(id, user.name, text, spoiler, now, ChatGuard.mentions(text), card)
+        live[code]?.let { broadcast(it, mapOf("t" to "chat", "msg" to message)) }
+        return message
     }
 
     private suspend fun react(room: LiveRoom, me: Member, emoji: String) {
@@ -624,6 +636,15 @@ fun Route.roomRoutes(s: Services, addressOf: (ApplicationCall) -> String) {
         require(!open || s.features.isOn("open_rooms")) { "Las salas comunes están desactivadas" }
         val lasting = body.get("lasting")?.takeIf { it.isJsonPrimitive }?.asBoolean == true
         call.respond(s.rooms.create(call.user, persistent = false, name = body.text("name", 60), open = open || lasting, lasting = lasting))
+    }
+    // Share sheet: something into a room's chat without being inside (F4.3).
+    post("/rooms/{code}/chat") {
+        if (!call.roomsOn()) return@post
+        require(!call.user.isGuest) { "Los invitados no comparten en salas" }
+        val code = RoomCodes.normalize(call.parameters["code"].orEmpty()) ?: throw NoSuchElementException("Código no válido")
+        val body = call.jsonBody(8_192)
+        val card = body.get("card")?.let { cardFrom(it) ?: throw IllegalArgumentException("Esa obra no se puede compartir") }
+        call.respond(s.rooms.say(code, call.user, body.text("text", 1_000), false, card))
     }
     post("/rooms/{code}/open") {
         if (!call.roomsOn()) return@post
