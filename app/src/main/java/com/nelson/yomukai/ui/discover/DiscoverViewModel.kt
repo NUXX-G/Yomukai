@@ -42,6 +42,7 @@ data class DiscoverUiState(
 )
 
 private const val RECENT_HISTORY = 24
+private const val MAX_PRESENT = 200
 
 /** A row of the home page from AniList ("Anime en tendencia"...). */
 @Immutable
@@ -67,18 +68,55 @@ class DiscoverViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             val anime = runCatching { container.aniListDiscover.rows(DiscoverKind.ANIME) }.getOrDefault(emptyMap())
             val manga = runCatching { container.aniListDiscover.rows(DiscoverKind.MANGA) }.getOrDefault(emptyMap())
-            _shelves.value = listOf(
+            val shelves = listOf(
                 DiscoverShelf("anime_trending", tr("Anime en tendencia"), anime["trending"].orEmpty()),
                 DiscoverShelf("anime_season", tr("En emisión esta temporada"), anime["season"].orEmpty()),
                 DiscoverShelf("manga_trending", tr("Manga y manhwa en tendencia"), manga["trending"].orEmpty()),
                 DiscoverShelf("manga_releasing", tr("Publicándose ahora"), manga["releasing"].orEmpty())
-            ).filter { it.items.isNotEmpty() }
+            )
+            // Pedido 3 / O1, like the web: with a server, only what is in the sources, each with its work.
+            val present = presentWorks(shelves.flatMap { s -> s.items.map { it.anilistId } })
+            workKeys = present.orEmpty()
+            _shelves.value = shelves.map { s -> if (present == null) s else s.copy(items = s.items.filter { it.anilistId in present }) }
+                .filter { it.items.isNotEmpty() }
             shelvesLoading = false
         }
     }
 
-    /** An AniList card is looked for in the user's sources, like any related title. */
-    fun openEntry(e: DiscoverEntry) = open(RelatedTitle(e.title, e.names, e.cover, e.type, e.genres, format = e.format, anilistId = e.anilistId))
+    /** AniList id → work key of the server's index; null without a server (then the rows stay as AniList gives them). */
+    @Volatile private var workKeys: Map<Int, String> = emptyMap()
+
+    private suspend fun presentWorks(ids: List<Int>): Map<Int, String>? {
+        if (container.serverSync.serverUrl == null || ids.isEmpty()) return null
+        val body = com.google.gson.JsonObject().apply {
+            add("ids", com.google.gson.JsonArray().apply { ids.distinct().take(MAX_PRESENT).forEach { add(it) } })
+        }
+        val answer = runCatching { container.serverSync.api("POST", "/api/obras/presentes", body) }.getOrNull()
+            ?.takeIf { it.isJsonObject }?.asJsonObject?.get("present")?.takeIf { it.isJsonObject }?.asJsonObject ?: return null
+        return answer.entrySet().mapNotNull { (id, key) -> id.toIntOrNull()?.let { it to key.asString } }.toMap()
+    }
+
+    /** An AniList card opens its work at once when the server knows it; otherwise it is looked for, like any related title. */
+    fun openEntry(e: DiscoverEntry) {
+        val key = workKeys[e.anilistId]
+        if (key == null) {
+            open(RelatedTitle(e.title, e.names, e.cover, e.type, e.genres, format = e.format, anilistId = e.anilistId))
+            return
+        }
+        locateJob?.cancel()
+        _locate.value = LocateState(e.title, searching = true)
+        locateJob = viewModelScope.launch(Dispatchers.IO) {
+            val item = runCatching { com.nelson.yomukai.ui.details.placeOfWork(container, key, e.type) }.getOrNull()
+            if (item != null) {
+                container.libraryRepository.cacheMedia(item)
+                _locate.value = LocateState(e.title, searching = true, openNow = item)
+            } else {
+                com.nelson.yomukai.ui.details.locateAndOpen(
+                    container, RelatedTitle(e.title, e.names, e.cover, e.type, e.genres, format = e.format, anilistId = e.anilistId), _locate
+                )
+            }
+        }
+    }
 
     /** Changing what to pick rolls again at once: the shown pick always fits the chips. */
     fun setKind(kind: RandomKind) {

@@ -296,7 +296,11 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
     }
 
     /** The work in the index and its languages (with a server): chips to switch edition, F1.5. */
-    data class WorkLanguages(val key: String, val lang: String, val langs: List<String>)
+    data class WorkLanguages(
+        val key: String, val lang: String, val langs: List<String>,
+        /** O2: an anime's versions as language + audio (ORIGINAL = Japanese with subtitles), and this page's audio. */
+        val versions: List<Pair<String, String>> = emptyList(), val audio: String = "ORIGINAL"
+    )
 
     private val _languages = MutableStateFlow<WorkLanguages?>(null)
     val languages: StateFlow<WorkLanguages?> = _languages
@@ -311,14 +315,21 @@ class DetailsViewModel(handle: SavedStateHandle, private val container: AppConta
             val key = o.get("key")?.takeIf { it.isJsonPrimitive }?.asString ?: return@launch
             val langs = o.getAsJsonArray("langs")?.mapNotNull { it.takeIf { e -> e.isJsonPrimitive }?.asString }.orEmpty()
             val lang = o.get("lang")?.takeIf { it.isJsonPrimitive }?.asString ?: source?.language?.lowercase().orEmpty()
-            if (langs.size > 1) _languages.value = WorkLanguages(key, lang, langs)
+            val versions = o.getAsJsonArray("versions")?.mapNotNull { v ->
+                val obj = v.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
+                val l = obj.get("lang")?.asString ?: return@mapNotNull null
+                l to (obj.get("audio")?.asString ?: "ORIGINAL")
+            }.orEmpty()
+            val audio = o.get("audio")?.takeIf { it.isJsonPrimitive }?.asString ?: "ORIGINAL"
+            if (langs.size > 1 || versions.size > 1) _languages.value = WorkLanguages(key, lang, langs, versions, audio)
         }
     }
 
     /** The page of this work to open in [lang] (the one you already follow there first), as the server's index says. */
-    suspend fun pageIn(lang: String): MediaItem? = withContext(Dispatchers.IO) {
+    suspend fun pageIn(lang: String, audio: String? = null): MediaItem? = withContext(Dispatchers.IO) {
         val key = _languages.value?.key ?: return@withContext null
-        val o = runCatching { container.serverSync.api("GET", "/api/obras/ficha/${enc(key)}?lang=${enc(lang)}&light=1") }
+        val audioQuery = audio?.let { "&audio=" + enc(it) }.orEmpty()
+        val o = runCatching { container.serverSync.api("GET", "/api/obras/ficha/${enc(key)}?lang=${enc(lang)}&light=1$audioQuery") }
             .onFailure { if (it is CancellationException) throw it }.getOrNull()?.takeIf { it.isJsonObject }?.asJsonObject ?: return@withContext null
         val first = o.getAsJsonArray("sources")?.firstOrNull { it.isJsonObject && container.sourceManager.get(it.asJsonObject.get("sourceId")?.asString.orEmpty()) != null }
             ?.asJsonObject ?: return@withContext null

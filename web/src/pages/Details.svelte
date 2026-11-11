@@ -79,12 +79,13 @@
   let obraLangs = $state([]);
   // O2: the versions of an anime (Japanese with subtitles in each language, and each dub), to switch in one tap.
   let obraVersions = $state([]);
+  let obraAudio = $state(route.query.get('audio') || '');
   if (askedKey) api.obraFicha(askedKey, askedLang, true).then((r) => { obraLangs = r.langs || []; obraVersions = r.versions || []; }, () => {});
   // Opened from the library, a search or "Continuar" (no ?obra=): the index says which work this page is (F1.5).
-  else api.obraDe(sourceId, mediaId).then((r) => { obraKey = r.key; obraLang = r.lang || obraLang; obraLangs = r.langs || []; obraVersions = r.versions || []; }, () => {});
+  else api.obraDe(sourceId, mediaId).then((r) => { obraKey = r.key; obraLang = r.lang || obraLang; obraLangs = r.langs || []; obraVersions = r.versions || []; obraAudio = r.audio || obraAudio; }, () => {});
   const SUB_NAMES = { es: 'Subtítulos en español', en: 'Subtítulos en inglés' };
   const versionName = (v) => v.audio === 'ORIGINAL' ? (SUB_NAMES[v.lang] || 'Subtítulos' + ' · ' + (LANG_NAMES[v.lang] || v.lang.toUpperCase())) : (AUDIO[v.audio]?.label || v.audio);
-  const isCurrentVersion = (v) => v.lang === obraLang && v.audio === (item?.audio || 'ORIGINAL');
+  const isCurrentVersion = (v) => v.lang === obraLang && v.audio === (obraAudio || item?.audio || 'ORIGINAL');
   const versionHref = (v) => '/obras/' + encodeURIComponent(obraKey) + '?lang=' + v.lang + '&audio=' + v.audio;
   const LANG_NAMES = { es: 'Español', en: 'English', zh: '中文', ja: '日本語', ko: '한국어', fr: 'Français', de: 'Deutsch', it: 'Italiano', pt: 'Português', ru: 'Русский' };
   /** Episode number -> 'FILLER' | 'MIXED' (AnimeFillerList); only for anime. */

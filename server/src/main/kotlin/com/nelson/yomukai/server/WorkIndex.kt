@@ -546,6 +546,11 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         queryOne("SELECT lang FROM index_items WHERE source_id = ? AND media_id = ?", sourceId, mediaId) { getString(1) }
     }
 
+    /** What this page of an anime is heard in (AudioTrack name; ORIGINAL when the site does not say a dub). */
+    suspend fun audioOfPage(sourceId: String, mediaId: String): String = s.db.tx {
+        queryOne("SELECT audio FROM index_items WHERE source_id = ? AND media_id = ?", sourceId, mediaId) { getString(1) }
+    } ?: "ORIGINAL"
+
     /**
      * Works confirmed before their kind came from AniList keep the site's guess (a Korean work listed by a manga
      * site as manga): 50 at a time, in one request, they get AniList's kind. False when none was left or AniList rests.
@@ -699,7 +704,7 @@ private fun Route.workOfPageRoute(s: Services) {
         call.respond(
             mapOf(
                 "key" to key, "lang" to s.workIndex.langOfPage(sourceId, mediaId), "langs" to s.workIndex.langsOf(key),
-                "versions" to s.workIndex.versionsOf(key)
+                "versions" to s.workIndex.versionsOf(key), "audio" to s.workIndex.audioOfPage(sourceId, mediaId)
             )
         )
     }

@@ -1815,5 +1815,12 @@
  "Pasar página solo": "Turn pages by themselves",
  "Va más despacio donde hay texto (según tu velocidad de lectura) y más rápido en viñetas sin texto y huecos.": "Slower where there is text (at your reading speed), faster over panels without text and gaps.",
  "palabras por minuto": "words per minute",
- "Sin servidor de casa ni traductor del navegador, lo seleccionado se traduce con MyMemory (con tope)": "Without the home server or a browser translator, what you select is translated with MyMemory (capped)"
+ "Sin servidor de casa ni traductor del navegador, lo seleccionado se traduce con MyMemory (con tope)": "Without the home server or a browser translator, what you select is translated with MyMemory (capped)",
+ "Subtítulos en español": "Spanish subtitles",
+ "Subtítulos en inglés": "English subtitles",
+ "Ahora mismo no se puede ver con esta versión.": "This version cannot be watched right now.",
+ "Caída": "Down",
+ "Su fuente no funciona ahora: {0}": "Its source is not working right now: {0}",
+ "Versión": "Version",
+ "Ahora mismo no se puede ver con este doblaje (su fuente no responde). Prueba más tarde o ábrela subtitulada.": "This dub cannot be watched right now (its source is not answering). Try later or open it subtitled."
 }
