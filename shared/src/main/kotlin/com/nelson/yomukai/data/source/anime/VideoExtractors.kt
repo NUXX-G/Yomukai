@@ -78,6 +78,7 @@ class VideoExtractors(private val network: HttpFetcher) {
                 yourupload(network.getString(url.replace("/watch/", "/embed/"), cloudflareFallback = false))
                     ?.let { it to mapOf("Referer" to "https://www.yourupload.com/") }
             VOE_HOST in url -> voe(url)
+            EmbedProbe.isDood(url) -> dood(url)
             "blogger.com/video.g" in url ->
                 blogger(network.getString(url, cloudflareFallback = false))?.let { it to emptyMap<String, String>() }
             else -> null
@@ -88,6 +89,20 @@ class VideoExtractors(private val network: HttpFetcher) {
             headers = stream.second,
             quality = source.quality + if ("m3u8" in stream.first) " • HLS" else " • MP4"
         )
+    }
+
+    /**
+     * DoodStream: its page (after the redirect to the current domain) gives a `/pass_md5/…` path; that answers the
+     * stream's base, which plays with ten random letters, the token and the time appended (its own `makePlay()`).
+     */
+    private suspend fun dood(url: String): Pair<String, Map<String, String>>? {
+        // Its many domains come and go (dsvplay.com answers empty); dood.li always sends to the current one.
+        val embed = url.replace("/d/", "/e/").replaceFirst(Regex("//[^/]+"), "//dood.li")
+        val (html, finalUrl) = network.getStringWithUrl(embed, mapOf("Referer" to embed))
+        val (path, token) = EmbedProbe.doodPass(html) ?: return null
+        val origin = finalUrl.substringBefore("://") + "://" + finalUrl.substringAfter("://").substringBefore('/')
+        val base = network.getString(origin + path, mapOf("Referer" to finalUrl), cloudflareFallback = false)
+        return EmbedProbe.doodStream(base, token)?.let { it to mapOf("Referer" to "$origin/") }
     }
 
     /** Voe first sends the visitor to a rotating mirror; the real page holds the stream. */

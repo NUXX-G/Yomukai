@@ -36,6 +36,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -439,10 +440,24 @@ class Catalog(
         return texts.get(k)?.let { Result.success(it) } ?: shared("text|$k") { source.fetchChapterText(chapterUrl).map(::withoutBrokenSurrogates).onSuccess { texts.put(k, it) } }
     }
 
+    /**
+     * F3: direct streams are tried (first byte, all at once) before being offered; those that refuse are left out,
+     * unless none answers (then all stay: better a server that may play than none). Embeds and our own routes stay.
+     */
+    private suspend fun workingFirst(servers: List<com.nelson.yomukai.domain.model.VideoSource>) = kotlinx.coroutines.coroutineScope {
+        val checks = servers.map { v ->
+            async { v to (!v.isDirect || v.videoUrl.startsWith("/api/") || !v.videoUrl.startsWith("http") || proxy.answers(v.videoUrl, v.headers)) }
+        }.awaitAll()
+        val working = checks.filter { it.second }.map { it.first }
+        if (working.any { it.isDirect }) working else servers
+    }
+
     suspend fun videos(sourceId: String, episodeUrl: String): Result<List<VideoDto>> {
         val source = require(sourceId) as? AnimeSource ?: return Result.failure(IllegalArgumentException("No es una fuente de anime"))
         val k = key(sourceId, episodeUrl)
-        val list = videos.get(k)?.let { Result.success(it) } ?: shared("videos|$k") { source.fetchVideoSources(episodeUrl).onSuccess { videos.put(k, it) } }
+        val list = videos.get(k)?.let { Result.success(it) } ?: shared("videos|$k") {
+            source.fetchVideoSources(episodeUrl).map { workingFirst(it) }.onSuccess { videos.put(k, it) }
+        }
         return list.map { servers ->
             servers.map { v ->
                 val hls = v.isDirect && (v.videoUrl.contains("m3u8") || v.quality.contains("HLS", ignoreCase = true))

@@ -55,6 +55,26 @@ object EmbedProbe {
         return "https:" + m.groupValues[1] + tail
     }
 
+    /** DoodStream and its many domains (they all redirect to the current one). */
+    fun isDood(url: String): Boolean {
+        val host = url.substringAfter("://").substringBefore('/').lowercase().removePrefix("www.")
+        return DOOD_HOSTS.any { host == it } || host.startsWith("dood") || host.startsWith("d0000d") || host.startsWith("d000d")
+    }
+
+    /** Dood's player page: the `/pass_md5/…` path and the token its `makePlay()` appends. Null when not there. */
+    fun doodPass(html: String): Pair<String, String>? {
+        val path = DOOD_PASS.find(html)?.value ?: return null
+        val token = DOOD_TOKEN.find(html)?.groupValues?.get(1) ?: path.substringAfterLast('/')
+        return path to token
+    }
+
+    /** The stream Dood's page builds: its base, ten random letters, the token and the time (as `makePlay()` does). */
+    fun doodStream(base: String, token: String, now: Long = System.currentTimeMillis()): String? {
+        val clean = base.trim().takeIf { it.startsWith("https://") && it.length < MAX_WORD * 4 } ?: return null
+        val letters = (1..DOOD_RANDOM).map { DOOD_ALPHABET.random() }.joinToString("")
+        return "$clean$letters?token=$token&expiry=$now"
+    }
+
     /** Hosts whose player only answers on a mirror (Streamwish's main domains load an obfuscated redirect page). */
     fun mirrorFor(url: String): String {
         val host = url.substringAfter("://").substringBefore('/').lowercase().removePrefix("www.")
@@ -89,7 +109,7 @@ object EmbedProbe {
         "vidmoly.me", "lulustream.com", "luluvdo.com", "streamhide.to", "playerwish.com", "hqq.tv", "netu.tv",
         "mega.nz", "sendvid.com", "burstcloud.co", "upstream.to", "listeamed.net", "vidguard.to", "bembed.net",
         "savefiles.com", "streamsb.net", "embedsito.com", "fembed.com", "player.zilla-networks.com", "hgcloud.to", "luluvdo.com",
-        "mixdrop.top", "dsvplay.com", "hglink.to", "dhcplay.com",
+        "mixdrop.top", "dsvplay.com", "hglink.to", "dhcplay.com", "playmogo.com", "dood.li", "do7go.com", "swdyu.com",
     )
 
     private const val MAX_SCAN = 200_000
@@ -102,6 +122,11 @@ object EmbedProbe {
     private val STREAMWISH_FAMILY = setOf(
         "hgcloud.to", "streamwish.to", "streamwish.com", "strwish.com", "dhcplay.com", "hglink.to", "playerwish.com", "hlswish.com",
     )
+    private val DOOD_HOSTS = setOf("dsvplay.com", "playmogo.com", "do7go.com", "ds2play.com", "ds2video.com", "dooood.com", "vidply.com")
+    private val DOOD_PASS = Regex("""/pass_md5/[A-Za-z0-9_\-/]{10,200}""")
+    private val DOOD_TOKEN = Regex("""[?&]token=([A-Za-z0-9]{6,64})""")
+    private const val DOOD_RANDOM = 10
+    private const val DOOD_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
     private val DOWNLOAD_ONLY = setOf("1fichier.com", "mediafire.com", "uptobox.com", "zippyshare.com")
     private val PLAYER_PAGE = Regex("""//[^/\s"']+/(?:e|embed|v|d)/[^/\s"'?]+(?:/[^/\s"'?]*)?\.(?:mp4|m3u8)""")
     private val STREAMTAPE = Regex("""robotlink'\)\.innerHTML\s*=\s*'([^']{1,200})'\s*\+\s*\('([^']{1,400})'\)((?:\.substring\(\d+\)){1,3})""")

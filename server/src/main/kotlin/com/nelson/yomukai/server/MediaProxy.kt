@@ -286,6 +286,21 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
             }
         }?.also { imageCache.put(url, it.first, it.second) }
 
+    /**
+     * F3: whether a direct stream really answers (its first byte, with the headers it needs), before it is offered.
+     * Some CDN nodes refuse links their own page just gave (LuluStream: 403 now and then): those are not offered.
+     */
+    suspend fun answers(url: String, headers: Map<String, String>): Boolean = withTimeoutOrNull(STREAM_CHECK_MS) {
+        withContext(Dispatchers.IO) {
+            val request = Request.Builder().url(url)
+                .header("User-Agent", headers["User-Agent"] ?: http.userAgentFor(url.toHttpUrlOrNull()?.host.orEmpty()))
+                .apply { headers.filterKeys { it != "User-Agent" }.forEach { (k, v) -> header(k, v) } }
+                .header(HttpHeaders.Range, "bytes=0-0")
+                .build()
+            runCatching { http.streamClient.newCall(request).execute().use { it.isSuccessful } }.getOrDefault(false)
+        }
+    } ?: false
+
     /** Counts a download as one of the user's open videos; false when a guest already has too many. */
     fun openStream(user: User): Boolean {
         val open = openStreams.getOrPut(user.id) { AtomicInteger() }
@@ -316,7 +331,10 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
         val response = withContext(Dispatchers.IO) { http.streamClient.newCall(request).execute() }
         response.use {
             val type = response.header("Content-Type").orEmpty()
-            if (!response.isSuccessful) return call.respond(HttpStatusCode.fromValue(response.code))
+            if (!response.isSuccessful) {
+                log.info("Vídeo {} respondió {} (cabeceras: {})", url.toHttpUrlOrNull()?.host, response.code, headers.keys)
+                return call.respond(HttpStatusCode.fromValue(response.code))
+            }
             val playlist = "mpegurl" in type.lowercase() || url.substringBefore('?').endsWith(".m3u8") ||
                 (type.startsWith("text/") && response.peekBody(8).string().startsWith("#EXTM3U"))
             if (playlist) {
@@ -425,6 +443,7 @@ class MediaProxy(private val http: ServerHttp, secret: ByteArray, cacheDir: File
         private const val SHRINK_MAX_QUEUED = 64
         private const val DOWNLOAD_PARALLEL = 24
         private const val DOWNLOAD_DEADLINE_MS = 45_000L
+        private const val STREAM_CHECK_MS = 6_000L
         private const val IMAGE_WAIT_MS = 10_000L
         private const val WARM_MAX_QUEUED = 240
         private const val RECENT_WIDTH_MS = 30 * 60_000L

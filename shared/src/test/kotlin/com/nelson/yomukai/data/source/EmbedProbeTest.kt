@@ -40,6 +40,19 @@ class EmbedProbeTest {
         assertEquals("https://voe.sx/e/abc", EmbedProbe.mirrorFor("https://voe.sx/e/abc"))
     }
 
+    @Test fun `dood gives its pass path, token and stream like its page`() {
+        // As served by playmogo.com (Dood) on 2026-11-11.
+        val html = "\$.get('/pass_md5/283447961-188-26-1794432152-836ff9011ead2286f6eb446753c5e13b/y195pgz5x78kos4lw15ex3yo', function(data) {" +
+            "function makePlay() { return a + \"?token=y195pgz5x78kos4lw15ex3yo&expiry=\" + Date.now(); }"
+        val (path, token) = EmbedProbe.doodPass(html)!!
+        assertEquals("/pass_md5/283447961-188-26-1794432152-836ff9011ead2286f6eb446753c5e13b/y195pgz5x78kos4lw15ex3yo", path)
+        assertEquals("y195pgz5x78kos4lw15ex3yo", token)
+        val stream = EmbedProbe.doodStream("https://we1047lp.cloudatacdn.com/u5kj/12nojyvapq~", token, now = 1L)!!
+        assertTrue(stream.matches(Regex("""https://we1047lp\.cloudatacdn\.com/u5kj/12nojyvapq~[A-Za-z0-9]{10}\?token=y195pgz5x78kos4lw15ex3yo&expiry=1""")))
+        assertTrue(EmbedProbe.isDood("https://dsvplay.com/e/fubd0g4i52pi"))
+        assertNull(EmbedProbe.doodStream("http://evil/", token))
+    }
+
     @Test fun `a crafted packed script cannot blow up`() {
         val huge = "x".repeat(10_000)
         val words = (0 until 100).joinToString("|") { huge }
