@@ -71,7 +71,7 @@ class HardWorkCasesTest {
         val manhwa = item("olympus", "Solo Leveling", MediaType.MANHWA, author = "Chugong")
         assertSame(
             "manhwa and its manga edition are one work (same author)", manhwa,
-            item("mangadex", "Solo Leveling", MediaType.MANGA, author = "Chugong, DUBU", alt = listOf("Na Honjaman Level Up")))
+            item("mangadex", "Solo Leveling", MediaType.MANGA, author = "Chugong, DUBU", alt = listOf("Na Honjaman Level Up"))
         )
     }
 
