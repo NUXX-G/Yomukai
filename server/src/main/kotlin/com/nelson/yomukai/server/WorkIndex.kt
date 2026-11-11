@@ -574,6 +574,18 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         query("SELECT DISTINCT lang FROM index_items WHERE work_key = ?", key) { getString(1) }
     }
 
+    /**
+     * O2: the versions of a work in sources that work, as language + audio (AudioTrack name; ORIGINAL = Japanese with
+     * subtitles in that language). Subtitled first, then the dubs.
+     */
+    suspend fun versionsOf(key: String): List<Map<String, String>> = s.db.tx {
+        query(
+            "SELECT DISTINCT lang, COALESCE(audio, 'ORIGINAL') FROM index_items WHERE work_key = ? AND source_id NOT IN (${downSql()})",
+            key
+        ) { getString(1) to getString(2) }
+    }.sortedWith(compareBy({ it.second != "ORIGINAL" }, { it.first }, { it.second }))
+        .map { (lang, audio) -> mapOf("lang" to lang, "audio" to audio) }
+
     companion object {
         const val PAGE_SIZE = 40
         const val LATEST_EVERY_MS = 2 * 3_600_000L
@@ -684,7 +696,12 @@ private fun Route.workOfPageRoute(s: Services) {
         val mediaId = call.request.queryParameters["id"]?.take(MAX_MEDIA_ID).orEmpty()
         val key = s.workIndex.keyOfPage(sourceId, mediaId)
             ?: return@get call.respond(io.ktor.http.HttpStatusCode.NotFound, mapOf("error" to "Esa obra aún no está en el índice"))
-        call.respond(mapOf("key" to key, "lang" to s.workIndex.langOfPage(sourceId, mediaId), "langs" to s.workIndex.langsOf(key)))
+        call.respond(
+            mapOf(
+                "key" to key, "lang" to s.workIndex.langOfPage(sourceId, mediaId), "langs" to s.workIndex.langsOf(key),
+                "versions" to s.workIndex.versionsOf(key)
+            )
+        )
     }
 }
 
@@ -739,6 +756,7 @@ private fun Route.workFichaRoute(s: Services) {
         call.respond(
             mapOf(
                 "work" to s.works.dto(work, s.works.sourcesOf(key)) { s.proxy.cover(it, emptyMap()) }, "lang" to lang, "langs" to langs,
+                "versions" to s.workIndex.versionsOf(key),
                 "sources" to places.map { (sid, mid) -> mapOf("sourceId" to sid, "mediaId" to mid, "name" to (s.sources.get(sid)?.name ?: sid)) },
                 "chapters" to chapters
             )
@@ -759,7 +777,7 @@ internal fun orderWorkPlaces(
     down: Set<String>,
 ): List<Pair<String, String>> = all.sortedWith(
     compareBy<Pair<String, String>> { it.first in down }
-        .thenBy { wanted != null && audios[it] != wanted }
+        .thenBy { wanted != null && (audios[it] ?: "ORIGINAL") != wanted }
         .thenBy { it !in mine }
         .thenBy { wanted == null && (audios[it] ?: "ORIGINAL") != "ORIGINAL" }
 )
