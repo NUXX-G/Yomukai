@@ -129,7 +129,10 @@ class Works(
         } else null
         val now = clock()
         val row = WorkRow(
-            key, entry?.id?.takeIf { it > 0 }, entry?.malId, item.type.name, entry?.names?.firstOrNull() ?: item.title,
+            // The kind from AniList's metadata (country of origin, format) when it agrees on the family (F1.7).
+            key, entry?.id?.takeIf { it > 0 }, entry?.malId,
+            (entry?.mediaType?.takeIf { com.nelson.yomukai.data.discovery.TitleMatcher.sameFamily(it, item.type) } ?: item.type).name,
+            entry?.names?.firstOrNull() ?: item.title,
             ((entry?.names ?: emptyList()) + item.altTitles + item.title).distinct().take(30),
             entry?.cover?.ifBlank { null } ?: item.coverUrl, backdrop ?: entry?.banner.orEmpty(), entry?.description?.ifBlank { null } ?: item.description,
             (entry?.genres ?: emptyList()).ifEmpty { item.genres }, entry?.score, entry?.status.orEmpty(),
@@ -148,6 +151,7 @@ class Works(
             """INSERT INTO works(key, anilist_id, mal_id, type, title, alt_titles, cover, banner, synopsis, genres, score, status, episodes, chapters,
                next_episode, next_airing_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                ON CONFLICT(key) DO UPDATE SET anilist_id = COALESCE(excluded.anilist_id, anilist_id), mal_id = COALESCE(excluded.mal_id, mal_id),
+               type = CASE WHEN excluded.anilist_id IS NOT NULL THEN excluded.type ELSE type END,
                title = excluded.title, alt_titles = excluded.alt_titles, cover = excluded.cover, banner = CASE WHEN excluded.banner <> '' THEN excluded.banner ELSE banner END,
                synopsis = excluded.synopsis, genres = excluded.genres, score = COALESCE(excluded.score, score), status = excluded.status,
                episodes = COALESCE(excluded.episodes, episodes), chapters = COALESCE(excluded.chapters, chapters), next_episode = excluded.next_episode,

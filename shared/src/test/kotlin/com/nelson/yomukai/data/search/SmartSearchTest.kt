@@ -65,4 +65,11 @@ class SmartSearchTest {
         val v = SmartSearch.queryVariants("Narutú Shippuden")
         assertTrue("narutu shippuden" in v && "shippuden" in v && "shippud" in v)
     }
+
+    @Test
+    fun twoSwappedLettersAreOneTypo() {
+        assertEquals(1, SmartSearch.levenshtein("freiren", "frieren"))
+        assertTrue(SmartSearch.scoreTitle("freiren", "Sousou no Frieren") >= 0.5)
+        assertTrue(SmartSearch.scoreTitle("xqzv", "Sousou no Frieren") < 0.5)
+    }
 }

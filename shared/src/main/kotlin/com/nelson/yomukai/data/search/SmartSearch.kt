@@ -30,9 +30,14 @@ object SmartSearch {
 
     fun tokens(text: String): List<String> = normalize(text).split(' ').filter { it.isNotEmpty() }
 
+    /**
+     * Edits between [a] and [b]; two neighbouring letters swapped count as one («freiren» → «frieren»), the most
+     * common slip when typing. Stops early (returns limit + 1) once it is over [limit].
+     */
     fun levenshtein(a: String, b: String, limit: Int = Int.MAX_VALUE): Int {
         if (a == b) return 0
         if (kotlin.math.abs(a.length - b.length) > limit) return limit + 1
+        var before = IntArray(b.length + 1)
         var prev = IntArray(b.length + 1) { it }
         var curr = IntArray(b.length + 1)
         for (i in 1..a.length) {
@@ -41,13 +46,18 @@ object SmartSearch {
             for (j in 1..b.length) {
                 val cost = if (a[i - 1] == b[j - 1]) 0 else 1
                 curr[j] = minOf(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost)
+                if (swapped(a, b, i, j)) curr[j] = minOf(curr[j], before[j - 2] + 1)
                 rowMin = minOf(rowMin, curr[j])
             }
             if (rowMin > limit) return limit + 1
-            val t = prev; prev = curr; curr = t
+            val t = before; before = prev; prev = curr; curr = t
         }
         return prev[b.length]
     }
+
+    /** The two letters before position [i] of [a] are those before [j] of [b], the other way round. */
+    private fun swapped(a: String, b: String, i: Int, j: Int): Boolean =
+        i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]
 
     /** Dice coefficient over character trigrams, 0..1. */
     fun trigramSimilarity(a: String, b: String): Double {
@@ -121,8 +131,6 @@ object SmartSearch {
         val alt = item.altTitles.maxOfOrNull { scoreTitle(query, it) * 0.95 } ?: 0.0
         return maxOf(main, alt)
     }
-
-    /** Key shared by the same title in different sources: normalised, without "(2026)" style suffixes. */
 
     /**
      * The name two copies of one title share: notes in brackets dropped («(Sub)», «(2026)» that some sites add to a

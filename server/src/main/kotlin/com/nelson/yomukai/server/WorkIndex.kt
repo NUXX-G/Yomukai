@@ -2,6 +2,8 @@ package com.nelson.yomukai.server
 
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.nelson.yomukai.data.discovery.TitleMatcher
+import com.nelson.yomukai.data.search.SmartSearch
 import com.nelson.yomukai.data.source.CatalogueSource
 import com.nelson.yomukai.data.work.WorkKey
 import com.nelson.yomukai.domain.model.MediaItem
@@ -137,13 +139,16 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
             return true
         }
         val newKey = WorkKey.of(type, entry.names.firstOrNull() ?: names.first(), entry.id)
+        // The kind comes from AniList's metadata, the site only guessed it: a Korean work a manga site lists is a
+        // manhwa (F1.7). Never across families: a novel lookup stays a novel, an anime an anime.
+        val kind = entry.mediaType?.takeIf { TitleMatcher.sameFamily(it, type) } ?: type
         s.db.tx {
             update(
                 """INSERT INTO works(key, anilist_id, mal_id, type, title, alt_titles, cover, banner, synopsis, genres, score, status, episodes, chapters, updated_at, anilist_checked_at)
                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                   ON CONFLICT(key) DO UPDATE SET cover = CASE WHEN excluded.cover <> '' THEN excluded.cover ELSE cover END,
+                   ON CONFLICT(key) DO UPDATE SET type = excluded.type, kind_checked = 1, cover = CASE WHEN excluded.cover <> '' THEN excluded.cover ELSE cover END,
                      banner = CASE WHEN excluded.banner <> '' THEN excluded.banner ELSE banner END, anilist_checked_at = excluded.anilist_checked_at""",
-                newKey, entry.id, entry.malId, type.name, (entry.names.firstOrNull() ?: names.first()).take(MAX_TITLE), gson.toJson(entry.names.take(MAX_NAMES)),
+                newKey, entry.id, entry.malId, kind.name, (entry.names.firstOrNull() ?: names.first()).take(MAX_TITLE), gson.toJson(entry.names.take(MAX_NAMES)),
                 entry.cover, entry.banner, entry.description.take(MAX_SYNOPSIS), gson.toJson(entry.genres), entry.score, entry.status, entry.episodes, entry.chapters,
                 clock(), clock()
             )
@@ -209,6 +214,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
             }.awaitAll()
         }
         groupPending()
+        retypeSome()
         var confirmed = 0
         while (confirmed < CONFIRMS_PER_TICK && !s.aniList.resting && confirmNext()) {
             confirmed++
@@ -335,7 +341,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
                  (SELECT i3.source_id || char(31) || i3.cover FROM index_items i3 WHERE i3.work_key = w.key AND i3.cover <> '' ORDER BY (i3.source_id IN (${unhealthySql()})) ASC, i3.updated_at DESC LIMIT 1) AS item_cover,
                  (SELECT GROUP_CONCAT(DISTINCT i4.lang) FROM index_items i4 WHERE i4.work_key = w.key) AS langs
                FROM works w JOIN index_items i ON i.work_key = w.key AND i.lang = ?
-               WHERE 1 = 1 ${if (typeFilter != null) "AND i.type IN ($typeFilter)" else ""} ${if (hideAdult) "AND $notAdult" else ""}
+               WHERE 1 = 1 ${if (typeFilter != null) "AND w.type IN ($typeFilter)" else ""} ${if (hideAdult) "AND $notAdult" else ""}
                GROUP BY w.key ORDER BY $order LIMIT ? OFFSET ?""",
             lang, lang, PAGE_SIZE, (page - 1).coerceAtLeast(0) * PAGE_SIZE
         ) { card() }
@@ -354,12 +360,23 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
     suspend fun search(query: String, lang: String, types: Set<String>?, hideAdult: Boolean = true): List<Card> {
         val terms = query.lowercase().split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotBlank() }.take(MAX_TERMS)
         if (terms.isEmpty()) return emptyList()
-        val match = terms.joinToString(" ") { "\"" + it.replace("\"", "") + "\"*" }
-        val keys = s.db.tx {
-            query("SELECT work_key, lang FROM works_fts WHERE works_fts MATCH ? ORDER BY (lang = ?) DESC, rank LIMIT ?", match, lang, SEARCH_CANDIDATES) {
-                getString(1)
+        // Every word, as the start of a word of some name; with few answers, also any name with a word that starts
+        // like one of them (a typo later in the word: «freiren» still finds «Frieren»). The score decides afterwards.
+        val strict = terms.joinToString(" ") { "\"" + it.replace("\"", "") + "\"*" }
+        val names = LinkedHashMap<String, String>()
+        suspend fun candidates(match: String, limit: Int) = s.db.tx {
+            query("SELECT work_key, names FROM works_fts WHERE works_fts MATCH ? ORDER BY (lang = ?) DESC, rank LIMIT ?", match, lang, limit) {
+                getString(1) to getString(2)
             }
-        }.distinct()
+        }.forEach { (k, n) -> names[k] = (names[k]?.let { "$it | " }.orEmpty() + n) }
+        candidates(strict, SEARCH_CANDIDATES)
+        if (names.size < FUZZY_BELOW) {
+            val loose = terms.filter { it.length > FUZZY_PREFIX + 1 }.joinToString(" OR ") { "\"" + it.take(FUZZY_PREFIX).replace("\"", "") + "\"*" }
+            if (loose.isNotBlank()) candidates(loose, FUZZY_CANDIDATES)
+        }
+        // How well the query names each work: its best name (any source, any language, AniList's), 1.0 = exactly.
+        val score = names.mapValues { (_, text) -> text.split(" | ").maxOfOrNull { SmartSearch.scoreTitle(query, it) } ?: 0.0 }
+        val keys = score.filterValues { it >= MIN_SEARCH_SCORE }.keys.toList()
         if (keys.isEmpty()) return emptyList()
         val cards = s.db.tx {
             query(
@@ -372,14 +389,17 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
                 lang, *keys.toTypedArray()
             ) { card() }
         }.associateBy { it.key }
-        // The kind first (before the limit, so «Anime» never comes back empty), then the title itself: «One Piece»
-        // before «One Piece Academy», then the ones that start the same, then the work in more sources.
+        // The kind first (before the limit, so «Anime» never comes back empty), then how well the name matches (exact
+        // title or alternative name first: «One Piece» before «One Piece Academy»), then the work in more sources.
         val wanted = squash(query)
-        val order = keys.withIndex().associate { (i, k) -> k to i }
         return keys.mapNotNull { cards[it] }
             .filter { c -> types.isNullOrEmpty() || c.type in types }
             .sortedWith(
-                compareBy<Card>({ c -> squash(c.title).let { t -> if (t == wanted) 0 else if (t.startsWith(wanted)) 1 else 2 } }, { -it.sources }, { order[it.key] ?: 0 })
+                compareBy<Card>(
+                    { c -> if (squash(c.title) == wanted || (score[c.key] ?: 0.0) >= 1.0) 0 else 1 },
+                    { c -> -(score[c.key] ?: 0.0) },
+                    { -it.sources }
+                )
             )
             .take(SEARCH_LIMIT)
     }
@@ -443,6 +463,29 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         queryOne("SELECT lang FROM index_items WHERE source_id = ? AND media_id = ?", sourceId, mediaId) { getString(1) }
     }
 
+    /**
+     * Works confirmed before their kind came from AniList keep the site's guess (a Korean work listed by a manga
+     * site as manga): 50 at a time, in one request, they get AniList's kind. False when none was left or AniList rests.
+     */
+    suspend fun retypeSome(): Boolean {
+        val rows = s.db.tx {
+            query(
+                """SELECT w.key, w.anilist_id, w.type FROM works w WHERE w.anilist_id IS NOT NULL AND w.kind_checked = 0
+                   AND EXISTS(SELECT 1 FROM index_items i WHERE i.work_key = w.key) LIMIT 50"""
+            ) { Triple(getString(1), getInt(2), getString(3)) }
+        }
+        if (rows.isEmpty() || s.aniList.resting) return false
+        val kinds = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { s.aniList.kinds(rows.map { it.second }) }.getOrNull() } ?: return false
+        s.db.tx {
+            rows.forEach { (key, id, typeName) ->
+                val now = runCatching { MediaType.valueOf(typeName) }.getOrDefault(MediaType.MANGA)
+                val kind = kinds[id]?.takeIf { TitleMatcher.sameFamily(it, now) } ?: now
+                update("UPDATE works SET type = ?, kind_checked = 1 WHERE key = ?", kind.name, key)
+            }
+        }
+        return true
+    }
+
     /** Languages a work is in. */
     suspend fun langsOf(key: String): List<String> = s.db.tx {
         query("SELECT DISTINCT lang FROM index_items WHERE work_key = ?", key) { getString(1) }
@@ -470,6 +513,12 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         private const val SEARCH_LIMIT = 40
         private const val SEARCH_CANDIDATES = 300
         private const val MAX_TERMS = 8
+        private const val FUZZY_BELOW = 5
+        private const val FUZZY_PREFIX = 2
+        private const val FUZZY_CANDIDATES = 2_000
+
+        /** Below this a work only shares letters with the query: left out rather than shown as nonsense. */
+        private const val MIN_SEARCH_SCORE = 0.5
         private const val MAX_ID = 2_000
         private const val MAX_TITLE = 300
         private const val MAX_URL = 1_000

@@ -69,7 +69,9 @@ data class AniListEntry(
     val volumes: Int? = null,
     /** Next episode to air and when (epoch seconds), while an anime is airing. */
     val nextEpisode: Int? = null,
-    val nextAiringAt: Long? = null
+    val nextAiringAt: Long? = null,
+    /** The kind by AniList's format and country of origin (JP manga, KR manhwa, CN/TW manhua, elsewhere comic). */
+    val mediaType: MediaType? = null
 )
 
 /**
@@ -206,6 +208,14 @@ class AniListClient(private val network: HttpFetcher) {
         return entry
     }
 
+    /** The kind of up to 50 works at once, by AniList id (one request): to fix works typed by the site's guess. */
+    suspend fun kinds(ids: List<Int>): Map<Int, MediaType> {
+        val wanted = ids.filter { it > 0 }.distinct().take(KINDS_PER_REQUEST)
+        if (wanted.isEmpty()) return emptyMap()
+        val variables = JsonObject().apply { add("ids", com.google.gson.JsonArray().also { a -> wanted.forEach { a.add(it) } }) }
+        return parseKinds(post(KINDS, variables))
+    }
+
     private suspend fun query(document: String, search: String, type: MediaType): String {
         val variables = JsonObject().apply {
             add("s", JsonPrimitive(search))
@@ -267,13 +277,27 @@ class AniListClient(private val network: HttpFetcher) {
                 .filter { it.isNotBlank() }.distinct()
         }
 
-        private fun typeOf(media: JsonObject): MediaType = when {
-            media.str("type") == "ANIME" -> MediaType.ANIME
-            media.str("format") == "NOVEL" -> MediaType.NOVEL
-            media.str("countryOfOrigin") == "KR" -> MediaType.MANHWA
-            media.str("countryOfOrigin") == "CN" -> MediaType.MANHUA
-            else -> MediaType.MANGA
+        /**
+         * The kind of a work from its metadata, not from the site that has it (F1.7): AniList's format says anime or
+         * novel; for the rest the country of origin: Japan manga, Korea manhwa, China/Taiwan manhua, any other comic.
+         */
+        fun typeOf(type: String?, format: String?, country: String?): MediaType = when {
+            type == "ANIME" -> MediaType.ANIME
+            format == "NOVEL" -> MediaType.NOVEL
+            country == "KR" -> MediaType.MANHWA
+            country == "CN" || country == "TW" || country == "HK" -> MediaType.MANHUA
+            country.isNullOrBlank() || country == "JP" -> MediaType.MANGA
+            else -> MediaType.COMIC
         }
+
+        private fun typeOf(media: JsonObject): MediaType = typeOf(media.str("type"), media.str("format"), media.str("countryOfOrigin"))
+
+        private const val KINDS_PER_REQUEST = 50
+        private val KINDS = "query(${'$'}ids:[Int]){Page(perPage:$KINDS_PER_REQUEST){media(id_in:${'$'}ids){id type format countryOfOrigin}}}"
+
+        fun parseKinds(json: String): Map<Int, MediaType> =
+            parseJson(json).asJsonObject.obj("data")?.obj("Page")?.arr("media").objects()
+                .mapNotNull { m -> m.str("id")?.toIntOrNull()?.let { it to typeOf(m) } }.toMap()
 
         private fun tagsOf(media: JsonObject): List<String> =
             media.arr("tags").objects().filter { (it.str("rank")?.toIntOrNull() ?: 0) >= MIN_TAG_RANK }.mapNotNull { it.str("name") }
@@ -367,7 +391,8 @@ class AniListClient(private val network: HttpFetcher) {
                     chapters = media.str("chapters")?.toIntOrNull(),
                     volumes = media.str("volumes")?.toIntOrNull(),
                     nextEpisode = media.obj("nextAiringEpisode")?.str("episode")?.toIntOrNull(),
-                    nextAiringAt = media.obj("nextAiringEpisode")?.str("airingAt")?.toLongOrNull()
+                    nextAiringAt = media.obj("nextAiringEpisode")?.str("airingAt")?.toLongOrNull(),
+                    mediaType = typeOf(media)
                 )
             }
     }

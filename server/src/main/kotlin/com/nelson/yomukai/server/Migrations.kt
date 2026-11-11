@@ -324,6 +324,9 @@ object Migrations {
                 changed.forEach { (s, m) -> st.setString(1, s); st.setString(2, m); st.addBatch() }
                 st.executeBatch()
             }
+        },
+        Migration(23, "Tipo de cada obra según AniList (país de origen y formato), no según la web") {
+            addColumn("works", "kind_checked", "INTEGER NOT NULL DEFAULT 0")
         }
     )
 

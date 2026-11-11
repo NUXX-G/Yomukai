@@ -41,6 +41,49 @@ class WorkIndexTest {
         assertTrue(index.list("es", setOf("NOVEL"), "az", 1).all { it.type == "NOVEL" })
     }
 
+    /** F1.7: real searches: exact and alternative names first, typos tolerated, nonsense left out, kind filtered. */
+    @Test
+    fun searchPutsTheRightWorkFirstToleratesTyposAndBringsNoNonsense() = runBlocking {
+        val a = MediaType.ANIME
+        index.record(
+            "animeflv", "es",
+            listOf(
+                item("animeflv", "f1", "Sousou no Frieren", a, alt = listOf("Frieren: Beyond Journey's End")),
+                item("animeflv", "op", "One Piece", a), item("animeflv", "opr", "One Piece Film: Red", a),
+                item("animeflv", "opm", "One Punch Man", a), item("animeflv", "ky", "Kimetsu no Yaiba", a, alt = listOf("Demon Slayer")),
+                item("animeflv", "kt", "Kimi ni Todoke", a), item("animeflv", "apo", "Kusuriya no Hitorigoto", a, alt = listOf("The Apothecary Diaries"))
+            ),
+            fresh = false
+        )
+        index.record("mangadex", "es", listOf(item("mangadex", "opm-manga", "One Piece", MediaType.MANGA)), fresh = false)
+        index.groupPending()
+        suspend fun titles(q: String, types: Set<String>? = null) = index.search(q, "es", types).map { it.title }
+        assertEquals("One Piece", titles("one piece").first())
+        assertEquals("exact title first, then the film", listOf("One Piece", "One Piece Film: Red"), titles("one piece", setOf("ANIME")).take(2))
+        assertEquals("by an alternative name", "Kimetsu no Yaiba", titles("demon slayer").first())
+        assertEquals("by the English name", "Kusuriya no Hitorigoto", titles("apothecary diaries").first())
+        assertEquals("a typo", "Sousou no Frieren", titles("freiren").firstOrNull())
+        assertEquals("a typo in a long name", "Kusuriya no Hitorigoto", titles("kusuriya no hitorigoro").firstOrNull())
+        assertTrue("kimetsu does not bring Kimi ni Todoke", "Kimi ni Todoke" !in titles("kimetsu"))
+        assertTrue("nonsense finds nothing", titles("xqzv").isEmpty())
+        assertTrue("only the kind asked", titles("one piece", setOf("MANGA")).isNotEmpty() && index.search("one piece", "es", setOf("MANGA")).all { it.type == "MANGA" })
+    }
+
+    /** F1.7: the kind comes from AniList's country of origin and format, not from the site that lists it. */
+    @Test
+    fun theKindComesFromTheMetadata() {
+        val k = com.nelson.yomukai.data.discovery.AniListClient
+        assertEquals(MediaType.MANHWA, k.typeOf("MANGA", "MANGA", "KR"))
+        assertEquals(MediaType.MANHUA, k.typeOf("MANGA", "MANGA", "CN"))
+        assertEquals(MediaType.MANHUA, k.typeOf("MANGA", "MANGA", "TW"))
+        assertEquals(MediaType.MANGA, k.typeOf("MANGA", "MANGA", "JP"))
+        assertEquals(MediaType.COMIC, k.typeOf("MANGA", "MANGA", "US"))
+        assertEquals(MediaType.NOVEL, k.typeOf("MANGA", "NOVEL", "JP"))
+        assertEquals(MediaType.ANIME, k.typeOf("ANIME", "TV", "KR"))
+        val json = """{"data":{"Page":{"media":[{"id":1,"type":"MANGA","format":"MANGA","countryOfOrigin":"KR"},{"id":2,"type":"MANGA","format":"ONE_SHOT","countryOfOrigin":"JP"}]}}}"""
+        assertEquals(mapOf(1 to MediaType.MANHWA, 2 to MediaType.MANGA), k.parseKinds(json))
+    }
+
     /** F1.5: any page of a work (opened from the library, not from the index) knows its work and its other language. */
     @Test
     fun anySourcePageFindsItsWorkAndItsOtherLanguage() = runBlocking {
