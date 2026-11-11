@@ -20,9 +20,27 @@ startI18n().finally(() => {
   try {
     mount(App, { target: document.getElementById('app') });
   } finally {
-    hideSplash();
+    waitForCovers().finally(hideSplash);
   }
 });
+
+/**
+ * V1: the loading screen is there so the covers are ready when it goes: on Home it waits for the covers on screen
+ * (at most [maxMs]); a page without covers (signing in, an empty library) lets it go at once.
+ */
+async function waitForCovers(maxMs = 4000) {
+  if (location.pathname !== '/') return;
+  const start = performance.now();
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  while (performance.now() - start < maxMs) {
+    const onScreen = [...document.querySelectorAll('#app img')]
+      .filter((img) => img.getBoundingClientRect().top < window.innerHeight)
+      .slice(0, 16);
+    if (onScreen.length && onScreen.every((img) => img.complete)) return;
+    if (!onScreen.length && performance.now() - start > 1500) return;
+    await sleep(100);
+  }
+}
 // Never more than 8 s of loading screen, whatever happens: what is ready shows and the rest fills in afterwards.
 setTimeout(hideSplash, 8000);
 
