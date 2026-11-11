@@ -21,7 +21,12 @@
       (r) => {
         const first = r.sources?.[0];
         if (first) navigate(media(first.sourceId, first.mediaId) + '?obra=' + encodeURIComponent(key) + '&lang=' + r.lang, { replace: true });
-        else { other = r.langs || []; error = t('Esta obra aún no tiene fuentes en este idioma.'); }
+        else {
+          other = r.langs || [];
+          error = audio && audio !== 'ORIGINAL'
+            ? t('Ahora mismo no se puede ver con este doblaje (su fuente no responde). Prueba más tarde o ábrela subtitulada.')
+            : t('Esta obra aún no tiene fuentes en este idioma.');
+        }
       },
       (e) => (error = e.message)
     );

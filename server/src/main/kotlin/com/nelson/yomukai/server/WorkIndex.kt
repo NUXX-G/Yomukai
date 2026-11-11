@@ -226,6 +226,14 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
     }
 
     /** Sources down now (the canary's, or failing the crawl): their covers are the last choice for a card. */
+
+    /**
+     * Sources the canary has confirmed down (not a passing failure): a work only there is left out of every list and
+     * search (O4), so nobody opens a work that cannot play. The library still shows it, with a notice.
+     */
+    private fun downSql(): String =
+        s.sources.degraded.keys.filter { id -> id.all { it.isLetterOrDigit() || it == '_' || it == '-' } }.joinToString(",") { "'$it'" }.ifEmpty { "''" }
+
     private fun unhealthySql(): String {
         val now = clock()
         val ids = s.sources.degraded.keys + failures.filterValues { it.second > now }.keys
@@ -346,7 +354,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
                  (SELECT i3.source_id || char(31) || i3.cover FROM index_items i3 WHERE i3.work_key = w.key AND i3.cover <> '' ORDER BY (i3.source_id IN (${unhealthySql()})) ASC, i3.updated_at DESC LIMIT 1) AS item_cover,
                  (SELECT GROUP_CONCAT(DISTINCT i4.lang) FROM index_items i4 WHERE i4.work_key = w.key) AS langs,
                  (SELECT GROUP_CONCAT(DISTINCT i5.audio) FROM index_items i5 WHERE i5.work_key = w.key) AS audios
-               FROM works w JOIN index_items i ON i.work_key = w.key AND i.lang = ?
+               FROM works w JOIN index_items i ON i.work_key = w.key AND i.lang = ? AND i.source_id NOT IN (${downSql()})
                WHERE 1 = 1 ${if (typeFilter != null) "AND w.type IN ($typeFilter)" else ""} ${if (hideAdult) "AND $notAdult" else ""}
                  ${if (audioFilter != null) "AND i.audio = '$audioFilter'" else ""}
                GROUP BY w.key ORDER BY $order LIMIT ? OFFSET ?""",
@@ -393,7 +401,7 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
                      (SELECT i3.source_id || char(31) || i3.cover FROM index_items i3 WHERE i3.work_key = w.key AND i3.cover <> '' ORDER BY (i3.source_id IN (${unhealthySql()})) ASC, i3.updated_at DESC LIMIT 1) AS item_cover,
                      (SELECT GROUP_CONCAT(DISTINCT i4.lang) FROM index_items i4 WHERE i4.work_key = w.key) AS langs,
                      (SELECT GROUP_CONCAT(DISTINCT i5.audio) FROM index_items i5 WHERE i5.work_key = w.key) AS audios
-                   FROM works w JOIN index_items i ON i.work_key = w.key
+                   FROM works w JOIN index_items i ON i.work_key = w.key AND i.source_id NOT IN (${downSql()})
                    WHERE w.key IN (${keys.joinToString(",") { "?" }}) ${if (hideAdult) "AND $notAdult" else ""} GROUP BY w.key""",
                 lang, *keys.toTypedArray()
             ) { card() }
@@ -650,7 +658,10 @@ private fun Route.workFichaRoute(s: Services) {
                     queryOne("SELECT audio FROM index_items WHERE source_id = ? AND media_id = ? AND audio IS NOT NULL LIMIT 1", sid, mid) { getString(1) }
                 }
             }
-            orderWorkPlaces(all, mine.toSet(), audios, audio, s.sources.degraded.keys)
+            val ordered = orderWorkPlaces(all, mine.toSet(), audios, audio, s.sources.degraded.keys)
+            // From a dub's section only that dub opens (O3): never a subtitled one in its place.
+            if (audio == null || audio == "ORIGINAL") ordered
+            else ordered.filter { audios[it] == audio && it.first !in s.sources.degraded.keys }
         }
         val only = places.map { it.first }.toSet()
         // ?light=1: only where it is (the clients open the work right away and load its chapters there).
