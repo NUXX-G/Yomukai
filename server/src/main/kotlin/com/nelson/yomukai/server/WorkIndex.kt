@@ -583,12 +583,12 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
      * O2: the versions of a work in sources that work, as language + audio (AudioTrack name; ORIGINAL = Japanese with
      * subtitles in that language). Subtitled first, then the dubs.
      */
-    suspend fun versionsOf(key: String): List<Map<String, String>> = s.db.tx {
+    suspend fun versionsOf(key: String, first: String = "es"): List<Map<String, String>> = s.db.tx {
         query(
             "SELECT DISTINCT lang, COALESCE(audio, 'ORIGINAL') FROM index_items WHERE work_key = ? AND source_id NOT IN (${downSql()})",
             key
         ) { getString(1) to getString(2) }
-    }.sortedWith(compareBy({ it.second != "ORIGINAL" }, { it.first }, { it.second }))
+    }.sortedWith(compareBy({ it.second != "ORIGINAL" }, { it.first != first }, { it.first }, { it.second }))
         .map { (lang, audio) -> mapOf("lang" to lang, "audio" to audio) }
 
     companion object {
@@ -704,7 +704,7 @@ private fun Route.workOfPageRoute(s: Services) {
         call.respond(
             mapOf(
                 "key" to key, "lang" to s.workIndex.langOfPage(sourceId, mediaId), "langs" to s.workIndex.langsOf(key),
-                "versions" to s.workIndex.versionsOf(key), "audio" to s.workIndex.audioOfPage(sourceId, mediaId)
+                "versions" to s.workIndex.versionsOf(key, call.indexLang()), "audio" to s.workIndex.audioOfPage(sourceId, mediaId)
             )
         )
     }
@@ -761,7 +761,7 @@ private fun Route.workFichaRoute(s: Services) {
         call.respond(
             mapOf(
                 "work" to s.works.dto(work, s.works.sourcesOf(key)) { s.proxy.cover(it, emptyMap()) }, "lang" to lang, "langs" to langs,
-                "versions" to s.workIndex.versionsOf(key),
+                "versions" to s.workIndex.versionsOf(key, lang),
                 "sources" to places.map { (sid, mid) -> mapOf("sourceId" to sid, "mediaId" to mid, "name" to (s.sources.get(sid)?.name ?: sid)) },
                 "chapters" to chapters
             )

@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
@@ -106,7 +107,10 @@ fun HomeScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text(tr("Yomukai"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            tr("Yomukai"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.primary, maxLines = 1, softWrap = false
+                        )
                     }
                 },
                 actions = {
@@ -118,9 +122,22 @@ fun HomeScreen(
                         if (joining) com.nelson.yomukai.ui.player.JoinRoomDialog(onDismiss = { joining = false }) { joining = false; onJoinRoom(it) }
                     }
                     NotificationsButton()
-                    IconButton(onClick = { shuffle = true }) { Icon(Icons.Default.Shuffle, contentDescription = tr("Descubrir al azar")) }
-                    IconButton(onClick = onOpenWeb) { Icon(Icons.Default.Public, contentDescription = tr("Abrir enlace en el navegador integrado")) }
                     IconButton(onClick = onSearchClick) { Icon(Icons.Default.Search, contentDescription = tr("Buscar")) }
+                    // The less used ones in a menu, so the name never breaks in two lines (seven icons did not fit).
+                    var more by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(onClick = { more = true }) { Icon(Icons.Default.MoreVert, tr("Más")) }
+                        androidx.compose.material3.DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(tr("Descubrir al azar")) }, leadingIcon = { Icon(Icons.Default.Shuffle, null) },
+                                onClick = { more = false; shuffle = true }
+                            )
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(tr("Abrir enlace en el navegador integrado")) }, leadingIcon = { Icon(Icons.Default.Public, null) },
+                                onClick = { more = false; onOpenWeb() }
+                            )
+                        }
+                    }
                 }
             )
         }
