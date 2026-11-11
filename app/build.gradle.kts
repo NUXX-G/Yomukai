@@ -55,8 +55,8 @@ android {
         applicationId = "com.nelson.yomukai"
         minSdk = 26
         targetSdk = 37
-        versionCode = 32
-        versionName = "2.6.0"
+        versionCode = 33
+        versionName = "2.7.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

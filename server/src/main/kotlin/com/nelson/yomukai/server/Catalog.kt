@@ -452,14 +452,16 @@ class Catalog(
         if (working.any { it.isDirect }) working else servers
     }
 
-    suspend fun videos(sourceId: String, episodeUrl: String): Result<List<VideoDto>> {
+    suspend fun videos(sourceId: String, episodeUrl: String, preferredAudio: String? = null): Result<List<VideoDto>> {
         val source = require(sourceId) as? AnimeSource ?: return Result.failure(IllegalArgumentException("No es una fuente de anime"))
         val k = key(sourceId, episodeUrl)
         val list = videos.get(k)?.let { Result.success(it) } ?: shared("videos|$k") {
             source.fetchVideoSources(episodeUrl).map { workingFirst(it) }.onSuccess { videos.put(k, it) }
         }
+        // The version the user chose first (a dub only when chosen), subtitled next, other dubs last (O2).
+        val wanted = preferredAudio ?: "ORIGINAL"
         return list.map { servers ->
-            servers.map { v ->
+            servers.sortedWith(compareBy({ it.audio.name != wanted }, { it.audio.name != "ORIGINAL" })).map { v ->
                 val hls = v.isDirect && (v.videoUrl.contains("m3u8") || v.quality.contains("HLS", ignoreCase = true))
                 // The server's own routes (the home Jellyfin) are links already; everything else direct goes through the proxy.
                 val url = when { v.videoUrl.startsWith("/api/") -> v.videoUrl; v.isDirect -> proxy.stream(v.videoUrl, v.headers); else -> v.videoUrl }

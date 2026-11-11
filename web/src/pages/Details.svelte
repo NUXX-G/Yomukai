@@ -80,7 +80,7 @@
   // O2: the versions of an anime (Japanese with subtitles in each language, and each dub), to switch in one tap.
   let obraVersions = $state([]);
   let obraAudio = $state(route.query.get('audio') || '');
-  if (askedKey) api.obraFicha(askedKey, askedLang, true).then((r) => { obraLangs = r.langs || []; obraVersions = r.versions || []; }, () => {});
+  if (askedKey) api.obraFicha(askedKey, askedLang, true, route.query.get('audio') || undefined).then((r) => { obraLangs = r.langs || []; obraVersions = r.versions || []; }, () => {});
   // Opened from the library, a search or "Continuar" (no ?obra=): the index says which work this page is (F1.5).
   else api.obraDe(sourceId, mediaId).then((r) => { obraKey = r.key; obraLang = r.lang || obraLang; obraLangs = r.langs || []; obraVersions = r.versions || []; obraAudio = r.audio || obraAudio; }, () => {});
   const SUB_NAMES = { es: 'Subtítulos en español', en: 'Subtítulos en inglés' };

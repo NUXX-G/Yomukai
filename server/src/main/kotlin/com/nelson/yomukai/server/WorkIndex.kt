@@ -701,6 +701,8 @@ private fun Route.workOfPageRoute(s: Services) {
         val mediaId = call.request.queryParameters["id"]?.take(MAX_MEDIA_ID).orEmpty()
         val key = s.workIndex.keyOfPage(sourceId, mediaId)
             ?: return@get call.respond(io.ktor.http.HttpStatusCode.NotFound, mapOf("error" to "Esa obra aún no está en el índice"))
+        // Opened from the library or a search: the page's own audio is the version the user is in (O2).
+        s.audioChoice.put(call.user.id, s.workIndex.audioOfPage(sourceId, mediaId))
         call.respond(
             mapOf(
                 "key" to key, "lang" to s.workIndex.langOfPage(sourceId, mediaId), "langs" to s.workIndex.langsOf(key),
@@ -744,6 +746,7 @@ private fun Route.workFichaRoute(s: Services) {
                 }
             }
             val audio = call.request.queryParameters["audio"]?.uppercase()?.takeIf { a -> com.nelson.yomukai.domain.model.AudioTrack.entries.any { it.name == a } }
+            s.audioChoice.put(call.user.id, audio ?: "ORIGINAL")
             val audios = s.db.tx {
                 all.associateWith { (sid, mid) ->
                     queryOne("SELECT audio FROM index_items WHERE source_id = ? AND media_id = ? AND audio IS NOT NULL LIMIT 1", sid, mid) { getString(1) }

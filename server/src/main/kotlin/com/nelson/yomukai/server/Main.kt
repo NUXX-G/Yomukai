@@ -218,6 +218,12 @@ class Services(val config: Config) {
         wanted = { e -> workIndex.want(e.anilistId, e.type, listOf(e.title) + e.names) }
     }
     val onlineTranslator = OnlineTranslator(http)
+
+    /**
+     * O2: the version each user opened last (AudioTrack name; ORIGINAL = subtitled), remembered when a work's page
+     * opens, so the servers of an episode come in that audio first (web and app alike, with nothing to pass).
+     */
+    val audioChoice = TtlCache<Long, String>(10_000, 12 * 3_600_000L)
     val seasonCalendar = SeasonCalendar(com.nelson.yomukai.data.discovery.AniListDiscover(http), db, discover::decorate, { proxy.cover(it, emptyMap()) })
     val ytdlp = YtDlp(
         File(System.getenv("YTDLP_PATH")?.ifBlank { null } ?: "/opt/yt-dlp"),
@@ -704,7 +710,7 @@ private fun Route.catalogRoutes(s: Services) {
     kokoroRoutes(s)
     workIndexRoutes(s)
     laLigaRoutes(s)
-    get("/videos") { call.reply(s.catalog.videos(call.q("s"), call.q("c"))) }
+    get("/videos") { call.reply(s.catalog.videos(call.q("s"), call.q("c"), s.audioChoice.get(call.user.id))) }
     get("/metadata") {
         val sourceId = call.q("s")
         val mediaId = call.q("id")
