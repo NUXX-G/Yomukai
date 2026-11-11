@@ -396,7 +396,8 @@
    * the reader asked for original quality. Width buckets are few, so pages are shared in caches.
    */
   function sized(src) {
-    if (settings.reader.quality === 'original' || !src.startsWith('/api/img?')) return src;
+    // P4: always the best quality (the original scan); only an explicit data saver asks for a smaller copy.
+    if (settings.reader.quality !== 'saver' || !src.startsWith('/api/img?')) return src;
     const dpr = Math.min(3, window.devicePixelRatio || 1);
     const css = mode === 'paged' ? innerWidth : Math.min(innerWidth, { narrow: 620, normal: 900, wide: 1240, full: innerWidth }[width] ?? 1000);
     return src + '&w=' + Math.round(css * dpr);

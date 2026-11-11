@@ -3,7 +3,7 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
-**AHORA (2026-11-12): el usuario probó la v2.7.0 («no está mal, han mejorado cositas, pero sigue algo pocho»). PEDIDO 2026-11-12 (máxima prioridad, en este orden): ver la lista «PEDIDO 2026-11-12» abajo. Trabajando en ello.**
+**AHORA (2026-11-12): pedido 2026-11-12 HECHO y publicado en v2.8.0 (P1 doblaje solo etiqueta, P2 ManhwaWeb versiones, P3 filas rellenadas desde el índice, P4 lector web en original, P5 carga con curiosidades la 1.ª vez). El usuario pidió PARAR tras esto: esperar su feedback.**
 
 ### ⚠️ PRIORIDADES DEL USUARIO 2026-11-11 (noche) — MANDAN SOBRE TODO LO DEMÁS, EN ESTE ORDEN
 Tras probar la app 5 minutos: «hay muchos más fallos». Trabajar autónomo, commits pequeños y push a menudo.
@@ -41,20 +41,20 @@ P3 — velocidad e imagen
       precargar el máximo de portadas. Revisar el proxy /api/img (tiempos, caché, concurrencia, fallback a otra portada).
 
 ### PEDIDO 2026-11-12 (tras probar la v2.7.0) — MÁXIMA PRIORIDAD
-- [ ] P1 **Doblaje: fuera como categoría.** Entró en un «castellano» y el audio era japonés con subtítulos (el audio de una
+- [x] P1 **Doblaje: fuera como categoría.** Entró en un «castellano» y el audio era japonés con subtítulos (el audio de una
       página NO es fiable: Ninja marca toda la lista «anime-castellano»). Quitar las secciones/pestañas de doblaje
       (Explorar › Anime › Doblajes) y el selector de versión por doblaje; dejar SOLO una etiqueta (CAST/LAT) en
       tarjetas/servidores cuando la web lo diga por servidor. Si algún día se puede comprobar de verdad (metadatos del
       host, huella de audio en el worker), volver a ello; hoy no. Golden Boy (castellano) sí iba.
-- [ ] P2 **Leviathan da error**: «HTTP 404 en https://api.manhwaweb.com/chapters/see/leviatan_1727741041911-9». Revisar
+- [x] P2 **Leviathan da error**: «HTTP 404 en https://api.manhwaweb.com/chapters/see/leviatan_1727741041911-9». Revisar
       ManhwaWeb (ids de capítulo / endpoint cambiado); test con JSON real.
-- [ ] P3 **Manhwa y manhua casi vacío**: «2 en populares, 2 en romance…», queda feo y poco profesional, y un manhwa de
+- [x] P3 **Manhwa y manhua casi vacío**: «2 en populares, 2 en romance…», queda feo y poco profesional, y un manhwa de
       romance que SÍ está en el buscador no sale en la portada de manhwas. Las filas de manga/manhwa deben llenarse
       desde el índice de obras (por tipo, popularidad, género), no solo AniList filtrado; si una fila tiene menos de N,
       rellenar o no enseñarla.
-- [ ] P4 **Calidad máxima siempre** en manhwas y todo lo que se lee: el lector debe pedir la página a tamaño original
+- [x] P4 **Calidad máxima siempre** en manhwas y todo lo que se lee: el lector debe pedir la página a tamaño original
       (o el mayor disponible), nunca reducida por el proxy; comprobar `w=` del lector web y app.
-- [ ] P5 **Pantalla de carga con curiosidades**: las portadas tardaron ~10 s la primera vez y luego todo «de puta
+- [x] P5 **Pantalla de carga con curiosidades**: las portadas tardaron ~10 s la primera vez y luego todo «de puta
       madre». Alargar la carga SOLO la primera vez (10-15 s) mostrando curiosidades aleatorias de anime/manga para leer
       mientras cargan las portadas; después (caché) entrar rápido.
 

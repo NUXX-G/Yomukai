@@ -23,6 +23,10 @@
       #splash{position:fixed;inset:0;z-index:999;display:grid;place-items:center;background:#0a0a0a;transition:opacity .25s;
         background-image:repeating-conic-gradient(from 0deg at 50% 46%,rgba(245,245,242,.05) 0 2deg,transparent 2deg 9deg)}
       #splash.out{opacity:0;pointer-events:none}
+      #splash{grid-template-rows:1fr auto 1fr}
+      #splash .strip{grid-row:2}
+      #splash-tip{grid-row:3;align-self:start;max-width:min(520px,86vw);margin-top:28px;color:#f5f5f2;font:500 15px/1.5 system-ui,sans-serif;text-align:center;opacity:.9}
+      #splash-tip b{display:block;color:#ff5a1f;font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
       #splash .strip{display:grid;grid-template-columns:repeat(2,44px);grid-template-rows:repeat(2,58px);gap:8px}
       #splash i{border:2.5px solid #f5f5f2;border-radius:4px;background:#181818;box-shadow:4px 4px 0 #f5f5f2;
         animation:drop .42s cubic-bezier(.2,1.5,.4,1) both}
@@ -34,7 +38,7 @@
     </style>
   </head>
   <body>
-    <div id="splash" role="progressbar" aria-label="Cargando Yomukai"><div class="strip"><i></i><i></i><i></i><i>読</i></div></div>
+    <div id="splash" role="progressbar" aria-label="Cargando Yomukai"><div class="strip"><i></i><i></i><i></i><i>読</i></div><p id="splash-tip" aria-live="polite"></p></div>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
   </body>
