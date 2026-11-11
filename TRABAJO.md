@@ -68,8 +68,7 @@ autoscroll y voces estaban marcados y no iban). Al cerrar cada bloque: qué hice
 - [ ] F6.1 Pocket TTS multilingüe con voces en español por defecto; `scripts/tts-compare.sh`; audios para que elija;
       cadena (troceo, pausas, números, abreviaturas, volumen).
 - [ ] F6.2 Autoscroll estable a todas las velocidades y lectores, capítulos largos; dos modos: normal e inteligente.
-- [ ] F6.3 Traducción: seleccionar/mantener palabra o frase en cualquier lector (novela; manga/cómic sobre OCR);
-      cadena diccionario offline → traductor del navegador → ML Kit (app) → LibreTranslate (worker). Luego bocadillos.
+- [~] F6.3 (sesión C) Causas: la pulsación larga solo iba con el «modo aprendizaje» (apagado por defecto), la hoja solo preguntaba al servidor de casa (503 sin worker) y el traductor de Chrome se quedaba colgado descargando el modelo. Ahora cadena común (web `lib/translate-chain.js`, shared `TranslationChain.kt`): diccionario sin conexión → traductor del navegador / ML Kit en la app (con tiempo máximo) → servidor (worker o, si está apagado, MyMemory para frases cortas: `OnlineTranslator.kt`, interruptor `online_translate`, tope 4500 caracteres/día) → enlace al traductor de Google. Web: seleccionar en novelas → «Traducir» (probado con Playwright en escritorio con traductor del navegador simulado y en iPhone sin nada: traduce vía MyMemory); manga/cómic: mantener pulsado o clic derecho sobre un bocadillo con OCR (sin probar de punta a punta: falta un capítulo con OCR). App: pulsación larga en novelas y en bocadillos siempre (compila y tests; SIN probar en el emulador, lo tenía B). Falta: traducción completa de bocadillos sin worker (OCR en el navegador).
 
 **Bloque 7 — aspecto (neobrutalismo moderado + guiños al manga, estructura Netflix/Seanime)**
 - [ ] 7.0 Capturas de referencias en `docs/referencias/neobrutalismo/` + `docs/referencias/ESTILO.md`.
