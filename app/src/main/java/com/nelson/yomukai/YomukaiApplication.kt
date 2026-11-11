@@ -222,13 +222,14 @@ class YomukaiApplication : Application(), SingletonImageLoader.Factory {
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =
         ImageLoader.Builder(context)
-            // The connected server's own images (its proxied covers) need the session; any other address goes bare.
+            // The connected server's proxied images (/api/img, which answers bytes or a status, never a redirect) need the
+            // session; any other address, on the server or elsewhere, goes bare, so the session can never follow a redirect.
             .components {
                 add(
                     OkHttpNetworkFetcherFactory(
                         callFactory = {
                             okhttp3.Call.Factory { request ->
-                                val cookie = container.serverSync.cookieFor(request.url)
+                                val cookie = container.serverSync.cookieFor(request.url)?.takeIf { request.url.encodedPath.startsWith("/api/img") }
                                 container.network.imageCallFactory.newCall(if (cookie != null) request.newBuilder().header("Cookie", cookie).build() else request)
                             }
                         }
