@@ -10,8 +10,8 @@ Varias sesiones de Claude Code con cuentas distintas, cada una en su copia del r
 - **Sesión A** (Desktop/Yomukai): bloque 3, después bloque 7 (aspecto, al final y en solitario) y las releases.
 - **Sesión B** (Desktop/Yomukai-2): bloque 4 — instrucciones en docs/sesiones/B.md. Migraciones 24-27, puerto 8194.
 - **Sesión C** (Desktop/Yomukai-3): bloques 5 y 6 — instrucciones en docs/sesiones/C.md. Migraciones 28-31, puerto 8195.
+- Sesión C: bloque 5 cerrado; ahora bloque 6 (F6.1 voces, F6.2 autoscroll, F6.3 traducción).
 - Sesión A: migraciones 32-35, puerto 8193. Solo A publica releases. Emulador: avisar aquí antes de usarlo.
-- **EMULADOR EN USO por la sesión C** (2026-11-11, probar el calendario de la app; Yomu_API33). Lo quito de aquí al acabar.
 - **Lint pendiente en main (2026-11-11, visto por A; CI no pasará hasta arreglarlo):** sesión B — DirectMessages.kt:277 (directMessageRoutes complejidad 21), DirectMessages.kt:166 (usar require()), Notifications.kt:124 (other sin usar), Forum.kt:126 (reply complejidad 22), Rooms.kt:611 (roomRoutes complejidad 23); sesión C — SeasonCalendarTest.kt:146 (i sin usar), app CalendarScreen.kt:89 (complejidad 23) y :303 (línea larga), app HomeScreen.kt:76 (LongMethod 154). Partid las funciones en otras más pequeñas; ejecutad bash scripts/lint-kotlin.sh antes de cada commit.
 - Las migraciones admiten huecos (cada sesión su rango). Migrations.kt quedó con finales de línea LF (antes mezclados): si al hacer rebase choca, quédate con la versión de main y vuelve a añadir solo tus Migration(n, …) en su sitio.
 
@@ -60,9 +60,9 @@ autoscroll y voces estaban marcados y no iban). Al cerrar cada bloque: qué hice
 - [ ] F4.5 Logros nuevos de DMs y compartir.
 
 **Bloque 5 — calendario**
-- [ ] F5.1 Portada en cada entrada; hover / pulsación larga: sinopsis, géneros, nota, abrir ficha.
-- [ ] F5.2 Recomendaciones y comentarios del grupo desde el calendario.
-- [ ] F5.3 Lo que valora la comunidad externa (AniList/MAL de la temporada; revisar condiciones de uso; caché).
+- [x] F5.1 (sesión C) Causa de «solo el nombre»: /api/calendar devolvía portadas sin proxy y la CSP las bloqueaba (arreglado); además solo salían ~20 animes de las filas de Inicio. Ahora `/api/calendar/airing` (todos los episodios de la semana en 1 petición a AniList, caché 3 h), tira de días + cuadrícula de pósters con hora; ratón (escritorio) o pulsación larga/clic derecho: sinopsis, géneros, nota, comentarios, «Abrir ficha». App: `ui/calendar/` (icono en Inicio), sin servidor va a AniList directo (caché + reintento ante 429). Probado: web con Playwright (escritorio e iPhone) y app en el emulador sin servidor.
+- [x] F5.2 (sesión C) `SeasonCalendar.kt`, migración 28 `season_picks`, `/api/calendar/picks` (recomendar y/o comentar, uno por persona y anime, 500 caracteres, 12 cambios/min, invitados no), interruptor `season_social`. Sección «Recomendado por el grupo» y ♥ en cada póster (web y app). Probado en web de punta a punta; en la app solo sin servidor (falta conectar el emulador a un servidor).
+- [x] F5.3 (sesión C) `/api/calendar/community`: mejor valorados (con ≥3000 personas detrás) y tendencias de la temporada en AniList, caché 6 h. API de AniList gratuita para uso no comercial, límite 90/min (30 en modo degradado): se usa 4-8 veces al día; se cita «Datos de AniList». MAL descartado (su API pide registro y Jikan no es oficial).
 
 **Bloque 6 — voces, autoscroll, traducción**
 - [ ] F6.1 Pocket TTS multilingüe con voces en español por defecto; `scripts/tts-compare.sh`; audios para que elija;
@@ -82,6 +82,7 @@ autoscroll y voces estaban marcados y no iban). Al cerrar cada bloque: qué hice
 - [ ] 7.6 Capturas antes/después en `docs/capturas/` (móvil y escritorio) y app Android con los mismos tokens.
 
 **Bitácora del pedido** (qué hice, qué publiqué, qué probar):
+- 2026-11-11 · **Bloque 5 cerrado (sesión C)**, sin release (la publica A). Migración 28. Qué probar: Calendario en la web (escritorio: pasar el ratón por un póster; móvil: mantener pulsado) → sinopsis, nota, géneros, «Abrir ficha»; «Recomendar o comentar» y verlo en «Recomendado por el grupo» con otro usuario; «Lo que más gusta esta temporada» abajo; en la app, icono de calendario en Inicio (con y sin servidor). Ajustes de admin: interruptor «Temporada en el calendario».
 - 2026-11-11 · **Bloque 2 cerrado**: precarga del siguiente capítulo y de listas (siguiente de ~1 s a ~10 ms), portadas en el worker, bloqueos de LaLiga (servidor, app y web). Release **v2.4.0** (normal: sin migraciones). Probar: lista «Qué probar» de docs/releases/v2.4.0.md.
 - 2026-11-11 · **Bloque 1 cerrado** (web, servidor y app). App probada en el emulador: Siguiente 354→355 en Bleach (AnimeAV1) y «Ir a la ficha» desde el reproductor. Sin probar en el emulador: sala desde la app y Siguiente a una fuente hermana (necesitan servidor conectado; cubierto por tests de NextEpisode). Release **v2.3.0 (pre-release)** con notas en docs/releases/v2.3.0.md (el flujo de release usa ese archivo y marca pre-release si empieza por <!-- prerelease -->). Qué tiene que probar el usuario: lista «Qué probar» de esas notas.
 
