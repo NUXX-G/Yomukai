@@ -15,7 +15,30 @@ Tras probar la app 5 minutos: «hay muchos más fallos». Trabajar autónomo, co
    por conseguirlos (es scraping legal): FlareSolverr/Cloudflare, cabeceras, dominios nuevos, APIs internas de cada
    web, JS ofuscado, servidores de vídeo, reintentos. Medir con `scripts/source-timing.mjs` y sondeos; tests con HTML real.
 3. **Velocidad para el usuario y calidad de imagen** (portadas nítidas, carga rápida).
-- Texto en sucio del usuario con los fallos vistos: PENDIENTE de que lo pegue (no llegó en el chat del 2026-11-11).
+**Fallos que vio el usuario (2026-11-11 noche, en 5 min; «hay muchos más»). Orden = prioridad:**
+P1 — obras
+- [ ] O1 Una obra = UNA tarjeta en todo Yomukai (nada de «varias de la misma»). Si una obra no se puede identificar
+      (fanfic/obra desconocida sin AniList/MangaDex), se queda fuera: prefiere catálogo profesional a cantidad de basura.
+- [ ] O2 Anime: pestaña/selector de versión dentro de la obra: JP + subs ES / JP + subs EN / latino / castellano / dub EN.
+      Por defecto: japonés con subtítulos en el idioma de la interfaz del usuario (con la app en español NO abrir la
+      versión con subs en inglés, que es lo que pasa ahora).
+- [ ] O3 Secciones de doblaje (Castellano, Latino, Inglés) muestran SOLO obras con ese audio (hoy «Castellano» enseña
+      subtitulados en español). Aunque sean pocas.
+- [ ] O4 Obra cuyas fuentes con capítulos están todas caídas: no sale en Inicio/secciones; si está en la biblioteca de
+      alguien, sale ahí con un aviso claro (le pasó con One Piece). Nada de entrar y encontrar un error.
+P2 — fuentes (scrapear mejor: hacer lo que haga falta para conseguir capítulos/vídeo)
+- [ ] F1 Una fuente da `com.google.gson.stream.MalformedJsonException ... line 1 column 12` (la web devuelve HTML /
+      Cloudflare en vez de JSON). Detectar respuesta no-JSON → reintentar por FlareSolverr / mensaje claro; nunca enseñar
+      la excepción cruda.
+- [ ] F2 Un episodio redirige a una página «Verification · Security check · Checking your browser… Verification
+      failed» (anti-bot de un servidor de vídeo). No mostrar esos servidores; resolver el vídeo real o saltar al siguiente.
+- [ ] F3 Episodios que abren servidores con «WE ARE SORRY We can't find the video» y «This video is not available due to
+      sandboxed iframe!». Comprobar el servidor antes de ofrecerlo, quitar sandbox donde sea seguro o extraer el
+      m3u8/mp4 directo; ordenar servidores por los que funcionan; probar TODAS las fuentes de anime de punta a punta.
+- [ ] F4 MangaDex sale como caída y NO lo está (https://mangadex.org/). Revisar canario/salud y la API (api.mangadex.org).
+P3 — velocidad e imagen
+- [ ] V1 Portadas: unas cargan y otras no, o tardan ~1 min; se ve horrible. La animación de entrada debe servir para
+      precargar el máximo de portadas. Revisar el proxy /api/img (tiempos, caché, concurrencia, fallback a otra portada).
 
 ### PEDIDO DEL USUARIO 2026-11-11 (tarde) — NO PERDER
 1. **Paleta**: blanco y negro tipo manga + UN solo color (brasa `#ff5a1f`). Máximo 3 colores en total. HECHO en
