@@ -20,7 +20,7 @@
 </nav>
 
 <style>
-  .section-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 4px 16px 12px; scrollbar-width: none; }
+  .section-tabs { position: relative; z-index: 3; display: flex; gap: 10px; overflow-x: auto; padding: 4px 16px 12px; scrollbar-width: none; }
   .section-tabs::-webkit-scrollbar { display: none; }
   /* Tabs as ink-bordered labels; the open one is printed in white with a hard shadow, like a stamped page tab. */
   .tab { flex: none; padding: 7px 16px; border-radius: 4px; border: 2px solid color-mix(in srgb, var(--c-ink) 35%, transparent); background: var(--c-surface); color: var(--c-text-dim); text-decoration: none; font-weight: 750; font-size: 0.92rem; white-space: nowrap; transition: border-color 90ms linear, color 90ms linear; }
