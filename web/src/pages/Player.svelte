@@ -13,6 +13,8 @@
   import { createParty, expectedPosition, correction, copyRoomLink } from '../lib/party.svelte.js';
   import { notify, features } from '../lib/store.svelte.js';
   import { recommendedQuality, qualityOf } from '../lib/nas.js';
+  import { createScrubber, fillPercent } from '../lib/scrub.js';
+  import { nextEpisode } from '../lib/next-episode.js';
 
   const sourceId = route.params.source;
   const mediaId = route.params.id;
@@ -63,6 +65,8 @@
   function followState(state, serverDriven = false) {
     if (!state || !episode || !video || (client?.isHost && !serverDriven)) return;
     if (state.sourceId !== sourceId || state.mediaId !== mediaId || state.chapterId !== episode.id) {
+      // We just moved here ourselves (Siguiente, the list): the room catches up with us, never the other way round.
+      if (client?.canControl && (client.isHost || movedHere())) { shareState(); return; }
       go({ id: state.chapterId }, state.sourceId, state.mediaId);
       return;
     }
@@ -115,6 +119,10 @@
   let loading = $state(true);
   let playing = $state(false);
   let current = $state(0);
+  /** Keeps the bar's thumb and filled part together while seeking or dragging (F1.2). */
+  const scrubber = createScrubber();
+  function onClock() { current = scrubber.clock(video.currentTime, video.seeking); }
+  function scrubTo(value) { scrubber.pick(value); current = value; video.currentTime = value; poke(); }
   let duration = $state(0);
   let ui = $state(false);
   let serversOpen = $state(false);
@@ -144,12 +152,21 @@
   let countdownTimer;
   const isFiller = (c) => c?.number != null && fillers[Math.floor(c.number)] === 'FILLER';
   const following = $derived(episode && chapters.find((c) => c.index === episode.index + 1));
+  /** The same work's episodes in the user's other sources: "Siguiente" goes on there when this source stops. */
+  let others = $state([]);
+  const plainPick = $derived(nextEpisode(episode, chapters, others));
   /** With "skip filler" on, the next episode that is not filler (the plain next one otherwise). */
-  const next = $derived.by(() => {
-    if (!following || !settings.player.skipFiller) return following;
-    return chapters.filter((c) => c.index > episode.index).sort((a, b) => a.index - b.index).find((c) => !isFiller(c)) || following;
-  });
-  const skipped = $derived(next && following && next !== following ? next.index - following.index : 0);
+  const nextPick = $derived(settings.player.skipFiller ? nextEpisode(episode, chapters, others, isFiller) : plainPick);
+  const next = $derived(nextPick?.episode);
+  const skipped = $derived(next && plainPick && next.id !== plainPick.episode.id ? Math.max(1, Math.floor(next.number) - Math.floor(plainPick.episode.number)) : 0);
+  function goNext() { if (nextPick) go(nextPick.episode, nextPick.sourceId ?? sourceId, nextPick.mediaId ?? mediaId); }
+  async function loadOthers() {
+    try {
+      const whole = await api.workWhole(sourceId, mediaId);
+      others = (whole?.chapters?.chapters || []).filter((c) => c.sourceId !== sourceId && c.mediaId)
+        .map((c) => ({ chapterId: c.chapterId, sourceId: c.sourceId, mediaId: c.mediaId, number: c.number, label: t('Ep. {0}', [c.key]), name: c.title }));
+    } catch { /* this source's own list stays */ }
+  }
   const inOpening = $derived(marks?.openingEnd > 0 && current >= (marks.openingStart ?? 0) && current < marks.openingEnd - 1);
   const inEnding = $derived(marks?.endingStart > 0 && current >= marks.endingStart && current < (marks.endingEnd || duration) - 1);
   // Skipping by itself (Settings), once per opening or ending of each episode.
@@ -218,7 +235,7 @@
 
   let lastSave = 0;
   function onTime() {
-    current = video.currentTime;
+    onClock();
     if (!item || !episode || !video.duration) return;
     if (Date.now() - lastSave > 5000) {
       lastSave = Date.now();
@@ -243,14 +260,14 @@
     countdown = 5;
     countdownTimer = setInterval(() => {
       countdown -= 1;
-      if (countdown <= 0) { cancelCountdown(); go(next); }
+      if (countdown <= 0) { cancelCountdown(); goNext(); }
     }, 1000);
   }
   function cancelCountdown() { clearInterval(countdownTimer); countdown = null; }
 
   function skipOpening() { video.currentTime = marks.openingEnd; showFlash('Opening saltado'); api.achievementEvent('skip_opening').catch(() => {}); }
   function skipEnding() {
-    if (next) { go(next); return; }
+    if (next) { goNext(); return; }
     video.currentTime = Math.max(0, (marks.endingEnd || duration) - 0.5);
   }
 
@@ -271,10 +288,26 @@
     } catch { /* unknown: nothing is marked */ }
   }
 
-  function go(target, s = sourceId, m = mediaId) { cancelCountdown(); flush(); navigate(withRoom(reader('anime', s, m, target.id)), { replace: true }); }
+  /** Remembers for a moment that this page moved by itself, so the room's old state does not send it back (F1.1). */
+  const MOVED = 'player.moved';
+  function movedHere() {
+    try {
+      const m = JSON.parse(sessionStorage.getItem(MOVED) || 'null');
+      return !!m && m.chapterId === episode?.id && Date.now() - m.at < 15_000;
+    } catch { return false; }
+  }
+  function go(target, s = sourceId, m = mediaId) {
+    cancelCountdown();
+    flush();
+    if (client?.canControl) {
+      try { sessionStorage.setItem(MOVED, JSON.stringify({ chapterId: target.id, at: Date.now() })); } catch {}
+      client.sendState({ sourceId: s, mediaId: m, chapterId: target.id, title: item?.title || '', episode: target.label || '', server: '', position: 0, playing: true, speed: settings.player.speed });
+    }
+    navigate(withRoom(reader('anime', s, m, target.id)), { replace: true });
+  }
 
   function toggle() { video.paused ? video.play() : video.pause(); }
-  function seek(delta) { video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + delta)); poke(); }
+  function seek(delta) { const to = Math.max(0, Math.min(video.duration || 0, scrubber.value + delta)); scrubber.jump(to); current = to; video.currentTime = to; poke(); }
 
   function poke() {
     ui = true;
@@ -354,7 +387,9 @@
   function setSpeed(s) { settings.player.speed = s; video.playbackRate = s; saveSettings(); shareState(); }
 
   function key(e) {
-    if (e.target.closest?.('input[type=search], input[type=text], textarea') || serversOpen || episodesOpen) return;
+    if (e.target.closest?.('input[type=search], input[type=text], textarea, input.vol') || serversOpen || episodesOpen) return;
+    // On the focused seek bar the arrows jump like everywhere else (not the bar's own 1 s step, and not twice).
+    if (e.target.matches?.('input[type=range]') && e.key.startsWith('Arrow')) e.preventDefault();
     if (e.key === ' ' || e.key === 'k') { e.preventDefault(); toggle(); }
     if (e.key === 'ArrowRight') { seek(e.shiftKey ? 85 : 10); showFlash(e.shiftKey ? t('+85 s') : t('10 s »')); }
     if (e.key === 'ArrowLeft') { seek(-10); showFlash(t('« 10 s')); }
@@ -362,7 +397,7 @@
     if (e.key === 'ArrowDown') { e.preventDefault(); setVolume(volume - 0.1); showFlash(t('Volumen {0}%', [Math.round(volume * 100)])); }
     if (e.key === 'm') toggleMute();
     if (e.key === 'f') fullscreen();
-    if (e.key === 'n' && next) go(next);
+    if (e.key === 'n' && next) goNext();
     if (e.key === 's' && inOpening) skipOpening();
     if (e.key === 'Escape' && countdown != null) { cancelCountdown(); return; }
     if (e.key === 'Escape' && !document.fullscreenElement) back(mediaHref(sourceId, mediaId));
@@ -385,6 +420,7 @@
       }
       loadMarks();
       loadFillers();
+      loadOthers();
       stopPresence = startPresence('watching', () => ({ title: item?.title, label: episode?.label, sourceId, mediaId }));
       if (roomCode) startParty(roomCode);
       if (!direct.length) {
@@ -403,7 +439,8 @@
   });
 
   function openEmbed(s) {
-    location.href = s.embed + '&back=' + encodeURIComponent(mediaHref(sourceId, mediaId));
+    const after = nextPick ? reader('anime', nextPick.sourceId ?? sourceId, nextPick.mediaId ?? mediaId, nextPick.episode.id) : '';
+    location.href = s.embed + '&back=' + encodeURIComponent(mediaHref(sourceId, mediaId)) + (after ? '&next=' + encodeURIComponent(after) : '');
   }
 
   onDestroy(() => {
@@ -427,7 +464,8 @@
     onwaiting={() => { loading = true; if (client?.party.state?.playing) client.loading(); }}
     onplaying={() => { loading = false; client?.ready(); shareState(); }}
     onpause={() => { playing = false; poke(); shareState(); }}
-    onseeked={shareState}
+    onseeking={onClock}
+    onseeked={() => { onClock(); shareState(); }}
     onloadedmetadata={onLoaded} ontimeupdate={onTime} onended={onEnded} onerror={onError}
   >{#if subtitlesUrl}<track kind="subtitles" label={t('Subtítulos')} src={subtitlesUrl} default />{/if}</video>
 
@@ -448,7 +486,7 @@
       <div class="small">{t('Siguiente episodio en {0} s', [countdown])}{#if skipped} {t('· saltando {0} de relleno', [skipped])}{/if}</div>
       <div class="upnext-title">{next.label}{#if next.name} · {next.name}{/if}</div>
       <div class="upnext-actions">
-        <button class="btn primary" onclick={() => go(next)}><Icon name="play" size={18} /> {t('Ver ahora')}</button>
+        <button class="btn primary" onclick={() => goNext()}><Icon name="play" size={18} /> {t('Ver ahora')}</button>
         <button class="btn text light" onclick={cancelCountdown}>{t('Cancelar')}</button>
       </div>
     </div>
@@ -493,12 +531,12 @@
       </div>
       <div class="bottom">
         <div class="times"><span>{time(current)}</span><span>{time(duration)}</span></div>
-        <input type="range" min="0" max={duration || 0} step="1" value={current} oninput={(e) => { video.currentTime = +e.target.value; poke(); }} style="--p:{duration ? (current / duration) * 100 : 0}%" aria-label={t('Progreso')} />
+        <input type="range" min="0" max={duration || 0} step="1" value={current} oninput={(e) => scrubTo(+e.target.value)} onchange={() => scrubber.release()} onpointerup={() => scrubber.release()} style="--p:{fillPercent(current, duration)}%" aria-label={t('Progreso')} />
         <div class="actions">
           {#if !marks?.openingEnd}<button class="btn text light" onclick={() => { seek(85); if (current < 300) api.achievementEvent('skip_opening').catch(() => {}); }} title={t('Saltar el opening (85 s)')}>{t('+85 s')}</button>{/if}
           <span class="volume">
             <button class="icon-btn" onclick={toggleMute} aria-label={muted ? 'Activar sonido' : 'Silenciar'}><Icon name={muted || volume === 0 ? 'mute' : 'volume'} /></button>
-            <input class="vol" type="range" min="0" max="1" step="0.05" value={muted ? 0 : volume} oninput={(e) => setVolume(+e.target.value)} style="--p:{(muted ? 0 : volume) * 100}%" aria-label={t('Volumen')} />
+            <input class="vol" type="range" min="0" max="1" step="0.05" value={muted ? 0 : volume} oninput={(e) => setVolume(+e.target.value)} style="--p:{fillPercent(muted ? 0 : volume, 1)}%" aria-label={t('Volumen')} />
           </span>
           <span class="grow"></span>
           {#if Object.keys(fillers).length}
@@ -506,7 +544,7 @@
               {settings.player.skipFiller ? 'Saltando relleno' : 'Saltar relleno'}
             </button>
           {/if}
-          {#if next}<button class="btn primary" onclick={() => go(next)}><Icon name="next" size={18} /> {t('Siguiente')}{#if skipped} {t('(sin relleno)')}{/if}</button>{/if}
+          {#if next}<button class="btn primary" onclick={() => goNext()}><Icon name="next" size={18} /> {t('Siguiente')}{#if skipped} {t('(sin relleno)')}{/if}</button>{/if}
         </div>
       </div>
     </div>

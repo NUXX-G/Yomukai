@@ -20,7 +20,9 @@ fun Route.embedPage(proxy: MediaProxy) {
             return@get call.respondText("Enlace no válido", status = HttpStatusCode.Forbidden)
         }
         val back = safeBack(call.request.queryParameters["back"])
-        call.respondText(embedHtml(url, back), ContentType.Text.Html)
+        // The next episode of the app (also a path of this site), so "Siguiente" works here too.
+        val next = call.request.queryParameters["next"]?.let(::safeBack)?.takeIf { it != "/" }
+        call.respondText(embedHtml(url, back, next), ContentType.Text.Html)
     }
 }
 
@@ -32,7 +34,7 @@ private const val MAX_BACK = 500
 
 private fun attr(s: String) = s.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;").replace(">", "&gt;")
 
-fun embedHtml(url: String, back: String): String = """<!doctype html>
+fun embedHtml(url: String, back: String, next: String? = null): String = """<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="referrer" content="origin"><title>Yomukai</title>
 <style>
@@ -41,8 +43,9 @@ iframe{position:fixed;inset:0;width:100%;height:100%;border:0}
 a{position:fixed;top:calc(env(safe-area-inset-top) + 10px);left:10px;z-index:1;padding:8px 14px;border-radius:999px;background:#000a;color:#fff;
 font:600 14px system-ui,sans-serif;text-decoration:none;opacity:.55}
 a:hover,a:focus{opacity:1}
+a.next{left:auto;right:10px}
 </style></head><body>
-<a href="${attr(back)}">← Volver</a>
+<a href="${attr(back)}">← Volver</a>${next?.let { """<a class="next" href="${attr(it)}">Siguiente →</a>""" }.orEmpty()}
 <iframe src="${attr(url)}" sandbox="allow-scripts allow-same-origin allow-presentation" allow="fullscreen; autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="origin"></iframe>
 </body></html>
 """

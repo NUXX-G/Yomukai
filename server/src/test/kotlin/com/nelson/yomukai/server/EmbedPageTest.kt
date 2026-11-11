@@ -24,4 +24,11 @@ class EmbedPageTest {
         listOf("//evil.example", "/\t/evil.example", "/ /evil.example", "https://evil.example", "/\\evil", "javascript:alert(1)", null)
             .forEach { assertEquals("/", safeBack(it)) }
     }
+
+    @Test
+    fun siguienteLeadsToTheNextEpisodeOfThisSiteOnly() {
+        val next = "/ver/animeflv/https%3A%2F%2Fa%2F/https%3A%2F%2Fa%2Fep-2%2F"
+        assertTrue(embedHtml("https://x.to/e/1", "/obra/a/b", next).contains("href=\"$next\">Siguiente"))
+        assertFalse("without a next episode there is no button", embedHtml("https://x.to/e/1", "/obra/a/b").contains("Siguiente"))
+    }
 }
