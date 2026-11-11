@@ -15,6 +15,9 @@ for (const [k, v] of Object.entries(tokens.space)) lines.push(`  --s-${kebab(k)}
 for (const [k, v] of Object.entries(tokens.radius)) lines.push(`  --r-${kebab(k)}: ${px(v)};`);
 for (const [k, v] of Object.entries(tokens.shadow)) lines.push(`  --shadow-${kebab(k)}: ${v};`);
 lines.push(`  --font: ${tokens.font.family};`);
+lines.push(`  --font-display: ${tokens.font.display};`);
+// Neobrutalism (docs/referencias/ESTILO.md): border width, hard shadow offsets and the halftone's strength.
+for (const [k, v] of Object.entries(tokens.brutal)) lines.push(`  --nb-${kebab(k)}: ${k === 'halftone' ? v : px(v)};`);
 for (const k of ['hero', 'title', 'section', 'body', 'small', 'tiny']) lines.push(`  --fs-${k}: ${px(tokens.font[k])};`);
 for (const [k, v] of Object.entries(tokens.motion)) lines.push(`  --motion-${kebab(k)}: ${typeof v === 'number' ? v + 'ms' : v};`);
 for (const [k, v] of Object.entries(tokens.layout)) lines.push(`  --layout-${kebab(k)}: ${k === 'posterRatio' ? v : px(v)};`);

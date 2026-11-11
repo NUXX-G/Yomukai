@@ -27,6 +27,7 @@ for (const [k, v] of Object.entries(tokens.space)) out.push(`    val space${cap(
 for (const [k, v] of Object.entries(tokens.radius)) if (k !== 'pill') out.push(`    val radius${cap(k)} = ${v}.dp`);
 for (const [k, v] of Object.entries(tokens.motion)) if (typeof v === 'number') out.push(`    const val motion${cap(k)} = ${v}`);
 out.push(`    const val POSTER_RATIO = ${tokens.layout.posterRatio}f`);
+for (const [k, v] of Object.entries(tokens.brutal)) out.push(k === 'halftone' ? `    const val BRUTAL_HALFTONE = ${v}f` : `    val brutal${cap(k)} = ${v}.dp`);
 out.push('');
 out.push('    /** Raw hex values, compared with tokens.json by DesignTokensTest. */');
 out.push('    val HEX = mapOf(');

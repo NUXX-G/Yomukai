@@ -26,7 +26,9 @@ object ThemeRules {
     /** Colour tokens a theme may set (the same names as tokens.json › color). */
     val COLOR_KEYS = listOf(
         "canvas", "surface", "surfaceRaised", "surfaceHigh", "surfaceHighest", "border", "borderStrong",
-        "text", "textDim", "textFaint", "accent", "onAccent", "accentSoft", "onAccentSoft", "info", "success", "warning", "danger"
+        "text", "textDim", "textFaint", "accent", "onAccent", "accentSoft", "onAccentSoft", "info", "success", "warning", "danger",
+        // «Tinta y viñeta» (docs/referencias/ESTILO.md): the ink line, the two other accents and one colour per kind of work.
+        "ink", "accent2", "onAccent2", "accent3", "typeAnime", "typeManga", "typeManhwa", "typeComic", "typeNovel", "onType"
     )
     val FONTS = listOf("inter", "system", "serif", "rounded", "mono")
     val RADII = listOf("sharp", "normal", "round")

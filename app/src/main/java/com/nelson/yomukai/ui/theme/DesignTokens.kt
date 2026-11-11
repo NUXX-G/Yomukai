@@ -26,6 +26,16 @@ object DesignTokens {
     val warning = Color(0xFFE8C26A)
     val danger = Color(0xFFFF6B6B)
     val scrim = Color(0xFF000000)
+    val ink = Color(0xFFEFE7D6)
+    val accent2 = Color(0xFFFFD23F)
+    val onAccent2 = Color(0xFF141210)
+    val accent3 = Color(0xFF6C8CFF)
+    val typeAnime = Color(0xFFFF6B5A)
+    val typeManga = Color(0xFFEFE7D6)
+    val typeManhwa = Color(0xFF3EC9E8)
+    val typeComic = Color(0xFFFFD23F)
+    val typeNovel = Color(0xFFB39BFF)
+    val onType = Color(0xFF141210)
 
     val fontHero = 44.sp
     val fontTitle = 28.sp
@@ -48,6 +58,10 @@ object DesignTokens {
     const val motionBase = 200
     const val motionSlow = 320
     const val POSTER_RATIO = 0.6667f
+    val brutalBorder = 2.dp
+    val brutalShadow = 4.dp
+    val brutalShadowHover = 6.dp
+    const val BRUTAL_HALFTONE = 0.07f
 
     /** Raw hex values, compared with tokens.json by DesignTokensTest. */
     val HEX = mapOf(
@@ -70,5 +84,15 @@ object DesignTokens {
         "warning" to "#e8c26a",
         "danger" to "#ff6b6b",
         "scrim" to "#000000",
+        "ink" to "#efe7d6",
+        "accent2" to "#ffd23f",
+        "onAccent2" to "#141210",
+        "accent3" to "#6c8cff",
+        "typeAnime" to "#ff6b5a",
+        "typeManga" to "#efe7d6",
+        "typeManhwa" to "#3ec9e8",
+        "typeComic" to "#ffd23f",
+        "typeNovel" to "#b39bff",
+        "onType" to "#141210",
     )
 }
