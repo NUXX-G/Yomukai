@@ -13,9 +13,11 @@
   $effect(() => {
     const key = route.params.key;
     const lang = route.query.get('lang') || i18n.lang;
+    // From a dub's section: the sources with that audio open first (F3.1).
+    const audio = route.query.get('audio') || undefined;
     error = '';
     other = [];
-    api.obraFicha(key, lang, true).then(
+    api.obraFicha(key, lang, true, audio).then(
       (r) => {
         const first = r.sources?.[0];
         if (first) navigate(media(first.sourceId, first.mediaId) + '?obra=' + encodeURIComponent(key) + '&lang=' + r.lang, { replace: true });

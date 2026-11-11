@@ -65,6 +65,20 @@ export function clock() {
 }
 
 /** Badges for a card that groups one work from several sources: "En tu NAS" when the home Jellyfin has it. */
+/** How an anime is heard (F3.1): its name in the interface and a short tag for cards. */
+export const AUDIO = {
+  ORIGINAL: { label: tk('Subtitulado'), short: 'SUB' },
+  CASTELLANO: { label: tk('Castellano'), short: 'CAST' },
+  LATINO: { label: tk('Latino'), short: 'LAT' },
+  INGLES: { label: tk('Doblaje en inglés'), short: 'DUB EN' },
+  DOBLADO: { label: tk('Doblado'), short: 'DOB' }
+};
+
+/** Card badges for the dubs a work or a page has (subtitled is the usual, so it is not marked). */
+export function audioBadges(audios) {
+  return (audios || []).filter((a) => a && a !== 'ORIGINAL' && AUDIO[a]).map((a) => ({ text: AUDIO[a].short, tone: 'dark', title: t(AUDIO[a].label) }));
+}
+
 export function groupBadges(g) {
   const all = [g.primary, ...(g.others || [])];
   const badges = [];

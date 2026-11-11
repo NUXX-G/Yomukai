@@ -9,7 +9,7 @@
   import { sourceById } from '../lib/store.svelte.js';
   import { openRelated } from '../lib/open.svelte.js';
   import { openDiscover, score10, genreName, seasonName, formatName } from '../lib/ui.js';
-  import { groupBadges } from '../lib/format.js';
+  import { groupBadges, audioBadges } from '../lib/format.js';
   import Hero from '../components/Hero.svelte';
   import Welcome from '../components/Welcome.svelte';
   import Shelf from '../components/Shelf.svelte';
@@ -227,7 +227,7 @@
         {#each items('unified') as u (u.work ? u.work.key : u.primary.sourceId + u.primary.id)}
           {#if u.work}
             <MediaCard href={'/obras/' + encodeURIComponent(u.work.key) + '?lang=' + i18n.lang} title={u.work.title} cover={u.work.cover} showType type={u.work.type}
-              badges={u.work.sources > 1 ? [{ text: t('En {0} fuentes', [u.work.sources]), tone: 'dark' }] : []} />
+              badges={[...(u.work.sources > 1 ? [{ text: t('En {0} fuentes', [u.work.sources]), tone: 'dark' }] : []), ...audioBadges(u.work.audios)]} />
           {:else}
             <MediaCard href={media(u.primary.sourceId, u.primary.id)} title={u.primary.title} cover={u.primary.cover} showType type={u.primary.type}
               badges={groupBadges(u)} />

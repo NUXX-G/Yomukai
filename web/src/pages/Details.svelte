@@ -6,7 +6,7 @@
   import { features, session, sourceById, inLibrary, toggleLibrary, notify, seenItem, READING_STATUSES, setReadingStatus, statusOf, categories, setCategories, editCategory } from '../lib/store.svelte.js';
   import { downloadChapters } from '../lib/api.js';
   import { coverSeed, themeFor, styleOf } from '../lib/cover.js';
-  import { TYPE_NAMES, TYPE_COLORS, parseStatus, statusName, score, monthYear, chapterNoun } from '../lib/format.js';
+  import { TYPE_NAMES, TYPE_COLORS, parseStatus, statusName, score, monthYear, chapterNoun, AUDIO } from '../lib/format.js';
   import { progressMap, continueTarget, markThrough, markOne } from '../lib/progress.js';
   import { openRelated } from '../lib/open.svelte.js';
   import { copyRoomLink } from '../lib/party.svelte.js';
@@ -375,6 +375,7 @@
       </div>
 
       {#if obraLangs.length > 1}
+        {#if item?.audio && item.audio !== 'ORIGINAL' && AUDIO[item.audio]}<span class="audio-chip">{t(AUDIO[item.audio].label)}</span>{/if}
         <div class="obra-langs" role="group" aria-label={t('Idioma')}>
           {#each obraLangs as l (l)}
             <a class="chip" class:on={l === obraLang} aria-current={l === obraLang ? 'true' : undefined}
@@ -847,4 +848,5 @@
     .banner { height: 480px; }
     h1 { font-size: 1.9rem; }
   }
+  .audio-chip { display: inline-block; margin: 4px 0 8px; padding: 4px 12px; border-radius: 999px; font-size: .85rem; font-weight: 600; background: color-mix(in srgb, var(--c-accent) 18%, transparent); }
 </style>

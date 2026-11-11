@@ -22,6 +22,14 @@ class AudioTrackTest {
     }
 
     @Test
+    fun aGenreCanSayItToo() {
+        val jk = MediaItem("one-piece", "One Piece", "", MediaType.ANIME, "", "", "jkanime", genres = listOf("Acción", "Español Latino"))
+        assertEquals(AudioTrack.LATINO, AudioTrack.of(jk, "ES"))
+        assertEquals(AudioTrack.ORIGINAL, AudioTrack.of(jk.copy(type = MediaType.MANGA), "ES"))
+        assertEquals("the site's word wins", AudioTrack.CASTELLANO, AudioTrack.of(jk.copy(audio = AudioTrack.CASTELLANO), "ES"))
+    }
+
+    @Test
     fun aDubIsTheSameWorkSoItsNameLosesTheAudioNote() {
         assertEquals("Dragon Ball Super", AudioTrack.strip("Dragon Ball Super Latino"))
         assertEquals("Frieren", AudioTrack.strip("Frieren (Dub)"))

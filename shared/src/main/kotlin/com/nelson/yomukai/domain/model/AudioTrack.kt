@@ -19,7 +19,8 @@ enum class AudioTrack(val label: String, val short: String) {
     companion object {
         /** An anime title's audio: what its site says, or what its name and address say. */
         fun of(item: MediaItem, sourceLanguage: String): AudioTrack =
-            if (item.type != MediaType.ANIME) ORIGINAL else item.audio ?: detect(item.title + " " + item.id, sourceLanguage)
+            // Some sites say it as a genre («Español Latino» in JKAnime).
+            if (item.type != MediaType.ANIME) ORIGINAL else item.audio ?: detect(item.title + " " + item.id + " " + item.genres.joinToString(" "), sourceLanguage)
 
         /**
          * The title without what only says how it is heard («Dragon Ball Super Latino», «Frieren (Dub)», «One Piece

@@ -1,10 +1,11 @@
 <script>
-  import { t } from '../lib/i18n.svelte.js';
+  import { t, tk, i18n } from '../lib/i18n.svelte.js';
   // Anime / Manga y manhwa / Novelas: a hero, rows by category and an explorer with filters. Everything comes from
   // AniList; cards that are already in your sources say so and open directly, the rest are looked for when opened.
   import { onMount } from 'svelte';
   import { route } from '../lib/router.svelte.js';
   import { api } from '../lib/api.js';
+  import { audioBadges } from '../lib/format.js';
   import { openDiscover, score10, genreName, GENRES, formatName, seasonName } from '../lib/ui.js';
   import Hero from '../components/Hero.svelte';
   import Shelf from '../components/Shelf.svelte';
@@ -22,6 +23,22 @@
 
   let rows = $state([]);
   let loadingRows = $state(true);
+  // Dubs (F3.1): Spain's Spanish, Latin American, English, and the subtitled original, apart from each other.
+  const DUB_TABS = [
+    { audio: 'CASTELLANO', label: tk('Castellano') }, { audio: 'LATINO', label: tk('Latino') },
+    { audio: 'INGLES', label: tk('Doblaje en inglés') }, { audio: 'ORIGINAL', label: tk('Subtitulado') }
+  ];
+  const dubLang = (audio) => (audio === 'INGLES' ? 'en' : audio === 'ORIGINAL' ? i18n.lang : 'es');
+  let dubTab = $state('CASTELLANO');
+  let dubs = $state([]);
+  let dubsLoading = $state(false);
+  async function loadDubs(audio) {
+    dubTab = audio;
+    dubsLoading = true;
+    try { dubs = (await api.obras({ lang: dubLang(audio), type: 'ANIME', audio, sort: 'updated' })).works || []; } catch { dubs = []; } finally { dubsLoading = false; }
+  }
+  if (kind === 'anime') loadDubs('CASTELLANO');
+
   let filters = $state({ genre: '', year: '', status: '', format: '', country: '', sort: 'TRENDING_DESC', minScore: '' });
   let onlyAvailable = $state(false);
   let results = $state([]);
@@ -66,6 +83,28 @@
   {:else}
     {#if loadingRows}<Shelf title={t('Cargando...')} loading></Shelf>{/if}
   {/each}
+
+  {#if kind === 'anime'}
+    <section class="dubs" aria-label={t('Doblajes')}>
+      <h2>{t('Doblajes')}</h2>
+      <div class="dub-tabs" role="tablist">
+        {#each DUB_TABS as d (d.audio)}
+          <button role="tab" class="chip" class:on={dubTab === d.audio} aria-selected={dubTab === d.audio} onclick={() => loadDubs(d.audio)}>{t(d.label)}</button>
+        {/each}
+      </div>
+      {#if dubsLoading}
+        <Shelf title="" loading></Shelf>
+      {:else if dubs.length}
+        <div class="dub-grid">
+          {#each dubs as w (w.key)}
+            <MediaCard href={'/obras/' + encodeURIComponent(w.key) + '?lang=' + dubLang(dubTab) + '&audio=' + dubTab} title={w.title} cover={w.cover} badges={audioBadges(w.audios)} />
+          {/each}
+        </div>
+      {:else}
+        <p class="muted">{t('Todavía no hay anime con este audio en tus fuentes.')}</p>
+      {/if}
+    </section>
+  {/if}
 
   <section class="explorer" aria-label={t('Explorar')}>
     <h2>{t('Explorar')}</h2>
@@ -124,4 +163,9 @@
   .results { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 22px 14px; }
   @media (min-width: 900px) { .results { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); } }
   .center-text { text-align: center; margin: 24px 0; }
+  .dubs { margin: 8px 0 28px; }
+  .dub-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 14px; }
+  .dub-tabs .chip { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--c-border); background: var(--c-surface-high); color: inherit; }
+  .dub-tabs .chip.on { background: var(--c-accent); color: var(--c-on-accent); border-color: transparent; }
+  .dub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; }
 </style>

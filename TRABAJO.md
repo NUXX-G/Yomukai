@@ -11,6 +11,7 @@ Varias sesiones de Claude Code con cuentas distintas, cada una en su copia del r
 - **Sesión B** (Desktop/Yomukai-2): bloque 4 — instrucciones en docs/sesiones/B.md. Migraciones 24-27, puerto 8194.
 - **Sesión C** (Desktop/Yomukai-3): bloques 5 y 6 — instrucciones en docs/sesiones/C.md. Migraciones 28-31, puerto 8195.
 - Sesión A: migraciones 32-35, puerto 8193. Solo A publica releases. Emulador: avisar aquí antes de usarlo.
+- **Lint pendiente en main (2026-11-11, visto por A):** sesión B — DirectMessages.kt:277 (directMessageRoutes complejidad 21: partir en funciones), DirectMessages.kt:166 (usar require()), Notifications.kt:124 (propiedad other sin usar); sesión C — SeasonCalendarTest.kt:146 (i sin usar). Ejecutad bash scripts/lint-kotlin.sh antes de cada commit: CI lo exige.
 - Las migraciones admiten huecos (cada sesión su rango). Migrations.kt quedó con finales de línea LF (antes mezclados): si al hacer rebase choca, quédate con la versión de main y vuelve a añadir solo tus Migration(n, …) en su sitio.
 
 ## PEDIDO 2026-11-10 (feedback `docs/feedback/2026-11-10.pdf`, con capturas)

@@ -5,7 +5,7 @@
   import { route, back, navigate, media as mediaHref, reader } from '../lib/router.svelte.js';
   import { settings, saveSettings } from '../lib/store.svelte.js';
   import { track, markThrough, flush, progressMap } from '../lib/progress.js';
-  import { time } from '../lib/format.js';
+  import { time, AUDIO } from '../lib/format.js';
   import Icon from '../components/Icon.svelte';
   import Sheet from '../components/Sheet.svelte';
   import RoomChat from '../components/RoomChat.svelte';
@@ -568,7 +568,7 @@
   {#each servers as s}
     {#if s.direct}
       <button class="list-item srv" class:current={order(servers)[serverIndex] === s} onclick={() => { serversOpen = false; pickedByHand = true; resumeAt = video.currentTime; play(order(servers).indexOf(s)); }}>
-        <Icon name="play" /> <span class="grow">{s.server} <span class="small muted">{s.quality}</span></span>
+        <Icon name="play" /> <span class="grow">{s.server} <span class="small muted">{s.quality}{#if s.audio && s.audio !== 'ORIGINAL' && AUDIO[s.audio]} · {t(AUDIO[s.audio].label)}{/if}</span></span>
       </button>
     {:else}
       {#if s.embed}

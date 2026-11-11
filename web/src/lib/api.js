@@ -152,9 +152,9 @@ export const api = {
   work: (s, id) => request('GET', `/api/work?${qs({ s, id })}`),
   workChapters: (key) => request('GET', `/api/works/${encodeURIComponent(key)}/chapters`),
   // The catalogue by works (the server's index): lists, instant search and where a work is in a language.
-  obras: ({ lang, type, sort = 'updated', page = 1 } = {}) => request('GET', `/api/obras?${qs({ lang, type, sort, page })}`),
+  obras: ({ lang, type, sort = 'updated', page = 1, audio } = {}) => request('GET', `/api/obras?${qs({ lang, type, sort, page, audio })}`),
   obrasBuscar: (q, lang, type) => request('GET', `/api/obras/buscar?${qs({ q, lang, type })}`),
-  obraFicha: (key, lang, light = false) => request('GET', `/api/obras/ficha/${encodeURIComponent(key)}?${qs({ lang, light: light ? 1 : undefined })}`),
+  obraFicha: (key, lang, light = false, audio) => request('GET', `/api/obras/ficha/${encodeURIComponent(key)}?${qs({ lang, light: light ? 1 : undefined, audio })}`),
   obraAniList: (id) => request('GET', `/api/obras/anilist/${id}`),
   obraEncontrar: (related, lang) => request('POST', `/api/obras/encontrar?${qs({ lang })}`, { title: related.title, names: related.names || [], type: related.type, anilistId: related.anilistId }),
   blocks: () => request('GET', '/api/bloqueos'),
