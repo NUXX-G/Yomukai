@@ -38,5 +38,6 @@ object AppViewModelProvider {
         initializer { SettingsViewModel(container()) }
         initializer { DiagnosticsViewModel(container()) }
         initializer { AnimePlayerViewModel(createSavedStateHandle(), container()) }
+        initializer { com.nelson.yomukai.ui.calendar.CalendarViewModel(container()) }
     }
 }

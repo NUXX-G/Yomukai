@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Public
@@ -82,6 +83,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     onJoinRoom: (String) -> Unit = {},
     onCommunity: () -> Unit = {},
+    onCalendar: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(factory = AppViewModelProvider.Factory),
     discoverViewModel: DiscoverViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
@@ -108,6 +110,7 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onCalendar) { Icon(androidx.compose.material.icons.Icons.Default.CalendarMonth, tr("Calendario")) }
                     if (com.nelson.yomukai.ui.LocalAppContainer.current.serverSync.serverUrl != null) {
                         IconButton(onClick = onCommunity) { Icon(androidx.compose.material.icons.Icons.Default.Forum, tr("Comunidad")) }
                         var joining by remember { mutableStateOf(false) }

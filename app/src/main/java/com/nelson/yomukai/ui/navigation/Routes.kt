@@ -18,6 +18,7 @@ object Routes {
     const val QUICK_READER = "quick_reader"
     const val ROOM = "room/{code}"
     const val COMMUNITY = "community"
+    const val CALENDAR = "calendar"
     fun room(code: String) = "room/${enc(code)}"
 
     const val ARG_SOURCE = "sourceId"

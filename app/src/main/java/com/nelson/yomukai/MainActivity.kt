@@ -290,6 +290,14 @@ fun YomukaiApp(
                     }
                 )
             }
+            composable(Routes.CALENDAR) {
+                com.nelson.yomukai.ui.calendar.CalendarScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenDetails = { s, m -> navController.navigate(Routes.details(s, m)) },
+                    onMediaClick = ::openMedia,
+                    onSearchTitle = { navController.searchFor(it) }
+                )
+            }
             composable(Routes.COMMUNITY) {
                 com.nelson.yomukai.ui.social.CommunityScreen(
                     onBack = { navController.popBackStack() },
@@ -300,6 +308,7 @@ fun YomukaiApp(
                 HomeScreen(
                     onJoinRoom = { navController.navigate(Routes.room(it)) },
                     onCommunity = { navController.navigate(Routes.COMMUNITY) },
+                    onCalendar = { navController.navigate(Routes.CALENDAR) },
                     onMediaClick = ::openMedia,
                     onContinueClick = { openReader(it.sourceId, it.mediaId, it.chapterId) },
                     onBrowseSource = { navController.navigate(Routes.browse(it)) },
