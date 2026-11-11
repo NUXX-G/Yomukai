@@ -27,12 +27,13 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
 
 enum class TypeFilter(val label: String, val types: Set<MediaType>) {
+    // Same tabs and order as the web (F3.3).
     ALL(tr("Todo"), MediaType.entries.toSet()),
+    ANIME(tr("Anime"), setOf(MediaType.ANIME)),
     MANGA(tr("Manga"), setOf(MediaType.MANGA)),
+    MANHWA(tr("Manhwa y manhua"), setOf(MediaType.MANHWA, MediaType.MANHUA)),
     COMIC(tr("Cómics"), setOf(MediaType.COMIC)),
-    MANHWA(tr("Manhwa"), setOf(MediaType.MANHWA, MediaType.MANHUA)),
-    NOVEL(tr("Novelas"), setOf(MediaType.NOVEL)),
-    ANIME(tr("Anime"), setOf(MediaType.ANIME))
+    NOVEL(tr("Novelas"), setOf(MediaType.NOVEL))
 }
 
 enum class LanguageFilter(val label: String) { ALL(tr("Todos")), ES(tr("Español")), EN(tr("Inglés")), ZH(tr("Chino")) }
@@ -129,7 +130,8 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         return listOf(
             row("latest", tr("Recién actualizado"), MediaType.entries.toSet()),
             row("anime", tr("Anime nuevo"), setOf(MediaType.ANIME)),
-            row("manga", tr("Manga, manhwa y manhua nuevos"), setOf(MediaType.MANGA, MediaType.MANHWA, MediaType.MANHUA)),
+            row("manga", tr("Manga nuevo"), setOf(MediaType.MANGA)),
+            row("manhwa", tr("Manhwa y manhua nuevos"), setOf(MediaType.MANHWA, MediaType.MANHUA)),
             row("comics", tr("Cómics nuevos"), setOf(MediaType.COMIC)),
             row("novels", tr("Novelas nuevas"), setOf(MediaType.NOVEL))
         ).filter { it.cards.isNotEmpty() }

@@ -475,7 +475,9 @@ private fun EpisodeServerDialog(
                         colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                         headlineContent = { Text(server.serverName) },
                         supportingContent = {
-                            Text(server.quality + if (server.isDirect) tr(" • Reproducir en la app") else tr(" • Abrir en el navegador"))
+                            // What it is heard in, when it is a dub (F3.1).
+                            val audio = server.audio.takeIf { it.isDub && it.label !in server.quality }?.let { " • " + it.label }.orEmpty()
+                            Text(server.quality + audio + if (server.isDirect) tr(" • Reproducir en la app") else tr(" • Abrir en el navegador"))
                         },
                         leadingContent = {
                             Icon(if (server.isDirect) Icons.Default.PlayCircle else Icons.AutoMirrored.Filled.OpenInNew, null)

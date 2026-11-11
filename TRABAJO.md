@@ -12,7 +12,7 @@ Varias sesiones de Claude Code con cuentas distintas, cada una en su copia del r
 - **Sesión C** (Desktop/Yomukai-3): bloques 5 y 6 — instrucciones en docs/sesiones/C.md. Migraciones 28-31, puerto 8195.
 - Sesión A: migraciones 32-35, puerto 8193. Solo A publica releases. Emulador: avisar aquí antes de usarlo.
 - **EMULADOR EN USO por la sesión C** (2026-11-11, probar el calendario de la app; Yomu_API33). Lo quito de aquí al acabar.
-- **Lint pendiente en main (2026-11-11, visto por A):** sesión B — DirectMessages.kt:277 (directMessageRoutes complejidad 21: partir en funciones), DirectMessages.kt:166 (usar require()), Notifications.kt:124 (propiedad other sin usar); sesión C — SeasonCalendarTest.kt:146 (i sin usar). Ejecutad bash scripts/lint-kotlin.sh antes de cada commit: CI lo exige.
+- **Lint pendiente en main (2026-11-11, visto por A; CI no pasará hasta arreglarlo):** sesión B — DirectMessages.kt:277 (directMessageRoutes complejidad 21), DirectMessages.kt:166 (usar require()), Notifications.kt:124 (other sin usar), Forum.kt:126 (reply complejidad 22), Rooms.kt:611 (roomRoutes complejidad 23); sesión C — SeasonCalendarTest.kt:146 (i sin usar), app CalendarScreen.kt:89 (complejidad 23) y :303 (línea larga), app HomeScreen.kt:76 (LongMethod 154). Partid las funciones en otras más pequeñas; ejecutad bash scripts/lint-kotlin.sh antes de cada commit.
 - Las migraciones admiten huecos (cada sesión su rango). Migrations.kt quedó con finales de línea LF (antes mezclados): si al hacer rebase choca, quédate con la versión de main y vuelve a añadir solo tus Migration(n, …) en su sitio.
 
 ## PEDIDO 2026-11-10 (feedback `docs/feedback/2026-11-10.pdf`, con capturas)
