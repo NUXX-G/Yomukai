@@ -130,15 +130,15 @@ dependencies {
     implementation(libs.androidx.profileinstaller)
     // Bubble OCR and translation on the device (ML Kit): recognition through Google Play services (no models in the
     // APK); translation models download once per language, only when the user turns translation on.
-    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
-    implementation("com.google.android.gms:play-services-mlkit-text-recognition-chinese:16.0.1")
-    implementation("com.google.android.gms:play-services-mlkit-text-recognition-japanese:16.0.1")
-    implementation("com.google.android.gms:play-services-mlkit-text-recognition-korean:16.0.1")
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.2")
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition-chinese:16.0.2")
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition-japanese:16.0.2")
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition-korean:16.0.2")
     implementation("com.google.mlkit:translate:17.0.3")
     implementation(files(sherpaAar))
     // Voice packs come as .tar.bz2 from sherpa-onnx's releases.
     implementation("org.apache.commons:commons-compress:1.28.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.11.0")
 
     // Coil (Image Loading for Manga & Light Novels)
     implementation(libs.coil.compose)
@@ -181,9 +181,9 @@ dependencies {
     androidTestImplementation(libs.androidx.room.testing)
     // room-testing reads schemas with a newer kotlinx-serialization than the app otherwise brings in;
     // without this the test APK fails with AbstractMethodError.
-    constraints { implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.9.0") }
+    constraints { implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.12.0") }
     // Room testing reads the exported schemas with this; the app itself does not use it.
-    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
