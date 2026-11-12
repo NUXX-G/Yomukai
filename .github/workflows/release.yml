@@ -16,16 +16,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       # sherpa-onnx (voces del móvil): se descarga una vez de sus releases y se guarda; si GitHub falla, se usa la copia.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: .android-libs
           key: android-libs-${{ hashFiles('app/build.gradle.kts') }}
