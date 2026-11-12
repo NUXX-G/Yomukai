@@ -20,12 +20,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: .lint-tools
           key: lint-tools-${{ hashFiles('scripts/lint-kotlin.sh') }}
@@ -38,17 +38,17 @@ jobs:
     env:
       YOMUKAI_SERVER_ONLY: "true"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - run: chmod +x gradlew
       - name: Pruebas y build
         run: ./gradlew :shared:test :server:test :worker:test :server:installDist :worker:installDist --console=plain
       - if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: informes-jvm-${{ github.sha }}
           path: "*/build/reports/tests/"
@@ -59,14 +59,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       # sherpa-onnx (voces del móvil): se descarga una vez de sus releases y se guarda; si GitHub falla, se usa la copia.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: .android-libs
           key: android-libs-${{ hashFiles('app/build.gradle.kts') }}
@@ -85,7 +85,7 @@ jobs:
       - run: chmod +x gradlew
       - name: Compilar
         run: ./gradlew assembleDebug --stacktrace --console=plain
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: yomukai-debug-${{ github.sha }}
           path: app/build/outputs/apk/debug/*.apk
@@ -104,8 +104,8 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: npm
