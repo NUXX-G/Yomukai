@@ -18,6 +18,6 @@ dependencies {
     // Newer jsoup marks its API with JSpecify nullness annotations, which Kotlin needs on the classpath to read.
     api(libs.jspecify)
     api(libs.gson)
-    api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
     testImplementation(libs.junit)
 }
