@@ -44,6 +44,20 @@ html.has-bg body { background: linear-gradient(color-mix(in srgb, var(--c-canvas
 a { color: inherit; text-decoration: none; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
 input, select, textarea { font: inherit; color: var(--text); }
+/* Drop-downs, neobrutalist like the buttons (W6): ink border, hard shadow, square corners, own chevron; hover sinks
+   half way, open/focus sinks fully. 16px text on iOS (below) so Safari does not zoom. */
+select:not([multiple]):not([size]) {
+  appearance: none; -webkit-appearance: none; min-height: 40px; padding: 6px 36px 6px 12px; border-radius: var(--r-sm);
+  border: var(--nb-border) solid var(--nb-line); box-shadow: 3px 3px 0 var(--nb-line); background-color: var(--c-surface-raised);
+  background-image: linear-gradient(45deg, transparent 50%, var(--text) 50%), linear-gradient(135deg, var(--text) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 55%, calc(100% - 12px) 55%; background-size: 6px 6px; background-repeat: no-repeat;
+  cursor: pointer; transition: transform var(--motion-fast) var(--nb-press), box-shadow var(--motion-fast) var(--nb-press);
+}
+select:not([multiple]):not([size]):hover { transform: translate(1px, 1px); box-shadow: 2px 2px 0 var(--nb-line); }
+select:not([multiple]):not([size]):focus-visible, select:not([multiple]):not([size]):active { transform: translate(3px, 3px); box-shadow: none; outline: 3px solid var(--c-accent2); outline-offset: 2px; }
+select:disabled { opacity: .55; cursor: not-allowed; transform: none; box-shadow: none; }
+option { background: var(--c-surface-raised); color: var(--text); }
+@media (prefers-reduced-motion: reduce) { select { transition: none; } }
 img { display: block; }
 :focus-visible { outline: 3px solid var(--c-accent); outline-offset: 2px; border-radius: 4px; }
 
