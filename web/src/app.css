@@ -82,8 +82,15 @@ img { display: block; }
 .small { font-size: 0.8rem; }
 .error-text { color: var(--error); }
 
-.icon-btn { width: 44px; height: 44px; display: inline-grid; place-items: center; border-radius: 50%; color: var(--text); }
-.icon-btn:hover { background: var(--surface-high); }
+/* Icon buttons (W6): square, quiet at rest; on hover the ink line and a hard shadow appear, pressing sinks it. */
+.icon-btn {
+  width: 44px; height: 44px; display: inline-grid; place-items: center; border-radius: var(--r-sm); color: var(--text);
+  border: 2px solid transparent; transition: transform var(--motion-fast) var(--nb-press), box-shadow var(--motion-fast) var(--nb-press), border-color var(--motion-fast);
+}
+.icon-btn:hover { border-color: var(--nb-line); background: var(--c-surface-raised); box-shadow: 2px 2px 0 var(--nb-line); }
+.icon-btn:active { transform: translate(2px, 2px); box-shadow: none; }
+.icon-btn:focus-visible { outline: 3px solid var(--c-accent2); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .icon-btn { transition: none; } }
 /*
  * Buttons (neobrutalist practice): a solid 3 px ink border, nearly square corners and a hard 4 px shadow with no blur.
  * Hover pushes the button half-way into its shadow, pressing pushes it all the way in (the shadow collapses), with
