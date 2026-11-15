@@ -79,7 +79,17 @@
   let obraLangs = $state([]);
   if (askedKey) api.obraFicha(askedKey, askedLang, true).then((r) => (obraLangs = r.langs || []), () => {});
   // Opened from the library, a search or "Continuar" (no ?obra=): the index says which work this page is (F1.5).
-  else api.obraDe(sourceId, mediaId).then((r) => { obraKey = r.key; obraLang = r.lang || obraLang; obraLangs = r.langs || []; }, () => {});
+  else api.obraDe(sourceId, mediaId).then((r) => { obraKey = r.key; obraLang = r.lang || obraLang; obraLangs = r.langs || []; }, () => (byAniList = true));
+  // W3: a page the index does not know (e.g. an English edition opened from a search) still offers the work in the
+  // other language, found by its AniList id; the chips only list languages where the work really is.
+  let byAniList = $state(false);
+  $effect(() => {
+    const id = work?.anilistId;
+    if (!byAniList || !id || obraLangs.length) return;
+    byAniList = false;
+    obraLang = (sourceById(sourceId)?.language || obraLang).toLowerCase().slice(0, 2);
+    api.obraAniList(id).then((r) => api.obraFicha(r.key, i18n.lang, true).then((f) => { obraKey = r.key; obraLangs = f.langs || []; }), () => {});
+  });
   const LANG_NAMES = { es: 'Español', en: 'English', zh: '中文', ja: '日本語', ko: '한국어', fr: 'Français', de: 'Deutsch', it: 'Italiano', pt: 'Português', ru: 'Русский' };
   /** Episode number -> 'FILLER' | 'MIXED' (AnimeFillerList); only for anime. */
   let fillers = $state({});
@@ -378,7 +388,7 @@
         </div>
       </div>
 
-      {#if obraLangs.length > 1}
+      {#if obraLangs.length > 1 || (obraLangs.length === 1 && obraLangs[0] !== obraLang)}
         {#if item?.audio && item.audio !== 'ORIGINAL' && AUDIO[item.audio]}<span class="audio-chip">{t(AUDIO[item.audio].label)}</span>{/if}
         <div class="obra-langs" role="group" aria-label={t('Idioma')}>
           {#each obraLangs as l (l)}
@@ -708,8 +718,6 @@
 
 <style>
   .obra-langs { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
-  .obra-langs .chip { padding: 6px 12px; border-radius: 999px; background: var(--surface-2, rgba(127,127,127,.15)); color: inherit; text-decoration: none; font-size: .9rem; }
-  .obra-langs .chip.on { background: var(--accent); color: var(--on-accent, #fff); }
   .details { position: relative; background: var(--bg); min-height: 100vh; transition: background 0.45s; overflow-x: clip; }
   /* The space the layout keeps under the page (for the bottom bar) belongs to the work page, so its colour reaches
      the very bottom instead of a black band. */

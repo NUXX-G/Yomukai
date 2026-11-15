@@ -9,7 +9,7 @@ Orden: W1 episodios de anime que no cargan / tardan → W2 todas las fuentes fun
 solo obras en ES, y botón para cambiar de idioma en la ficha solo si la obra existe de verdad en ese otro idioma) →
 W4 «En emisión esta temporada» solo en anime → W5 una sola barra de búsqueda (hoy sale otra al buscar y la de arriba
 deja de ir) → W6 neobrutalismo bien aplicado según neobrutalism.dev (desplegables `<select>`, chips, botones raros) →
-W7 velocidad sin perder calidad. **Siguiente paso concreto: W1.1, medir con `scripts/source-timing.mjs` las fuentes
+W7 velocidad sin perder calidad. Hechos W4 y W5; W3 a medias (ver «Estado» en el pedido). **Siguiente paso concreto: W1.1, medir con `scripts/source-timing.mjs` las fuentes
 de anime y 10-15 animes reales en la web.**
 
 (Anterior, 2026-11-12: pedido 2026-11-12 hecho y publicado en v2.8.0: doblaje solo etiqueta, ManhwaWeb versiones,

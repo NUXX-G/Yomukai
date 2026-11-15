@@ -579,9 +579,15 @@ class WorkIndex(private val s: Services, private val clock: () -> Long = System:
         return true
     }
 
-    /** Languages a work is in. */
+    /**
+     * Languages a work can really be read or watched in (W3): only sources that are up, and «multi» is not a language
+     * to switch to (a multi-language source already counts for every language in [sourcesOf]).
+     */
     suspend fun langsOf(key: String): List<String> = s.db.tx {
-        query("SELECT DISTINCT lang FROM index_items WHERE work_key = ?", key) { getString(1) }
+        query(
+            "SELECT DISTINCT lang FROM index_items WHERE work_key = ? AND lang <> 'multi' AND source_id NOT IN (${downSql()})",
+            key
+        ) { getString(1) }
     }
 
     /**
