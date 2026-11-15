@@ -142,7 +142,10 @@
 </div>
 
 <style>
-  .searchbar { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 6px 0 16px; border-radius: 26px; background: var(--surface-high); margin: 8px 0 14px; }
+  /* The one search bar (W5), neobrutalist like the fields (W6): ink line, hard shadow; typing sinks it. */
+  .searchbar { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 6px 0 16px; border-radius: var(--r-sm); background: var(--c-surface-raised); border: var(--nb-border) solid var(--nb-line); box-shadow: 4px 4px 0 var(--nb-line); margin: 8px 4px 14px 0; transition: transform var(--motion-fast) var(--nb-press), box-shadow var(--motion-fast) var(--nb-press); }
+  .searchbar:focus-within { transform: translate(4px, 4px); box-shadow: none; outline: 3px solid var(--c-accent2); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .searchbar { transition: none; } }
   .searchbar input { flex: 1; background: none; border: 0; outline: none; font-size: 1rem; min-width: 0; }
   .grow { flex: 1; } .left { text-align: left; }
   .status { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
