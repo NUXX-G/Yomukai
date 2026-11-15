@@ -8,8 +8,7 @@ import com.nelson.yomukai.data.source.parseJson
 import com.nelson.yomukai.data.source.str
 import com.nelson.yomukai.domain.model.VideoSource
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import org.jsoup.Jsoup
 import org.jsoup.parser.Parser
@@ -21,22 +20,42 @@ import org.jsoup.parser.Parser
  */
 class VideoExtractors(private val network: HttpFetcher) {
 
-    /** Resolves every embed it can (in parallel), returning the streams most likely to play first. */
-    suspend fun resolveAll(sources: List<VideoSource>): List<VideoSource> = coroutineScope {
-        val checked = sources.map { source ->
-            async {
-                if (source.isDirect) return@async Checked(listOf(source), usable = true)
-                if (EmbedProbe.isDownloadOnly(source.videoUrl)) return@async Checked(listOf(source), usable = false)
-                val direct = withTimeoutOrNull(20_000) { runCatching { resolve(source) }.getOrNull() }
-                // Its own page is not offered next to it: those host pages are what sent people to ad sites.
-                if (direct != null) return@async Checked(listOf(direct), usable = true)
-                withTimeoutOrNull(PROBE_TIMEOUT_MS) { runCatching { probe(source) }.getOrNull() } ?: Checked(listOf(source), usable = true)
-            }
-        }.awaitAll()
+    /**
+     * Resolves every embed it can (in parallel), returning the streams most likely to play first. It does not wait for
+     * the slowest host (W1: one server of 20 s held the whole episode): once a direct stream is ready it waits only
+     * [GRACE_MS] more, and never past [TOTAL_MS]; hosts still resolving are offered as they came (their embed page).
+     */
+    suspend fun resolveAll(sources: List<VideoSource>): List<VideoSource> {
+        // Its own scope: a host left behind (a blocking read that ignores cancelling) ends on its own, not holding this.
+        val scope = kotlinx.coroutines.CoroutineScope(kotlin.coroutines.coroutineContext + kotlinx.coroutines.SupervisorJob())
+        val done = java.util.concurrent.atomic.AtomicReferenceArray<Checked>(sources.size)
+        val jobs = sources.mapIndexed { i, source ->
+            scope.async { runCatching { checkOne(source) }.getOrElse { Checked(listOf(source), usable = true) }.also { done.set(i, it) } }
+        }
+        var waited = 0L
+        var sinceDirect = -1L
+        while (jobs.any { !it.isCompleted } && waited < TOTAL_MS && sinceDirect < GRACE_MS) {
+            delay(TICK_MS)
+            waited += TICK_MS
+            if (sinceDirect >= 0) sinceDirect += TICK_MS
+            else if ((0 until sources.size).any { i -> done.get(i)?.let { c -> c.usable && c.sources.any { it.isDirect } } == true }) sinceDirect = 0
+        }
+        val checked = sources.mapIndexed { i, source ->
+            done.get(i) ?: Checked(listOf(source), usable = true).also { jobs[i].cancel() }
+        }
         // A host that is dead, asks for a bot check it would not pass, or refuses to play in the app is only offered
         // when nothing else is left (F2, F3): better one server that plays than five that do not.
         val good = checked.filter { it.usable }.flatMap { it.sources }
-        (good.ifEmpty { checked.flatMap { it.sources } }).distinctBy { it.videoUrl }.let(::bestFirst)
+        return (good.ifEmpty { checked.flatMap { it.sources } }).distinctBy { it.videoUrl }.let(::bestFirst)
+    }
+
+    private suspend fun checkOne(source: VideoSource): Checked {
+        if (source.isDirect) return Checked(listOf(source), usable = true)
+        if (EmbedProbe.isDownloadOnly(source.videoUrl)) return Checked(listOf(source), usable = false)
+        val direct = withTimeoutOrNull(20_000) { runCatching { resolve(source) }.getOrNull() }
+        // Its own page is not offered next to it: those host pages are what sent people to ad sites.
+        if (direct != null) return Checked(listOf(direct), usable = true)
+        return withTimeoutOrNull(PROBE_TIMEOUT_MS) { runCatching { probe(source) }.getOrNull() } ?: Checked(listOf(source), usable = true)
     }
 
     private class Checked(val sources: List<VideoSource>, val usable: Boolean)
@@ -136,6 +155,11 @@ class VideoExtractors(private val network: HttpFetcher) {
         private val BLOGGER_STREAM = Regex(""""(https://[a-z0-9-]+\.googlevideo\.com/videoplayback\?[^"\\]+)",\[(\d+)]""")
         private const val VOE_HOST = "voe.sx"
         private const val PROBE_TIMEOUT_MS = 25_000L
+        private const val TICK_MS = 100L
+
+        /** After the first direct stream, how long the others still get; and the most an episode waits in all. */
+        private const val GRACE_MS = 2_500L
+        private const val TOTAL_MS = 15_000L
         private val VOE_MIRROR = Regex("""https://[a-zA-Z0-9.-]+/e/[a-z0-9]+""")
         private val VOE_DATA = Regex("""<script[^>]*type="application/json"[^>]*>(.*?)</script>""", RegexOption.DOT_MATCHES_ALL)
         private val VOE_NOISE = listOf("@$", "^^", "~@", "%?", "*~", "!!", "#&")
