@@ -89,8 +89,13 @@
   /** Ctrl+K / ⌘K or "/" open the search. */
   function keys(e) {
     const typing = e.target.closest?.('input, textarea, select, [contenteditable]');
-    if ((e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); palette = true; return; }
-    if (e.key === '/' && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); palette = true; }
+    if ((e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); openSearch(); return; }
+    if (e.key === '/' && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); openSearch(); }
+  }
+  /** One search bar only (W5): on /buscar the page's own field is the bar, so the shortcut focuses it. */
+  function openSearch() {
+    const field = route.name === 'search' && document.querySelector('.page input[type=search]');
+    if (field) { field.focus(); field.select(); } else palette = true;
   }
 
   const newCount = $derived(Object.values(updates.byKey || {}).filter((u) => u?.unread > 0).length);
@@ -216,11 +221,15 @@
 
       <header class="top" class:solid={scrolled}>
         <a href="/" class="top-logo" aria-label={t('Yomukai, inicio')}>{t('Yomukai')}</a>
-        <button class="search" onclick={() => (palette = true)} aria-label="Buscar ({searchKey})">
-          <Icon name="search" size={20} /><span>{t('Buscar anime, manga, novelas...')}</span><kbd>{searchKey}</kbd>
-        </button>
+        {#if route.name !== 'search'}
+          <button class="search" onclick={() => (palette = true)} aria-label="Buscar ({searchKey})">
+            <Icon name="search" size={20} /><span>{t('Buscar anime, manga, novelas...')}</span><kbd>{searchKey}</kbd>
+          </button>
+        {/if}
         <span class="grow"></span>
-        <button class="icon-btn mobile-only" onclick={() => (palette = true)} aria-label={t('Buscar')}><Icon name="search" /></button>
+        {#if route.name !== 'search'}
+          <button class="icon-btn mobile-only" onclick={() => (palette = true)} aria-label={t('Buscar')}><Icon name="search" /></button>
+        {/if}
         <a class="icon-btn mobile-only" href="/calendario" aria-label={t('Calendario')}><Icon name="calendar" /></a>
         {#if dmsOn}
           <a class="icon-btn bell" href="/mensajes" aria-label={dm.unread ? t('Mensajes: {0} sin leer', [dm.unread]) : t('Mensajes')} title={t('Mensajes')}>

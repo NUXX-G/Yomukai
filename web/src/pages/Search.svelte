@@ -28,6 +28,7 @@
     if (!q) return;
     stop?.();
     if (save) rememberSearch(q);
+    lastRun = q;
     navigate('/buscar?q=' + encodeURIComponent(q), { replace: true });
     groups = []; works = []; pending = []; errors = {}; searching = true; searched = true;
     const types = TYPE_FILTERS.find((f) => f.key === typeKey).types;
@@ -44,7 +45,13 @@
     }, () => (searching = false));
   }
 
-  $effect(() => { if (route.query.get('q') && !searched) run(false); });
+  // The query lives in the URL: arriving from the palette, back/forward or a new ?q= on this same page searches again
+  // (before, a second search from the top bar changed the URL and nothing happened: W5).
+  let lastRun = '';
+  $effect(() => {
+    const q = route.query.get('q') || '';
+    if (q && q !== lastRun) { lastRun = q; query = q; run(false); }
+  });
   onDestroy(() => stop?.());
 
   /** The last finished search of every kind (query, language and its results). */
@@ -77,7 +84,7 @@
 <div class="page">
   <form class="searchbar" onsubmit={(e) => { e.preventDefault(); run(); }}>
     <Icon name="search" />
-    <input type="search" placeholder={t('Busca en todas tus fuentes')} bind:value={query} enterkeyhint="search" autocomplete="off" />
+    <input type="search" aria-label={t('Buscar')} placeholder={t('Buscar anime, manga, novelas...')} bind:value={query} enterkeyhint="search" autocomplete="off" />
     {#if query}<button type="button" class="icon-btn" onclick={clear} aria-label={t('Borrar')}><Icon name="close" size={20} /></button>{/if}
   </form>
 
