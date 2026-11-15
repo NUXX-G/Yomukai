@@ -12,6 +12,8 @@ sirve la web), `web/` (Svelte 5 runes), `worker/` (trabajos pesados en el PC de 
 3. No hace falta revisar el historial ni todo el código: el checklist de `TRABAJO.md` dice qué está hecho y dónde.
 
 ## Modo de trabajo que pidió el usuario
+- **Desde 2026-11-15: solo la WEB (y servidor/`shared/`). No tocar `app/` (Android) hasta que el usuario lo pida.**
+  Pedido en curso: `docs/pedidos/2026-11-15.md`.
 - **Autónomo**: seguir fase tras fase sin esperar su confirmación. El usuario no está mirando.
 - Commits convencionales pequeños en español, con build y tests en verde antes de cada uno, y `git push origin main`
   a menudo: se pueden acabar los tokens en cualquier momento. No reescribir el historial ni hacer force push.

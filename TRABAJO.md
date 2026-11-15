@@ -3,7 +3,17 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
-**AHORA (2026-11-12): pedido 2026-11-12 HECHO y publicado en v2.8.0 (P1 doblaje solo etiqueta, P2 ManhwaWeb versiones, P3 filas rellenadas desde el índice, P4 lector web en original, P5 carga con curiosidades la 1.ª vez). El usuario pidió PARAR tras esto: esperar su feedback.**
+**AHORA (2026-11-15): PEDIDO NUEVO → `docs/pedidos/2026-11-15.md` (léelo entero; tiene pistas de ficheros). NADA EMPEZADO.**
+**Solo WEB (+ servidor/shared): NO tocar `app/` (Android) hasta que el usuario lo diga.** Autonomía total en GitHub.
+Orden: W1 episodios de anime que no cargan / tardan → W2 todas las fuentes funcionando → W3 idioma (interfaz en ES =
+solo obras en ES, y botón para cambiar de idioma en la ficha solo si la obra existe de verdad en ese otro idioma) →
+W4 «En emisión esta temporada» solo en anime → W5 una sola barra de búsqueda (hoy sale otra al buscar y la de arriba
+deja de ir) → W6 neobrutalismo bien aplicado según neobrutalism.dev (desplegables `<select>`, chips, botones raros) →
+W7 velocidad sin perder calidad. **Siguiente paso concreto: W1.1, medir con `scripts/source-timing.mjs` las fuentes
+de anime y 10-15 animes reales en la web.**
+
+(Anterior, 2026-11-12: pedido 2026-11-12 hecho y publicado en v2.8.0: doblaje solo etiqueta, ManhwaWeb versiones,
+filas rellenadas desde el índice, lector web en original, carga con curiosidades la 1.ª vez.)
 
 ### ⚠️ PRIORIDADES DEL USUARIO 2026-11-11 (noche) — MANDAN SOBRE TODO LO DEMÁS, EN ESTE ORDEN
 Tras probar la app 5 minutos: «hay muchos más fallos». Trabajar autónomo, commits pequeños y push a menudo.
