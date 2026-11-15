@@ -71,7 +71,7 @@ class Discover(
                     (fresh["trending"].orEmpty().take(10) + fresh["season"].orEmpty().take(8) + fresh["releasing"].orEmpty().take(6)).forEach(pending::add)
                 } ?: cached?.second.orEmpty()
         }
-        val order = listOf("trending", "season", "releasing", "popular", "top") + AniListDiscover.GENRE_ROWS.map { it.first }
+        val order = rowOrder(kind)
         val wantedTypes = types?.takeIf { it.isNotEmpty() } ?: kind.types
         return order.mapNotNull { id ->
             val fromAniList = data[id]?.let { decorate(it, lang) }.orEmpty().filter { it.type in wantedTypes }
@@ -191,6 +191,11 @@ class Discover(
         private const val SYNOPSIS_WAIT_MS = 8_000L
         private const val MIN_SYNOPSIS = 40
         private const val MAX_SYNOPSIS = 1_200
+
+        /** Row ids for a section. «En emisión esta temporada» is an anime thing only (W4, 2026-11-15). */
+        fun rowOrder(kind: DiscoverKind): List<String> =
+            listOf("trending", "season", "releasing", "popular", "top").filter { it != "season" || kind == DiscoverKind.ANIME } +
+                AniListDiscover.GENRE_ROWS.map { it.first }
 
         /** A site's synopsis as plain text: scraped data, so no tags, no runs of spaces, and not endless. */
         fun plainSynopsis(raw: String): String =
