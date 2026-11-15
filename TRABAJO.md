@@ -3,6 +3,7 @@
 Léelo primero si retomas esto. `PLAN.md` es el histórico de fases; este fichero es lo que se está haciendo ahora.
 
 ## ▶ DÓNDE ESTOY EXACTAMENTE (actualizar en cada commit grande)
+**⚠️ El usuario probó (2026-11-15): el resto «nada mal», pero LOS ANIMES SIGUEN LENTÍSIMOS → W1 es lo primero.**
 **AHORA (2026-11-15): PEDIDO NUEVO → `docs/pedidos/2026-11-15.md` (léelo entero; tiene pistas de ficheros). NADA EMPEZADO.**
 **Solo WEB (+ servidor/shared): NO tocar `app/` (Android) hasta que el usuario lo diga.** Autonomía total en GitHub.
 Orden: W1 episodios de anime que no cargan / tardan → W2 todas las fuentes funcionando → W3 idioma (interfaz en ES =
