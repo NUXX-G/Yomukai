@@ -20,7 +20,12 @@
     api.obraFicha(key, lang, true, audio).then(
       (r) => {
         const first = r.sources?.[0];
-        if (first) navigate(media(first.sourceId, first.mediaId) + '?obra=' + encodeURIComponent(key) + '&lang=' + r.lang, { replace: true });
+        // W3: asked in the user's language but the work is only in another one: say so and let them choose, never
+        // open the other language without a word (an explicit ?lang= is a choice already made).
+        if (first && r.lang && r.lang !== lang && !route.query.get('lang')) {
+          other = r.langs || [r.lang];
+          error = t('Esta obra no está en tu idioma.');
+        } else if (first) navigate(media(first.sourceId, first.mediaId) + '?obra=' + encodeURIComponent(key) + '&lang=' + r.lang, { replace: true });
         else {
           other = r.langs || [];
           error = audio && audio !== 'ORIGINAL'
